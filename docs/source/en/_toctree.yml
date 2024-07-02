@@ -1,8 +1,9 @@
-- sections:
+- title: Get started
+  sections:
   - local: index
-    title: 🤗 Transformers
+    title: Transformers
   - local: quicktour
-    title: Quick tour
+    title: Quicktour
   - local: installation
     title: Installation
   - local: add_new_model
@@ -84,7 +85,7 @@
     - local: tasks/mask_generation
       title: Mask Generation
     - local: tasks/keypoint_detection
-      title: Keypoint Detection
+      title: Keypoint detection
     - local: tasks/knowledge_distillation_for_image_classification
       title: Knowledge Distillation for Computer Vision
     title: Computer Vision
@@ -236,44 +237,15 @@
   title: Performance and scalability
 - sections:
   - local: contributing
-    title: How to contribute to 🤗 Transformers?
-  - local: add_new_model
-    title: How to add a model to 🤗 Transformers?
-  - local: add_new_pipeline
-    title: How to add a pipeline to 🤗 Transformers?
+    title: How to contribute to Transformers?
   - local: testing
     title: Testing
   - local: pr_checks
     title: Checks on a Pull Request
-  title: Contribute
-- sections:
   - local: philosophy
     title: Philosophy
   - local: glossary
     title: Glossary
-  - local: task_summary
-    title: What 🤗 Transformers can do
-  - local: tasks_explained
-    title: How 🤗 Transformers solve tasks
-  - local: model_summary
-    title: The Transformer model family
-  - local: tokenizer_summary
-    title: Summary of the tokenizers
-  - local: attention
-    title: Attention mechanisms
-  - local: pad_truncation
-    title: Padding and truncation
-  - local: bertology
-    title: BERTology
-  - local: perplexity
-    title: Perplexity of fixed-length models
-  - local: pipeline_webserver
-    title: Pipelines for webserver inference
-  - local: model_memory_anatomy
-    title: Model training anatomy
-  - local: llm_tutorial_optimization
-    title: Getting the most out of LLMs
-  title: Conceptual guides
 - sections:
   - sections:
     - local: main_classes/agent

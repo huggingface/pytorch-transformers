@@ -24,122 +24,147 @@
     title: Set up distributed training with 🤗 Accelerate
   - local: peft
     title: Load and train adapters with 🤗 PEFT
-  - local: model_sharing
-    title: Share your model
-  - local: agents
-    title: Agents 101
-  - local: agents_advanced
-    title: Agents, supercharged - Multi-agents, External tools, and more
-  - local: llm_tutorial
-    title: Generation with LLMs
-  - local: conversations
-    title: Chatting with Transformers
-  title: Tutorials
-- sections:
-  - isExpanded: false
-    sections:
-    - local: tasks/sequence_classification
-      title: Text classification
-    - local: tasks/token_classification
-      title: Token classification
-    - local: tasks/question_answering
-      title: Question answering
-    - local: tasks/language_modeling
-      title: Causal language modeling
-    - local: tasks/masked_language_modeling
-      title: Masked language modeling
-    - local: tasks/translation
-      title: Translation
-    - local: tasks/summarization
-      title: Summarization
-    - local: tasks/multiple_choice
-      title: Multiple choice
-    title: Natural Language Processing
-  - isExpanded: false
-    sections:
-    - local: tasks/audio_classification
-      title: Audio classification
-    - local: tasks/asr
-      title: Automatic speech recognition
-    title: Audio
-  - isExpanded: false
-    sections:
-    - local: tasks/image_classification
-      title: Image classification
-    - local: tasks/semantic_segmentation
-      title: Image segmentation
-    - local: tasks/video_classification
-      title: Video classification
-    - local: tasks/object_detection
-      title: Object detection
-    - local: tasks/zero_shot_object_detection
-      title: Zero-shot object detection
-    - local: tasks/zero_shot_image_classification
-      title: Zero-shot image classification
-    - local: tasks/monocular_depth_estimation
-      title: Depth estimation
-    - local: tasks/image_to_image
-      title: Image-to-Image
-    - local: tasks/image_feature_extraction
-      title: Image Feature Extraction
-    - local: tasks/mask_generation
-      title: Mask Generation
-    - local: tasks/keypoint_detection
-      title: Keypoint detection
-    - local: tasks/knowledge_distillation_for_image_classification
-      title: Knowledge Distillation for Computer Vision
-    title: Computer Vision
-  - isExpanded: false
-    sections:
-    - local: tasks/image_captioning
-      title: Image captioning
-    - local: tasks/document_question_answering
-      title: Document Question Answering
-    - local: tasks/visual_question_answering
-      title: Visual Question Answering
-    - local: tasks/text-to-speech
-      title: Text to speech
-    - local: tasks/image_text_to_text
-      title: Image-text-to-text
-    - local: tasks/video_text_to_text
-      title: Video-text-to-text
-    title: Multimodal
-  - isExpanded: false
-    sections:
-    - local: generation_strategies
-      title: Customize the generation strategy
-    - local: kv_cache
-      title: Best Practices for Generation with Cache
-    title: Generation
-  - isExpanded: false
-    sections:
-    - local: tasks/idefics
-      title: Image tasks with IDEFICS
-    - local: tasks/prompting
-      title: LLM prompting guide
-    title: Prompting
-  title: Task Guides
-- sections:
-  - local: fast_tokenizers
-    title: Use fast tokenizers from 🤗 Tokenizers
-  - local: multilingual
-    title: Run inference with multilingual models
-  - local: create_a_model
-    title: Use model-specific APIs
-  - local: custom_models
-    title: Share a custom model
-  - local: chat_templating
-    title: Chat templates
-  - local: trainer
-    title: Trainer
   - local: sagemaker
     title: Run training on Amazon SageMaker
-  - local: serialization
-    title: Export to ONNX
-  - local: tflite
-    title: Export to TFLite
-  - local: torchscript
-    title: Export to TorchScript
+  - local: debugging
+    title: Debugging
+  - local: model_memory_anatomy
+    title: Model training anatomy
+- title: Inference
+  sections:
+  - title: Pipeline API
+    sections:
+    - local: pipeline_tutorial
+      title: Run inference with pipelines
+    - local: pipeline_webserver
+      title: Pipelines for webserver inference
+    - local: add_new_pipeline
+      title: How to add a pipeline to 🤗 Transformers?
+  - title: LLMs
+    sections:
+    - local: tasks/prompting
+      title: LLM prompting guide
+    - local: llm_optims
+      title: LLM inference optimization
+    - local: llm_tutorial
+      title: Generation with LLMs
+    - local: generation_strategies
+      title: Customize the generation strategy
+    - local: llm_tutorial_optimization
+      title: Getting the most out of LLMs
+    - local: perplexity
+      title: Perplexity of fixed-length models
+  - title: Chat models
+    sections:
+    - local: conversations
+      title: Chatting with Transformers
+    - local: chat_templating
+      title: Templates for chat models
+  - title: Framework-specific inference optimization
+    sections:
+    - local: tf_xla
+      title: XLA Integration for TensorFlow Models
+    - local: perf_torch_compile
+      title: Optimize inference using `torch.compile()`
+  - local: agents
+    title: Agents
+  - local: multilingual
+    title: Run inference with multilingual models
+  - local: gguf
+    title: Interoperability with GGUF files
+  - local: perf_infer_cpu
+    title: CPU inference
+  - local: perf_infer_gpu_one
+    title: GPU inference
+  - local: big_models
+    title: Instantiate a big model
+- title: Quantization
+  sections:
+  - local: quantization/overview
+    title: Getting started
+  - local: quantization/bitsandbytes
+    title: bitsandbytes
+  - local: quantization/gptq
+    title: GPTQ
+  - local: quantization/awq
+    title: AWQ
+  - local: quantization/aqlm
+    title: AQLM
+  - local: quantization/quanto
+    title: Quanto
+  - local: quantization/eetq
+    title: EETQ
+  - local: quantization/hqq
+    title: HQQ
+  - local: quantization/optimum
+    title: Optimum
+  - local: quantization/contribute
+    title: Contribute new quantization method
+- title: Resources
+  sections:
+  - title: Task recipes
+    isExpanded: false
+    sections:
+    - title: Natural language processing
+      sections:
+      - local: tasks/sequence_classification
+        title: Text classification
+      - local: tasks/token_classification
+        title: Token classification
+      - local: tasks/question_answering
+        title: Question answering
+      - local: tasks/language_modeling
+        title: Causal language modeling
+      - local: tasks/masked_language_modeling
+        title: Masked language modeling
+      - local: tasks/translation
+        title: Translation
+      - local: tasks/summarization
+        title: Summarization
+      - local: tasks/multiple_choice
+        title: Multiple choice
+    - title: Audio
+      sections:
+      - local: tasks/audio_classification
+        title: Audio classification
+      - local: tasks/asr
+        title: Automatic speech recognition
+    - title: Computer vision
+      sections:
+      - local: tasks/image_classification
+        title: Image classification
+      - local: tasks/semantic_segmentation
+        title: Image segmentation
+      - local: tasks/video_classification
+        title: Video classification
+      - local: tasks/object_detection
+        title: Object detection
+      - local: tasks/zero_shot_object_detection
+        title: Zero-shot object detection
+      - local: tasks/zero_shot_image_classification
+        title: Zero-shot image classification
+      - local: tasks/monocular_depth_estimation
+        title: Depth estimation
+      - local: tasks/image_to_image
+        title: Image-to-Image
+      - local: tasks/image_feature_extraction
+        title: Image Feature Extraction
+      - local: tasks/mask_generation
+        title: Mask Generation
+      - local: tasks/knowledge_distillation_for_image_classification
+        title: Knowledge Distillation for Computer Vision
+    - title: Multimodal
+      sections:
+      - local: tasks/image_captioning
+        title: Image captioning
+      - local: tasks/document_question_answering
+        title: Document Question Answering
+      - local: tasks/visual_question_answering
+        title: Visual Question Answering
+      - local: tasks/text-to-speech
+        title: Text to speech
+      - local: tasks/idefics
+        title: Image tasks with IDEFICS
   - local: benchmarks
     title: Benchmarks
   - local: notebooks
@@ -247,7 +272,8 @@
   - local: glossary
     title: Glossary
 - sections:
-  - sections:
+  - isExpanded: false
+    sections:
     - local: main_classes/agent
       title: Agents and Tools
     - local: model_doc/auto
@@ -961,7 +987,8 @@
         title: Graphormer
       title: Graph models
     title: Models
-  - sections:
+  - isExpanded: false
+    sections:
     - local: internal/modeling_utils
       title: Custom Layers and Utilities
     - local: internal/pipelines_utils

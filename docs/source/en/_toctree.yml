@@ -6,30 +6,42 @@
     title: Quicktour
   - local: installation
     title: Installation
-  - local: add_new_model
-    title: Adding a new model to `transformers`
-  title: Get started
-- sections:
-  - local: pipeline_tutorial
-    title: Run inference with pipelines
-  - local: autoclass_tutorial
-    title: Write portable code with AutoClass
-  - local: preprocessing
-    title: Preprocess data
-  - local: training
-    title: Fine-tune a pretrained model
-  - local: run_scripts
-    title: Train with a script
-  - local: accelerate
-    title: Set up distributed training with 🤗 Accelerate
-  - local: peft
-    title: Load and train adapters with 🤗 PEFT
-  - local: sagemaker
-    title: Run training on Amazon SageMaker
-  - local: debugging
-    title: Debugging
-  - local: model_memory_anatomy
-    title: Model training anatomy
+- title: Base classes
+  sections:
+  - title: Models
+    isExpanded: false
+    sections:
+    - local: autoclass_tutorial
+      title: AutoClass API
+    - local: create_a_model
+      title: Use model-specific APIs
+    - local: custom_models
+      title: Share a custom model
+    - local: model_sharing
+      title: Share your model
+    - local: add_new_model
+      title: How to add a model to 🤗 Transformers?
+    - local: task_summary
+      title: What 🤗 Transformers can do
+    - local: tasks_explained
+      title: How 🤗 Transformers solve tasks
+    - local: model_summary
+      title: The Transformer model family
+    - local: attention
+      title: Attention mechanisms
+    - local: bertology
+      title: BERTology
+  - title: Tokenizers
+    isExpanded: false
+    sections:
+    - local: preprocessing
+      title: Preprocess data
+    - local: fast_tokenizers
+      title: Use fast tokenizers from 🤗 Tokenizers
+    - local: tokenizer_summary
+      title: Summary of the tokenizers
+    - local: pad_truncation
+      title: Padding and truncation
 - title: Inference
   sections:
   - title: Pipeline API
@@ -54,12 +66,12 @@
       title: Getting the most out of LLMs
     - local: perplexity
       title: Perplexity of fixed-length models
-  - title: Chat models
-    sections:
-    - local: conversations
-      title: Chatting with Transformers
-    - local: chat_templating
-      title: Templates for chat models
+    - title: Chat models
+      sections:
+      - local: conversations
+        title: Chatting with Transformers
+      - local: chat_templating
+        title: Templates for chat models
   - title: Framework-specific inference optimization
     sections:
     - local: tf_xla
@@ -78,6 +90,53 @@
     title: GPU inference
   - local: big_models
     title: Instantiate a big model
+- title: Training
+  sections:
+  - title: Trainer API
+    isExpanded: false
+    sections:
+    - local: training
+      title: Fine-tune a pretrained model
+    - local: trainer
+      title: Trainer
+    - local: hpo_train
+      title: Hyperparameter Search using Trainer API
+    - local: run_scripts
+      title: Train with a script
+  - title: Distributed training
+    isExpanded: false
+    sections:
+    - local: accelerate
+      title: Set up distributed training with 🤗 Accelerate
+    - local: perf_train_gpu_many
+      title: Multiple GPUs and parallelism
+    - local: fsdp
+      title: Fully Sharded Data Parallel
+    - local: deepspeed
+      title: DeepSpeed
+    - local: perf_train_cpu_many
+      title: Distributed CPU training
+  - title: Hardware-specific training
+    isExpanded: false
+    sections:
+    - local: perf_train_gpu_one
+      title: Methods and tools for efficient training on a single GPU
+    - local: perf_train_cpu
+      title: Efficient training on CPU
+    - local: perf_train_tpu_tf
+      title: Training on TPU with TensorFlow
+    - local: perf_train_special
+      title: PyTorch training on Apple silicon
+    - local: perf_hardware
+      title: Custom hardware for training
+  - local: peft
+    title: Load and train adapters with 🤗 PEFT
+  - local: sagemaker
+    title: Run training on Amazon SageMaker
+  - local: debugging
+    title: Debugging
+  - local: model_memory_anatomy
+    title: Model training anatomy
 - title: Quantization
   sections:
   - local: quantization/overview
@@ -100,6 +159,14 @@
     title: Optimum
   - local: quantization/contribute
     title: Contribute new quantization method
+- title: Deploy to production
+  sections:
+  - local: serialization
+    title: Export to ONNX
+  - local: tflite
+    title: Export to TFLite
+  - local: torchscript
+    title: Export to TorchScript
 - title: Resources
   sections:
   - title: Task recipes
@@ -271,8 +338,10 @@
     title: Philosophy
   - local: glossary
     title: Glossary
-- sections:
-  - isExpanded: false
+- title: API
+  sections:
+  - title: Main classes
+    isExpanded: false
     sections:
     - local: main_classes/agent
       title: Agents and Tools
@@ -318,9 +387,10 @@
       title: Feature Extractor
     - local: main_classes/image_processor
       title: Image Processor
-    title: Main Classes
-  - sections:
-    - isExpanded: false
+  - title: Models
+    isExpanded: false
+    sections:
+    - title: Text models
       sections:
       - local: model_doc/albert
         title: ALBERT
@@ -626,10 +696,7 @@
         title: XLNet
       - local: model_doc/yoso
         title: YOSO
-      - local: model_doc/zamba
-        title: Zamba
-      title: Text models
-    - isExpanded: false
+    - title: Vision models
       sections:
       - local: model_doc/beit
         title: BEiT
@@ -747,10 +814,9 @@
         title: ViTPose
       - local: model_doc/yolos
         title: YOLOS
-      - local: model_doc/zoedepth
-        title: ZoeDepth
-      title: Vision models
-    - isExpanded: false
+      - local: model_doc/zamba
+        title: Zamba
+    - title: Audio models
       sections:
       - local: model_doc/audio-spectrogram-transformer
         title: Audio Spectrogram Transformer
@@ -816,8 +882,7 @@
         title: XLS-R
       - local: model_doc/xlsr_wav2vec2
         title: XLSR-Wav2Vec2
-      title: Audio models
-    - isExpanded: false
+    - title: Video models
       sections:
       - local: model_doc/timesformer
         title: TimeSformer
@@ -825,8 +890,7 @@
         title: VideoMAE
       - local: model_doc/vivit
         title: ViViT
-      title: Video models
-    - isExpanded: false
+    - title: Multimodal models
       sections:
       - local: model_doc/align
         title: ALIGN
@@ -960,15 +1024,13 @@
         title: VisualBERT
       - local: model_doc/xclip
         title: X-CLIP
-      title: Multimodal models
-    - isExpanded: false
+    - title: Reinforcement learning models
       sections:
       - local: model_doc/decision_transformer
         title: Decision Transformer
       - local: model_doc/trajectory_transformer
         title: Trajectory Transformer
-      title: Reinforcement learning models
-    - isExpanded: false
+    - title: Time series models
       sections:
       - local: model_doc/autoformer
         title: Autoformer
@@ -980,14 +1042,12 @@
         title: PatchTST
       - local: model_doc/time_series_transformer
         title: Time Series Transformer
-      title: Time series models
-    - isExpanded: false
+    - title: Graph models
       sections:
       - local: model_doc/graphormer
         title: Graphormer
-      title: Graph models
-    title: Models
-  - isExpanded: false
+  - title: Internal helpers
+    isExpanded: false
     sections:
     - local: internal/modeling_utils
       title: Custom Layers and Utilities

@@ -238,7 +238,7 @@ class LightGlueImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
             equal_resolution=False, numpify=True, batch_size=2, pairs=False
         )
         encoded_images = image_processing(image_pairs, return_tensors="pt").pixel_values
-        max_height = max(image.shape[1] for image in image_pairs)
-        max_width = max(image.shape[2] for image in image_pairs)
+        max_height = max(image.shape[0] for image in image_pairs)
+        max_width = max(image.shape[1] for image in image_pairs)
         expected_output_image_shape = (2, 3, max_height, max_width)
         self.assertEqual(tuple(encoded_images.shape), (1, *expected_output_image_shape))

@@ -169,7 +169,7 @@ def batch_hidden_states(
     return [stack_hidden_states_list(element) for element in list_of_tuples]
 
 
-def normalize_keypoints(keypoints: torch.Tensor, height: int, width: int) -> torch.Tensor:
+def normalize_keypoints(keypoints: torch.Tensor, height: torch.Tensor, width: torch.Tensor) -> torch.Tensor:
     size = torch.tensor([width, height], device=keypoints.device, dtype=keypoints.dtype)[None]
     shift = size / 2
     scale = size.max(-1).values / 2
@@ -781,6 +781,9 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         device = keypoints_0.device
         batch_size, num_keypoints_0 = keypoints_0.shape[:2]
         num_keypoints_1 = keypoints_1.shape[1]
+
+        height = torch.tensor(height, device=device)
+        width = torch.tensor(width, device=device)
 
         # Keypoint normalization
         keypoints_0 = normalize_keypoints(keypoints_0, height, width)

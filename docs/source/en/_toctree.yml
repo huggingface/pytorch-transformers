@@ -232,6 +232,8 @@
         title: Text to speech
       - local: tasks/idefics
         title: Image tasks with IDEFICS
+      - local: tasks/image_text_to_text
+        title: Image-text-to-text
   - local: benchmarks
     title: Benchmarks
   - local: notebooks

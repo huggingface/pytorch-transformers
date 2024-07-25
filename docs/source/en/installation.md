@@ -1,5 +1,5 @@
 <!---
-Copyright 2022 The HuggingFace Team. All rights reserved.
+Copyright 2024 The HuggingFace Team. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,19 +20,40 @@ rendered properly in your Markdown viewer.
 
 # Installation
 
-Install 🤗 Transformers for whichever deep learning library you're working with, setup your cache, and optionally configure 🤗 Transformers to run offline.
+Transformers works with [PyTorch](https://pytorch.org/get-started/locally/), [TensorFlow 2.0](https://www.tensorflow.org/install/pip), and [Flax](https://flax.readthedocs.io/en/latest/). It has been tested on Python 3.6+, PyTorch 1.1.0+, TensorFlow 2.0+, and Flax.
 
-🤗 Transformers is tested on Python 3.6+, PyTorch 1.1.0+, TensorFlow 2.0+, and Flax. Follow the installation instructions below for the deep learning library you are using:
+## Virtual environment
 
-* [PyTorch](https://pytorch.org/get-started/locally/) installation instructions.
-* [TensorFlow 2.0](https://www.tensorflow.org/install/pip) installation instructions.
-* [Flax](https://flax.readthedocs.io/en/latest/) installation instructions.
+A virtual environment can help you manage different projects and avoid compatibility issues between dependencies. Take a look at the [Install packages in a virtual environment using pip and venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/) guide if you're unfamiliar with Python virtual environments.
 
-## Install with pip
+Create a virtual environment in your project directory.
 
-You should install 🤗 Transformers in a [virtual environment](https://docs.python.org/3/library/venv.html). If you're unfamiliar with Python virtual environments, take a look at this [guide](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/). A virtual environment makes it easier to manage different projects, and avoid compatibility issues between dependencies.
+```bash
+python -m venv .env
+```
 
-Now you're ready to install 🤗 Transformers with the following command:
+Activate the virtual environment.
+
+<hfoptions id="venv">
+<hfoption id="macOS/Linux">
+
+```bash
+source ./env/bin/activate
+```
+
+</hfoption>
+<hfoption id="Windows">
+
+```bash
+.env/Scripts/activate
+```
+
+</hfoption>
+</hfoptions>
+
+## pip
+
+[pip](https://pip.pypa.io/en/stable/) is a package installer for Python. Install Transformers with pip in your newly created virtual environment.
 
 ```bash
 pip install transformers
@@ -46,72 +67,70 @@ Run the command below to check if your system detects an NVIDIA GPU.
 nvidia-smi
 ```
 
-For CPU-support only, you can conveniently install 🤗 Transformers and a deep learning library in one line. For example, install 🤗 Transformers and PyTorch with:
+To install a CPU-only version of Transformers and a machine learning framework, run the following command.
+
+<hfoptions id="cpu-only">
+<hfoption id="PyTorch">
 
 ```bash
 pip install 'transformers[torch]'
 ```
 
-🤗 Transformers and TensorFlow 2.0:
+</hfoption>
+<hfoption id="TensorFlow">
 
-```bash
-pip install 'transformers[tf-cpu]'
-```
+For M1 ARM-based hardware, you need to install CMake and pkg-config first.
 
-<Tip warning={true}>
-
-M1 / ARM Users
-
-You will need to install the following before installing TensorFlow 2.0
 ```bash
 brew install cmake
 brew install pkg-config
 ```
 
-</Tip>
+Install TensorFlow 2.0.
 
-🤗 Transformers and Flax:
+```bash
+pip install 'transformers[tf-cpu]'
+```
+
+</hfoption>
+<hfoption id="Flax">
 
 ```bash
 pip install 'transformers[flax]'
 ```
 
-Finally, check if 🤗 Transformers has been properly installed by running the following command. It will download a pretrained model:
+</hfoption>
+</hfoptions>
+
+Test whether your install was successful with the following command to quickly inference with a pretrained model. It should return a label and score for the provided text.
 
 ```bash
-python -c "from transformers import pipeline; print(pipeline('sentiment-analysis')('we love you'))"
-```
-
-Then print out the label and score:
-
-```bash
+python -c "from transformers import pipeline; print(pipeline('sentiment-analysis')('hugging face is the best'))"
 [{'label': 'POSITIVE', 'score': 0.9998704791069031}]
 ```
 
-## Install from source
+### Source install
 
-Install 🤗 Transformers from source with the following command:
+Installing from source installs the *latest* version rather than the *stable* version of the library. This ensures you get the most up-to-date changes in the library, which is useful for experimenting with the latest features or fixing a bug that hasn't been officially released yet.
+
+The downside is that the latest version may not always be stable. If you encounter any problems, please open a [GitHub Issue](https://github.com/huggingface/transformers/issues) so we can fix it as soon as possible.
+
+Install from source with the following command.
 
 ```bash
 pip install git+https://github.com/huggingface/transformers
 ```
 
-This command installs the bleeding edge `main` version rather than the latest `stable` version. The `main` version is useful for staying up-to-date with the latest developments. For instance, if a bug has been fixed since the last official release but a new release hasn't been rolled out yet. However, this means the `main` version may not always be stable. We strive to keep the `main` version operational, and most issues are usually resolved within a few hours or a day. If you run into a problem, please open an [Issue](https://github.com/huggingface/transformers/issues) so we can fix it even sooner!
-
-Check if 🤗 Transformers has been properly installed by running the following command:
+Check if the install was successful with the command below to quickly inference with a pretrained model. It should return a label and score for the provided text.
 
 ```bash
-python -c "from transformers import pipeline; print(pipeline('sentiment-analysis')('I love you'))"
+python -c "from transformers import pipeline; print(pipeline('sentiment-analysis')('hugging face is the best'))"
+[{'label': 'POSITIVE', 'score': 0.9998704791069031}]
 ```
 
-## Editable install
+### Editable install
 
-You will need an editable install if you'd like to:
-
-* Use the `main` version of the source code.
-* Contribute to 🤗 Transformers and need to test changes in the code.
-
-Clone the repository and install 🤗 Transformers with the following commands:
+An [editable install](https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs) is useful if you're developing locally with Transformers. It links your local copy of Transformers to the Transformers [repository](https://github.com/huggingface/transformers) instead of copying the files. The files are added to Python's import path.
 
 ```bash
 git clone https://github.com/huggingface/transformers.git
@@ -119,162 +138,68 @@ cd transformers
 pip install -e .
 ```
 
-These commands will link the folder you cloned the repository to and your Python library paths. Python will now look inside the folder you cloned to in addition to the normal library paths. For example, if your Python packages are typically installed in `~/anaconda3/envs/main/lib/python3.7/site-packages/`, Python will also search the folder you cloned to: `~/transformers/`.
+> [!WARNING]
+> You must keep the `transformers` folder to keep using it locally.
 
-<Tip warning={true}>
-
-You must keep the `transformers` folder if you want to keep using the library.
-
-</Tip>
-
-Now you can easily update your clone to the latest version of 🤗 Transformers with the following command:
+Update your local version of Transformers with the latest changes in the main repository with the following command.
 
 ```bash
 cd ~/transformers/
 git pull
 ```
 
-Your Python environment will find the `main` version of 🤗 Transformers on the next run.
+## conda
 
-## Install with conda
-
-Install from the conda channel `conda-forge`:
+[conda](https://docs.conda.io/projects/conda/en/stable/#) is a language-agnostic package manager. Install Transformers from the [conda-forge](https://anaconda.org/conda-forge/transformers) channel in your newly created virtual environment.
 
 ```bash
 conda install conda-forge::transformers
 ```
 
-## Cache setup
+## Setup
 
-Pretrained models are downloaded and locally cached at: `~/.cache/huggingface/hub`. This is the default directory given by the shell environment variable `TRANSFORMERS_CACHE`. On Windows, the default directory is given by `C:\Users\username\.cache\huggingface\hub`. You can change the shell environment variables shown below - in order of priority - to specify a different cache directory:
+After installation, you can configure the Transformers cache location or setup the library for offline usage if you want.
 
-1. Shell environment variable (default): `HF_HUB_CACHE` or `TRANSFORMERS_CACHE`.
-2. Shell environment variable: `HF_HOME`.
-3. Shell environment variable: `XDG_CACHE_HOME` + `/huggingface`.
+### Cache directory
 
-<Tip>
+When you load a pretrained model with [`~PreTrainedModel.from_pretrained`], the model is downloaded from the Hub and locally cached. Every time you load a model, it checks whether the cached model is up-to-date. If it's the same, then the local model is loaded. If it's not the same, the updated model is downloaded and cached. This ensures you always have the latest version of a model.
 
-🤗 Transformers will use the shell environment variables `PYTORCH_TRANSFORMERS_CACHE` or `PYTORCH_PRETRAINED_BERT_CACHE` if you are coming from an earlier iteration of this library and have set those environment variables, unless you specify the shell environment variable `TRANSFORMERS_CACHE`.
+The default directory given by the shell environment variable `TRANSFORMERS_CACHE` is `~/.cache/huggingface/hub`.
 
-</Tip>
+On Windows, the default directory is given by `C:\Users\username\.cache\huggingface\hub`.
 
-## Offline mode
+Cache a model in a different directory by changing the path in the following shell environment variables (listed by priority).
 
-Run 🤗 Transformers in a firewalled or offline environment with locally cached files by setting the environment variable `HF_HUB_OFFLINE=1`.
+1. [HF_HUB_CACHE](https://hf.co/docs/huggingface_hub/package_reference/environment_variables#hfhubcache) or `TRANSFORMERS_CACHE` (default)
+2. [HF_HOME](https://hf.co/docs/huggingface_hub/package_reference/environment_variables#hfhome)
+3. [XDG_CACHE_HOME](https://hf.co/docs/huggingface_hub/package_reference/environment_variables#xdgcachehome) + `/huggingface` (only if `HF_HOME` is not set)
 
-<Tip>
+Older versions of Transformers uses the shell environment variables `PYTORCH_TRANSFORMERS_CACHE` or `PYTORCH_PRETRAINED_BERT_CACHE`. You should keep these unless you specify the newer shell environment variable `TRANSFORMERS_CACHE`.
 
-Add [🤗 Datasets](https://huggingface.co/docs/datasets/) to your offline training workflow with the environment variable `HF_DATASETS_OFFLINE=1`.
+### Offline mode
 
-</Tip>
+To use Transformers in an offline or firewalled environment requires having the downloaded and cached files ahead of time. Download a model repository from the Hub with the [`~huggingface_hub.snapshot_download`] method.
+
+> [!TIP]
+> Refer to the [Download files from the Hub](https://hf.co/docs/huggingface_hub/guides/download) guide for more options for downloading files from the Hub. You can download files from specific revisions, download from the CLI, and even filter which files to download from a repository.
+
+```py
+from huggingface_hub import snapshot_download
+
+snapshot_download(repo_id="meta-llama/Llama-2-7b-hf", repo_type="model")
+```
+
+Set the environment variable `HF_HUB_OFFLINE=1` to prevent HTTP calls to the Hub to download the model.
 
 ```bash
-HF_DATASETS_OFFLINE=1 HF_HUB_OFFLINE=1 \
-python examples/pytorch/translation/run_translation.py --model_name_or_path google-t5/t5-small --dataset_name wmt16 --dataset_config ro-en ...
+HF_HUB_OFFLINE=1 \
+python examples/pytorch/language-modeling/run_clm.py --model_name_or_path meta-llama/Llama-2-7b-hf --dataset_name wikitext ...
 ```
 
-This script should run without hanging or waiting to timeout because it won't attempt to download the model from the Hub.
-
-You can also bypass loading a model from the Hub from each [`~PreTrainedModel.from_pretrained`] call with the [`local_files_only`] parameter. When set to `True`, only local files are loaded:
+Another option for only loading cached files is to set the `local_files_only` parameter to `True` in the [`~PreTrainedModel.from_pretrained`] method.
 
 ```py
-from transformers import T5Model
+from transformers import LlamaForCausalLM
 
-model = T5Model.from_pretrained("./path/to/local/directory", local_files_only=True)
+model = LlamaForCausalLM.from_pretrained("./path/to/local/directory", local_files_only=True)
 ```
-
-### Fetch models and tokenizers to use offline
-
-Another option for using 🤗 Transformers offline is to download the files ahead of time, and then point to their local path when you need to use them offline. There are three ways to do this:
-
-* Download a file through the user interface on the [Model Hub](https://huggingface.co/models) by clicking on the ↓ icon.
-
-    ![download-icon](https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/download-icon.png)
-
-* Use the [`PreTrainedModel.from_pretrained`] and [`PreTrainedModel.save_pretrained`] workflow:
-
-    1. Download your files ahead of time with [`PreTrainedModel.from_pretrained`]:
-
-    ```py
-    >>> from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-
-    >>> tokenizer = AutoTokenizer.from_pretrained("bigscience/T0_3B")
-    >>> model = AutoModelForSeq2SeqLM.from_pretrained("bigscience/T0_3B")
-    ```
-
-    2. Save your files to a specified directory with [`PreTrainedModel.save_pretrained`]:
-
-    ```py
-    >>> tokenizer.save_pretrained("./your/path/bigscience_t0")
-    >>> model.save_pretrained("./your/path/bigscience_t0")
-    ```
-
-    3. Now when you're offline, reload your files with [`PreTrainedModel.from_pretrained`] from the specified directory:
-
-    ```py
-    >>> tokenizer = AutoTokenizer.from_pretrained("./your/path/bigscience_t0")
-    >>> model = AutoModel.from_pretrained("./your/path/bigscience_t0")
-    ```
-
-* Programmatically download files with the [huggingface_hub](https://github.com/huggingface/huggingface_hub/tree/main/src/huggingface_hub) library:
-
-    1. Install the `huggingface_hub` library in your virtual environment:
-
-    ```bash
-    python -m pip install huggingface_hub
-    ```
-
-    2. Use the [`hf_hub_download`](https://huggingface.co/docs/hub/adding-a-library#download-files-from-the-hub) function to download a file to a specific path. For example, the following command downloads the `config.json` file from the [T0](https://huggingface.co/bigscience/T0_3B) model to your desired path:
-
-    ```py
-    >>> from huggingface_hub import hf_hub_download
-
-    >>> hf_hub_download(repo_id="bigscience/T0_3B", filename="config.json", cache_dir="./your/path/bigscience_t0")
-    ```
-
-Once your file is downloaded and locally cached, specify it's local path to load and use it:
-
-```py
->>> from transformers import AutoConfig
-
->>> config = AutoConfig.from_pretrained("./your/path/bigscience_t0/config.json")
-```
-
-<Tip>
-
-See the [How to download files from the Hub](https://huggingface.co/docs/hub/how-to-downstream) section for more details on downloading files stored on the Hub.
-
-</Tip>
-
-## Troubleshooting
-
-See below for some of the more common installation issues and how to resolve them.
-
-### Unsupported Python version
-
-Ensure you are using Python 3.9 or later. Run the command below to check your Python version.
-
-```
-python --version
-```
-
-### Missing dependencies
-
-Install all required dependencies by running the following command. Ensure you’re in the project directory before executing the command.
-
-```
-pip install -r requirements.txt
-```
-
-### Windows-specific
-
-If you encounter issues on Windows, you may need to activate Developer Mode. Navigate to Windows Settings > For Developers > Developer Mode.
-
-Alternatively, create and activate a virtual environment as shown below.
-
-```
-python -m venv env
-.\env\Scripts\activate
-```
-
-

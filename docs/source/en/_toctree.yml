@@ -3,7 +3,7 @@
   - local: index
     title: Transformers
   - local: quicktour
-    title: Quicktour
+    title: Quickstart
   - local: installation
     title: Installation
 - title: Base classes

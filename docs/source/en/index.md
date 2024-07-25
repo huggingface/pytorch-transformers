@@ -36,12 +36,14 @@ Transformers provides everything you need for training or inference with state-o
 
 Transformers is designed for developers and machine learning engineers and researchers alike. Its main design principles are:
 
-1. <a class="underline decoration-amber-500 decoration-2">Easy and fast to use</a>: Every model is implemented from only three main classes (model, preprocessor, and configuration) and can be quickly used for inference or training with two APIs ([`Pipeline`] or [`Trainer`]).
-2. <a class="underline decoration-amber-500 decoration-2">Pretrained models</a>: Reduce your carbon footprint, compute cost and time by using a pretrained model instead of training an entirely new one. Each pretrained model is reproduced as closely as possible to the original model and offers state-of-the-art performance.
+1. Easy and fast to use: Every model is implemented from only three main classes (model, preprocessor, and configuration) and can be quickly used for inference or training with two APIs ([`Pipeline`] or [`Trainer`]).
+2. Pretrained models: Reduce your carbon footprint, compute cost and time by using a pretrained model instead of training an entirely new one. Each pretrained model is reproduced as closely as possible to the original model and offers state-of-the-art performance.
 
-<a target="_blank" href="https://huggingface.co/support">
-    <img alt="HuggingFace Expert Acceleration Program" src="https://cdn-media.huggingface.co/marketing/transformers/new-support-improved.png" style="width: 100%; max-width: 600px; border: 1px solid #eee; border-radius: 4px; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
-</a>
+<div class="flex justify-center">
+  <a target="_blank" href="https://huggingface.co/support">
+      <img alt="HuggingFace Expert Acceleration Program" src="https://cdn-media.huggingface.co/marketing/transformers/new-support-improved.png" style="width: 100%; max-width: 600px; border: 1px solid #eee; border-radius: 4px; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
+  </a>
+</div>
 
 ## Supported models and frameworks
 

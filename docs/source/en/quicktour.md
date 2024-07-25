@@ -75,7 +75,7 @@ Each pretrained model inherits from three base classes.
 |---|---|
 | [`PretrainedConfig`] | A json file that specifies a models attributes such as the number of attention heads or vocabulary size. |
 | [`PreTrainedModel`] | A model (or architecture) defined by the attributes from the configuration file. For training and inference with a task, you need a model with a specific head attached to convert the raw hidden states into task-specific outputs. For example, [`PreTrainedModel`] outputs the raw hidden states but [`AutoModelForCausalLM`] adds a causal language model head on top to output the generated text. |
-| Preprocessor | A class for converting raw inputs (text, images, audio, multimodal) into numerical inputs to the model. For example, [`PretrainedTokenizerFast`] converts text into tensors and [`ImageProcessingMixin`] converts pixels into tensors. |
+| Preprocessor | A class for converting raw inputs (text, images, audio, multimodal) into numerical inputs to the model. For example, [`PreTrainedTokenizer`] converts text into tensors and [`ImageProcessingMixin`] converts pixels into tensors. |
 
 Unless you're building a custom model, you'll primarily interact with the [AutoClass](./model_doc/auto) API like [`AutoConfig`], [`AutoModelForCausalLM`], and [`AutoTokenizer`]. An `AutoClass` automatically infers the appropriate architecture for each task and machine learning framework based on the name or path to the pretrained weights and configuration file.
 
@@ -302,7 +302,7 @@ model = TFAutoModelForSequenceClassification.from_pretrained("distilbert/distilb
 tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased")
 ```
 
-Create a function to tokenize the text and convert it into tensors. Apply this function to the whole dataset with the [`datasets.Dataset.map`] method.
+Create a function to tokenize the text and convert it into tensors. Apply this function to the whole dataset with the [`~datasets.Dataset.map`] method.
 
 ```py
 def tokenize_dataset(dataset):
@@ -310,7 +310,7 @@ def tokenize_dataset(dataset):
 dataset = dataset.map(tokenize_dataset)  # doctest: +SKIP
 ```
 
-Transformers provides the [`~TFPreTrainedModel.prepare_tf_dataset] method to collate and batch a dataset.
+Transformers provides the [`~TFPreTrainedModel.prepare_tf_dataset`] method to collate and batch a dataset.
 
 ```py
 tf_dataset = model.prepare_tf_dataset(
@@ -333,8 +333,8 @@ Great work on completing the quickstart! You have only scratched the surface of 
 
 Now that you have a better understanding of the library, it is time to keep exploring and learning what interests you the most.
 
-<a class="underline decoration-amber-500 decoration-2">Base classes</a>: Learn more about the base classes and the model and processor classes that inherit from it. This will help you understand how to write your own custom models, preprocess different types of inputs (audio, images, multimodal), and how to share your model.
-<a class="underline decoration-amber-500 decoration-2">Inference</a>: Dive deeper into inference with the [`Pipeline`] API, inference with LLMs, chatting with LLMs, agents, and how to optimize inference with your machine learning framework and hardware.
-<a class="underline decoration-amber-500 decoration-2">Training</a>: Explore the [`Trainer`] API in more detail, distributed training, and optimizing training on your hardware.
-<a class="underline decoration-amber-500 decoration-2">Quantization</a>: Reduce memory and storage requirements with quantization and speed up inference by representing weights in fewer bits.
-<a class="underline decoration-amber-500 decoration-2">Resources</a>: Looking for end-to-end recipes for how to train and inference with a model for a specific task? Check out the task recipes!
+Base classes: Learn more about the base classes and the model and processor classes that inherit from it. This will help you understand how to write your own custom models, preprocess different types of inputs (audio, images, multimodal), and how to share your model.
+Inference: Dive deeper into inference with the [`Pipeline`] API, inference with LLMs, chatting with LLMs, agents, and how to optimize inference with your machine learning framework and hardware.
+Training: Explore the [`Trainer`] API in more detail, distributed training, and optimizing training on your hardware.
+Quantization: Reduce memory and storage requirements with quantization and speed up inference by representing weights in fewer bits.
+Resources: Looking for end-to-end recipes for how to train and inference with a model for a specific task? Check out the task recipes!

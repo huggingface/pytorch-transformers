@@ -333,8 +333,8 @@ Great work on completing the quickstart! You have only scratched the surface of 
 
 Now that you have a better understanding of the library, it is time to keep exploring and learning what interests you the most.
 
-Base classes: Learn more about the base classes and the model and processor classes that inherit from it. This will help you understand how to write your own custom models, preprocess different types of inputs (audio, images, multimodal), and how to share your model.
-Inference: Dive deeper into inference with the [`Pipeline`] API, inference with LLMs, chatting with LLMs, agents, and how to optimize inference with your machine learning framework and hardware.
-Training: Explore the [`Trainer`] API in more detail, distributed training, and optimizing training on your hardware.
-Quantization: Reduce memory and storage requirements with quantization and speed up inference by representing weights in fewer bits.
-Resources: Looking for end-to-end recipes for how to train and inference with a model for a specific task? Check out the task recipes!
+- Base classes: Learn more about the base classes and the model and processor classes that inherit from it. This will help you understand how to write your own custom models, preprocess different types of inputs (audio, images, multimodal), and how to share your model.
+- Inference: Dive deeper into inference with the [`Pipeline`] API, inference with LLMs, chatting with LLMs, agents, and how to optimize inference with your machine learning framework and hardware.
+- Training: Explore the [`Trainer`] API in more detail, distributed training, and optimizing training on your hardware.
+- Quantization: Reduce memory and storage requirements with quantization and speed up inference by representing weights in fewer bits.
+- Resources: Looking for end-to-end recipes for how to train and inference with a model for a specific task? Check out the task recipes!

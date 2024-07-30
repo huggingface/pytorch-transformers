@@ -10,7 +10,6 @@ docs/source/en/bertology.md
 docs/source/en/big_models.md
 docs/source/en/community.md
 docs/source/en/contributing.md
-docs/source/en/create_a_model.md
 docs/source/en/custom_models.md
 docs/source/en/debugging.md
 docs/source/en/fast_tokenizers.md

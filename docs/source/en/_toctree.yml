@@ -11,14 +11,12 @@
   - title: Models
     isExpanded: false
     sections:
-    - local: autoclass_tutorial
-      title: AutoClass API
-    - local: create_a_model
-      title: Use model-specific APIs
+    - local: models
+      title: Load
     - local: custom_models
-      title: Share a custom model
+      title: Create a custom model
     - local: model_sharing
-      title: Share your model
+      title: Share
     - local: add_new_model
       title: How to add a model to 🤗 Transformers?
     - local: task_summary
@@ -31,7 +29,7 @@
       title: Attention mechanisms
     - local: bertology
       title: BERTology
-  - title: Tokenizers
+  - title: Preprocessors
     isExpanded: false
     sections:
     - local: preprocessing

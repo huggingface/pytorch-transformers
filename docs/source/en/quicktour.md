@@ -73,7 +73,7 @@ Each pretrained model inherits from three base classes.
 
 | **Class** | **Description** |
 |---|---|
-| [`PretrainedConfig`] | A json file that specifies a models attributes such as the number of attention heads or vocabulary size. |
+| [`PretrainedConfig`] | A file that specifies a models attributes such as the number of attention heads or vocabulary size. |
 | [`PreTrainedModel`] | A model (or architecture) defined by the attributes from the configuration file. For training and inference with a task, you need a model with a specific head attached to convert the raw hidden states into task-specific outputs. For example, [`PreTrainedModel`] outputs the raw hidden states but [`AutoModelForCausalLM`] adds a causal language model head on top to output the generated text. |
 | Preprocessor | A class for converting raw inputs (text, images, audio, multimodal) into numerical inputs to the model. For example, [`PreTrainedTokenizer`] converts text into tensors and [`ImageProcessingMixin`] converts pixels into tensors. |
 

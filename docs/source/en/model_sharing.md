@@ -66,7 +66,7 @@ model = AutoModel.from_pretrained(
 Model repositories also support [gating](https://hf.co/docs/hub/models-gated) for more control over how and who can access a model. Gating is common for allowing a select group of users to preview a research model before it's made public.
 
 <div class="flex justify-center">
-    <img src="https://huggingface.co/datasets/huggingface/documentation-images/transformers/resolve/main/gated-model.png"/>
+    <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/gated-model.png"/>
 </div>
 
 The model repository also includes an inference [widget](https://hf.co/docs/hub/models-widgets) for users to directly interact with a model.

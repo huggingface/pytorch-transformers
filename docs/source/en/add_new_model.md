@@ -13,7 +13,7 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# How to add a model to 🤗 Transformers?
+# Contribute
 
 The 🤗 Transformers library is often able to offer new models thanks to community contributors. But this can be a challenging project and requires an in-depth knowledge of the 🤗 Transformers library and the model to implement. At Hugging Face, we're trying to empower more of the community to actively add models and we've put together this guide to walk you through the process of adding a PyTorch model (make sure you have [PyTorch installed](https://pytorch.org/get-started/locally/)).
 

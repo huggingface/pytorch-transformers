@@ -18,7 +18,7 @@
     - local: model_sharing
       title: Share
     - local: add_new_model
-      title: How to add a model to 🤗 Transformers?
+      title: Contribute
     - local: task_summary
       title: What 🤗 Transformers can do
     - local: tasks_explained

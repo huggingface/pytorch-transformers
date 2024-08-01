@@ -174,7 +174,7 @@ with tempfile.TemporaryDirectory() as tmp_dir:
     new_model = AutoModel.from_pretrained(tmp_dir)
 ```
 
-Sharded checkpoints can also be directly loaded with the [`~transformers.modeling_utils.load_sharded_checkpoint] method.
+Sharded checkpoints can also be directly loaded with the [`~transformers.modeling_utils.load_sharded_checkpoint`] method.
 
 ```py
 from transformers.modeling_utils import load_sharded_checkpoint
@@ -289,3 +289,28 @@ from transformers import AutoConfig, AutoModel
 my_config = AutoConfig.from_pretrained("google/gemma-2b", torch_dtype=torch.float16)
 model = AutoModel.from_config(my_config)
 ```
+
+## Custom models
+
+Custom models use Transformers' configuration and modeling classes, supports the [AutoClass](#autoclass) API, and are loaded with [`~PreTrainedModel.from_pretrained`]. What makes custom models different is the modeling code is not from Transformers.
+
+The Hub includes [malware scanning](https://hf.co/docs/hub/security-malware#malware-scanning) for every repository, but extra care should still be taken when loading a custom model to avoid inadvertently executing malicious code.
+
+Set the `trust_remote_code` parameter to `True` in [`~PreTrainedModel.from_pretrained`] to load a custom model.
+
+```py
+from transformers import AutoModelForImageClassification
+
+model = AutoModelForImageClassification.from_pretrained("sgugger/custom-resnet50d", trust_remote_code=True)
+```
+
+As an extra layer of security, load a custom model from a specific revision to make sure the model code hasn't changed. The commit hash can be copied from the model's [commit history](https://hf.co/sgugger/custom-resnet50d/commits/main).
+
+```py
+commit_hash = "ed94a7c6247d8aedce4647f00f20de6875b5b292"
+model = AutoModelForImageClassification.from_pretrained(
+    "sgugger/custom-resnet50d", trust_remote_code=True, revision=commit_hash
+)
+```
+
+Learn more about how to create a custom model in [Customize](./custom_models).

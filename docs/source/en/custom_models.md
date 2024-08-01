@@ -1,4 +1,4 @@
-<!--Copyright 2020 The HuggingFace Team. All rights reserved.
+<!--Copyright 2024 The HuggingFace Team. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may obtain a copy of the License at
@@ -14,44 +14,32 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Building custom models
+# Customize
 
-The 🤗 Transformers library is designed to be easily extensible. Every model is fully coded in a given subfolder
-of the repository with no abstraction, so you can easily copy a modeling file and tweak it to your needs.
+Transformers models are easily customizable. Models are fully contained in the [model](https://github.com/huggingface/transformers/tree/main/src/transformers/models) subfolder of the Transformers repository. Each folder contains a `modeling.py` and a `configuration.py` file. Copy these files to start customizing a model.
 
-If you are writing a brand new model, it might be easier to start from scratch. In this tutorial, we will show you
-how to write a custom model and its configuration so it can be used inside Transformers, and how you can share it
-with the community (with the code it relies on) so that anyone can use it, even if it's not present in the 🤗
-Transformers library. We'll see how to build upon transformers and extend the framework with your hooks and
-custom code.
+> [!TIP]
+> It may be easier to start from scratch if you're creating an entirely new model. For models that are very similar to an existing one in Transformers, it is faster to reuse or subclass the same configuration and model class.
 
-We will illustrate all of this on a ResNet model, by wrapping the ResNet class of the
-[timm library](https://github.com/rwightman/pytorch-image-models) into a [`PreTrainedModel`].
+This guide will show you how to customize a ResNet model, enable [AutoClass](./models#autoclass) API support, and share it on the Hub.
 
-## Writing a custom configuration
+## Configuration
 
-Before we dive into the model, let's first write its configuration. The configuration of a model is an object that
-will contain all the necessary information to build the model. As we will see in the next section, the model can only
-take a `config` to be initialized, so we really need that object to be as complete as possible.
+A configuration, given by the base [`PretrainedConfig`] class, contains all the necessary information to build a model. This is where you'll configure the parameters of the custom ResNet model. Different configurations gives different ResNet model types.
 
-<Tip>
+The three main rules for customizing a configuration are:
 
-Models in the `transformers` library itself generally follow the convention that they accept a `config` object
-in their `__init__` method, and then pass the whole `config` to sub-layers in the model, rather than breaking the 
-config object into multiple arguments that are all passed individually to sub-layers. Writing your model in this 
-style results in simpler code with a clear "source of truth" for any hyperparameters, and also makes it easier
-to reuse code from other models in `transformers`.
+1. A custom configuration must inherit from [`PretrainedConfig`]. Inheritance ensures a custom model has all the functionality of a Transformers model such as [`PretrainedConfig.from_pretrained`], [`PretrainedConfig.save_pretrained`], and [`PretrainedConfig.push_to_hub`].
+2. The [`PretrainedConfig`] `__init__` must accept any `kwargs` and `kwargs` must be passed to the superclass `__init__`. [`PretrainedConfig`] has more more fields than the ones you're setting in your custom configuration. When you load a configuration with [`PretrainedConfig.from_pretrained`], those fields need to be accepted by your configuration and passed to the superclass.
 
-</Tip>
+> [!TIP]
+> It is useful to check the validity of some of the parameters. In the example below, a check is implemented to ensure `block_type` and `stem_type` are one of the predefined values.
+>
+> Add `model_type` to the configuration class to enable [AutoClass](./models#autoclass) support.
 
-In our example, we will take a couple of arguments of the ResNet class that we might want to tweak. Different
-configurations will then give us the different types of ResNets that are possible. We then just store those arguments,
-after checking the validity of a few of them.
-
-```python
+```py
 from transformers import PretrainedConfig
 from typing import List
-
 
 class ResnetConfig(PretrainedConfig):
     model_type = "resnet"
@@ -86,55 +74,35 @@ class ResnetConfig(PretrainedConfig):
         super().__init__(**kwargs)
 ```
 
-The three important things to remember when writing you own configuration are the following:
-- you have to inherit from `PretrainedConfig`,
-- the `__init__` of your `PretrainedConfig` must accept any kwargs,
-- those `kwargs` need to be passed to the superclass `__init__`.
-
-The inheritance is to make sure you get all the functionality from the 🤗 Transformers library, while the two other
-constraints come from the fact a `PretrainedConfig` has more fields than the ones you are setting. When reloading a
-config with the `from_pretrained` method, those fields need to be accepted by your config and then sent to the
-superclass.
-
-Defining a `model_type` for your configuration (here `model_type="resnet"`) is not mandatory, unless you want to
-register your model with the auto classes (see last section).
-
-With this done, you can easily create and save your configuration like you would do with any other model config of the
-library. Here is how we can create a resnet50d config and save it:
+Save the configuration to a JSON file with the [`PretrainedConfig.save_pretrained`] method. This file is stored in your custom model folder, `custom-resnet`.
 
 ```py
 resnet50d_config = ResnetConfig(block_type="bottleneck", stem_width=32, stem_type="deep", avg_down=True)
 resnet50d_config.save_pretrained("custom-resnet")
 ```
 
-This will save a file named `config.json` inside the folder `custom-resnet`. You can then reload your config with the
-`from_pretrained` method:
+## Model
 
-```py
-resnet50d_config = ResnetConfig.from_pretrained("custom-resnet")
-```
+With the custom ResNet configuration, you can now create and customize the model. The model inherits from the base [`PreTrainedModel`] class. Like [`PretrainedConfig`], inheriting from [`PreTrainedModel`] and initializing the superclass with the configuration extends Transformers functionalities such as saving and loading to the custom model.
 
-You can also use any other method of the [`PretrainedConfig`] class, like [`~PretrainedConfig.push_to_hub`] to
-directly upload your config to the Hub.
+Transformers' models follow the convention of accepting a `config` object in the `__init__` method. This passes the entire `config` to the models sublayers, instead of breaking the `config` object into multiple arguments that are passed individually to the sublayers. Writing models this way produces simpler code with a clear *source of truth* for any hyperparameters. It is also easier to reuse code from other Transformers' models.
 
-## Writing a custom model
+You'll create two ResNet models, a ResNet model that outputs the hidden states and a ResNet model with an image classification head.
 
-Now that we have our ResNet configuration, we can go on writing the model. We will actually write two: one that
-extracts the hidden features from a batch of images (like [`BertModel`]) and one that is suitable for image
-classification (like [`BertForSequenceClassification`]).
+<hfoptions id="resnet">
+<hfoption id="ResNetModel">
 
-As we mentioned before, we'll only write a loose wrapper of the model to keep it simple for this example. The only
-thing we need to do before writing this class is a map between the block types and actual block classes. Then the
-model is defined from the configuration by passing everything to the `ResNet` class:
+Define a mapping between the block types and block classes. Everything else is created by passing the configuration class to the Resnet model class.
+
+> [!TIP]
+> Add `config_class` to the model class to enable [AutoClass](#autoclass-support) support.
 
 ```py
 from transformers import PreTrainedModel
 from timm.models.resnet import BasicBlock, Bottleneck, ResNet
 from .configuration_resnet import ResnetConfig
 
-
 BLOCK_MAPPING = {"basic": BasicBlock, "bottleneck": Bottleneck}
-
 
 class ResnetModel(PreTrainedModel):
     config_class = ResnetConfig
@@ -158,11 +126,16 @@ class ResnetModel(PreTrainedModel):
         return self.model.forward_features(tensor)
 ```
 
-For the model that will classify images, we just change the forward method:
+</hfoption>
+<hfoption id="ResNetModelForImageClassification">
+
+The `forward` method needs to be rewrittten to calculate the loss for each logit if labels are available. Otherwise, the Resnet model class is the same.
+
+> [!TIP]
+> Add `config_class` to the model class to enable [AutoClass](#autoclass-support) support.
 
 ```py
 import torch
-
 
 class ResnetModelForImageClassification(PreTrainedModel):
     config_class = ResnetConfig
@@ -190,34 +163,20 @@ class ResnetModelForImageClassification(PreTrainedModel):
         return {"logits": logits}
 ```
 
-In both cases, notice how we inherit from `PreTrainedModel` and call the superclass initialization with the `config`
-(a bit like when you write a regular `torch.nn.Module`). The line that sets the `config_class` is not mandatory, unless
-you want to register your model with the auto classes (see last section).
+</hfoption>
+</hfoptions>
 
-<Tip>
+A model can return any output format. Returning a dictionary (like ResnetModelForImageClassification) with losses when labels are available, makes the custom model compatible with the [`Trainer`]. For other output formats, you'll need your own training loop or a different library for training.
 
-If your model is very similar to a model inside the library, you can re-use the same configuration as this model.
-
-</Tip>
-
-You can have your model return anything you want, but returning a dictionary like we did for
-`ResnetModelForImageClassification`, with the loss included when labels are passed, will make your model directly
-usable inside the [`Trainer`] class. Using another output format is fine as long as you are planning on using your own
-training loop or another library for training.
-
-Now that we have our model class, let's create one:
+Instantiate the custom model class with the configuration.
 
 ```py
 resnet50d = ResnetModelForImageClassification(resnet50d_config)
 ```
 
-Again, you can use any of the methods of [`PreTrainedModel`], like [`~PreTrainedModel.save_pretrained`] or
-[`~PreTrainedModel.push_to_hub`]. We will use the second in the next section, and see how to push the model weights
-with the code of our model. But first, let's load some pretrained weights inside our model.
+At this point, you can load pretrained weights into the model or train it from scratch. You'll load pretrained weights in this guide.
 
-In your own use case, you will probably be training your custom model on your own data. To go fast for this tutorial,
-we will use the pretrained version of the resnet50d. Since our model is just a wrapper around it, it's going to be
-easy to transfer those weights:
+Load the pretrained weights from the [timm](https://hf.co/docs/timm/index) library, and then transfer those weights to the custom model with the [load_state_dict](https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.load_state_dict) method.
 
 ```py
 import timm
@@ -226,17 +185,14 @@ pretrained_model = timm.create_model("resnet50d", pretrained=True)
 resnet50d.model.load_state_dict(pretrained_model.state_dict())
 ```
 
-Now let's see how to make sure that when we do [`~PreTrainedModel.save_pretrained`] or [`~PreTrainedModel.push_to_hub`], the
-code of the model is saved.
+## AutoClass support
 
-## Registering a model with custom code to the auto classes
+The [AutoClass](./models#autoclass) API is a shortcut for automatically loading the correct architecture for a given model. It may be convenient for your users to add this API to your custom model.
 
-If you are writing a library that extends 🤗 Transformers, you may want to extend the auto classes to include your own
-model. This is different from pushing the code to the Hub in the sense that users will need to import your library to
-get the custom models (contrarily to automatically downloading the model code from the Hub).
+Make sure you have the `model_type` attribute (must be different from existing model types) in the configuration class and `config_class` attribute in the model class. With the [`~AutoConfig.register`] method, add the custom configuration and model to the [AutoClass](./models#autoclass) API.
 
-As long as your config has a `model_type` attribute that is different from existing model types, and that your model
-classes have the right `config_class` attributes, you can just add them to the auto classes like this:
+> [!TIP]
+> The first argument to [`AutoConfig.register`] must match the `model_type` attribute in the custom configuration class, and the first argument to [`AutoModel.register`] must match the `config_class` of the custom model class.
 
 ```py
 from transformers import AutoConfig, AutoModel, AutoModelForImageClassification
@@ -246,25 +202,21 @@ AutoModel.register(ResnetConfig, ResnetModel)
 AutoModelForImageClassification.register(ResnetConfig, ResnetModelForImageClassification)
 ```
 
-Note that the first argument used when registering your custom config to [`AutoConfig`] needs to match the `model_type`
-of your custom config, and the first argument used when registering your custom models to any auto model class needs
-to match the `config_class` of those models.
+## Share a custom model on the Hub
 
-## Sending the code to the Hub
+Upload a custom model to the [Hub](https://hf.co/models) to allow other users to easily load and use it.
 
-<Tip warning={true}>
+Ensure the model directory is structured correctly as shown below. The directory should contain:
 
-This API is experimental and may have some slight breaking changes in the next releases.
+- `modeling.py`: Contains the code for ResnetModel and ResnetModelForImageClassification. This file can rely on relative imports to other files as long as they're in the same directory.
 
-</Tip>
+> [!WARNING]
+> Replace all relative imports at the top of the `modeling.py` file to import from Transformers instead if you're copying a model file from Transformers.
 
-First, make sure your model is fully defined in a `.py` file. It can rely on relative imports to some other files as
-long as all the files are in the same directory (we don't support submodules for this feature yet). For our example,
-we'll define a `modeling_resnet.py` file and a `configuration_resnet.py` file in a folder of the current working
-directory named `resnet_model`. The configuration file contains the code for `ResnetConfig` and the modeling file
-contains the code of `ResnetModel` and `ResnetModelForImageClassification`.
+- `configuration.py`: Contains the code for ResnetConfig.
+- `__init__.py`: Can be empty. This file allows Python `resnet_model` to be used as a module.
 
-```
+```bash
 .
 └── resnet_model
     ├── __init__.py
@@ -272,27 +224,14 @@ contains the code of `ResnetModel` and `ResnetModelForImageClassification`.
     └── modeling_resnet.py
 ```
 
-The `__init__.py` can be empty, it's just there so that Python detects `resnet_model` can be use as a module.
-
-<Tip warning={true}>
-
-If copying a modeling files from the library, you will need to replace all the relative imports at the top of the file
-to import from the `transformers` package.
-
-</Tip>
-
-Note that you can re-use (or subclass) an existing configuration/model.
-
-To share your model with the community, follow those steps: first import the ResNet model and config from the newly
-created files:
+To share the model, import the ResNet model and configuration.
 
 ```py
 from resnet_model.configuration_resnet import ResnetConfig
 from resnet_model.modeling_resnet import ResnetModel, ResnetModelForImageClassification
 ```
 
-Then you have to tell the library you want to copy the code files of those objects when using the `save_pretrained`
-method and properly register them with a given Auto class (especially for models), just run:
+Copy the code from the model and configuration files and register them with an [AutoClass](./models#autoclass) with the [`~PretrainedConfig.register_for_auto_class`] method. For the model, pick the appropriate `AutoModelFor` class based on the task.
 
 ```py
 ResnetConfig.register_for_auto_class()
@@ -300,27 +239,17 @@ ResnetModel.register_for_auto_class("AutoModel")
 ResnetModelForImageClassification.register_for_auto_class("AutoModelForImageClassification")
 ```
 
-Note that there is no need to specify an auto class for the configuration (there is only one auto class for them,
-[`AutoConfig`]) but it's different for models. Your custom model could be suitable for many different tasks, so you
-have to specify which one of the auto classes is the correct one for your model.
-
-<Tip>
-
-Use `register_for_auto_class()` if you want the code files to be copied. If you instead prefer to use code on the Hub from another repo, 
-you don't need to call it. In cases where there's more than one auto class, you can modify the `config.json` directly using the 
-following structure:
+To map more than one task to the model, edit `auto_map` in the configuration JSON file directly.
 
 ```json
-"auto_map": {     
-	"AutoConfig": "<your-repo-name>--<config-name>",     
-	"AutoModel": "<your-repo-name>--<config-name>",
-	"AutoModelFor<Task>": "<your-repo-name>--<config-name>",    
+"auto_map": {
+    "AutoConfig": "<your-repo-name>--<config-name>",
+    "AutoModel": "<your-repo-name>--<config-name>",
+    "AutoModelFor<Task>": "<your-repo-name>--<config-name>",    
 },
 ```
 
-</Tip>
-
-Next, let's create the config and models as we did before:
+Create the configuration and model and load pretrained weights into it.
 
 ```py
 resnet50d_config = ResnetConfig(block_type="bottleneck", stem_width=32, stem_type="deep", avg_down=True)
@@ -330,13 +259,17 @@ pretrained_model = timm.create_model("resnet50d", pretrained=True)
 resnet50d.model.load_state_dict(pretrained_model.state_dict())
 ```
 
-Now to send the model to the Hub, make sure you are logged in. Either run in your terminal:
+The model is ready to be pushed to the Hub now. Login to your Hugging Face account from the command line or notebook.
+
+<hfoptions id="push">
+<hfoption id="huggingface-CLI">
 
 ```bash
 huggingface-cli login
 ```
 
-or from a notebook:
+</hfoption>
+<hfoption id="notebook">
 
 ```py
 from huggingface_hub import notebook_login
@@ -344,41 +277,15 @@ from huggingface_hub import notebook_login
 notebook_login()
 ```
 
-You can then push to your own namespace (or an organization you are a member of) like this:
+</hfoption>
+</hfoptions>
+
+Call [`~PreTrainedModel.push_to_hub`] on the model to upload the model to the Hub.
 
 ```py
 resnet50d.push_to_hub("custom-resnet50d")
 ```
 
-On top of the modeling weights and the configuration in json format, this also copied the modeling and
-configuration `.py` files in the folder `custom-resnet50d` and uploaded the result to the Hub. You can check the result
-in this [model repo](https://huggingface.co/sgugger/custom-resnet50d).
+The pretrained weights, configuration in JSON format, `modeling.py` and `configuration.py` files should all be uploaded to the Hub now under a namespace and specified directory [here](https://hf.co/sgugger/custom-resnet50d).
 
-See the [sharing tutorial](model_sharing) for more information on the push to Hub method.
-
-## Using a model with custom code
-
-You can use any configuration, model or tokenizer with custom code files in its repository with the auto-classes and
-the `from_pretrained` method. All files and code uploaded to the Hub are scanned for malware (refer to the [Hub security](https://huggingface.co/docs/hub/security#malware-scanning) documentation for more information), but you should still 
-review the model code and author to avoid executing malicious code on your machine. Set `trust_remote_code=True` to use
-a model with custom code:
-
-```py
-from transformers import AutoModelForImageClassification
-
-model = AutoModelForImageClassification.from_pretrained("sgugger/custom-resnet50d", trust_remote_code=True)
-```
-
-It is also strongly encouraged to pass a commit hash as a `revision` to make sure the author of the models did not
-update the code with some malicious new lines (unless you fully trust the authors of the models).
-
-```py
-commit_hash = "ed94a7c6247d8aedce4647f00f20de6875b5b292"
-model = AutoModelForImageClassification.from_pretrained(
-    "sgugger/custom-resnet50d", trust_remote_code=True, revision=commit_hash
-)
-```
-
-Note that when browsing the commit history of the model repo on the Hub, there is a button to easily copy the commit
-hash of any commit.
-
+Because a custom model doesn't use the same modeling code as Transformers' model, you need to add `trust_remode_code=True` in the [`~PreTrainedModel.from_pretrained`] method. Refer to the load [custom models](./models#custom-models) section for more information.

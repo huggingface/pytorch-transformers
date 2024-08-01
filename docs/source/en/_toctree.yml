@@ -14,7 +14,7 @@
     - local: models
       title: Load
     - local: custom_models
-      title: Create a custom model
+      title: Customize
     - local: model_sharing
       title: Share
     - local: add_new_model

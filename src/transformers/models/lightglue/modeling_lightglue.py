@@ -37,136 +37,136 @@ _CONFIG_FOR_DOC_ = "LightGlueConfig"
 _CHECKPOINT_FOR_DOC_ = "stevenbucaille/superglue_indoor"
 
 
-def concat_attentions_tuples_pair(
-    attention_probs_0: Tuple[torch.Tensor], attention_probs_1: Tuple[torch.Tensor]
+def concat_inconsistent_pairs(
+    inconsistent_tensor0: Tuple[torch.Tensor], inconsistent_tensor1: Tuple[torch.Tensor]
 ) -> Tuple[torch.Tensor]:
     """
-    Concatenate two tuple of attention probabilities into one.
-    We assume that the attention probabilities are of shape (batch_size, num_heads, num_keypoints_a, num_keypoints_b).
-    The tuples are assumed to have the same length and of the following form:
-    attention_probs_0 = (attention_probs_0_0, attention_probs_0_1, ...)
-    attention_probs_1 = (attention_probs_1_0, attention_probs_1_1, ...)
-    The output will then be of the form:
-    new_attention_probs = (torch.cat(attention_probs_0_0, attention_probs_1_0), torch.cat(attention_probs_0_1, attention_probs_1_1), ...)
-    If the attention probabilities have different shapes, the smaller one will be padded with zeros :
-    (batch_size * 2, num_heads, max(num_keypoints_a_0, num_keypoints_a_1), max(num_keypoints_b_0, num_keypoints_b_1))
+    Concatenate two tuples of tensors with inconsistent dimensions pairwise. We assume that each tuple has the same
+    number of tensors and and the tensors are at least 3D. These tensors can be anything but this function is mainly
+    used to concatenate hidden states and attention probabilities tensors of a keypoint matching model. The
+    inconsistency comes from the dimension containing the number of keypoints.
+
+    If the pair of tensors are hidden states, they are assumed to be of shape `(batch_size, num_keypoints0,
+    num_channels)` and `(batch_size, num_keypoints1, num_channels)` and the output will then be of the form:
+    `(2 * batch_size, max(num_keypoints0, num_keypoints1), num_channels)`
+    If the pair of tensors are attention probabilities, they are assumed to be of shape `(batch_size, num_heads,
+    num_keypoints0, num_keypoints0)` and `(batch_size, num_heads, num_keypoints1, num_keypoints1)` and the output will
+    then be of the form:
+    `(2 * batch_size, num_heads, max(num_keypoints0, num_keypoints1), max(num_keypoints0, num_keypoints1))`
+
+    For `inconsistent_tensors0 = (tensor0_1, tensor0_1, ..., tensor0_N)` and `inconsistent_tensors1 = (tensor1_0,
+    tensor1_1, ..., tensor1_N)`, the output will be `(concat(tensor0_0, tensor1_0), concat(tensor0_1, tensor1_1), ...,
+    concat(tensor0_N, tensor1_N))`. The concatenation is done by padding the tensors from the tuple with the lower
+    number of keypoints with zeros.
+
+    Args:
+        inconsistent_tensor0 (`Tuple[torch.Tensor]` of shape `(batch_size, num_keypoints0, num_channels)` or
+        `torch.Tensor` of shape `(batch_size, num_heads, num_keypoints0, num_keypoints0)`): Tuple of tensors with
+        inconsistent dimensions.
+        inconsistent_tensor1 (`Tuple[torch.Tensor]` of shape `(batch_size, num_keypoints1, num_channels)` or
+        `torch.Tensor` of shape `(batch_size, num_heads, num_keypoints1, num_keypoints1)`): Tuple of tensors with
+        inconsistent dimensions.
+
+    Returns:
+        consistent_tensors (`Tuple[torch.Tensor]` of shape `(2 * batch_size, max(num_keypoints0, num_keypoints1),
+        num_channels)` or `Tuple[torch.Tensor]` of shape `(2 * batch_size, num_heads,
+        max(num_keypoints0, num_keypoints1) ,max(num_keypoints0, num_keypoints1))`):
+        Tuple of zero padded tensors with consistent dimensions.
     """
-    new_attention_probs = ()
-    for attention_prob_0, attention_prob_1 in zip(attention_probs_0, attention_probs_1):
-        if attention_prob_0.size() != attention_prob_1.size():
-            max_dim2 = max(attention_prob_0.shape[2], attention_prob_1.shape[2])
-            max_dim3 = max(attention_prob_0.shape[2], attention_prob_1.shape[2])
-            new_attention_prob = torch.zeros(
-                2, attention_prob_0.shape[1], max_dim2, max_dim3, device=attention_prob_0.device
-            )
-            new_attention_prob[0, :, : attention_prob_0.shape[2], : attention_prob_0.shape[3]] = attention_prob_0
-            new_attention_prob[1, :, : attention_prob_1.shape[2], : attention_prob_1.shape[3]] = attention_prob_1
-            new_attention_probs = new_attention_probs + (new_attention_prob,)
+    if len(inconsistent_tensor0) != len(inconsistent_tensor1):
+        raise ValueError("The two tuples must contain the same number of tensors.")
+    if len(inconsistent_tensor0[0].shape) < 3:
+        raise ValueError("The tensors must be at least 3D.")
+    consistent_tensors = ()
+    for tensor0, tensor1 in zip(inconsistent_tensor0, inconsistent_tensor1):
+        if tensor0.shape != tensor1.shape:
+            squeeze_tensors = len(tensor0.shape) == 3 and len(tensor1.shape) == 3
+            if squeeze_tensors:
+                tensor0 = tensor0[..., None]
+                tensor1 = tensor1[..., None]
+            # max_dim1 = num_heads if tensor is attention probabilities else num_keypoints
+            max_dim1 = max(tensor0.shape[1], tensor1.shape[1])
+            # max_dim2 = max_dim3 = num_keypoints if tensor is attention probabilities else num_channels
+            max_dim2 = max(tensor0.shape[2], tensor1.shape[2])
+            # max_dim3 = num_keypoints if tensor is attention probabilities else 1
+            max_dim3 = max(tensor0.shape[3], tensor1.shape[3])
+            consistent_tensor = torch.zeros(2, max_dim1, max_dim2, max_dim3, device=tensor0.device)
+            consistent_tensor[0, : tensor0.shape[1], : tensor0.shape[2], : tensor0.shape[3]] = tensor0
+            consistent_tensor[1, : tensor1.shape[1], : tensor1.shape[2], : tensor1.shape[3]] = tensor1
+            if squeeze_tensors:
+                consistent_tensor = consistent_tensor.squeeze(-1)
+            consistent_tensors = consistent_tensors + (consistent_tensor,)
         else:
-            new_attention_probs = new_attention_probs + (torch.cat([attention_prob_0, attention_prob_1]),)
-    return new_attention_probs
+            consistent_tensors = consistent_tensors + (torch.cat([tensor0, tensor1]),)
+    return consistent_tensors
 
 
-def stack_attention_probs_list(attention_probs: List[torch.Tensor]) -> torch.Tensor:
-    current_shape = attention_probs[0].shape
-    all_same_shape = all(attention_prob.shape == current_shape for attention_prob in attention_probs)
+def stack_inconsistent_tensor_list(tensor_list: List[torch.Tensor]) -> torch.Tensor:
+    """
+    Stack a list of tensors with inconsistent dimensions. We assume that each tensor is at least 3D. The tensors can be
+    anything but this function is mainly used to stack hidden states tensors of a keypoint matching model. The
+    inconsistency comes from the dimension containing the number of keypoints.
+
+    If the tensors are hidden states, they are assumed to be of shape `(batch_size, num_keypoints0, num_channels),
+    (batch_size, num_keypoints1, num_channels), ..., (batch_size, num_keypointsN, num_channels)` and the output will
+    then be of the form: `(N, batch_size, max(num_keypoints0, num_keypoints1, ..., num_keypointsN), num_channels)`.
+    If the tensors are attention probabilities, they are assumed to be of shape `(batch_size, num_heads, num_keypoints0,
+    num_keypoints0), (batch_size, num_heads, num_keypoints1, num_keypoints1), ..., (batch_size, num_heads,
+    num_keypointsN, num_keypointsN)` and the output will then be of the form: `(N, batch_size, num_heads,
+    max(num_keypoints0, num_keypoints1, ..., num_keypointsN), max(num_keypoints0, num_keypoints1, ..., num_keypointsN))`.
+
+    For `tensor_list = [tensor0, tensor1, ..., tensorN]` and `max_number_of_keypoints = max(num_keypoints0,
+    num_keypoints1, ..., num_keypointsN)`, the output will be a tensor of shape `(N, batch_size,
+    max_number_of_keypoints, num_channels)`  or `(N, batch_size, num_heads,max_number_of_keypoints,
+    max_number_of_keypoints)`. The stacking is done by padding the tensors with the lower number of keypoints with
+    zeros.
+
+
+    Args:
+        tensor_list (`List[torch.Tensor]` of shape `(batch_size, num_keypoints, num_channels)` or `List[torch.Tensor]`
+        of shape `(batch_size, num_heads, num_keypoints, num_keypoints)`): List of tensors with inconsistent dimensions.
+
+    Returns:
+        (`torch.Tensor` of shape `(N, batch_size, max(num_keypoints0, num_keypoints1, ..., num_keypointsN),
+        num_channels)` or `torch.Tensor` of shape `(N, batch_size, num_heads, max(num_keypoints0, num_keypoints1, ...,
+        num_keypointsN), max(num_keypoints0, num_keypoints1, ..., num_keypointsN))`): Stacked tensors with consistent
+        dimensions.
+    """
+    current_shape = tensor_list[0].shape
+    all_same_shape = all(tensor.shape == current_shape for tensor in tensor_list)
     if all_same_shape:
-        return torch.stack(attention_probs, dim=0)
+        return torch.stack(tensor_list, dim=0)
 
-    max_dim2 = max(attention_prob.shape[2] for attention_prob in attention_probs)
-    max_dim3 = max(attention_prob.shape[3] for attention_prob in attention_probs)
-    stacked_attention_probs = torch.zeros(
-        len(attention_probs), 2, attention_probs[0].shape[1], max_dim2, max_dim3, device=attention_probs[0].device
-    )
-    for i, attention_prob in enumerate(attention_probs):
-        stacked_attention_probs[i, :, :, : attention_prob.shape[2], : attention_prob.shape[3]] = attention_prob
-    return stacked_attention_probs
+    squeeze_tensors = len(tensor_list[0].shape) == 3
+    if squeeze_tensors:
+        tensor_list = [tensor[..., None] for tensor in tensor_list]
+
+    max_dim1 = max(tensor.shape[1] for tensor in tensor_list)
+    max_dim2 = max(tensor.shape[2] for tensor in tensor_list)
+    max_dim3 = max(tensor.shape[3] for tensor in tensor_list)
+    stacked_tensors = torch.zeros(len(tensor_list), 2, max_dim1, max_dim2, max_dim3, device=tensor_list[0].device)
+    for i, tensor in enumerate(tensor_list):
+        stacked_tensors[i, :, : tensor.shape[1], : tensor.shape[2], : tensor.shape[3]] = tensor
+    if squeeze_tensors:
+        stacked_tensors = stacked_tensors.squeeze(-1)
+    return stacked_tensors
 
 
-def batch_attention_probs_list(
-    attention_probs: Union[List[torch.Tensor], List[Tuple[torch.Tensor]]],
-) -> Union[List[torch.Tensor], List[Tuple[torch.Tensor]]]:
+def batch_inconsistent_tensor_list(tensor_list: List[Tuple[torch.Tensor]]) -> List[torch.Tensor]:
     """
-    Given a list of attention probabilities, batch them together.
-    We assume that the attention probabilities are of shape (batch_size, num_heads, num_keypoints_a, num_keypoints_b).
-    The list must be in the following form :
-    - List of attention probabilities: [attention_probs_0, attention_probs_1, ...]
-    We stack the attention probabilities along the batch dimension for each tuple:
-    -> [torch.stack([attention_probs_0_0, attention_probs_1_0, ...], dim=0), torch.stack([attention_probs_0_1, attention_probs_1_1, ...], dim=0), ...]
+    Batch a list of tuples of tensors with inconsistent dimensions.
+    For a list of N tuples of T tensors : `[(tensor0_0, tensor0_1, ..., tensor0_T), (tensor1_0, tensor1_1, ...,
+    tensor1_T), ..., (tensorN_0, tensorN_1, ..., tensorN_T)]`, the output will be a list of T stacked tensors:
+    `[stack(tensor0_0, tensor1_0, ..., tensorN_0), stack(tensor0_1, tensor1_1, ..., tensorN_1), ..., stack(tensor0_T,
+    tensor1_T, ..., tensorN_T)]`.
+
+    Args:
+        tensor_list (`List[Tuple[torch.Tensor]]`): List of tuples of tensors with inconsistent dimensions.
+
+    Returns: (`List[torch.Tensor]`): List of tensors with consistent dimensions.
     """
-
-    list_of_tuples = [tuple([element[i] for element in attention_probs]) for i in range(len(attention_probs[0]))]
-    return [stack_attention_probs_list(element) for element in list_of_tuples]
-
-
-def concat_hidden_states_tuples_pair(
-    hidden_states_0: Tuple[torch.Tensor], hidden_states_1: Tuple[torch.Tensor]
-) -> Tuple[torch.Tensor]:
-    """
-    Concatenate two tuple of hidden states into one.
-    We assume that the hidden states are of shape (batch_size, hidden_state_size, num_keypoints).
-    The tuples are assumed to have the same length and of the following form:
-    hidden_states_0 = (hidden_state_0_0, hidden_state_0_1, ...)
-    hidden_states_1 = (hidden_state_1_0, hidden_state_1_1, ...)
-    The output will then be of the form:
-    new_hidden_states = (torch.cat(hidden_state_0_0, hidden_state_1_0), torch.cat(hidden_state_0_1, hidden_state_1_1), ...)
-    If the number of keypoints are different among hidden_states, the smaller one will be padded with zeros :
-    (batch_size * 2, hidden_state_size, max(num_keypoints_0, num_keypoints_1))
-    """
-    hidden_states = ()
-    for hidden_state_0, hidden_state_1 in zip(hidden_states_0, hidden_states_1):
-        if hidden_state_0.shape != hidden_state_1.shape:
-            max_num_keypoints = max(hidden_state_0.shape[1], hidden_state_1.shape[1])
-            new_hidden_state = torch.zeros(2, max_num_keypoints, hidden_state_0.shape[2], device=hidden_state_0.device)
-            new_hidden_state[0, : hidden_state_0.shape[1], :] = hidden_state_0
-            new_hidden_state[1, : hidden_state_1.shape[1], :] = hidden_state_1
-            hidden_states = hidden_states + (new_hidden_state,)
-        else:
-            hidden_states = hidden_states + (torch.cat([hidden_state_0, hidden_state_1]),)
-    return hidden_states
-
-
-def stack_hidden_states_list(hidden_states: List[torch.Tensor]) -> torch.Tensor:
-    """
-    Given a list of hidden states tensors, stack them together using torch.stack.
-    We assume that the hidden states are of shape (batch_size, hidden_state_size, num_keypoints).
-    If all hidden states have the same shape, we stack them along the batch dimension:
-    [hidden_state_0, hidden_state_1, ...] -> torch.stack([hidden_state_0, hidden_state_1, ...], dim=0)
-    If the hidden states have different shapes, the smaller ones will be padded with zeros:
-    (batch_size * 2, hidden_state_size, max(num_keypoints_0, num_keypoints_1))
-    """
-    current_shape = hidden_states[0].shape
-    all_same_shape = all(hidden_state.shape == current_shape for hidden_state in hidden_states)
-    if all_same_shape:
-        return torch.stack(hidden_states, dim=0)
-
-    max_num_keypoints = max(hidden_state.shape[1] for hidden_state in hidden_states)
-    stacked_hidden_state = torch.zeros(
-        len(hidden_states),
-        2,
-        max_num_keypoints,
-        hidden_states[0].shape[2],
-        device=hidden_states[0].device,
-    )
-    for i, hidden_state in enumerate(hidden_states):
-        stacked_hidden_state[i, :, : hidden_state.shape[1], :] = hidden_state
-    return stacked_hidden_state
-
-
-def batch_hidden_states(
-    hidden_states: Union[List[torch.Tensor], List[Tuple[torch.Tensor]]],
-) -> Union[List[torch.Tensor], List[Tuple[torch.Tensor]]]:
-    """
-    Given a list of hidden states, batch them together using torch.stack.
-    We assume that the hidden states are of shape (batch_size, hidden_state_size, num_keypoints).
-    The list must be in the following form :
-    [(hidden_state_0_0, hidden_state_1_0, ...), (hidden_state_0_1, hidden_state_1_1, ...), ...]
-    We stack the hidden states along the batch dimension for each tuple:
-    -> [torch.stack([hidden_state_0_0, hidden_state_1_0, ...], dim=0), torch.stack([hidden_state_0_1, hidden_state_1_1, ...], dim=0), ...]
-    """
-
-    list_of_tuples = [tuple([element[i] for element in hidden_states]) for i in range(len(hidden_states[0]))]
-    return [stack_hidden_states_list(element) for element in list_of_tuples]
+    list_of_tuples = list(zip(*map(list, tensor_list)))
+    return [stack_inconsistent_tensor_list(element) for element in list_of_tuples]
 
 
 def normalize_keypoints(keypoints: torch.Tensor, height: torch.Tensor, width: torch.Tensor) -> torch.Tensor:
@@ -454,7 +454,7 @@ class LightGlueCrossAttentionBlock(nn.Module):
         all_attentions = () if output_attentions else None
 
         if output_hidden_states:
-            new_hidden_state = concat_hidden_states_tuples_pair((descriptors_0,), (descriptors_1,))
+            new_hidden_state = concat_inconsistent_pairs((descriptors_0,), (descriptors_1,))
             all_hidden_states = all_hidden_states + new_hidden_state
 
         qk0, v0 = self.input_projection(descriptors_0)
@@ -474,11 +474,9 @@ class LightGlueCrossAttentionBlock(nn.Module):
         descriptors_1 = message_output_1[0]
 
         if output_hidden_states:
-            all_hidden_states = all_hidden_states + concat_hidden_states_tuples_pair(
-                message_output_0[1], message_output_1[1]
-            )
+            all_hidden_states = all_hidden_states + concat_inconsistent_pairs(message_output_0[1], message_output_1[1])
         if output_attentions:
-            all_attentions = all_attentions + concat_attentions_tuples_pair((attention0,), (attention1,))
+            all_attentions = all_attentions + concat_inconsistent_pairs((attention0,), (attention1,))
 
         return descriptors_0, descriptors_1, all_hidden_states, all_attentions
 
@@ -502,7 +500,7 @@ class LightGlueTransformerLayer(nn.Module):
         all_hidden_states = () if output_hidden_states else None
         all_attentions = () if output_attentions else None
         if output_hidden_states:
-            new_hidden_state = concat_hidden_states_tuples_pair((descriptors_0,), (descriptors_1,))
+            new_hidden_state = concat_inconsistent_pairs((descriptors_0,), (descriptors_1,))
             all_hidden_states = all_hidden_states + new_hidden_state
         self_attention_output0 = self.self_attention_block(
             descriptors_0, keypoints0, output_hidden_states=output_hidden_states, output_attentions=output_attentions
@@ -525,12 +523,12 @@ class LightGlueTransformerLayer(nn.Module):
         descriptors_1 = output[1]
 
         if output_hidden_states:
-            all_hidden_states = all_hidden_states + concat_hidden_states_tuples_pair(
+            all_hidden_states = all_hidden_states + concat_inconsistent_pairs(
                 self_attention_output0[1], self_attention_output1[1]
             )
             all_hidden_states = all_hidden_states + output[2]
         if output_attentions:
-            all_attentions = all_attentions + concat_attentions_tuples_pair(
+            all_attentions = all_attentions + concat_inconsistent_pairs(
                 self_attention_output0[2], self_attention_output1[2]
             )
             all_attentions = all_attentions + output[3]
@@ -949,11 +947,11 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             keypoints[i, 1, : _keypoints_1.shape[1], :] = _keypoints_1
 
         if output_hidden_states:
-            hidden_states = batch_hidden_states(list_hidden_states)
+            hidden_states = batch_inconsistent_tensor_list(list_hidden_states)
         else:
             hidden_states = None
         if output_attentions:
-            attentions = batch_attention_probs_list(list_attentions)
+            attentions = batch_inconsistent_tensor_list(list_attentions)
         else:
             attentions = None
         return attentions, hidden_states, keypoints, matches, matches_mask, matching_scores, prune

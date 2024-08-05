@@ -43,7 +43,7 @@ notebook_login()
 </hfoption>
 </hfoptions>
 
-## Model repository features
+## Repository features
 
 <Youtube id="XvSGPZFEjDY"/>
 
@@ -73,7 +73,7 @@ The model repository also includes an inference [widget](https://hf.co/docs/hub/
 
 Check out the Hub [Models](https://hf.co/docs/hub/models) documentation to learn more about.
 
-## Convert a model for all frameworks
+## Model framework conversion
 
 Reach a wider audience by converting a model to be compatible with all machine learning frameworks (PyTorch, TensorFlow, Flax). While users can still load a model if they're using a different framework, it is slower because Transformers converts the checkpoint on the fly. It is faster to convert the checkpoint beforehand.
 
@@ -122,7 +122,7 @@ There are several ways to upload a model to the Hub depending on your workflow p
 
 <Youtube id="Z1-XMy-GNLQ"/>
 
-### Upload from Trainer
+### Trainer
 
 The [`Trainer`], Transformers' training API, allows pushing a model directly to the Hub after training. Set `push_to_hub=True` in the [`TrainingArguments`] class and pass it to the [`Trainer`]. Once training is complete, call [`~transformers.Trainer.push_to_hub`] to upload the model.
 
@@ -155,7 +155,7 @@ push_to_hub_callback = PushToHubCallback(
 model.fit(tf_train_dataset, validation_data=tf_validation_dataset, epochs=3, callbacks=push_to_hub_callback)
 ```
 
-### Upload from model
+### PreTrainedModel.push_to_hub
 
 Call [`~PreTrainedModel.push_to_hub`] directly on a model to upload it to the Hub. It creates a repository under your namespace with the model name specified in [`~PreTrainedModel.push_to_hub`].
 
@@ -173,7 +173,7 @@ Your Hugging Face profile should now display the newly created model repository.
 
 Refer to the [Upload files to the Hub](https://hf.co/docs/hub/how-to-upstream) guide for more details about pushing files to the Hub.
 
-### Upload from web interface
+### Hub web interface
 
 For a no-code approach, upload a model with the Hub's web interface.
 

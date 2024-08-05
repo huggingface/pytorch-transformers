@@ -90,7 +90,7 @@ Transformers' models follow the convention of accepting a `config` object in the
 You'll create two ResNet models, a ResNet model that outputs the hidden states and a ResNet model with an image classification head.
 
 <hfoptions id="resnet">
-<hfoption id="ResNetModel">
+<hfoption id="ResnetModel">
 
 Define a mapping between the block types and block classes. Everything else is created by passing the configuration class to the Resnet model class.
 
@@ -127,7 +127,7 @@ class ResnetModel(PreTrainedModel):
 ```
 
 </hfoption>
-<hfoption id="ResNetModelForImageClassification">
+<hfoption id="ResnetModelForImageClassification">
 
 The `forward` method needs to be rewrittten to calculate the loss for each logit if labels are available. Otherwise, the Resnet model class is the same.
 
@@ -185,7 +185,7 @@ pretrained_model = timm.create_model("resnet50d", pretrained=True)
 resnet50d.model.load_state_dict(pretrained_model.state_dict())
 ```
 
-## AutoClass support
+## AutoClass
 
 The [AutoClass](./models#autoclass) API is a shortcut for automatically loading the correct architecture for a given model. It may be convenient for your users to add this API to your custom model.
 
@@ -202,7 +202,7 @@ AutoModel.register(ResnetConfig, ResnetModel)
 AutoModelForImageClassification.register(ResnetConfig, ResnetModelForImageClassification)
 ```
 
-## Share a custom model on the Hub
+## Upload model
 
 Upload a custom model to the [Hub](https://hf.co/models) to allow other users to easily load and use it.
 
@@ -289,5 +289,3 @@ resnet50d.push_to_hub("custom-resnet50d")
 The pretrained weights, configuration in JSON format, `modeling.py` and `configuration.py` files should all be uploaded to the Hub now under a namespace and specified directory [here](https://hf.co/sgugger/custom-resnet50d).
 
 Because a custom model doesn't use the same modeling code as Transformers' model, you need to add `trust_remode_code=True` in the [`~PreTrainedModel.from_pretrained`] method. Refer to the load [custom models](./models#custom-models) section for more information.
-
-6401

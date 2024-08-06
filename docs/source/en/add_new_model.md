@@ -158,6 +158,15 @@ Return to your clone of Transformers to begin porting BrandNewBert.
 cd transformers
 ```
 
+There are two debugging environments for running the original model, a notebook ([Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) or [Jupyter](https://jupyter.org/)) or a local Python script.
+
+> [!WARNING]
+> We don't recommend setting up a GPU environment to run the original model. This can be costly and only verified when the model is working in Transformers. Instead, work in a CPU environment at first.
+
+Notebooks are great for executing code cell-by-cell which can better help split logical components from one another. It can also accelerate debugging cycles because intermediate results can be stored. Notebooks can also be shared which is useful for working with contributors.
+
+The downside of notebooks is that if you aren't used to them, it may take some time to get used to.
+
 > [!TIP]
 > If the model architecture is identical to an existing model, skip ahead to add a [conversion script](#conversion-script), because you can reuse the architecture of the existing model.
 
@@ -202,6 +211,94 @@ git merge upstream/main
 ```
 
 ### Run original checkpoint
+
+Before you start working on your model implementation, you should work on the original model implementation first to understand how it works.
+
+This can be difficult if the original model repository is lacking documentation or if the codebase is complex. But you should use this as your motivation to implement the model in Transformers. Your contribution makes it more accessible and user-friendly to everyone.
+
+Orient yourself with the original repository by doing the following.
+
+- Locate the pretrained weights.
+- Figure out how to the load pretrained weights into the model.
+- Figure out how to run the tokenizer indepdently of the model.
+- Trace one forward pass to understand which classes and functions are required. These are probably the only classes and functions you'll have to implement.
+- Locate all the important components (model class, model subclasses, self-attention layer, etc.) of the model.
+- Figure out how to debug the model in the original repository. Add print statements, use interactive debuggers like [ipdb](https://github.com/gotcha/ipdb), or a efficient integrated development environment (IDE) like [PyCharm](https://www.jetbrains.com/pycharm/).
+
+The last point is especially important because you'll need a thorough understanding of what's happening inside the original model before you can reimplement it in Transformers. Feel free to open issues and pull requests in the original repository if you encounter any issues.
+
+A good first step is to load a *small* pretrained checkpoint and try to reproduce a single forward pass with an example integer vector of inputs. For example, in pseudocode, this could look like the following.
+
+```py
+model = BrandNewBertModel.load_pretrained_checkpoint("/path/to/checkpoint/")
+input_ids = [0, 4, 5, 2, 3, 7, 9]  # vector of input ids
+original_output = model.predict(input_ids)
+```
+
+If you run into issues, you'll need to choose one of the following debugging decomposition strategies depending on the original models codebase.
+
+<hfoptions id="debug-strategy">
+<hfoption id="sub-components">
+
+This strategy relies on breaking the original model into smaller sub-components, such as when the code can be easily run in eager mode. While more difficult, there are some advantages to this approach.
+
+1. It is easier later to compare the original model to your implementation. You can automatically verify that each individual component matches its corresponding component in Transformers' implementation. This is better than relying on a visual comparison based on print statements.
+2. It is easier to port individal components instead of the entire model.
+3. It is easier for understanding how a model works by breaking it up into its components.
+4. It is easier to prevent regressions at a later stage when you change your code thanks to component-by-component tests.
+
+> [!TIP]
+> Refer to the ELECTRA [integration checks](https://gist.github.com/LysandreJik/db4c948f6b4483960de5cbac598ad4ed) for a good example of how to decompose a model into smaller components.
+
+</hfoption>
+<hfoption id="model and tokenizer">
+
+This strategy is viable when the original codebase is too complex, only allows intermediate components to be run in compiled mode, or if it's too time-consuming (maybe even impossible) to separate the model into smaller sub-components.
+
+For example, the MeshTensorFlow implementation of [T5](https://github.com/tensorflow/mesh/tree/master/mesh_tensorflow) is too complex and doesn't offer a simple way to decompose the model into its sub-components. In this situation, you'll have to relay on verifying print statements.
+
+</hfoption>
+</hfoptions>
+
+Whichever strategy you choose, it is recommended to debug the initial layers first and the final layers last. Retrieve the output, either with print statements or sub-component functions, of the following layers in this order.
+
+1. input ids passed to the model
+2. word embeddings
+3. input of the first Transformer layer
+4. output of the first Transformer layer
+5. output of the following n-1 Transformer layers
+6. output of the whole model
+
+The input ids should just be an array of integers like `input_ids = [0, 4, 4, 3, 2, 4, 1, 7, 19]`.
+
+Layer outputs often consist of multi-dimensional float arrays.
+
+```py
+[[
+ [-0.1465, -0.6501,  0.1993,  ...,  0.1451,  0.3430,  0.6024],
+ [-0.4417, -0.5920,  0.3450,  ..., -0.3062,  0.6182,  0.7132],
+ [-0.5009, -0.7122,  0.4548,  ..., -0.3662,  0.6091,  0.7648],
+ ...,
+ [-0.5613, -0.6332,  0.4324,  ..., -0.3792,  0.7372,  0.9288],
+ [-0.5416, -0.6345,  0.4180,  ..., -0.3564,  0.6992,  0.9191],
+ [-0.5334, -0.6403,  0.4271,  ..., -0.3339,  0.6533,  0.8694]]],
+```
+
+Every Transformers model output should have a precision or error tolerance of *1e-3*. This accounts for any output differences that arise from using a different library framework. Compare the intermediate outputs of the original model with the Transformers implementation to ensure they're nearly identical. Having an *efficient* debugging environment is crucial for this step.
+
+Here are some tips for an efficient debugging environment.
+
+- To debug intermediate results, it depends on the machine learning framework the original model repository is using. For PyTorch, you should write a script to decompose the original model into smaller sub-components to retrieve the intermediate values. For TensorFlow, you may need to use [tf.print](https://www.tensorflow.org/api_docs/python/tf/print). For Flax, make sure the model is *not jitted* during the forward pass (refer to this GitHub [Issue](https://github.com/google/jax/issues/196) for more details).
+
+- It is faster to debug with a smaller pretrained checkpoint versus a larger checkpoint where the forward pass takes more than 10 seconds. If only large checkpoints are available, create a dummy model with randomly initialized weights and save those weights to compare against the Transformers implementation.
+
+- Find the easiest way to call the model's forward pass. Ideally, this function (may be called `predict`, `evaluate`, `forward`, or `__call__`) should only call the forward pass *once*. It is more difficult to debug a function that calls the forward pass multiple times.
+
+- Separate tokenization from the forward pass. Locate where a string input is changed to input ids in the forward pass and start here. You may need to create a small script or modify the original code to directly input the input ids instead of an input string.
+
+- Ensure the model is *not* in training mode. This can produce random outputs due to multiple dropout layers in a model. The forward pass in your debugging environment should be *deterministic* so that the dropout layers aren't used.
+
+Once you're able to run the original checkpoint, you're ready to start adapting the model code for Transformers.
 
 ### Adapt the model code
 

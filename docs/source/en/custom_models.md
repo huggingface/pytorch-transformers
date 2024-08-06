@@ -185,7 +185,7 @@ pretrained_model = timm.create_model("resnet50d", pretrained=True)
 resnet50d.model.load_state_dict(pretrained_model.state_dict())
 ```
 
-## AutoClass
+## AutoClass support
 
 The [AutoClass](./models#autoclass) API is a shortcut for automatically loading the correct architecture for a given model. It may be convenient for your users to add this API to your custom model.
 
@@ -201,6 +201,8 @@ AutoConfig.register("resnet", ResnetConfig)
 AutoModel.register(ResnetConfig, ResnetModel)
 AutoModelForImageClassification.register(ResnetConfig, ResnetModelForImageClassification)
 ```
+
+Your custom model code is now compatible with the [AutoClass](./models#autoclass) API. Users can load the model with the `AutoModel` or [`AutoModelForImageClassification`] classes.
 
 ## Upload model
 
@@ -231,7 +233,9 @@ from resnet_model.configuration_resnet import ResnetConfig
 from resnet_model.modeling_resnet import ResnetModel, ResnetModelForImageClassification
 ```
 
-Copy the code from the model and configuration files and register them with an [AutoClass](./models#autoclass) with the [`~PretrainedConfig.register_for_auto_class`] method. For the model, pick the appropriate `AutoModelFor` class based on the task.
+Copy the code from the model and configuration files. To make sure the AutoClass objects are saved when calling [`~PreTrainedModel.save_pretrained`], call the [`~PretrainedConfig.register_for_auto_class`] method. This modifies the configuration JSON file to include the AutoClass objects and mapping.
+
+For a model, pick the appropriate `AutoModelFor` class based on the task.
 
 ```py
 ResnetConfig.register_for_auto_class()

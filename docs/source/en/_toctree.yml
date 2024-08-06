@@ -56,6 +56,8 @@
       title: LLM prompting guide
     - local: llm_optims
       title: LLM inference optimization
+    - local: kv_cache
+      title: Best Practices for Generation with Cache
     - local: llm_tutorial
       title: Generation with LLMs
     - local: generation_strategies
@@ -153,6 +155,8 @@
     title: EETQ
   - local: quantization/hqq
     title: HQQ
+  - local: quantization/fbgemm_fp8
+    title: FBGEMM FP8
   - local: quantization/optimum
     title: Optimum
   - local: quantization/contribute
@@ -816,6 +820,8 @@
         title: YOLOS
       - local: model_doc/zamba
         title: Zamba
+      - local: model_doc/zoedepth
+        title: ZoeDepth
     - title: Audio models
       sections:
       - local: model_doc/audio-spectrogram-transformer

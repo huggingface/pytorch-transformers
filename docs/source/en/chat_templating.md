@@ -15,6 +15,7 @@ rendered properly in your Markdown viewer.
 -->
 
 # Chat Templates
+# Chat Templates
 
 ## Introduction
 
@@ -319,6 +320,12 @@ duplicated, which will hurt model performance.
 Therefore, if you format text with `apply_chat_template(tokenize=False)`, you should set the argument
 `add_special_tokens=False` when you tokenize that text later. If you use `apply_chat_template(tokenize=True)`, you don't need to worry about this!
 
+already include all the special tokens they need, and so additional special tokens will often be incorrect or 
+duplicated, which will hurt model performance.
+
+Therefore, if you format text with `apply_chat_template(tokenize=False)`, you should set the argument
+`add_special_tokens=False` when you tokenize that text later. If you use `apply_chat_template(tokenize=True)`, you don't need to worry about this!
+
 </Tip>
 
 ## Advanced: Extra inputs to chat templates
@@ -403,6 +410,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 checkpoint = "NousResearch/Hermes-2-Pro-Llama-3-8B"
 
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 model = AutoModelForCausalLM.from_pretrained(checkpoint, torch_dtype=torch.bfloat16, device_map="auto")
 ```
 
@@ -448,6 +456,7 @@ Now, let's apply the chat template and generate a response:
 
 ```python
 inputs = tokenizer.apply_chat_template(messages, tools=tools, add_generation_prompt=True, return_dict=True, return_tensors="pt")
+inputs = tokenizer.apply_chat_template(messages, tools=tools, add_generation_prompt=True, return_dict=True, return_tensors="pt")
 inputs = {k: v.to(model.device) for k, v in inputs.items()}
 out = model.generate(**inputs, max_new_tokens=128)
 print(tokenizer.decode(out[0][len(inputs["input_ids"][0]):]))
@@ -465,19 +474,11 @@ The model has called the function with valid arguments, in the format requested 
 inferred that we're most likely referring to the Paris in France, and it remembered that, as the home of SI units,
 the temperature in France should certainly be displayed in Celsius.
 
-<Tip>
-
-The output format above is specific to the `Hermes-2-Pro` model we're using in this example. Other models may emit different
-tool call formats, and you may need to do some manual parsing at this step. For example, `Llama-3.1` models will emit
-slightly different JSON, with `parameters` instead of `arguments`. Regardless of the format the model outputs, you 
-should add the tool call to the conversation in the format below, with `tool_calls`, `function` and `arguments` keys. 
-
-</Tip>
-
 Next, let's append the model's tool call to the conversation.
 
 ```python
 tool_call = {"name": "get_current_temperature", "arguments": {"location": "Paris, France", "unit": "celsius"}}
+messages.append({"role": "assistant", "tool_calls": [{"type": "function", "function": tool_call}]})
 messages.append({"role": "assistant", "tool_calls": [{"type": "function", "function": tool_call}]})
 ```
 
@@ -510,6 +511,26 @@ messages.append({"role": "assistant", "tool_calls": [{"type": "function", "id": 
 ```
 
 and
+that result directly.
+
+```python
+messages.append({"role": "tool", "name": "get_current_temperature", "content": "22.0"})
+```
+
+<Tip>
+
+Some model architectures, notably Mistral/Mixtral, also require a `tool_call_id` here, which should be
+9 randomly-generated alphanumeric characters, and assigned to the `id` key of the tool call
+dictionary. The same key should also be assigned to the `tool_call_id` key of the tool response dictionary below, so 
+that tool calls can be matched to tool responses. So, for Mistral/Mixtral models, the code above would be:
+
+```python
+tool_call_id = "9Ae3bDc2F"  # Random ID, 9 alphanumeric characters
+tool_call = {"name": "get_current_temperature", "arguments": {"location": "Paris, France", "unit": "celsius"}}
+messages.append({"role": "assistant", "tool_calls": [{"type": "function", "id": tool_call_id, "function": tool_call}]})
+```
+
+and
 
 ```python
 messages.append({"role": "tool", "tool_call_id": tool_call_id, "name": "get_current_temperature", "content": "22.0"})
@@ -517,9 +538,12 @@ messages.append({"role": "tool", "tool_call_id": tool_call_id, "name": "get_curr
 
 </Tip>
 
+</Tip>
+
 Finally, let's let the assistant read the function outputs and continue chatting with the user:
 
 ```python
+inputs = tokenizer.apply_chat_template(messages, tools=tools, add_generation_prompt=True, return_dict=True, return_tensors="pt")
 inputs = tokenizer.apply_chat_template(messages, tools=tools, add_generation_prompt=True, return_dict=True, return_tensors="pt")
 inputs = {k: v.to(model.device) for k, v in inputs.items()}
 out = model.generate(**inputs, max_new_tokens=128)

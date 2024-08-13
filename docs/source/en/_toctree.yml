@@ -32,10 +32,10 @@
   - title: Preprocessors
     isExpanded: false
     sections:
+    - local: fast_tokenizers
+      title: Tokenizers
     - local: preprocessing
       title: Preprocess data
-    - local: fast_tokenizers
-      title: Use fast tokenizers from 🤗 Tokenizers
     - local: tokenizer_summary
       title: Summary of the tokenizers
     - local: pad_truncation

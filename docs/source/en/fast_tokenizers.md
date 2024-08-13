@@ -21,14 +21,17 @@ Tokenizers convert text into an array of numbers known as tensors, which are the
 > [!TIP]
 > Learn more about the most popular tokenization algorithms in the [Summary of the tokenizers](./tokenizer_summary).
 
-To load a tokenizer, call the [`~PreTrainedTokenizer.from_pretrained`] method to load the tokenizer and its configuration from the Hugging Face [Hub](https://hf.co) into the tokenizer class. Apply the tokenizer to a string of text to return the input ids and attention mask.
+To load a tokenizer, call the [`~PreTrainedTokenizer.from_pretrained`] method to load the tokenizer and its configuration from the Hugging Face [Hub](https://hf.co) into the tokenizer class. Apply the tokenizer to a string of text to return the input ids and attention mask. Set the type of framework tensor to return with the `return_tensors` parameter.
 
 ```py
 from transformers import AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b")
-tokenizer("We are very happy to show you the 🤗 Transformers library")
-{'input_ids': [2, 1734, 708, 1508, 4915, 577, 1500, 692, 573, 156808, 128149, 9581], 'attention_mask': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]}
+tokenizer("We are very happy to show you the 🤗 Transformers library", return_tensors="pt")
+{'input_ids': tensor([[     2,   1734,    708,   1508,   4915,    577,   1500,    692,    573,
+         156808, 128149,   9581, 235265]]), 
+ 'attention_mask': tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
+}
 ```
 
 This guide provides a brief overview of the tokenizer classes and how to preprocess text with it.
@@ -50,8 +53,6 @@ Whatever tokenizer you use, make sure the tokenizer vocabulary is the same as a 
 
 ## AutoTokenizer
 
-<Youtube id="Yffk5aydLzg"/>
-
 The [AutoClass](./model_doc/auto) API is a fast and easy way to load a tokenizer without needing to know whether a Python or Rust-based implementation is available. By default, an AutoTokenizer tries to load a fast tokenizer if it's available for a given model, otherwise, it loads the Python implementation.
 
 Use the [`~PreTrainedTokenizer.from_pretrained`] method to load a tokenizer.
@@ -60,8 +61,11 @@ Use the [`~PreTrainedTokenizer.from_pretrained`] method to load a tokenizer.
 from transformers import AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b")
-tokenizer("We are very happy to show you the 🤗 Transformers library.")
-{'input_ids': [2, 1734, 708, 1508, 4915, 577, 1500, 692, 573, 156808, 128149, 9581, 235265], 'attention_mask': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]}
+tokenizer("We are very happy to show you the 🤗 Transformers library.", return_tensors="pt")
+{'input_ids': tensor([[     2,   1734,    708,   1508,   4915,    577,   1500,    692,    573,
+         156808, 128149,   9581, 235265]]), 
+ 'attention_mask': tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
+}
 ```
 
 Load your own tokenizer by passing its vocabulary file to the [`~AutoTokenizer.from_pretrained`] method.
@@ -83,7 +87,7 @@ Each pretrained model is associated with a pretrained tokenizer, and you can loa
 from transformers import GemmaTokenizer
 
 tokenizer = GemmaTokenizer.from_pretrained("google/gemma-2-2b")
-tokenizer("We are very happy to show you the 🤗 Transformers library.")
+tokenizer("We are very happy to show you the 🤗 Transformers library.", return_tensors="pt")
 ```
 
 </hfoption>
@@ -93,7 +97,7 @@ tokenizer("We are very happy to show you the 🤗 Transformers library.")
 from transformers import GemmaTokenizerFast
 
 tokenizer = GemmaTokenizerFast.from_pretrained("google/gemma-2-2b")
-tokenizer("We are very happy to show you the 🤗 Transformers library.")
+tokenizer("We are very happy to show you the 🤗 Transformers library.", return_tensors="pt")
 ```
 
 </hfoption>
@@ -108,6 +112,8 @@ tokenizer = GemmaTokenizerFast(vocab_file="my_vocab_file.txt")
 ```
 
 ## Fast tokenizers
+
+<Youtube id="3umI3tm27Vw"/>
 
 [`PreTrainedTokenizerFast`] or *fast tokenizers* are Rust-based tokenizers from the [Tokenizers](https://hf.co/docs/tokenizers) library. It is significantly faster at batched tokenization and provides additional alignment methods compared to the Python-based tokenizers.
 
@@ -169,15 +175,24 @@ fast_tokenizer = PreTrainedTokenizerFast(tokenizer_file="tokenizer.json")
 
 ## Preprocess
 
-A tokenizers job is to preprocess text into an array of numbers. When passing a string of text to a tokenizer, there are actually two steps the tokenizer performs to convert the text into input ids.
+<Youtube id="Yffk5aydLzg"/>
 
-<!-- insert diagram here -->
+A Transformers model expects the input as a PyTorch, TensorFlow, or NumPy tensor. A tokenizers job is to preprocess text into those tensors. Specify the type of framework tensor to return with the `return_tensors` parameter.
 
 ```py
 from transformers import AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b")
+tokenizer("We are very happy to show you the 🤗 Transformers library.", return_tensors="pt")
+{'input_ids': tensor([[     2,   1734,    708,   1508,   4915,    577,   1500,    692,    573,
+         156808, 128149,   9581, 235265]]), 
+ 'attention_mask': tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
+}
 ```
+
+When passing a string of text to a tokenizer, there are actually two steps the tokenizer performs to convert the text into input ids.
+
+<!-- insert diagram here -->
 
 <hfoptions id="steps">
 <hfoption id="1. tokenize">
@@ -202,8 +217,6 @@ ids = tokenizer.convert_tokens_to_ids(tokens)
 print(ids)
 [1734, 708, 1508, 4915, 577, 1500, 692, 573, 156808, 128149, 9581]
 ```
-
-These are the same input ids you would see if you had just passed the string of text to the tokenizer.
 
 </hfoption>
 <hfoption id="3. decode ids to text">
@@ -245,8 +258,53 @@ Not all models need special tokens, but if they do, a tokenizer automatically ad
 
 ### Batch tokenization
 
+It is faster and more efficient to preprocess *batches* of text instead of a single sentence at a time. Fast tokenizers are especially good at parallelizing tokenization.
+
+Pass a list of the string text to the tokenizer.
+
+```py
+batch_sentences = [
+    "But what about second breakfast?",
+    "Don't think he knows about second breakfast, Pip.",
+    "What about elevensies?",
+]
+encoded_inputs = tokenizer(batch_sentences, return_tensors="pt")
+print(encoded_inputs)
+{
+ 'input_ids': 
+    [[2, 1860, 1212, 1105, 2257, 14457, 235336], 
+     [2, 4454, 235303, 235251, 1742, 693, 9242, 1105, 2257, 14457, 235269, 48782, 235265], 
+     [2, 1841, 1105, 29754, 37453, 235336]], 
+ 'attention_mask': [[1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1]]
+}
+```
+
 ### Padding
+
+> [!TIP]
+> Learn about additional padding strategies in the [Padding and truncation](./pad_truncation) guide.
+
+Examine the `input_ids` and you'll notice each element has a different length. This is an issue because Transformers expects the elements to have the same lengths so it can pack them into a batch. Sequences with uneven lengths can't be batched.
+
+Padding adds a special *padding token* to ensure all sequences have the same length. Set `padding=True` to pad the sequences to the longest sequence length in the batch.
+
+```py
+encoded_inputs = tokenizer(batch_sentences, padding=True, return_tensors="pt")
+print(encoded_inputs)
+```
+
+The tokenizer added the special padding token `0` to the left side (*left padding*) because Gemma and LLMs in general are not trained to continue generation from a padding token.
 
 ### Truncation
 
-### Framework-specific tensors
+> [!TIP]
+> Learn about additional truncation strategies in the [Padding and truncation](./pad_truncation) guide.
+
+Models are only able to process sequences up to a certain length. If you try to process a sequence longer than a model can handle, it'll crash.
+
+Truncation removes tokens from a sequence to ensure it doesn't exceed the maximum length. Set `truncation=True` to truncate a sequence to the maximum length accepted by the model. Or you can set the maximum length yourself with the `max_length` parameter.
+
+```py
+encoded_inputs = tokenizer(batch_sentences, max_length=8, truncation=True, return_tensors="pt")
+print(encoded_inputs)
+```

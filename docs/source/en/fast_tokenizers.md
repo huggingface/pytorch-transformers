@@ -193,7 +193,7 @@ print(tokens)
 Gemma uses a [SentencePiece](./tokenizer_summary#sentencepiece) tokenizer which replaces spaces with an underscore `_`.
 
 </hfoption>
-<hfoption id="2. convert tokens to ids"
+<hfoption id="2. convert tokens to ids">
 
 In the second step, the tokens are converted into ids with the [`~PreTrainedTokenizer.convert_tokens_to_ids`] method.
 

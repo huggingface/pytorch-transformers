@@ -34,6 +34,8 @@
     sections:
     - local: fast_tokenizers
       title: Tokenizers
+    - local: image_processor
+      title: Image processors
     - local: preprocessing
       title: Preprocess data
     - local: tokenizer_summary

@@ -36,6 +36,8 @@
       title: Tokenizers
     - local: image_processors
       title: Image processors
+    - local: backbones
+      title: Backbones
     - local: preprocessing
       title: Preprocess data
     - local: tokenizer_summary

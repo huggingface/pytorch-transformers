@@ -38,6 +38,8 @@
       title: Image processors
     - local: backbones
       title: Backbones
+    - local: feature_extractors
+      title: Feature extractors
     - local: preprocessing
       title: Preprocess data
     - local: tokenizer_summary

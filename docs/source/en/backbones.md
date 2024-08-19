@@ -138,7 +138,7 @@ from transformers import TimmBackboneConfig
 backbone_config = TimmBackboneConfig("resnet50", use_pretrained_backbone=True)
 ```
 
-Pass the backbone configuration to the model configuration and then instantiate the model head, [`MaskFomerForInstanceSegmentation`], with the backbone.
+Pass the backbone configuration to the model configuration and then instantiate the model head, [`MaskFormerForInstanceSegmentation`], with the backbone.
 
 ```py
 from transformers import MaskFormerConfig, MaskFormerForInstanceSegmentation

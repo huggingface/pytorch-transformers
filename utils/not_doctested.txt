@@ -6,7 +6,6 @@ docs/source/en/agents.md
 docs/source/en/agents.md
 docs/source/en/attention.md
 docs/source/en/benchmarks.md
-docs/source/en/bertology.md
 docs/source/en/big_models.md
 docs/source/en/community.md
 docs/source/en/contributing.md
@@ -291,7 +290,6 @@ docs/source/en/perplexity.md
 docs/source/en/philosophy.md
 docs/source/en/pipeline_webserver.md
 docs/source/en/pr_checks.md
-docs/source/en/preprocessing.md
 docs/source/en/run_scripts.md
 docs/source/en/sagemaker.md
 docs/source/en/serialization.md

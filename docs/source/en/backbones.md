@@ -30,6 +30,8 @@ from transformers import AutoBackbone
 model = AutoBackbone.from_pretrained("microsoft/swin-tiny-patch4-window7-224", out_indices=(1,))
 ```
 
+This guide describes the backbone class, backbones from the [timm](https://hf.co/docs/timm/index) library, and how to extract features with them.
+
 ## Base backbone classes
 
 There are two backbone classes for Transformers' models.

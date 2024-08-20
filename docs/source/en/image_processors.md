@@ -44,6 +44,8 @@ image = Image.open(requests.get(url, stream=True).raw).convert("RGB")
 inputs = image_processor(image, return_tensors="pt")
 ```
 
+This guide covers the image processor class and how to preprocess images for vision models.
+
 ## Base image processor classes
 
 <!-- insert diagram here -->

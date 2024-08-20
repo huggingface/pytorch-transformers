@@ -27,8 +27,6 @@
       title: The Transformer model family
     - local: attention
       title: Attention mechanisms
-    - local: bertology
-      title: BERTology
   - title: Preprocessors
     isExpanded: false
     sections:
@@ -40,8 +38,8 @@
       title: Backbones
     - local: feature_extractors
       title: Feature extractors
-    - local: preprocessing
-      title: Preprocess data
+    - local: processors
+      title: Processors
     - local: tokenizer_summary
       title: Summary of the tokenizers
     - local: pad_truncation

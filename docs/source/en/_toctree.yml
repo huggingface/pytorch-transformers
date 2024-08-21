@@ -86,6 +86,28 @@
     title: Agents
   - local: multilingual
     title: Run inference with multilingual models
+  - local: custom_models
+    title: Share a custom model
+  - local: chat_templating
+    title: Chat templates
+  - local: trainer
+    title: Trainer
+  - local: sagemaker
+    title: Run training on Amazon SageMaker
+  - local: serialization
+    title: Export to ONNX
+  - local: tflite
+    title: Export to TFLite
+  - local: torchscript
+    title: Export to TorchScript
+  - local: benchmarks
+    title: Benchmarks
+  - local: notebooks
+    title: Notebooks with examples
+  - local: community
+    title: Community resources
+  - local: troubleshooting
+    title: Troubleshoot
   - local: gguf
     title: Interoperability with GGUF files
   - local: perf_infer_cpu

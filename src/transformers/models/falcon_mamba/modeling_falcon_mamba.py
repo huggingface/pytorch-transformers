@@ -377,6 +377,7 @@ class FalconMambaMixer(nn.Module):
         return self.slow_forward(hidden_states, cache_params, cache_position)
 
 
+
 # Copied from transformers.models.mamba.modeling_mamba.MambaRMSNorm with Mamba->FalconMamba
 class FalconMambaRMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):

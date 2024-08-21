@@ -75,7 +75,7 @@
       - local: conversations
         title: Chatting with Transformers
       - local: chat_templating
-        title: Templates for chat models
+        title: Chat templates
   - title: Framework-specific inference optimization
     sections:
     - local: tf_xla

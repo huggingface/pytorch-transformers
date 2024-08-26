@@ -91,6 +91,9 @@ config = MaskFormerConfig(backbone_config=backbone_config)
 model = MaskFormerForInstanceSegmentation(config)
 ```
 
+</hfoption>
+</hfoptions>
+
 ## timm backbones
 
 [timm](https://hf.co/docs/timm/index) is a collection of vision models for training and inference. Transformers supports timm models as backbones with the [`TimmBackbone`] and [`TimmBackboneConfig`] classes.

@@ -98,6 +98,7 @@ class FalconMambaModelTester:
         self, gradient_checkpointing=False, scale_attn_by_inverse_layer_idx=False, reorder_and_upcast_attn=False
     ):
         input_ids = ids_tensor([self.batch_size, self.seq_length], self.vocab_size)
+        attention_mask = ids_tensor([self.batch_size, self.seq_length], 1)
 
         sequence_labels = None
         token_labels = None
@@ -116,7 +117,7 @@ class FalconMambaModelTester:
         return (
             config,
             input_ids,
-            None,
+            attention_mask,
             sequence_labels,
             token_labels,
             choice_labels,
@@ -150,6 +151,7 @@ class FalconMambaModelTester:
         (
             config,
             input_ids,
+            attention_mask,
             sequence_labels,
             token_labels,
             choice_labels,
@@ -158,6 +160,7 @@ class FalconMambaModelTester:
         return (
             config,
             input_ids,
+            attention_mask,
             sequence_labels,
             token_labels,
             choice_labels,
@@ -250,12 +253,12 @@ class FalconMambaModelTester:
         (
             config,
             input_ids,
-            _,
+            attention_mask,
             sequence_labels,
             token_labels,
             choice_labels,
         ) = self.prepare_config_and_inputs()
-        inputs_dict = {"input_ids": input_ids}
+        inputs_dict = {"input_ids": input_ids, "attention_mask": attention_mask}
         return config, inputs_dict
 
 

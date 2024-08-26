@@ -62,7 +62,7 @@ is_fast_path_available = all(
     (selective_state_update, selective_scan_fn, causal_conv1d_fn, causal_conv1d_update, mamba_inner_fn)
 )
 
-_CHECKPOINT_FOR_DOC = "tiiuae/falcon_mamba-7b"
+_CHECKPOINT_FOR_DOC = "tiiuae/falcon-mamba-7b"
 _CONFIG_FOR_DOC = "FalconMambaConfig"
 
 
@@ -167,6 +167,7 @@ class FalconMambaMixer(nn.Module):
         hidden_states: torch.Tensor,
         cache_params: Optional[MambaCache] = None,
         cache_position: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.LongTensor] = None,
     ):
         # 1. Gated MLP's linear projection
         projected_states = self.in_proj(hidden_states).transpose(1, 2)
@@ -195,6 +196,9 @@ class FalconMambaMixer(nn.Module):
         else:
             hidden_states, gate = projected_states.chunk(2, dim=1)
 
+            if attention_mask is not None:
+                hidden_states = hidden_states * attention_mask.unsqueeze(1)
+
             # 2. Convolution sequence transformation
             conv_weights = self.conv1d.weight.view(self.conv1d.weight.size(0), self.conv1d.weight.size(2))
             if cache_params is not None and cache_position[0] > 0:
@@ -215,6 +219,9 @@ class FalconMambaMixer(nn.Module):
                 hidden_states = causal_conv1d_fn(
                     hidden_states, conv_weights, self.conv1d.bias, activation=self.activation
                 )
+
+            if attention_mask is not None:
+                hidden_states = hidden_states * attention_mask.unsqueeze(1)
 
             # 3. State Space Model sequence transformation
             # 3.a. input varying initialization of time_step, B and C
@@ -275,12 +282,16 @@ class FalconMambaMixer(nn.Module):
         input_states,
         cache_params: Optional[MambaCache] = None,
         cache_position: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.LongTensor] = None,
     ):
         batch_size, seq_len, _ = input_states.shape
         dtype = input_states.dtype
         # 1. Gated MLP's linear projection
         projected_states = self.in_proj(input_states).transpose(1, 2)  # [batch, 2 * intermediate_size, seq_len]
         hidden_states, gate = projected_states.chunk(2, dim=1)
+
+        if attention_mask is not None:
+            hidden_states = hidden_states * attention_mask.unsqueeze(1)
 
         # 2. Convolution sequence transformation
         if cache_params is not None:
@@ -309,6 +320,9 @@ class FalconMambaMixer(nn.Module):
                 (batch_size, self.intermediate_size, self.ssm_state_size), device=hidden_states.device, dtype=dtype
             )
             hidden_states = self.act(self.conv1d(hidden_states)[..., :seq_len])  # [batch, intermediate_size, seq_len]
+
+        if attention_mask is not None:
+            hidden_states = hidden_states * attention_mask.unsqueeze(1)
 
         # 3. State Space Model sequence transformation
         # 3.a. Selection:  [batch, seq_len, self.time_step_rank + self.ssm_state_size * 2]
@@ -621,14 +635,13 @@ class FalconMambaModel(FalconMambaPreTrainedModel):
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,  # Ignored arg
         inputs_embeds: Optional[torch.LongTensor] = None,
         cache_params: Optional[MambaCache] = None,
         use_cache: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         cache_position: Optional[torch.LongTensor] = None,
-        **kwargs,  # `attention_mask` is passed by the tokenizer and we don't want it
+        attention_mask: Optional[torch.LongTensor] = None,
     ) -> Union[Tuple, FalconMambaOutput]:
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -667,10 +680,15 @@ class FalconMambaModel(FalconMambaPreTrainedModel):
         for mixer_block in self.layers:
             if self.gradient_checkpointing and self.training:
                 hidden_states = self._gradient_checkpointing_func(
-                    mixer_block.__call__, hidden_states, cache_params, cache_position
+                    mixer_block.__call__, hidden_states, cache_params, cache_position, attention_mask
                 )
             else:
-                hidden_states = mixer_block(hidden_states, cache_params=cache_params, cache_position=cache_position)
+                hidden_states = mixer_block(
+                    hidden_states,
+                    cache_params=cache_params,
+                    cache_position=cache_position,
+                    attention_mask=attention_mask,
+                )
 
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
@@ -793,11 +811,10 @@ class FalconMambaForCausalLM(FalconMambaPreTrainedModel, GenerationMixin):
         output_type=FalconMambaCausalLMOutput,
         config_class=_CONFIG_FOR_DOC,
     )
-    # Ignore copy
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
-        attention_mask: Optional[torch.LongTensor] = None,  # Ignored copy
+        attention_mask: Optional[torch.LongTensor] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
         cache_params: Optional[MambaCache] = None,
         labels: Optional[torch.LongTensor] = None,
@@ -823,6 +840,7 @@ class FalconMambaForCausalLM(FalconMambaPreTrainedModel, GenerationMixin):
             return_dict=return_dict,
             use_cache=use_cache,
             cache_position=cache_position,
+            attention_mask=attention_mask,
         )
         hidden_states = falcon_mamba_outputs[0]
 

@@ -63,19 +63,19 @@ model = AutoModel.from_pretrained(
 )
 ```
 
-Model repositories also support [gating](https://hf.co/docs/hub/models-gated) for more control over how and who can access a model. Gating is common for allowing a select group of users to preview a research model before it's made public.
+Model repositories also support [gating](https://hf.co/docs/hub/models-gated) for more control over who can access a model. Gating is common for allowing a select group of users to preview a research model before it's made public.
 
 <div class="flex justify-center">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/gated-model.png"/>
 </div>
 
-The model repository also includes an inference [widget](https://hf.co/docs/hub/models-widgets) for users to directly interact with a model.
+The model repository also includes an inference [widget](https://hf.co/docs/hub/models-widgets) for users to directly interact with a model on the Hub.
 
 Check out the Hub [Models](https://hf.co/docs/hub/models) documentation to learn more about.
 
 ## Model framework conversion
 
-Reach a wider audience by converting a model to be compatible with all machine learning frameworks (PyTorch, TensorFlow, Flax). While users can still load a model if they're using a different framework, it is slower because Transformers converts the checkpoint on the fly. It is faster to convert the checkpoint beforehand.
+Reach a wider audience by making a model available in PyTorch, TensorFlow, and Flax. While users can still load a model if they're using a different framework, it is slower because Transformers needs to convert the checkpoint on the fly. It is faster to convert the checkpoint beforehand.
 
 <hfoptions id="convert">
 <hfoption id="PyTorch">
@@ -116,7 +116,7 @@ flax_model.save_pretrained("path/to/awesome-name-you-picked")
 </hfoption>
 </hfoptions>
 
-## Upload model
+## Upload a model
 
 There are several ways to upload a model to the Hub depending on your workflow preference. You can push a model with the [`Trainer`], call the [`~PreTrainedModel.push_to_hub`] method directly on a model, or use the Hub's web interface.
 
@@ -124,9 +124,9 @@ There are several ways to upload a model to the Hub depending on your workflow p
 
 ### Trainer
 
-The [`Trainer`], Transformers' training API, allows pushing a model directly to the Hub after training. Set `push_to_hub=True` in the [`TrainingArguments`] class and pass it to the [`Trainer`]. Once training is complete, call [`~transformers.Trainer.push_to_hub`] to upload the model.
+The [`Trainer`], Transformers' training API, can push a model directly to the Hub after training. Set `push_to_hub=True` in the [`TrainingArguments`] class and pass it to the [`Trainer`]. Once training is complete, call [`~transformers.Trainer.push_to_hub`] to upload the model.
 
-The [`~transformers.Trainer.push_to_hub`] method automatically adds useful information like the training hyperparameters and results to the model card.
+The [`~transformers.Trainer.push_to_hub`] method automatically adds useful information like training hyperparameters and results to the model card.
 
 ```py
 from transformers import TrainingArguments, Trainer
@@ -155,9 +155,11 @@ push_to_hub_callback = PushToHubCallback(
 model.fit(tf_train_dataset, validation_data=tf_validation_dataset, epochs=3, callbacks=push_to_hub_callback)
 ```
 
-### PreTrainedModel.push_to_hub
+### PushToHubMixin
 
-Call [`~PreTrainedModel.push_to_hub`] directly on a model to upload it to the Hub. It creates a repository under your namespace with the model name specified in [`~PreTrainedModel.push_to_hub`].
+The [`PushToHubMixin`] provides the functionality for pushing a model or tokenizer to the Hub.
+
+Call [`~PushToHubMixin.push_to_hub`] directly on a model to upload it to the Hub. It creates a repository under your namespace with the model name specified in [`~PushToHubMixin.push_to_hub`].
 
 ```py
 model.push_to_hub("my-awesome-model")
@@ -183,7 +185,7 @@ Create a new repository by selecting [**New Model**](https://huggingface.co/new)
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/new_model_repo.png"/>
 </div>
 
-Add some details about your model:
+Add some information about your model:
 
 - Select the **owner** of the repository. This can be yourself or any of the organizations you belong to.
 - Pick a name for your model, which will also be the repository name.
@@ -209,4 +211,4 @@ A model card is a `README.md` file in your repository. Add this file by:
 
 Take a look at the Llama 3.1 [model card](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct) for an example of the type of information to include on a model card.
 
-Learn more about other model card metadata (carbon emissions, license, link to paper, etc.) to include in the [Model Cards](https://hf.co/docs/hub/model-cards#model-cards) guide.
+Learn more about other model card metadata (carbon emissions, license, link to paper, etc.) available in the [Model Cards](https://hf.co/docs/hub/model-cards#model-cards) guide.

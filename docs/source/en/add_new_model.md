@@ -15,17 +15,17 @@ rendered properly in your Markdown viewer.
 
 # Contribute
 
-Transformers is fortunate to have a passionate community of developers and researchers contribute models to the library. As an open-source first project, we're invested in empowering the community to actively add models.
+Transformers is fortunate to have a passionate community of developers and researchers contributing models to the library. As an open-source first project, we're invested in empowering the community to actively add models.
 
 When you add a model to Transformers, you'll learn:
 
 - more about open-source best practices
 - about a models architecture
-- about the design principles behind Transformers
+- about Transformers' design principles
 - how to efficiently test large models
 - how to use Python utilities like [Black](https://black.readthedocs.io/en/stable/) and [Ruff](https://docs.astral.sh/ruff/) to create clean and readable code
 
-It is challenging but also rewarding.
+It is a challenging, but also rewarding process!
 
 This guide will walk you through adding an example "BrandNewBert" PyTorch model to Transformers.
 
@@ -34,9 +34,9 @@ This guide will walk you through adding an example "BrandNewBert" PyTorch model 
 Open a [New model addition](https://github.com/huggingface/transformers/issues/new?assignees=&labels=New+model&template=new-model-addition.yml) issue to add a specific model.
 
 > [!TIP]
-> To add any model, filter by the [New model](https://github.com/huggingface/transformers/labels/New%20model) label for an open model request.
+> Filter by the [New model](https://github.com/huggingface/transformers/labels/New%20model) label on GitHub if you're open to adding any model.
 
-Now is a good time to get familiar with BrandNewBert. It can be helpful to read a models research paper to understand its technical details and implementation. You don't necessarily have to worry too much about the more theoretical aspects of the paper. Instead, focus on the practical details. Use the questions below to guide your reading.
+Now is a good time to get familiar with BrandNewBert. It is helpful to read a models research paper to understand its technical design and implementation. You don't necessarily have to worry too much about the theoretical details. Instead, focus on the practical ones. Use the questions below to guide your reading.
 
 - What type of model is BrandNewBert? Is it a encoder, decoder, or encoder-decoder model?
 - What tasks can BrandNewBert be used for?
@@ -49,7 +49,7 @@ Now is a good time to get familiar with BrandNewBert. It can be helpful to read 
 Transformers is an opinionated library with its own unique philosophy and design choices. These choices help us scale Transformers while maintaining a sustainable level of maintenance.
 
 > [!TIP]
-> Learn more about our design principles in the [Philosophy](./philosophy) page.
+> Learn more about our design principles on the [Philosophy](./philosophy) page.
 
 Some of these design choices are:
 
@@ -59,15 +59,15 @@ Some of these design choices are:
 
 These design choices are important *for everyone* interacting with the model. It is easier to read, understand, and modify.
 
-This section describes how the model and configuration classes interact and the Transformers code style you should adopt.
+This section describes how the model and configuration classes interact and the Transformers code style.
 
 ### Model and configuration
 
-All Transformers' models inherit from a base [`PreTrainedModel`] and [`PretrainedConfig`] class. The configuration is the blueprint to the model.
+All Transformers' models inherit from a base [`PreTrainedModel`] and [`PretrainedConfig`] class. The configuration is the models blueprint.
 
 <!-- <insert diagram here> -->
 
-To keep the code readable, there is never more than two levels of abstraction for any model. The example model here, BrandNewBert, traces its inheritance from `BrandNewBertPreTrainedModel` and [`PreTrainedModel`]. It is important that a new model only depends on [`PreTrainedModel`] because it allows a model to be loaded and saved with [`~PreTrainedModel.from_pretrained`] and [`PreTrainedModel.save_pretrained`].
+To keep the code readable, there is never more than two levels of abstraction for any model. The example model here, BrandNewBert, traces its inheritance from `BrandNewBertPreTrainedModel` and [`PreTrainedModel`]. It is important that a new model only depends on [`PreTrainedModel`] because it allows a model to be loaded and saved with [`~PreTrainedModel.from_pretrained`] and [`~PreTrainedModel.save_pretrained`].
 
 Other important functions like the forward method are defined in the `modeling.py` file.
 
@@ -76,19 +76,19 @@ Specific model heads (for example, for sequence classification or language model
 New models require a configuration, for example `BrandNewBertConfig`, that is stored as an attribute of [`PreTrainedModel`].
 
 ```py
-model = BrandNewBertModel.from_pretrained("brandy/brand_new_bert")
+model = BrandNewBertModel.from_pretrained("username/brand_new_bert")
 model.config
 ```
 
-Like [`PreTrainedModel`], [`PretrainedConfig`] provides [`~PretrainedConfig.from_pretrained`] and [`PretrainedConfig.save_pretrained`] methods.
+Like [`PreTrainedModel`], [`PretrainedConfig`] provides the [`~PretrainedConfig.from_pretrained`] and [`~PretrainedConfig.save_pretrained`] methods.
 
-When you use [`~PreTrainedModel.save_pretrained`], it automatically calls the configurations [`~PretrainedConfig.save_pretrained`] method so that both the model and configuration are saved together.
+When you use [`PreTrainedModel.save_pretrained`], it automatically calls [`~PretrainedConfig.save_pretrained`] so that both the model and configuration are saved together.
 
 A model is saved to a `model.safetensors` file and a configuration is saved to a `config.json` file.
 
 ### Code style
 
-Transformers prefers a clean and readable code style over a more abstracted one. Some of the coed style choices include:
+Transformers prefers a clean and readable code style over a more abstracted one. Some of the code style choices include:
 
 - The forward pass is written in the `modeling.py` file, completely independent of other models in the library. To reuse a block from another model, copy the code and paste it with a `# Copied from` comment above it. For example, the `RobertaSelfAttention` class is copied from the `BertSelfAttention` class.
 
@@ -99,7 +99,7 @@ Transformers prefers a clean and readable code style over a more abstracted one.
 
   Refer to the [Check copies](./pr_checks#check-copies) section for more information about the `# Copied from` comment.
 
-- The code should be accessible to users from a non-native English background. Pick descriptive variable names and avoid abbreviations. For example, "activation" is preferred over "act". One letter variables names are highly discouraged unless it's an infex in a for loop.
+- The code should be accessible to users from a non-native English background. Pick descriptive variable names and avoid abbreviations. For example, "activation" is preferred over "act". One letter variables names are highly discouraged unless it's an index in a for loop.
 
 - Explicit code is preferred over shorter code even if it's longer.
 
@@ -158,12 +158,12 @@ Return to your clone of Transformers to begin porting BrandNewBert.
 cd transformers
 ```
 
-There are two debugging environments for running the original model, a notebook ([Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) or [Jupyter](https://jupyter.org/)) or a local Python script.
+There are two possible debugging environments for running the original model, a notebook ([Google Colab](https://colab.research.google.com/notebooks/intro.ipynb) or [Jupyter](https://jupyter.org/)) or a local Python script.
 
 > [!WARNING]
-> We don't recommend setting up a GPU environment to run the original model. This can be costly and only verified when the model is working in Transformers. Instead, work in a CPU environment at first.
+> We don't recommend setting up a GPU environment to run the original model because it can be expensive. Instead, work in a CPU environment first to verify the model works in Transformers. Once it does, then you can verify it on a GPU.
 
-Notebooks are great for executing code cell-by-cell which can better help split logical components from one another. It can also accelerate debugging cycles because intermediate results can be stored. Notebooks can also be shared which is useful for working with contributors.
+Notebooks are great for executing code cell-by-cell which can help split logical components from one another. It can also accelerate debugging cycles because intermediate results can be stored. Notebooks can also be shared when working with other contributors.
 
 The downside of notebooks is that if you aren't used to them, it may take some time to get used to.
 
@@ -195,7 +195,7 @@ git fetch upstream
 git rebase upstream/main
 ```
 
-Push any changes to your branch and click on **Compare & pull request** to open a pull request on GitHub. Open the pull request as a *draft* to signal it's a work in progress.
+Push any changes to your branch and click on **Compare & pull request** to open a pull request on GitHub. Open the pull request as a *draft* to indicate it's a work in progress.
 
 ```bash
 git push -u origin a-descriptive-name-for-my-changes
@@ -214,13 +214,13 @@ git merge upstream/main
 
 Before you start working on your model implementation, you should work on the original model implementation first to understand how it works.
 
-This can be difficult if the original model repository is lacking documentation or if the codebase is complex. But you should use this as your motivation to implement the model in Transformers. Your contribution makes it more accessible and user-friendly to everyone.
+This can be difficult if the original model repository is lacking documentation or if the codebase is complex. But you should use this as your motivation to implement the model in Transformers. Your contribution makes it more accessible and user-friendly to everyone!
 
 Orient yourself with the original repository by doing the following.
 
 - Locate the pretrained weights.
 - Figure out how to the load pretrained weights into the model.
-- Figure out how to run the tokenizer indepdently of the model.
+- Figure out how to run the tokenizer independently of the model.
 - Trace one forward pass to understand which classes and functions are required. These are probably the only classes and functions you'll have to implement.
 - Locate all the important components (model class, model subclasses, self-attention layer, etc.) of the model.
 - Figure out how to debug the model in the original repository. Add print statements, use interactive debuggers like [ipdb](https://github.com/gotcha/ipdb), or a efficient integrated development environment (IDE) like [PyCharm](https://www.jetbrains.com/pycharm/).
@@ -242,9 +242,9 @@ If you run into issues, you'll need to choose one of the following debugging dec
 
 This strategy relies on breaking the original model into smaller sub-components, such as when the code can be easily run in eager mode. While more difficult, there are some advantages to this approach.
 
-1. It is easier later to compare the original model to your implementation. You can automatically verify that each individual component matches its corresponding component in Transformers' implementation. This is better than relying on a visual comparison based on print statements.
+1. It is easier later to compare the original model to your implementation. You can automatically verify that each individual component matches its corresponding component in the Transformers' implementation. This is better than relying on a visual comparison based on print statements.
 2. It is easier to port individal components instead of the entire model.
-3. It is easier for understanding how a model works by breaking it up into its components.
+3. It is easier for understanding how a model works by breaking it up into smaller parts.
 4. It is easier to prevent regressions at a later stage when you change your code thanks to component-by-component tests.
 
 > [!TIP]
@@ -255,7 +255,7 @@ This strategy relies on breaking the original model into smaller sub-components,
 
 This strategy is viable when the original codebase is too complex, only allows intermediate components to be run in compiled mode, or if it's too time-consuming (maybe even impossible) to separate the model into smaller sub-components.
 
-For example, the MeshTensorFlow implementation of [T5](https://github.com/tensorflow/mesh/tree/master/mesh_tensorflow) is too complex and doesn't offer a simple way to decompose the model into its sub-components. In this situation, you'll have to relay on verifying print statements.
+For example, the MeshTensorFlow implementation of [T5](https://github.com/tensorflow/mesh/tree/master/mesh_tensorflow) is too complex and doesn't offer a simple way to decompose the model into its sub-components. In this situation, you'll have to rely on verifying print statements.
 
 </hfoption>
 </hfoptions>
@@ -309,7 +309,7 @@ The `transformers-cli add-new-model-like` command should have generated a model 
 
 The automatically generated code in the `modeling.py` file will have the same architecture as BERT if you answered it's an encoder-only model or it will have the same architecture as BART if you answered it's an encoder-decoder model. The generated code is just a starting point. Based on your research on the new model, you'll need to implement those specific changes by adapting the generated code. This may involve changes to the self-attention layer, the order of the normalization layer, and so on.
 
-At this point, your code doesn't have to be clean or even fully correct! It is more efficiently to quickly create a first draft and then iteratively improve on it. The only thing that matters is that your model should be able to be instantiated from Transformers. The command below creates a model from the configuration with random weights, verifying that the the `__init__` method works.
+At this point, your code doesn't have to be clean or even fully correct! It is more efficiently to quickly create a first draft and then iteratively improve on it. The only thing that matters is that your model can be instantiated from Transformers. The command below creates a model from the configuration with random weights, verifying that the the `__init__` method works.
 
 ```py
 from transformers import BrandNewBert, BrandNewBertConfig
@@ -334,7 +334,7 @@ def _init_weights(self, module):
         module.weight.data.fill_(1.0)
 ```
 
-The initialization scheme can look different if you need to adapt it to your model. For example, [`Wave2Vec2ForPreTraining`] initializes [nn.Linear](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html) in its last two linear layers.
+The initialization scheme can look different if you need to adapt it to your model. For example, [`Wav2Vec2ForPreTraining`] initializes [nn.Linear](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html) in its last two linear layers.
 
 The `_is_hf_initialized` flag makes sure the submodule is only initialized once. Setting `module.project_q` and `module.project_hid` to `True` ensures the custom initialization is not overriden later. The `_init_weights` function won't be applied to these modules.
 
@@ -364,9 +364,9 @@ The original checkpoint must be converted to a Transformers compatible checkpoin
 
 Make sure **all** required weights are initialized and print out all the checkpoint weights that weren't used for initialization to make sure the model has been converted correctly.
 
-You may encounter wrong shape statements of name assignments during the conversion. This is most likely because of incorrect parameters in BrandNewBertConfig, the wrong architecture, a bug in the `init` method of your implementation, or you need to transpose one of the checkpoint weights.
+You may encounter wrong shape statements or name assignments during the conversion. This is most likely because of incorrect parameters in `BrandNewBertConfig`, the wrong architecture, a bug in the `init` method of your implementation, or you need to transpose one of the checkpoint weights.
 
-Keep iterating with the [Adapt the model code](#adapt-the-model-code) section until all the checkpoint weights are correctly loaded. Once you can load a checkpoint in your model, save it to a folder. This should contain a `model.safetensors` file and a `config.json` file.
+Keep iterating on the [Adapt the model code](#adapt-the-model-code) section until all the checkpoint weights are correctly loaded. Once you can load a checkpoint in your model, save it to a folder. This should contain a `model.safetensors` file and a `config.json` file.
 
 ```py
 model.save_pretrained("/path/to/converted/checkpoint/folder")
@@ -389,7 +389,7 @@ class SimpleModel(nn.Module):
         self.layer_norm = nn.LayerNorm(10)
 ```
 
-PyTorch layer names are defined by the class attribute name of the layer (dense, intermediate, layer_norm). Create a instance of SimpleModel to fill all the layers with random weights.
+PyTorch layer names are defined by the class attribute name of the layer (`dense`, `intermediate`, `layer_norm`). Create a instance of `SimpleModel` to fill all the layers with random weights.
 
 ```py
 model = SimpleModel()
@@ -448,7 +448,7 @@ assert (
 logger.info(f"Initialize PyTorch weight {layer_name} from {pretrained_weight.name}")
 ```
 
-When the shape or name don't match, you may have assigned the incorrect checkpoint weight to a randomly initialized layer. An incorrect shape may be because of an BrandNewBert's parameters don't exactly match the original model's parameters. But it could be that the PyTorch layer implementation requires the weights to be transposed first.
+When the shape or name don't match, you may have assigned the incorrect checkpoint weight to a randomly initialized layer. An incorrect shape may be because BrandNewBerts parameters don't exactly match the original models parameters. But it could also be that the PyTorch layer implementation requires the weights to be transposed first.
 
 ### Implement the forward pass
 
@@ -478,7 +478,7 @@ Any difference between the two implementations should point to the bug in your i
 
 One of the best strategies is to add many print statements to the same positions in both implementations, and then successively remove them when they output identical values for the intermediate outputs.
 
-When both implementations produce the same output, verify the outputs are within the precision of *1e-3*.
+When both implementations produce the same output, verify the outputs are within a precision of *1e-3*.
 
 ```py
 torch.allclose(original_output, output, atol=1e-3)
@@ -498,7 +498,7 @@ While the model works, you still need to add tests to ensure it is compatible wi
 pytest tests/models/brand_new_bert/test_modeling_brand_new_bert.py
 ```
 
-The integration tests should be added first because they serve the same purpose as the debugging scripts you used earlier to implement the new model in Transformers. A template of those model tests, BrandNewBertModelIntegrationTests, was added by Cookiecutter and only needs to be filled out by you. To ensure it passes, run the following command.
+The integration tests should be added first because they serve the same purpose as the debugging scripts you used earlier to implement the new model in Transformers. A template of those model tests, `BrandNewBertModelIntegrationTests`, was added by Cookiecutter and just needs to be filled out. To ensure it passes, run the following command.
 
 <hfoptions id="integration-test">
 <hfoption id="macOS">
@@ -550,7 +550,7 @@ When both implementations have the same `input_ids`, add a tokenizer test file. 
 
 Now that you have a model and tokenizer, add end-to-end integration tests using both the model and tokenizer to `tests/models/brand_new_bert/test_modeling_brand-new_bert.py`.
 
-The test should provide a meaningful text-to-text example that the model works as expected. For example, you can include a source-to-target translation pair, an article-to-summary pair, or a question-to-answer pair.
+The test should provide a meaningful text-to-text example to show the model works as expected. For example, you can include a source-to-target translation pair, an article-to-summary pair, or a question-to-answer pair.
 
 If the checkpoint hasn't been finetuned on a downstream task, then the model tests will suffice.
 

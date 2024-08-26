@@ -18,7 +18,7 @@ rendered properly in your Markdown viewer.
 
 Transformers provides many pretrained models that are ready to use with just a single line of code. It requires a model class and the [`~PreTrainedModel.from_pretrained`] method.
 
-To load a model, call the [`~PreTrainedModel.from_pretrained`] method to download and load the model weights and configuration stored on the Hugging Face [Hub](https://hf.co/models) into the model class.
+To load a model, call [`~PreTrainedModel.from_pretrained`] to download and load the model weights and configuration stored on the Hugging Face [Hub](https://hf.co/models).
 
 > [!TIP]
 > The [`~PreTrainedModel.from_pretrained`] method loads weights stored in the [safetensors](https://hf.co/docs/safetensors/index) file format if they're available. Traditionally, PyTorch model weights are serialized with the [pickle](https://docs.python.org/3/library/pickle.html) utility which is known to be unsecure. Safetensor files are more secure and faster to load.
@@ -29,7 +29,7 @@ from transformers import AutoModelForCausalLM
 model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
 ```
 
-This guide will briefly explain how models are loaded, the different ways you can load a model, and how to overcome memory issues for really big models.
+This guide will briefly explain how models are loaded, the different ways you can load a model, how to overcome memory issues for really big models, and how to load custom models.
 
 ## Models and configurations
 
@@ -40,12 +40,10 @@ All models have a `configuration.py` file with specific attributes like the numb
 > [!TIP]
 > An *architecture* refers to the model's skeleton and a *checkpoint* refers to the model's weights for a given architecture. For example, [BERT](./model_doc/bert) is an architecture while [google-bert/bert-base-uncased](https://huggingface.co/google-bert/bert-base-uncased) is a checkpoint. You'll see the term *model* used interchangeably for architecture and checkpoint.
 
-To get a pretrained model, you need to load the weights into the model. This is done by calling the [`~PreTrainedModel.from_pretrained`] method which accepts weights from the Hugging Face Hub or a local directory.
-
 There are two general types of models you can load:
 
-1. A generic model class like [`LlamaModel`] or [`AutoModel`] that outputs hidden states.
-2. A model class with a specific *head* attached to the generic model, like [`LlamaForCausalLM`] or [`AutoModelForCausalLM`], for performing specific tasks.
+1. A barebones model like [`AutoModel`] or [`LlamaModel`] that outputs hidden states.
+2. A model with a specific *head* attached to the model, like [`AutoModelForCausalLM`] or [`LlamaForCausalLM`], for performing specific tasks.
 
 For each model type, there is a separate class for each machine learning framework (PyTorch, TensorFlow, Flax). Pick the corresponding prefix for the framework you're using.
 
@@ -85,11 +83,18 @@ model = FlaxMistralForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
 </hfoption>
 </hfoptions>
 
-## AutoClass
+## Model classes
+
+To get a pretrained model, you need to load the weights into the model. This is done by calling [`~PreTrainedModel.from_pretrained`] which accepts weights from the Hugging Face Hub or a local directory.
+
+There are two model classes, the [AutoModel](./model_doc/auto) class and a model-specific class.
+
+<hfoptions id="model-classes">
+<hfoption id="AutoModel">
 
 <Youtube id="AhChOFRegn4"/>
 
-The [AutoClass](./model_doc/auto) API is a convenient way to load an architecture without needing to know the exact model class name, because there are many architectures. It automatically selects the correct model class based on the configuration file. You only need to know the task and checkpoint you want to use.
+The [AutoModel](./model_doc/auto) class is a convenient way to load an architecture without needing to know the exact model class name because there are many architectures. It automatically selects the correct model class based on the configuration file. You only need to know the task and checkpoint you want to use.
 
 The AutoClass makes it easy to switch between models or tasks, as long as the architecture is supported for a given task.
 
@@ -104,7 +109,7 @@ model = AutoModelForSequenceClassification.from_pretrained("meta-llama/Llama-2-7
 model = AutoModelForQuestionAnswering.from_pretrained("meta-llama/Llama-2-7b-hf")
 ```
 
-In other cases, you want to quickly try out several models for a task.
+In other cases, you may want to quickly try out several models for a task.
 
 ```py
 from transformers import AutoModelForCausalLM
@@ -115,17 +120,21 @@ model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
 model = AutoModelForCausalLM.from_pretrained("google/gemma-7b")
 ```
 
-## Model-specific class
+</hfoption>
+<hfoption id="model-specific class">
 
-The [AutoClass](#autoclass) builds on top of model-specific classes. All model classes that support a specific task are mapped to their respective `AutoModelFor` task class.
+The AutoModel class builds on top of model-specific classes. All model classes that support a specific task are mapped to their respective `AutoModelFor` task class.
 
-But if you already know which model class you want to use, then you could use its model-specific class directly.
+If you already know which model class you want to use, then you could use its model-specific class directly.
 
 ```py
 from transformers import LlamaModel, LlamaForCausalLM
 
 model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
 ```
+
+</hfoption>
+</hfoptions>
 
 ## Big models
 
@@ -135,7 +144,7 @@ Large pretrained models require a lot of memory to load. The loading process inv
 2. loading the pretrained weights
 3. placing the pretrained weights on the model
 
-You need enough memory to hold two copies of the model weights (random and pretrained) which may not be possible depending on your hardware. In distributed training environments, this is an even bigger challenge because each process loads a pretrained model.
+You need enough memory to hold two copies of the model weights (random and pretrained) which may not be possible depending on your hardware. In distributed training environments, this is even more challenging because each process loads a pretrained model.
 
 Transformers reduces some of these memory-related challenges with fast initialization, sharded checkpoints, leveraging Accelerate's [Big Model Inference](https://hf.co/docs/accelerate/usage_guides/big_modeling) feature, and supporting lower bit data types.
 
@@ -147,13 +156,13 @@ Transformers boosts loading speed and avoids random weight initialization with t
 
 ### Sharded checkpoints
 
-For big models with sharded checkpoints, each shard is loaded sequentially after the previous shard is loaded. This limits memory-usage to only the model size and the largest shard size.
-
 Transformers' [`~PreTrainedModel.save_pretrained`] method automatically shards checkpoints larger than 10GB.
+
+Each shard is loaded sequentially after the previous shard is loaded, limiting memory usage to only the model size and the largest shard size.
 
 The `max_shard_size` parameter defaults to 5GB for each shard because it is easier to run on free-tier GPU instances without running out of memory.
 
-For example, let's shard [BioMistral/BioMistral-7B](https://hf.co/BioMistral/BioMistral-7B).
+For example, create some shards checkpoints for [BioMistral/BioMistral-7B](https://hf.co/BioMistral/BioMistral-7B) in [`~PreTrainedModel.save_pretrained`].
 
 ```py
 from transformers import AutoModel
@@ -174,7 +183,7 @@ with tempfile.TemporaryDirectory() as tmp_dir:
     new_model = AutoModel.from_pretrained(tmp_dir)
 ```
 
-Sharded checkpoints can also be directly loaded with the [`~transformers.modeling_utils.load_sharded_checkpoint`] method.
+Sharded checkpoints can also be directly loaded with [`~transformers.modeling_utils.load_sharded_checkpoint`].
 
 ```py
 from transformers.modeling_utils import load_sharded_checkpoint
@@ -225,18 +234,18 @@ index["weight_map"]
 
 <Youtube id="MWCSGj9jEAo"/>
 
-The [`~PreTrainedModel.from_pretrained`] method is supercharged with Accelerate's [Big Model Inference](https://hf.co/docs/accelerate/usage_guides/big_modeling).
+The [`~PreTrainedModel.from_pretrained`] method is supercharged by Accelerate's [Big Model Inference](https://hf.co/docs/accelerate/usage_guides/big_modeling) feature.
 
 Big Model Inference creates a *model skeleton* on PyTorch's [meta](https://pytorch.org/docs/main/meta.html) device. The meta device doesn't store any real data, only the metadata.
 
-Randomly initialized weights are only created when the pretrained weights are loaded to avoid maintaining two copies of the model in memory at the same time. The maximum memory-usage is only the size of the model.
+Randomly initialized weights are only created when the pretrained weights are loaded to avoid maintaining two copies of the model in memory at the same time. The maximum memory usage is only the size of the model.
 
 > [!TIP]
-> Learn more about device placement in [Designing a device map](https://hf.co/docs/accelerate/v0.33.0/en/concept_guides/big_model_inference#designing-a-device-map) section.
+> Learn more about device placement in [Designing a device map](https://hf.co/docs/accelerate/v0.33.0/en/concept_guides/big_model_inference#designing-a-device-map).
 
 Big Model Inference's second feature relates to how weights are loaded and dispatched in the model skeleton. Model weights are dispatched across all available devices, starting with the fastest device (usually the GPU) and then offloading any remaining weights to slower devices (CPU and hard drive).
 
-Both features combine reduced memory-usage and faster loading times for big pretrained models.
+Both features combined reduces memory usage and loading times for big pretrained models.
 
 Set the [device_map](https://github.com/huggingface/transformers/blob/026a173a64372e9602a16523b8fae9de4b0ff428/src/transformers/modeling_utils.py#L3061) parameter to `"auto"` to enable Big Model Inference. This also sets the [low_cpu_mem_usage](https://github.com/huggingface/transformers/blob/026a173a64372e9602a16523b8fae9de4b0ff428/src/transformers/modeling_utils.py#L3028) parameter to `True`.
 
@@ -246,7 +255,9 @@ from transformers import AutoModelForCausalLM
 model = AutoModelForCausalLM.from_pretrained("google/gemma-7b", device_map="auto")
 ```
 
-To manually assign layers to devices, create a `device_map`. It should map all model parameters to a device, but you don't have to detail where all the submodules of a layer go if the entire layer is on the same device. Access the `hf_device_map` attribute to see how the model is distributed across devices.
+To manually assign layers to devices, create a `device_map`. It should map all model parameters to a device, but you don't have to detail where all the submodules of a layer go if the entire layer is on the same device.
+
+Access the `hf_device_map` attribute to see how the model is distributed across devices.
 
 ```py
 device_map = {"model.layers.1": 0, "model.layers.14": 1, "model.layers.31": "cpu", "lm_head": "disk"}
@@ -257,7 +268,7 @@ model.hf_device_map
 
 PyTorch model weights are initialized as torch.float32. To load a model in a different data type, like torch.float16, it requires additional memory to load the model again in the desired data type.
 
-Explicitly set the [torch_dtype]() parameter to directly initialize the model in the desired data type instead of essentially loading a model twice (torch.float32, torch.float16). You could also set `torch_dtype="auto"` to automatically load the weights with the most optimal memory pattern (the data type is derived from the model weights).
+Explicitly set the [torch_dtype](https://pytorch.org/docs/stable/tensor_attributes.html#torch.dtype) parameter to directly initialize the model in the desired data type instead of loading the weights twice (torch.float32, torch.float16). You could also set `torch_dtype="auto"` to automatically load the weights with the most optimal memory pattern (the data type is derived from the model weights).
 
 <hfoptions id="dtype">
 <hfoption id="specific dtype">
@@ -294,9 +305,9 @@ model = AutoModel.from_config(my_config)
 
 Custom models use Transformers' configuration and modeling classes, supports the [AutoClass](#autoclass) API, and are loaded with [`~PreTrainedModel.from_pretrained`]. What makes custom models different is the modeling code is not from Transformers.
 
-The Hub includes [malware scanning](https://hf.co/docs/hub/security-malware#malware-scanning) for every repository, but extra care should still be taken when loading a custom model to avoid inadvertently executing malicious code.
+Extra precaution should be taken when loading a custom model. While the Hub includes [malware scanning](https://hf.co/docs/hub/security-malware#malware-scanning) for every repository, extra care should still be taken when loading a custom model to avoid inadvertently executing malicious code.
 
-Set the `trust_remote_code` parameter to `True` in [`~PreTrainedModel.from_pretrained`] to load a custom model.
+Set `trust_remote_code=True` in [`~PreTrainedModel.from_pretrained`] to load a custom model.
 
 ```py
 from transformers import AutoModelForImageClassification
@@ -304,7 +315,7 @@ from transformers import AutoModelForImageClassification
 model = AutoModelForImageClassification.from_pretrained("sgugger/custom-resnet50d", trust_remote_code=True)
 ```
 
-As an extra layer of security, load a custom model from a specific revision to make sure the model code hasn't changed. The commit hash can be copied from the model's [commit history](https://hf.co/sgugger/custom-resnet50d/commits/main).
+For an extra layer of security, load a custom model from a specific revision to make sure the model code hasn't changed. The commit hash can be copied from the model's [commit history](https://hf.co/sgugger/custom-resnet50d/commits/main).
 
 ```py
 commit_hash = "ed94a7c6247d8aedce4647f00f20de6875b5b292"

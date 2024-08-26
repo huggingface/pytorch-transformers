@@ -17,26 +17,26 @@ rendered properly in your Markdown viewer.
 
 Transformers is a library of pretrained natural language processing, computer vision, audio, and multimodal models.
 
-It supports the main machine learning frameworks ([PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/), and [Flax](https://flax.readthedocs.io/en/latest/)), and provides APIs for inference and training to help you use pretrained models out-of-the-box or train new ones from scratch.
+It supports [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/), [Flax](https://flax.readthedocs.io/en/latest/) and provides inference and training APIs to get started with pretrained models right away.
 
 Join us on the [Hugging Face Hub](https://huggingface.co/), [Discord](https://discord.com/invite/JfAtkvEtRb), or [forum](https://discuss.huggingface.co/) today!
 
 ## Features
 
-Transformers provides everything you need for training or inference with state-of-the-art pretrained models. Some of its main features include:
+Transformers provides everything you need for inference or training with state-of-the-art pretrained models. Some of its main features include:
 
 - [`Pipeline`]: A high-level API that supports optimized inference for many machine learning tasks like text generation, image segmentation, automatic speech recognition, document question answering, and more.
-- [`Trainer`]: A feature-rich API that supports training and distributed training for PyTorch models. It includes many performant and efficient training features such as mixed precision, torch.compile, and FlashAttention.
-- [`~GenerationMixin.generate`]: A generation API for large language models (LLMs) and vision language models (VLMs) that supports streaming and multiple decoding strategies for different use cases.
+- [`Trainer`]: An extensive API that supports many features such as mixed precision, torch.compile, and FlashAttention for training and distributed training for PyTorch models.
+- [`~GenerationMixin.generate`]: A generation API for large language models (LLMs) and vision language models (VLMs) that supports streaming and many decoding strategies.
 
 ## Design
 
 > [!TIP]
-> Refer to our [Philosophy](./philosophy) for a more detailed explanation of Transformers' design principles.
+> For a more detailed explanation of Transformers' design principles, learn more in our [Philosophy](./philosophy).
 
 Transformers is designed for developers and machine learning engineers and researchers alike. Its main design principles are:
 
-1. Easy and fast to use: Every model is implemented from only three main classes (model, preprocessor, and configuration) and can be quickly used for inference or training with two APIs ([`Pipeline`] or [`Trainer`]).
+1. Easy and fast to use: Every model is implemented from only three main classes (configuration, model, and preprocessor) and can be quickly used for inference or training with just [`Pipeline`] or [`Trainer`].
 2. Pretrained models: Reduce your carbon footprint, compute cost and time by using a pretrained model instead of training an entirely new one. Each pretrained model is reproduced as closely as possible to the original model and offers state-of-the-art performance.
 
 <div class="flex justify-center">

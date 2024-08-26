@@ -25,15 +25,15 @@ This guide will show you how to customize a ResNet model, enable [AutoClass](./m
 
 ## Configuration
 
-A configuration, given by the base [`PretrainedConfig`] class, contains all the necessary information to build a model. This is where you'll configure the parameters of the custom ResNet model. Different configurations gives different ResNet model types.
+A configuration, given by the base [`PretrainedConfig`] class, contains all the necessary information to build a model. This is where you'll configure the attributes of the custom ResNet model. Different attributes gives different ResNet model types.
 
 The three main rules for customizing a configuration are:
 
-1. A custom configuration must inherit from [`PretrainedConfig`]. Inheritance ensures a custom model has all the functionality of a Transformers model such as [`PretrainedConfig.from_pretrained`], [`PretrainedConfig.save_pretrained`], and [`PretrainedConfig.push_to_hub`].
-2. The [`PretrainedConfig`] `__init__` must accept any `kwargs` and `kwargs` must be passed to the superclass `__init__`. [`PretrainedConfig`] has more more fields than the ones you're setting in your custom configuration. When you load a configuration with [`PretrainedConfig.from_pretrained`], those fields need to be accepted by your configuration and passed to the superclass.
+1. A custom configuration must subclass [`PretrainedConfig`]. This ensures a custom model has all the functionality of a Transformers' model such as [`~PretrainedConfig.from_pretrained`], [`~PretrainedConfig.save_pretrained`], and [`~PretrainedConfig.push_to_hub`].
+2. The [`PretrainedConfig`] `__init__` must accept any `kwargs`, and they must be passed to the superclass `__init__`. [`PretrainedConfig`] has more fields than the ones you're setting in your custom configuration, so when you load a configuration with [`~PretrainedConfig.from_pretrained`], those fields need to be accepted by your configuration and passed to the superclass.
 
 > [!TIP]
-> It is useful to check the validity of some of the parameters. In the example below, a check is implemented to ensure `block_type` and `stem_type` are one of the predefined values.
+> It is useful to check the validity of some of the parameters. In the example below, a check is implemented to ensure `block_type` and `stem_type` belong to one of the predefined values.
 >
 > Add `model_type` to the configuration class to enable [AutoClass](./models#autoclass) support.
 
@@ -74,7 +74,7 @@ class ResnetConfig(PretrainedConfig):
         super().__init__(**kwargs)
 ```
 
-Save the configuration to a JSON file with the [`PretrainedConfig.save_pretrained`] method. This file is stored in your custom model folder, `custom-resnet`.
+Save the configuration to a JSON file with [`PretrainedConfig.save_pretrained`]. This file is stored in your custom model folder, `custom-resnet`.
 
 ```py
 resnet50d_config = ResnetConfig(block_type="bottleneck", stem_width=32, stem_type="deep", avg_down=True)
@@ -83,16 +83,18 @@ resnet50d_config.save_pretrained("custom-resnet")
 
 ## Model
 
-With the custom ResNet configuration, you can now create and customize the model. The model inherits from the base [`PreTrainedModel`] class. Like [`PretrainedConfig`], inheriting from [`PreTrainedModel`] and initializing the superclass with the configuration extends Transformers functionalities such as saving and loading to the custom model.
+With the custom ResNet configuration, you can now create and customize the model. The model subclasses the base [`PreTrainedModel`] class. Like [`PretrainedConfig`], inheriting from [`PreTrainedModel`] and initializing the superclass with the configuration extends Transformers' functionalities such as saving and loading to the custom model.
 
-Transformers' models follow the convention of accepting a `config` object in the `__init__` method. This passes the entire `config` to the models sublayers, instead of breaking the `config` object into multiple arguments that are passed individually to the sublayers. Writing models this way produces simpler code with a clear *source of truth* for any hyperparameters. It is also easier to reuse code from other Transformers' models.
+Transformers' models follow the convention of accepting a `config` object in the `__init__` method. This passes the entire `config` to the models sublayers, instead of breaking the `config` object into multiple arguments that are individually passed to the sublayers.
 
-You'll create two ResNet models, a ResNet model that outputs the hidden states and a ResNet model with an image classification head.
+Writing models this way produces simpler code with a clear *source of truth* for any hyperparameters. It is also easier to reuse code from other Transformers' models.
+
+You'll create two ResNet models, a barebones ResNet model that outputs the hidden states and a ResNet model with an image classification head.
 
 <hfoptions id="resnet">
 <hfoption id="ResnetModel">
 
-Define a mapping between the block types and block classes. Everything else is created by passing the configuration class to the Resnet model class.
+Define a mapping between the block types and classes. Everything else is created by passing the configuration class to the ResNet model class.
 
 > [!TIP]
 > Add `config_class` to the model class to enable [AutoClass](#autoclass-support) support.
@@ -129,7 +131,7 @@ class ResnetModel(PreTrainedModel):
 </hfoption>
 <hfoption id="ResnetModelForImageClassification">
 
-The `forward` method needs to be rewrittten to calculate the loss for each logit if labels are available. Otherwise, the Resnet model class is the same.
+The `forward` method needs to be rewrittten to calculate the loss for each logit if labels are available. Otherwise, the ResNet model class is the same.
 
 > [!TIP]
 > Add `config_class` to the model class to enable [AutoClass](#autoclass-support) support.
@@ -166,7 +168,7 @@ class ResnetModelForImageClassification(PreTrainedModel):
 </hfoption>
 </hfoptions>
 
-A model can return any output format. Returning a dictionary (like ResnetModelForImageClassification) with losses when labels are available, makes the custom model compatible with the [`Trainer`]. For other output formats, you'll need your own training loop or a different library for training.
+A model can return any output format. Returning a dictionary (like `ResnetModelForImageClassification`) with losses when labels are available makes the custom model compatible with [`Trainer`]. For other output formats, you'll need your own training loop or a different library for training.
 
 Instantiate the custom model class with the configuration.
 
@@ -176,7 +178,7 @@ resnet50d = ResnetModelForImageClassification(resnet50d_config)
 
 At this point, you can load pretrained weights into the model or train it from scratch. You'll load pretrained weights in this guide.
 
-Load the pretrained weights from the [timm](https://hf.co/docs/timm/index) library, and then transfer those weights to the custom model with the [load_state_dict](https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.load_state_dict) method.
+Load the pretrained weights from the [timm](https://hf.co/docs/timm/index) library, and then transfer those weights to the custom model with [load_state_dict](https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.load_state_dict).
 
 ```py
 import timm
@@ -187,9 +189,9 @@ resnet50d.model.load_state_dict(pretrained_model.state_dict())
 
 ## AutoClass support
 
-The [AutoClass](./models#autoclass) API is a shortcut for automatically loading the correct architecture for a given model. It may be convenient for your users to add this API to your custom model.
+The [AutoClass](./models#model-classes) API is a shortcut for automatically loading the correct architecture for a given model. It may be convenient to enable this for users when loading your custom model.
 
-Make sure you have the `model_type` attribute (must be different from existing model types) in the configuration class and `config_class` attribute in the model class. With the [`~AutoConfig.register`] method, add the custom configuration and model to the [AutoClass](./models#autoclass) API.
+Make sure you have the `model_type` attribute (must be different from existing model types) in the configuration class and `config_class` attribute in the model class. With the [`~AutoConfig.register`] method, add the custom configuration and model to the [AutoClass](./models#model-classes) API.
 
 > [!TIP]
 > The first argument to [`AutoConfig.register`] must match the `model_type` attribute in the custom configuration class, and the first argument to [`AutoModel.register`] must match the `config_class` of the custom model class.
@@ -202,21 +204,21 @@ AutoModel.register(ResnetConfig, ResnetModel)
 AutoModelForImageClassification.register(ResnetConfig, ResnetModelForImageClassification)
 ```
 
-Your custom model code is now compatible with the [AutoClass](./models#autoclass) API. Users can load the model with the `AutoModel` or [`AutoModelForImageClassification`] classes.
+Your custom model code is now compatible with the [AutoClass](./models#autoclass) API. Users can load the model with the [AutoModel](./model_doc/auto#automodel) or [`AutoModelForImageClassification`] classes.
 
-## Upload model
+## Upload
 
 Upload a custom model to the [Hub](https://hf.co/models) to allow other users to easily load and use it.
 
 Ensure the model directory is structured correctly as shown below. The directory should contain:
 
-- `modeling.py`: Contains the code for ResnetModel and ResnetModelForImageClassification. This file can rely on relative imports to other files as long as they're in the same directory.
+- `modeling.py`: Contains the code for `ResnetModel` and `ResnetModelForImageClassification`. This file can rely on relative imports to other files as long as they're in the same directory.
 
 > [!WARNING]
-> Replace all relative imports at the top of the `modeling.py` file to import from Transformers instead if you're copying a model file from Transformers.
+> When copying a Transformers' model file, replace all relative imports at the top of the `modeling.py` file to import from Transformers instead.
 
-- `configuration.py`: Contains the code for ResnetConfig.
-- `__init__.py`: Can be empty. This file allows Python `resnet_model` to be used as a module.
+- `configuration.py`: Contains the code for `ResnetConfig`.
+- `__init__.py`: Can be empty, this file allows Python `resnet_model` to be used as a module.
 
 ```bash
 .
@@ -233,7 +235,7 @@ from resnet_model.configuration_resnet import ResnetConfig
 from resnet_model.modeling_resnet import ResnetModel, ResnetModelForImageClassification
 ```
 
-Copy the code from the model and configuration files. To make sure the AutoClass objects are saved when calling [`~PreTrainedModel.save_pretrained`], call the [`~PretrainedConfig.register_for_auto_class`] method. This modifies the configuration JSON file to include the AutoClass objects and mapping.
+Copy the code from the model and configuration files. To make sure the AutoClass objects are saved with [`~PreTrainedModel.save_pretrained`], call the [`~PretrainedConfig.register_for_auto_class`] method. This modifies the configuration JSON file to include the AutoClass objects and mapping.
 
 For a model, pick the appropriate `AutoModelFor` class based on the task.
 
@@ -292,4 +294,4 @@ resnet50d.push_to_hub("custom-resnet50d")
 
 The pretrained weights, configuration in JSON format, `modeling.py` and `configuration.py` files should all be uploaded to the Hub now under a namespace and specified directory [here](https://hf.co/sgugger/custom-resnet50d).
 
-Because a custom model doesn't use the same modeling code as Transformers' model, you need to add `trust_remode_code=True` in the [`~PreTrainedModel.from_pretrained`] method. Refer to the load [custom models](./models#custom-models) section for more information.
+Because a custom model doesn't use the same modeling code as a Transformers' model, you need to add `trust_remode_code=True` in the [`~PreTrainedModel.from_pretrained`] method to load it. Refer to the load [custom models](./models#custom-models) section for more information.

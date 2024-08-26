@@ -18,7 +18,7 @@ rendered properly in your Markdown viewer.
 
 Feature extractors preprocess audio data into the correct format for a given model. It takes the raw audio signal and converts it into a tensor that can be fed to a model. The tensor shape depends on the model, but the feature extractor will correctly preprocess the audio data for you given the model you're using. Feature extractors also include methods for padding, truncation, and resampling.
 
-To load a feature extractor, call the [`~AutoFeatureExtractor.from_pretrained`] method to load the feature extractor and its preprocessor configuration from the Hugging Face [Hub](https://hf.co/models) into the feature extractor class.
+To load a feature extractor, call [`~AutoFeatureExtractor.from_pretrained`] to load the feature extractor and its preprocessor configuration from the Hugging Face [Hub](https://hf.co/models). The feature extractor and preprocessor configuration is saved in a [preprocessor_config.json](https://hf.co/openai/whisper-tiny/blob/main/preprocessor_config.json) file. This method loads a feature extractor from a Hub model repository name or local directory
 
 Pass the audio signal, typically stored in `array`, to the feature extractor and set the `sampling_rate` parameter to the pretrained audio models sampling rate. It is important the sampling rate of the audio data matches the sampling rate of the data a pretrained audio model was trained on.
 
@@ -36,20 +36,23 @@ The feature extractor returns an input, `input_values`, that is ready for the mo
 
 This guide walks you through the feature extractor classes and how to preprocess audio data.
 
-## Base feature extractor classes
+## Feature extractor classes
 
 Transformers feature extractors inherit from the [`SequenceFeatureExtractor`] class, which subclasses [`FeatureExtractionMixin`].
 
 <!-- insert diagram here -->
 
 - [`SequenceFeatureExtractor`] provides a method to [`~SequenceFeatureExtractor.pad`] sequences to a certain length to avoid uneven sequence lengths.
-- [`FeatureExtractionMixin`] provides [`~FeatureExtractionMixin.from_pretrained`] and [`~FeatureExtractionMixin.save_pretrained`] to load and save a feature extractor. It loads a feature extractor from a Hub model repository name or local directory, and saves a feature extractors configuration to a [preprocessor_config.json](https://hf.co/openai/whisper-tiny/blob/main/preprocessor_config.json).
+- [`FeatureExtractionMixin`] provides [`~FeatureExtractionMixin.from_pretrained`] and [`~FeatureExtractionMixin.save_pretrained`] to load and save a feature extractor.
 
-## AutoFeatureExtractor
+There are two ways you can load a feature extractor, [`AutoFeatureExtractor`] and a model-specific feature extractor class.
+
+<hfoptions id="feature-extractor-classes">
+<hfoption id="AutoFeatureExtractor">
 
 The [AutoClass](./model_doc/auto) API automatically loads the correct feature extractor for a given model.
 
-Use the [`~AutoFeatureExtractor.from_pretrained`] method to load a feature extractor.
+Use [`~AutoFeatureExtractor.from_pretrained`] to load a feature extractor.
 
 ```py
 from transformers import AutoFeatureExtractor
@@ -57,7 +60,8 @@ from transformers import AutoFeatureExtractor
 feature_extractor = AutoFeatureExtractor.from_pretrained("openai/whisper-tiny")
 ```
 
-## Model-specific feature extractor
+</hfoption>
+<hfoption id="model-specific feature extractor">
 
 Every pretrained audio model has a specific associated feature extractor for correctly processing audio data. When you load a feature extractor, it retrieves the feature extractors configuration (feature size, chunk length, etc.) from [`preprocessor_config.json`](https://hf.co/openai/whisper-tiny/blob/main/preprocessor_config.json).
 
@@ -69,11 +73,16 @@ from transformers import WhisperFeatureExtractor
 feature_extractor = WhisperFeatureExtractor.from_pretrained("openai/whisper-tiny")
 ```
 
+</hfoption>
+</hfoptions>
+
 ## Preprocess
 
-A feature extractor expects the input as a PyTorch tensor of a certain shape. The exact input shape can vary depending on the specific audio model you're using. For example, [Whisper](https://huggingface.co/docs/transformers/model_doc/whisper) expects `input_features` which is a tensor of shape (batch_size, feature_size, sequence_length) but [Wav2Vec2](https://hf.co/docs/transformers/model_doc/wav2vec2) expects `input_values` which is a tensor of shape (batch_size, sequence_length).
+A feature extractor expects the input as a PyTorch tensor of a certain shape. The exact input shape can vary depending on the specific audio model you're using.
 
-The feature extractor takes care of this for whichever audio model you're using.
+For example, [Whisper](https://huggingface.co/docs/transformers/model_doc/whisper) expects `input_features` which is a tensor of shape (batch_size, feature_size, sequence_length) but [Wav2Vec2](https://hf.co/docs/transformers/model_doc/wav2vec2) expects `input_values` which is a tensor of shape (batch_size, sequence_length).
+
+The feature extractor generates the correct input shape for whichever audio model you're using.
 
 A feature extractor also sets the sampling rate (the number of audio signal values taken per second) of the audio files. The sampling rate of your audio data must match the sampling rate of the dataset a pretrained model was trained on. This value is typically given in the model card.
 
@@ -106,7 +115,7 @@ processed_dataset
 
 ### Padding
 
-Audio sequence lengths are different which is an issue because Transformers expects all sequences to have the same lengths so they can be batched. Uneven sequence lengths can't be batched.
+Audio sequence lengths that are different is an issue because Transformers expects all sequences to have the same lengths so they can be batched. Uneven sequence lengths can't be batched.
 
 ```py
 dataset[0]["audio"]["array"].shape
@@ -185,13 +194,13 @@ dataset[0]["audio"]
  'sampling_rate': 8000}
 ```
 
-Call the [`~datasets.Dataset.cast_column`] method on the `audio` column to upsample the sampling rate to 16kHz.
+Call [`~datasets.Dataset.cast_column`] on the `audio` column to upsample the sampling rate to 16kHz.
 
 ```py
 dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
 ```
 
-When you load the dataset sample, it is resampled to 16kHz.
+When you load the dataset sample, it is now resampled to 16kHz.
 
 ```py
 dataset[0]["audio"]

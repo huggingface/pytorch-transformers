@@ -20,7 +20,7 @@ Multimodal models require a preprocessor capable of handling inputs that combine
 
 For example, [PaliGemma](./model_doc/paligemma) is a vision-language model that uses the [SigLIP](./model_doc/siglip) image processor and the [Llama](./model_doc/llama) tokenizer. A [`ProcessorMixin`] class wraps both of these preprocessor types, providing a single and unified processor class for a multimodal model.
 
-To load a processor, call the [`~ProcessorMixin.from_pretrained`] method. Pass the input type to the processor to generate the expected model inputs, the input ids and pixel values.
+To load a processor, call [`~ProcessorMixin.from_pretrained`]. Pass the input type to the processor to generate the expected model inputs, the input ids and pixel values.
 
 ```py
 from transformers import AutoProcessor, PaliGemmaForConditionalGeneration
@@ -39,15 +39,18 @@ inputs
 
 This guide describes the processor class and how to preprocess multimodal inputs.
 
-## Base processor class
+## Processor classes
 
 All processors inherit from the [`ProcessorMixin`] class which provides methods like [`~ProcessorMixin.from_pretrained`], [`~ProcessorMixin.save_pretrained`], and [`~ProcessorMixin.push_to_hub`] for loading, saving, and sharing processors to the Hub repsectively.
 
-## AutoProcessor
+There are two ways to load a processor, with an [`AutoProcessor`] and with a model-specific processor class.
+
+<hfoptions id="processor-class">
+<hfoption id="AutoProcessor">
 
 The [AutoClass](./model_doc/auto) API provides a simple interface to load processors without directly specifying the specific model class it belongs to.
 
-Use the [`~AutoProcessor.from_pretrained`] method to load a processor.
+Use [`~AutoProcessor.from_pretrained`] to load a processor.
 
 ```py
 from transformers import AutoProcessor
@@ -55,9 +58,10 @@ from transformers import AutoProcessor
 processor = AutoProcessor.from_pretrained("google/paligemma-3b-pt-224")
 ```
 
-## Model-specific processor
+</hfoption>
+<hfoption id="model-specific processor">
 
-Processors are also associated with a specific pretrained multimodal model class. You can load a processor directly from the model class with the [`~ProcessorMixin.from_pretrained`] method.
+Processors are also associated with a specific pretrained multimodal model class. You can load a processor directly from the model class with [`~ProcessorMixin.from_pretrained`].
 
 ```py
 from transformers import WhisperProcessor
@@ -75,6 +79,9 @@ feature_extractor = WhisperFeatureExtractor.from_pretrained("openai/whisper-tiny
 processor = WhisperProcessor(feature_extractor=feature_extractor, tokenizer=tokenizer)
 ```
 
+</hfoption>
+</hfoptions>
+
 ## Preprocess
 
 Processors preprocess multimodal inputs into the expected Transformers format. There are a couple combinations of input modalities that a processor can handle such as text and audio or text and image.
@@ -84,22 +91,22 @@ Automatic speech recognition (ASR) tasks require a processor that can handle tex
 ```py
 from datasets import load_dataset
 
-lj_speech = load_dataset("lj_speech", split="train")
-lj_speech = lj_speech.map(remove_columns=["file", "id", "normalized_text"])
-lj_speech[0]["audio"]
+dataset = load_dataset("lj_speech", split="train")
+dataset = dataset.map(remove_columns=["file", "id", "normalized_text"])
+dataset[0]["audio"]
 {'array': array([-7.3242188e-04, -7.6293945e-04, -6.4086914e-04, ...,
          7.3242188e-04,  2.1362305e-04,  6.1035156e-05], dtype=float32),
  'path': '/root/.cache/huggingface/datasets/downloads/extracted/917ece08c95cf0c4115e45294e3cd0dee724a1165b7fc11798369308a465bd26/LJSpeech-1.1/wavs/LJ001-0001.wav',
  'sampling_rate': 22050}
 
-lj_speech[0]["text"]
+dataset[0]["text"]
 'Printing, in the only sense with which we are at present concerned, differs from most if not from all the arts and crafts represented in the Exhibition'
 ```
 
 Remember to resample the sampling rate to match the model's requirements.
 
 ```py
-lj_speech = lj_speech.cast_column("audio", Audio(sampling_rate=16000))
+dataset = dataset.cast_column("audio", Audio(sampling_rate=16000))
 ```
 
 Load a processor and pass the audio `array` to the `audio` parameter and pass the `text` column to the `text` parameter.
@@ -118,5 +125,5 @@ def prepare_dataset(example):
 Apply the `prepare_dataset` function to the dataset to preprocess it. The processor returns the `input_features` for the `audio` column and `labels` for the text column.
 
 ```py
-prepare_dataset(lj_speech[0])
+prepare_dataset(dataset[0])
 ```

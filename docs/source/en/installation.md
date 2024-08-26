@@ -111,7 +111,7 @@ python -c "from transformers import pipeline; print(pipeline('sentiment-analysis
 
 ### Source install
 
-Installing from source installs the *latest* version rather than the *stable* version of the library. This ensures you get the most up-to-date changes in the library, which is useful for experimenting with the latest features or fixing a bug that hasn't been officially released yet.
+Installing from source installs the *latest* version rather than a *stable* version of the library. This ensures you get the most up-to-date changes in the library, which is useful for experimenting with the latest features or fixing a bug that hasn't been officially released in the stable version yet.
 
 The downside is that the latest version may not always be stable. If you encounter any problems, please open a [GitHub Issue](https://github.com/huggingface/transformers/issues) so we can fix it as soon as possible.
 
@@ -139,7 +139,7 @@ pip install -e .
 ```
 
 > [!WARNING]
-> You must keep the `transformers` folder to keep using it locally.
+> You must keep the local Transformers folder to keep using it.
 
 Update your local version of Transformers with the latest changes in the main repository with the following command.
 
@@ -162,7 +162,9 @@ After installation, you can configure the Transformers cache location or setup t
 
 ### Cache directory
 
-When you load a pretrained model with [`~PreTrainedModel.from_pretrained`], the model is downloaded from the Hub and locally cached. Every time you load a model, it checks whether the cached model is up-to-date. If it's the same, then the local model is loaded. If it's not the same, the updated model is downloaded and cached. This ensures you always have the latest version of a model.
+When you load a pretrained model with [`~PreTrainedModel.from_pretrained`], the model is downloaded from the Hub and locally cached.
+
+Every time you load a model, it checks whether the cached model is up-to-date. If it's the same, then the local model is loaded. If it's not the same, the newer model is downloaded and cached. This ensures you always have the latest model version.
 
 The default directory given by the shell environment variable `TRANSFORMERS_CACHE` is `~/.cache/huggingface/hub`.
 
@@ -189,14 +191,14 @@ from huggingface_hub import snapshot_download
 snapshot_download(repo_id="meta-llama/Llama-2-7b-hf", repo_type="model")
 ```
 
-Set the environment variable `HF_HUB_OFFLINE=1` to prevent HTTP calls to the Hub to download the model.
+Set the environment variable `HF_HUB_OFFLINE=1` to prevent HTTP calls to the Hub when loading a model.
 
 ```bash
 HF_HUB_OFFLINE=1 \
 python examples/pytorch/language-modeling/run_clm.py --model_name_or_path meta-llama/Llama-2-7b-hf --dataset_name wikitext ...
 ```
 
-Another option for only loading cached files is to set the `local_files_only` parameter to `True` in the [`~PreTrainedModel.from_pretrained`] method.
+Another option for only loading cached files is to set the `local_files_only` parameter to `True` in [`~PreTrainedModel.from_pretrained`].
 
 ```py
 from transformers import LlamaForCausalLM

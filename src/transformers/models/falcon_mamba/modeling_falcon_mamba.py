@@ -371,11 +371,11 @@ class FalconMambaMixer(nn.Module):
         hidden_states,
         cache_params: Optional[MambaCache] = None,
         cache_position: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.LongTensor] = None,
     ):
         if is_fast_path_available and "cuda" in self.x_proj.weight.device.type and not torch._dynamo.is_compiling():
-            return self.cuda_kernels_forward(hidden_states, cache_params, cache_position)
-        return self.slow_forward(hidden_states, cache_params, cache_position)
-
+            return self.cuda_kernels_forward(hidden_states, cache_params, cache_position, attention_mask)
+        return self.slow_forward(hidden_states, cache_params, cache_position, attention_mask)
 
 
 # Copied from transformers.models.mamba.modeling_mamba.MambaRMSNorm with Mamba->FalconMamba
@@ -413,13 +413,16 @@ class FalconMambaBlock(nn.Module):
         hidden_states,
         cache_params: Optional[MambaCache] = None,
         cache_position: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.LongTensor] = None,
     ):
         residual = hidden_states
         hidden_states = self.norm(hidden_states.to(dtype=self.norm.weight.dtype))
         if self.residual_in_fp32:
             residual = residual.to(torch.float32)
 
-        hidden_states = self.mixer(hidden_states, cache_params=cache_params, cache_position=cache_position)
+        hidden_states = self.mixer(
+            hidden_states, cache_params=cache_params, cache_position=cache_position, attention_mask=attention_mask
+        )
         hidden_states = residual + hidden_states
         return hidden_states
 
@@ -727,6 +730,13 @@ class FalconMambaForCausalLM(FalconMambaPreTrainedModel, GenerationMixin):
             and model_kwargs["cache_position"] is not None
         ):
             model_kwargs["cache_position"] = model_kwargs["cache_position"][-1:] + num_new_tokens
+
+        if "attention_mask" in model_kwargs:
+            attention_mask = model_kwargs["attention_mask"]
+            model_kwargs["attention_mask"] = torch.cat(
+                [attention_mask, attention_mask.new_ones((attention_mask.shape[0], 1))], dim=-1
+            )
+
         return model_kwargs
 
     def prepare_inputs_for_generation(
@@ -736,6 +746,7 @@ class FalconMambaForCausalLM(FalconMambaPreTrainedModel, GenerationMixin):
         use_cache=None,
         cache_params: Optional[MambaCache] = None,
         cache_position: Optional[torch.LongTensor] = None,
+        attention_mask: Optional[torch.LongTensor] = None,
         **kwargs,
     ):
         # Overwitten -- uses `cache_params` as opposed to `past_key_values`
@@ -750,6 +761,10 @@ class FalconMambaForCausalLM(FalconMambaPreTrainedModel, GenerationMixin):
                 )
             if cache_position[0] > 0:
                 input_ids = input_ids[:, -1].unsqueeze(-1)
+
+                if attention_mask is not None:
+                    attention_mask = None
+
             else:
                 # we initialize the `cache_position` to full size of `conv_states` at prefill stage
                 # considering padding will be applied when input length is shorter, and truncation
@@ -767,6 +782,7 @@ class FalconMambaForCausalLM(FalconMambaPreTrainedModel, GenerationMixin):
                 "cache_params": cache_params,
                 "use_cache": use_cache,
                 "cache_position": cache_position,
+                "attention_mask": attention_mask,
             }
         )
         return model_inputs

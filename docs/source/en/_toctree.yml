@@ -50,6 +50,8 @@
     sections:
     - local: pipeline_tutorial
       title: Pipeline
+    - local: pipeline_gradio
+      title: Machine learning apps
     - local: pipeline_webserver
       title: Pipelines for webserver inference
     - local: add_new_pipeline

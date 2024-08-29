@@ -13,7 +13,7 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Contribute
+# Add a new model
 
 Transformers is fortunate to have a passionate community of developers and researchers contributing models to the library. As an open-source first project, we're invested in empowering the community to actively add models.
 

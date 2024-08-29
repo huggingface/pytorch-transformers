@@ -18,7 +18,7 @@
     - local: model_sharing
       title: Share
     - local: add_new_model
-      title: Contribute
+      title: Add a new model
     - local: task_summary
       title: What 🤗 Transformers can do
     - local: tasks_explained
@@ -49,7 +49,7 @@
   - title: Pipeline API
     sections:
     - local: pipeline_tutorial
-      title: Run inference with pipelines
+      title: Pipeline
     - local: pipeline_webserver
       title: Pipelines for webserver inference
     - local: add_new_pipeline

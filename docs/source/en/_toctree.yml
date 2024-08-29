@@ -53,7 +53,7 @@
     - local: pipeline_gradio
       title: Machine learning apps
     - local: pipeline_webserver
-      title: Pipelines for webserver inference
+      title: Web server inference
     - local: add_new_pipeline
       title: How to add a pipeline to 🤗 Transformers?
   - title: LLMs

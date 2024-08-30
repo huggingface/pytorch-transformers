@@ -6,7 +6,6 @@ docs/source/en/agents.md
 docs/source/en/agents.md
 docs/source/en/attention.md
 docs/source/en/benchmarks.md
-docs/source/en/big_models.md
 docs/source/en/community.md
 docs/source/en/contributing.md
 docs/source/en/custom_models.md

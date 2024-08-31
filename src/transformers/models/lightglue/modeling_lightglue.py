@@ -169,7 +169,7 @@ def batch_inconsistent_tensor_list(tensor_list: List[Tuple[torch.Tensor]]) -> Li
     return [stack_inconsistent_tensor_list(element) for element in list_of_tuples]
 
 
-def normalize_keypoints(keypoints: torch.Tensor, height: torch.Tensor, width: torch.Tensor) -> torch.Tensor:
+def normalize_keypoints(keypoints: torch.Tensor, height: int, width: int) -> torch.Tensor:
     size = torch.tensor([width, height], device=keypoints.device, dtype=keypoints.dtype)[None]
     shift = size / 2
     scale = size.max(-1).values / 2
@@ -183,7 +183,20 @@ def log_sinkhorn_iterations(
     log_target_distribution: torch.Tensor,
     num_iterations: int,
 ) -> torch.Tensor:
-    """Perform Sinkhorn Normalization in Log-space for stability"""
+    """
+    Perform Sinkhorn Normalization in Log-space for stability
+
+    Args:
+        log_cost_matrix (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`): Logarithm of the cost matrix.
+        log_source_distribution (`torch.Tensor` of shape `(batch_size, num_rows)`): Logarithm of the source
+        distribution.
+        log_target_distribution (`torch.Tensor` of shape `(batch_size, num_columns)`): Logarithm of the target
+        distribution.
+
+    Returns:
+        log_cost_matrix (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`): Logarithm of the optimal
+        transport matrix.
+    """
     log_u_scaling = torch.zeros_like(log_source_distribution)
     log_v_scaling = torch.zeros_like(log_target_distribution)
     for _ in range(num_iterations):
@@ -193,7 +206,18 @@ def log_sinkhorn_iterations(
 
 
 def log_optimal_transport(scores: torch.Tensor, reg_param: torch.Tensor, iterations: int) -> torch.Tensor:
-    """Perform Differentiable Optimal Transport in Log-space for stability"""
+    """
+    Perform Differentiable Optimal Transport in Log-space for stability
+
+    Args:
+        scores: (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`): Cost matrix.
+        reg_param: (`torch.Tensor` of shape `(batch_size, 1, 1)`): Regularization parameter.
+        iterations: (`int`): Number of Sinkhorn iterations.
+
+    Returns:
+        log_optimal_transport_matrix: (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`): Logarithm of the
+        optimal transport matrix.
+    """
     batch_size, num_rows, num_columns = scores.shape
     one_tensor = scores.new_tensor(1)
     num_rows_tensor, num_columns_tensor = (num_rows * one_tensor).to(scores), (num_columns * one_tensor).to(scores)
@@ -230,10 +254,10 @@ def arange_like(x, dim: int):
 @dataclass
 class KeypointMatchingOutput(ModelOutput):
     """
-    Base class for outputs of keypoint matching models. Due to the nature of keypoint detection and matching, the number of
-    keypoints is not fixed and can vary from image to image, which makes batching non-trivial. In the batch of images,
-    the maximum number of matches is set as the dimension of the matches and matching scores. The mask
-    tensor is used to indicate which values in the keypoints, matches and matching_scores tensors are keypoint matching
+    Base class for outputs of keypoint matching models. Due to the nature of keypoint detection and matching, the number
+    of keypoints is not fixed and can vary from image to image, which makes batching non-trivial. In the batch of
+    images, the maximum number of matches is set as the dimension of the matches and matching scores. The mask tensor is
+    used to indicate which values in the keypoints, matches and matching_scores tensors are keypoint matching
     information.
 
     Args:
@@ -247,6 +271,14 @@ class KeypointMatchingOutput(ModelOutput):
             Scores of predicted matches.
         keypoints (`torch.FloatTensor` of shape `(batch_size, num_keypoints, 2)`):
             Absolute (x, y) coordinates of predicted keypoints in a given image.
+        hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or
+        when `config.output_hidden_states=True`):
+            Tuple of `torch.FloatTensor` (one for the output of each stage) of shape `(batch_size, 2, num_channels,
+            num_keypoints)`.
+        attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or when
+        `config.output_attentions=True`):
+            Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, 2, num_heads, num_keypoints,
+            num_keypoints)`.
     """
 
     loss: Optional[torch.FloatTensor] = None
@@ -778,9 +810,6 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         device = keypoints_0.device
         batch_size, num_keypoints_0 = keypoints_0.shape[:2]
         num_keypoints_1 = keypoints_1.shape[1]
-
-        height = torch.tensor(height, device=device)
-        width = torch.tensor(width, device=device)
 
         # Keypoint normalization
         keypoints_0 = normalize_keypoints(keypoints_0, height, width)

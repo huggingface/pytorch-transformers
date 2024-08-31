@@ -76,6 +76,8 @@ def convert_to_grayscale(
     requires_backends(convert_to_grayscale, ["vision"])
 
     if isinstance(image, np.ndarray):
+        if is_grayscale(image, input_data_format=input_data_format):
+            return image
         if input_data_format == ChannelDimension.FIRST:
             gray_image = image[0, ...] * 0.2989 + image[1, ...] * 0.5870 + image[2, ...] * 0.1140
             gray_image = np.stack([gray_image] * 3, axis=0)

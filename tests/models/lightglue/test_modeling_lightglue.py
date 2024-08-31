@@ -309,7 +309,7 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
             outputs = model(**inputs, output_hidden_states=True, output_attentions=True)
 
         expected_number_keypoints_image0 = 1116
-        expected_number_keypoints_image1 = 1422
+        expected_number_keypoints_image1 = 1426
         expected_number_keypoints_image2 = 948
         expected_max_number_keypoints = max(
             [expected_number_keypoints_image0, expected_number_keypoints_image1, expected_number_keypoints_image2]
@@ -321,10 +321,10 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
         self.assertEqual(outputs.matches.shape, expected_matches_shape)
         self.assertEqual(outputs.matching_scores.shape, expected_matching_scores_shape)
 
-        expected_matches_values = torch.tensor([-1, -1, -1, -1, -1, 42, -1, 45, -1, 43], dtype=torch.int32).to(
+        expected_matches_values = torch.tensor([-1, -1, -1, -1, -1, 43, -1, 46, -1, 44], dtype=torch.int32).to(
             torch_device
         )
-        expected_matching_scores_values = torch.tensor([0, 0, 0, 0, 0, 0.1197, 0.0892, 0.4799, 0, 0.3592]).to(
+        expected_matching_scores_values = torch.tensor([0, 0, 0, 0, 0, 0.1171, 0.0896, 0.5196, 0, 0.3388]).to(
             torch_device
         )
 
@@ -335,6 +335,6 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
 
         self.assertTrue(torch.allclose(predicted_matching_scores_values, expected_matching_scores_values, atol=1e-4))
 
-        expected_number_of_matches = 234
+        expected_number_of_matches = 235
         predicted_number_of_matches = torch.sum(outputs.matches[0][0] != -1).item()
         self.assertEqual(predicted_number_of_matches, expected_number_of_matches)

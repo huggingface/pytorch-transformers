@@ -59,7 +59,7 @@
   - title: LLMs
     sections:
     - local: tasks/prompting
-      title: LLM prompting guide
+      title: Prompt engineering
     - local: llm_optims
       title: LLM inference optimization
     - local: kv_cache
@@ -242,6 +242,8 @@
         title: Image tasks with IDEFICS
       - local: tasks/image_text_to_text
         title: Image-text-to-text
+      - local: tasks/video_text_to_text
+        title: Video-text-to-text
   - local: benchmarks
     title: Benchmarks
   - local: notebooks

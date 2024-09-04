@@ -86,6 +86,8 @@
       title: Optimize inference using `torch.compile()`
   - local: agents
     title: Agents
+  - local: agents_advanced
+    title: Agents, supercharged - Multi-agents, External tools, and more
   - local: multilingual
     title: Run inference with multilingual models
   - local: gguf

@@ -61,7 +61,7 @@
     - local: tasks/prompting
       title: Prompt engineering
     - local: llm_optims
-      title: LLM inference optimization
+      title: Optimize inference
     - local: kv_cache
       title: Best Practices for Generation with Cache
     - local: llm_tutorial

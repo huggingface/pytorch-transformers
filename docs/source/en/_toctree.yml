@@ -92,6 +92,8 @@
     title: Run inference with multilingual models
   - local: gguf
     title: Interoperability with GGUF files
+  - local: tiktoken
+    title: Interoperability with TikToken files
   - local: perf_infer_cpu
     title: CPU inference
   - local: perf_infer_gpu_one

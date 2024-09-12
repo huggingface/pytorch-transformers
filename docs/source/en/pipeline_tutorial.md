@@ -325,7 +325,7 @@ for out in pipeline(data()):
     generated_characters += len(out[0]["generated_text"])
 ```
 
-## Large model optimizations
+## Large models
 
 [Accelerate](https://hf.co/docs/accelerate/index) enables a couple of optimizations for running large models with [`Pipeline`]. Make sure Accelerate is installed first.
 

@@ -63,7 +63,9 @@
     - local: llm_optims
       title: Optimize inference
     - local: kv_cache
-      title: Best Practices for Generation with Cache
+      title: KV cache strategies
+    - local: cache_explanation
+      title: Caching
     - local: llm_tutorial
       title: Generation with LLMs
     - local: generation_strategies

@@ -232,6 +232,8 @@
         title: Image Feature Extraction
       - local: tasks/mask_generation
         title: Mask Generation
+      - local: tasks/keypoint_detection
+        title: Keypoint detection
       - local: tasks/knowledge_distillation_for_image_classification
         title: Knowledge Distillation for Computer Vision
     - title: Multimodal

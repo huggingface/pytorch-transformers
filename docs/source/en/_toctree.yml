@@ -67,9 +67,9 @@
     - local: cache_explanation
       title: Caching
     - local: llm_tutorial
-      title: Generation with LLMs
+      title: Text generation
     - local: generation_strategies
-      title: Customize the generation strategy
+      title: Generation strategies
     - local: llm_tutorial_optimization
       title: Getting the most out of LLMs
     - local: perplexity

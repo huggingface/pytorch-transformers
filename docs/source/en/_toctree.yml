@@ -74,12 +74,12 @@
       title: Getting the most out of LLMs
     - local: perplexity
       title: Perplexity of fixed-length models
-    - title: Chat models
+    - title: Chat
       sections:
       - local: conversations
-        title: Chatting with Transformers
+        title: Chat pipeline
       - local: chat_templating
-        title: Chat templates
+        title: Templates
   - title: Framework-specific inference optimization
     sections:
     - local: tf_xla

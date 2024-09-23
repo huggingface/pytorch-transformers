@@ -80,6 +80,10 @@
         title: Chat pipeline
       - local: chat_templating
         title: Templates
+      - local: chat_templating_writing
+        title: Template writing
+      - local: chat_extras
+        title: Tools and RAG
   - title: Framework-specific inference optimization
     sections:
     - local: tf_xla

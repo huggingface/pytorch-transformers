@@ -84,12 +84,16 @@
         title: Template writing
       - local: chat_extras
         title: Tools and RAG
-  - title: Framework-specific inference optimization
+  - title: Optimization
     sections:
-    - local: tf_xla
-      title: XLA Integration for TensorFlow Models
     - local: perf_torch_compile
-      title: Optimize inference using `torch.compile()`
+      title: torch.compile
+    - local: tf_xla
+      title: XLA
+    - local: perf_infer_cpu
+      title: CPU
+    - local: perf_infer_gpu_one
+      title: GPU
   - local: agents
     title: Agents
   - local: agents_advanced
@@ -100,10 +104,6 @@
     title: Interoperability with GGUF files
   - local: tiktoken
     title: Interoperability with TikToken files
-  - local: perf_infer_cpu
-    title: CPU inference
-  - local: perf_infer_gpu_one
-    title: GPU inference
 - title: Training
   sections:
   - title: Trainer API

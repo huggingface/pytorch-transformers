@@ -59,7 +59,9 @@ compiled_model = torch.compile(model, mode="reduce-overhead", fullgraph=True)
 
 ## Benchmark results
 
-Refer to the table below for performance benchmarks comparing the mean inference time in milliseconds with torch.compile enabled and disabled across various GPUs and batch sizes on the same image. Select **Subset** in the table below to switch between different GPUs, as well as benchmarks on [PyTorch nightly 2.1.0dev](https://download.pytorch.org/whl/nightly/cu118) and torch.compile with `reduce-overhead` mode enabled.
+Refer to the table below for performance benchmarks comparing the mean inference time in milliseconds with torch.compile enabled and disabled across various GPUs and batch sizes on the same image.
+
+Select **Subset** in the table below to switch between different GPUs, as well as benchmarks on [PyTorch nightly](https://download.pytorch.org/whl/nightly/cu118) 2.1.0dev and torch.compile with `reduce-overhead` mode enabled.
 
 <iframe
   src="https://huggingface.co/datasets/stevhliu/compile-benchmarks/embed/viewer/t4/train"

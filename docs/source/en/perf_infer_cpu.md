@@ -1,4 +1,4 @@
-<!--Copyright 2022 The HuggingFace Team. All rights reserved.
+<!--Copyright 2024 The HuggingFace Team. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may obtain a copy of the License at
@@ -13,44 +13,59 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# CPU inference
+# CPU
 
-With some optimizations, it is possible to efficiently run large model inference on a CPU. One of these optimization techniques involves compiling the PyTorch code into an intermediate format for high-performance environments like C++. The other technique fuses multiple operations into one kernel to reduce the overhead of running each operation separately.
+CPUs are a viable and cost-effective inference option. With a few optimization methods, it is possible to achieve good performance with large models on CPUs. These methods include fusing kernels to reduce overhead and compiling your code to a faster intermediate format that can be deployed in production environments. 
 
-You'll learn how to use [BetterTransformer](https://pytorch.org/blog/a-better-transformer-for-fast-transformer-encoder-inference/) for faster inference, and how to convert your PyTorch code to [TorchScript](https://pytorch.org/tutorials/beginner/Intro_to_TorchScript_tutorial.html). If you're using an Intel CPU, you can also use [graph optimizations](https://intel.github.io/intel-extension-for-pytorch/cpu/latest/tutorials/features.html#graph-optimization) from [Intel Extension for PyTorch](https://intel.github.io/intel-extension-for-pytorch/cpu/latest/index.html) to boost inference speed even more. Finally, learn how to use 🤗 Optimum to accelerate inference with ONNX Runtime or OpenVINO (if you're using an Intel CPU).
+This guide will show you a few ways to optimize inference on a CPU.
 
-## BetterTransformer
+## Optimum
 
-BetterTransformer accelerates inference with its fastpath (native PyTorch specialized implementation of Transformer functions) execution. The two optimizations in the fastpath execution are:
+[Optimum](https://hf.co/docs/optimum/en/index) is a Hugging Face library focused on optimizing model performance across various hardware. It supports [ONNX Runtime](https://onnxruntime.ai/docs/) (ORT), a model accelerator, for a wide range of hardware and frameworks including CPUs.
 
-1. fusion, which combines multiple sequential operations into a single "kernel" to reduce the number of computation steps
-2. skipping the inherent sparsity of padding tokens to avoid unnecessary computation with nested tensors
+Optimum provides the [`~optimum.onnxruntime.ORTModel`] class for loading a ONNX models. For example, load the [optimum/roberta-base-squad2](https://hf.co/optimum/roberta-base-squad2) checkpoint for question answering inference. This checkpoint contains a [model.onnx](https://hf.co/optimum/roberta-base-squad2/blob/main/model.onnx) file.
 
-BetterTransformer also converts all attention operations to use the more memory-efficient [scaled dot product attention](https://pytorch.org/docs/master/generated/torch.nn.functional.scaled_dot_product_attention).
+```py
+from transformers import AutoTokenizer, pipeline
+from optimum.onnxruntime import ORTModelForQuestionAnswering
 
-<Tip>
+onnx_qa = pipeline("question-answering", model="optimum/roberta-base-squad2", tokenizer="deepset/roberta-base-squad2")
 
-BetterTransformer is not supported for all models. Check this [list](https://huggingface.co/docs/optimum/bettertransformer/overview#supported-models) to see if a model supports BetterTransformer.
+question = "What's my name?"
+context = "My name is Philipp and I live in Nuremberg."
+pred = onnx_qa(question, context)
+```
 
-</Tip>
+> [!TIP]
+> Optimum includes an [Intel](https://hf.co/docs/optimum/intel/index) extension that provides additional optimizations such as quantization, pruning, and knowledge distillation for Intel CPUs. This extension also includes tools to convert models to [OpenVINO](https://hf.co/docs/optimum/intel/inference), a toolkit for optimizing and deploying models, for even faster inference.
 
-Before you start, make sure you have 🤗 Optimum [installed](https://huggingface.co/docs/optimum/installation).
+### BetterTransformer
 
-Enable BetterTransformer with the [`PreTrainedModel.to_bettertransformer`] method:
+[BetterTransformer](https://pytorch.org/blog/a-better-transformer-for-fast-transformer-encoder-inference/) is a *fastpath* execution of specialized Transformers functions directly on the hardware level such as a CPU. There are two main components of the fastpath execution.
+
+- fusing multiple operations into a single kernel for faster and more efficient execution
+- skipping unnecessary computation of padding tokens with nested tensors
+
+> [!WARNING]
+> BetterTransformer isn't supported for all models. Check this [list](https://hf.co/docs/optimum/bettertransformer/overview#supported-models) to see whether a model supports BetterTransformer.
+
+BetterTransformer is available through Optimum with the [`~PreTrainedModel.to_bettertransformer`] method.
 
 ```py
 from transformers import AutoModelForCausalLM
 
-model = AutoModelForCausalLM.from_pretrained("bigcode/starcoder", torch_dtype="auto")
+model = AutoModelForCausalLM.from_pretrained("bigscience/bloom")
+model = model.to_bettertransformer()
 ```
 
 ## TorchScript
 
-TorchScript is an intermediate PyTorch model representation that can be run in production environments where performance is important. You can train a model in PyTorch and then export it to TorchScript to free the model from Python performance constraints. PyTorch [traces](https://pytorch.org/docs/stable/generated/torch.jit.trace.html) a model to return a [`ScriptFunction`] that is optimized with just-in-time compilation (JIT). Compared to the default eager mode, JIT mode in PyTorch typically yields better performance for inference using optimization techniques like operator fusion.
+[TorchScript](https://pytorch.org/docs/stable/jit.html) is an intermediate PyTorch model format that can be run in non-Python environments, like C++, where performance is critical. Train a PyTorch model and convert it to a TorchScript function or module with [torch.jit.trace](https://pytorch.org/docs/stable/generated/torch.jit.trace.html). This function optimizes the model with just-in-time (JIT) compilation, and compared to the default eager mode, JIT-compiled models offer better inference performance.
 
-For a gentle introduction to TorchScript, see the [Introduction to PyTorch TorchScript](https://pytorch.org/tutorials/beginner/Intro_to_TorchScript_tutorial.html) tutorial.
+> [!TIP]
+> Refer to the [Introduction to PyTorch TorchScript](https://pytorch.org/tutorials/beginner/Intro_to_TorchScript_tutorial.html) tutorial for a gentle introduction to TorchScript.
 
-With the [`Trainer`] class, you can enable JIT mode for CPU inference by setting the `--jit_mode_eval` flag:
+On a CPU, enable `torch.jit.trace` with the `--jit_mode_eval` flag in [`Trainer`].
 
 ```bash
 python examples/pytorch/question-answering/run_qa.py \
@@ -64,25 +79,15 @@ python examples/pytorch/question-answering/run_qa.py \
 --jit_mode_eval
 ```
 
-<Tip warning={true}>
+## IPEX
 
-For PyTorch >= 1.14.0, JIT-mode could benefit any model for prediction and evaluation since the dict input is supported in `jit.trace`.
+[Intel Extension for PyTorch](https://intel.github.io/intel-extension-for-pytorch/cpu/latest/tutorials/getting_started.html) (IPEX) offers additional optimizations for PyTorch on Intel CPUs. IPEX further optimizes TorchScript with [graph optimization](https://intel.github.io/intel-extension-for-pytorch/cpu/latest/tutorials/features/graph_optimization.html) which fuses operations like Multi-head attention, Concat Linear, Linear + Add, Linear + Gelu, Add + LayerNorm, and more, into single kernels for faster execution.
 
-For PyTorch < 1.14.0, JIT-mode could benefit a model if its forward parameter order matches the tuple input order in `jit.trace`, such as a question-answering model. If the forward parameter order does not match the tuple input order in `jit.trace`, like a text classification model, `jit.trace` will fail and we are capturing this with the exception here to make it fallback. Logging is used to notify users.
-
-</Tip>
-
-## IPEX graph optimization
-
-Intel® Extension for PyTorch (IPEX) provides further optimizations in JIT mode for Intel CPUs, and we recommend combining it with TorchScript for even faster performance. The IPEX [graph optimization](https://intel.github.io/intel-extension-for-pytorch/cpu/latest/tutorials/features/graph_optimization.html) fuses operations like Multi-head attention, Concat Linear, Linear + Add, Linear + Gelu, Add + LayerNorm, and more.
-
-To take advantage of these graph optimizations, make sure you have IPEX [installed](https://intel.github.io/intel-extension-for-pytorch/cpu/latest/tutorials/installation.html):
+Make sure IPEX is installed, and set the `--use_opex` and `--jit_mode_eval` flags in [`Trainer`] to enable IPEX graph optimization and TorchScript.
 
 ```bash
-pip install intel_extension_for_pytorch
+!pip install intel_extension_for_pytorch
 ```
-
-Set the `--use_ipex` and `--jit_mode_eval` flags in the [`Trainer`] class to enable JIT mode with the graph optimizations:
 
 ```bash
 python examples/pytorch/question-answering/run_qa.py \
@@ -96,31 +101,3 @@ python examples/pytorch/question-answering/run_qa.py \
 --use_ipex \
 --jit_mode_eval
 ```
-
-## 🤗 Optimum
-
-<Tip>
-
-Learn more details about using ORT with 🤗 Optimum in the [Optimum Inference with ONNX Runtime](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/models) guide. This section only provides a brief and simple example.
-
-</Tip>
-
-ONNX Runtime (ORT) is a model accelerator that runs inference on CPUs by default. ORT is supported by 🤗 Optimum which can be used in 🤗 Transformers, without making too many changes to your code. You only need to replace the 🤗 Transformers `AutoClass` with its equivalent [`~optimum.onnxruntime.ORTModel`] for the task you're solving, and load a checkpoint in the ONNX format.
-
-For example, if you're running inference on a question answering task, load the [optimum/roberta-base-squad2](https://huggingface.co/optimum/roberta-base-squad2) checkpoint which contains a `model.onnx` file:
-
-```py
-from transformers import AutoTokenizer, pipeline
-from optimum.onnxruntime import ORTModelForQuestionAnswering
-
-model = ORTModelForQuestionAnswering.from_pretrained("optimum/roberta-base-squad2")
-tokenizer = AutoTokenizer.from_pretrained("deepset/roberta-base-squad2")
-
-onnx_qa = pipeline("question-answering", model=model, tokenizer=tokenizer)
-
-question = "What's my name?"
-context = "My name is Philipp and I live in Nuremberg."
-pred = onnx_qa(question, context)
-```
-
-If you have an Intel CPU, take a look at 🤗 [Optimum Intel](https://huggingface.co/docs/optimum/intel/index) which supports a variety of compression techniques (quantization, pruning, knowledge distillation) and tools for converting models to the [OpenVINO](https://huggingface.co/docs/optimum/intel/inference) format for higher performance inference.

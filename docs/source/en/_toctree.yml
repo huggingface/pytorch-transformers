@@ -92,10 +92,10 @@
       title: torch.compile
     - local: tf_xla
       title: XLA
-    - local: perf_infer_cpu
-      title: CPU
     - local: perf_infer_gpu_one
       title: GPU
+    - local: perf_infer_cpu
+      title: CPU
   - local: agents
     title: Agents
   - local: agents_advanced

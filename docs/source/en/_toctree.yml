@@ -177,6 +177,8 @@
     title: Optimum
   - local: quantization/torchao
     title: TorchAO
+  - local: quantization/compressed_tensors
+    title: compressed-tensors
   - local: quantization/contribute
     title: Contribute new quantization method
 - title: Deploy to production

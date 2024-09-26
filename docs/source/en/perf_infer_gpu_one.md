@@ -1,4 +1,4 @@
-<!--Copyright 2022 The HuggingFace Team. All rights reserved.
+<!--Copyright 2024 The HuggingFace Team. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may obtain a copy of the License at
@@ -13,107 +13,210 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# GPU inference
+# GPU
 
-GPUs are the standard choice of hardware for machine learning, unlike CPUs, because they are optimized for memory bandwidth and parallelism. To keep up with the larger sizes of modern models or to run these large models on existing and older hardware, there are several optimizations you can use to speed up GPU inference. In this guide, you'll learn how to use FlashAttention-2 (a more memory-efficient attention mechanism), BetterTransformer (a PyTorch native fastpath execution), and bitsandbytes to quantize your model to a lower precision. Finally, learn how to use 🤗 Optimum to accelerate inference with ONNX Runtime on Nvidia and AMD GPUs.
+GPUs are the standard hardware for machine learning because they're optimized for memory bandwidth and parallelism. With the increasing sizes of modern models, it's more important than ever to make sure GPUs are capable of efficiently handling them and able to deliver the best possible performance.
 
-<Tip>
+This guide will demonstrate a few ways to optimize inference on a GPU. The optimization methods shown below can be combined with each other to achieve even better performance, and they also work for distributed GPUs.
 
-The majority of the optimizations described here also apply to multi-GPU setups!
+## bitsandbytes
 
-</Tip>
+[bitsandbytes](https://hf.co/docs/bitsandbytes/index) is a quantization library that supports 8-bit and 4-bit quantization. Quantization represents weights in a lower precision compared to the original full precision format. It reduces memory requirements and makes it easier to fit large model into memory.
 
-## FlashAttention-2
+Make sure bitsandbytes and Accelerate are installed first.
 
-<Tip>
+```bash
+pip install bitsandbytes accelerate
+```
 
-FlashAttention-2 is experimental and may change considerably in future versions.
+<hfoptions id="bnb">
+<hfoption id="8-bit">
 
-</Tip>
+For text generation with 8-bit quantization, you should use [`~GenerationMixin.generate`] instead of the high-level [`Pipeline`] API. The [`Pipeline`] returns slower performance because it isn't optimized for 8-bit models, and some sampling strategies (nucleus sampling) also aren't supported.
 
-[FlashAttention-2](https://huggingface.co/papers/2205.14135) is a faster and more efficient implementation of the standard attention mechanism that can significantly speedup inference by:
+Set up a [`BitsAndBytesConfg`] and set `load_in_8bit=True` to load a model in 8-bit precision. The [`BitsAndBytesConfig`] is passed to the `quantization_config` parameter in [`~PreTrainedModel.from_pretrained`].
+
+Allow Accelerate to automatically distribute the model across your available hardware by setting [device_map="auto"](https://hf.co/docs/accelerate/concept_guides/big_model_inference#designing-a-device-map).
+
+Place all inputs on the same device as the model.
+
+```py
+from transformers import BitsAndBytesConfig, AutoTokenizer, AutoModelForCausalLM
+
+quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+tokenizer = AutoTokenizer("meta-llama/Llama-3.1-8B")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B", device_map="auto", quantization_config=quantization_config)
+
+prompt = "Hello, my llama is cute"
+inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+generated_ids = model.generate(**inputs)
+outputs = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+```
+
+For distributed setups, use the `max_memory` parameter to create a mapping of the amount of memory to allocate to each GPU. The example below distributes 16GB of memory to the first GPU and 16GB of memory to the second GPU.
+
+```py
+max_memory_mapping = {0: "16GB", 1: "16GB"}
+model_8bit = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-3.1-8B", device_map="auto", quantization_config=quantization_config, max_memory=max_memory_mapping
+)
+```
+
+Learn in more detail the concepts underlying 8-bit quantization in the [Gentle Introduction to 8-bit Matrix Multiplication for transformers at scale using Hugging Face Transformers, Accelerate and bitsandbytes](https://hf.co/blog/hf-bitsandbytes-integration) blog post.
+
+</hfoption>
+<hfoption id="4-bit">
+
+Set up a [`BitsAndBytesConfg`] and set `load_in_4bit=True` to load a model in 4-bit precision. The [`BitsAndBytesConfig`] is passed to the `quantization_config` parameter in [`~PreTrainedModel.from_pretrained`].
+
+Allow Accelerate to automatically distribute the model across your available hardware by setting device_map=“auto”.
+
+Place all inputs on the same device as the model.
+
+```py
+from transformers import BitsAndBytesConfig, AutoTokenizer, AutoModelForCausalLM
+
+quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+tokenizer = AutoTokenizer("meta-llama/Llama-3.1-8B")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B", device_map="auto", quantization_config=quantization_config)
+
+prompt = "Hello, my llama is cute"
+inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+generated_ids = model.generate(**inputs)
+outputs = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+```
+
+For distributed setups, use the `max_memory` parameter to create a mapping of the amount of memory to allocate to each GPU. The example below distributes 16GB of memory to the first GPU and 16GB of memory to the second GPU.
+
+```py
+max_memory_mapping = {0: "16GB", 1: "16GB"}
+model_4bit = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-3.1-8B", device_map="auto", quantization_config=quantization_config, max_memory=max_memory_mapping
+)
+```
+
+</hfoption>
+</hfoptions>
+
+## Optimum
+
+[Optimum](https://hf.co/docs/optimum/en/index) is a Hugging Face library focused on optimizing model performance across various hardware. It supports [ONNX Runtime](https://onnxruntime.ai/docs/) (ORT), a model accelerator, for a wide range of hardware and frameworks including NVIDIA GPUs and AMD GPUs that use the [ROCm](https://www.amd.com/en/products/software/rocm.html) stack.
+
+ORT uses optimization techniques that fuse common operations into a single node and constant folding to reduce the number of computations. ORT also places the most computationally intensive operations on the GPU and the rest on the CPU to intelligently distribute the workload between the two devices.
+
+Optimum provides the [`~optimum.onnxruntime.ORTModel`] class for loading ONNX models. Set the `provider` parameter according to the table below.
+
+| provider | hardware |
+|---|---|
+| [CUDAExecutionProvider](https://hf.co/docs/optimum/main/en/onnxruntime/usage_guides/gpu#cudaexecutionprovider) | CUDA-enabled GPUs |
+| [ROCMExecutionProvider](https://hf.co/docs/optimum/onnxruntime/usage_guides/amdgpu) | AMD Instinct, Radeon Pro, Radeon GPUs |
+| [TensorrtExecutionProvider](https://hf.co/docs/optimum/onnxruntime/usage_guides/gpu#tensorrtexecutionprovider) | TensorRT |
+
+For example, load the [distilbert/distilbert-base-uncased-finetuned-sst-2-english](https://hf.co/optimum/roberta-base-squad2) checkpoint for sequence classification. This checkpoint contains a [model.onnx](https://hf.co/distilbert/distilbert-base-uncased-finetuned-sst-2-english/blob/main/onnx/model.onnx) file. If a checkpoint doesn't have a `model.onnx` file, set `export=True` to convert a checkpoint on the fly to the ONNX format.
+
+```py
+from optimum.onnxruntime import ORTModelForSequenceClassification
+
+ort_model = ORTModelForSequenceClassification.from_pretrained(
+  "distilbert/distilbert-base-uncased-finetuned-sst-2-english",
+#   export=True,
+  provider="CUDAExecutionProvider",
+)
+```
+
+Now you can use the model for inference in a [`Pipeline`].
+
+```py
+from optimum.pipelines import pipeline
+from transformers import AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased-finetuned-sst-2-english")
+pipeline = pipeline(task="text-classification", model=ort_model, tokenizer=tokenizer, device="cuda:0")
+result = pipeline("Both the music and visual were astounding, not to mention the actors performance.")
+```
+
+Learn more details about using ORT with Optimum in the [Accelerated inference on NVIDIA GPUs](https://hf.co/docs/optimum/onnxruntime/usage_guides/gpu#accelerated-inference-on-nvidia-gpus) and [Accelerated inference on AMD GPUs](https://hf.co/docs/optimum/onnxruntime/usage_guides/amdgpu#accelerated-inference-on-amd-gpus) guides.
+
+### BetterTransformer
+
+[BetterTransformer](https://pytorch.org/blog/a-better-transformer-for-fast-transformer-encoder-inference/) is a *fastpath* execution of specialized Transformers functions directly on the hardware level such as a GPU. There are two main components of the fastpath execution.
+
+- fusing multiple operations into a single kernel for faster and more efficient execution
+- skipping unnecessary computation of padding tokens with nested tensors
+
+> [!WARNING]
+> Some BetterTransformer features are being upstreamed to Transformers with default support for native [torch.nn.scaled_dot_product_attention](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html) (SDPA). BetterTransformer has than the Transformers SDPA integration, but you can expect more and more architectures to natively support SDPA in Transformers.
+
+BetterTransformer is available through Optimum with the [`~PreTrainedModel.to_bettertransformer`] method.
+
+```py
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained("bigscience/bloom")
+model = model.to_bettertransformer()
+```
+
+Call [`~PreTrainedModel.reverse_bettertransformer`] and save it first to return the model to the original Transformers model.
+
+```py
+model = model.reverse_bettertransformer()
+model.save_pretrained("saved_model")
+```
+
+Refer to the benchmarks in [Out of the box acceleration and memory savings of 🤗 decoder models with PyTorch 2.0](https://pytorch.org/blog/out-of-the-box-acceleration/) for BetterTransformer and scaled dot product attention performance. The [BetterTransformer](https://medium.com/pytorch/bettertransformer-out-of-the-box-performance-for-huggingface-transformers-3fbe27d50ab2) blog post also discusses fastpath execution in greater detail if you're interested in learning more.
+
+## Scaled dot product attention (SDPA)
+
+PyTorch's [torch.nn.functional.scaled_dot_product_attention](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html) (SDPA) is a native implementation of the scaled dot product attention mechanism. SDPA is a more efficient and optimized version of the attention mechanism used in transformer models.
+
+There are three supported implementations available.
+
+- [FlashAttention2](https://github.com/Dao-AILab/flash-attention) only supports models with the fp16 or bf16 torch type. Make sure to cast your model to the appropriate type first.
+- [xFormers](https://github.com/facebookresearch/xformers) or Memory-Efficient Attention is able to support models with the fp32 torch type.
+- C++ implementation of scaled dot product attention
+
+SDPA is used by default for PyTorch v2.1.1. and greater when an implementation is available. You could explicitly enable SDPA by setting `attn_implementation="sdpa"` in [`~PreTrainedModel.from_pretrained`] though. Certain attention parameters, such as `head_mask` and `output_attentions=True`, are unsupported and returns a warning that Transformers will fall back to the (slower) eager implementation.
+
+```py
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B", device_map="auto", attn_implementation="sdpa")
+```
+
+SDPA selects the most performant implementation available, but you can also explicitly select an implementation with [torch.backends.cuda.sdp_kernel](https://pytorch.org/docs/master/backends.html#torch.backends.cuda.sdp_kernel) as a context manager. The example below shows how to enable the FlashAttention2 implementation with `enable_flash=True`.
+
+```py
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.1-8B")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B", device_map="auto").to("cuda")
+
+input_text = "Hello, my llama is cute"
+inputs = tokenizer(input_text, return_tensors="pt").to("cuda")
+
+with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
+    outputs = model.generate(**inputs)
+
+print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+```
+
+If you encounter the following `RuntimeError`, try installing the nightly version of PyTorch which has broader coverage for FlashAttention.
+
+```bash
+RuntimeError: No available kernel. Aborting execution.
+
+pip3 install -U --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
+```
+
+## FlashAttention
+
+[FlashAttention](https://github.com/Dao-AILab/flash-attention) is also available as a standalone package. It can significantly speed up inference by:
 
 1. additionally parallelizing the attention computation over sequence length
 2. partitioning the work between GPU threads to reduce communication and shared memory reads/writes between them
 
-FlashAttention-2 is currently supported for the following architectures:
-* [Aria](https://huggingface.co/docs/transformers/model_doc/aria#transformers.AriaForConditionalGeneration)
-* [Bark](https://huggingface.co/docs/transformers/model_doc/bark#transformers.BarkModel)
-* [Bamba](https://huggingface.co/docs/transformers/model_doc/bamba#transformers.BambaModel)
-* [Bart](https://huggingface.co/docs/transformers/model_doc/bart#transformers.BartModel)
-* [Chameleon](https://huggingface.co/docs/transformers/model_doc/chameleon#transformers.Chameleon)
-* [CLIP](https://huggingface.co/docs/transformers/model_doc/clip#transformers.CLIPModel)
-* [Cohere](https://huggingface.co/docs/transformers/model_doc/cohere#transformers.CohereModel)
-* [Cohere2](https://huggingface.co/docs/transformers/model_doc/cohere2#transformers.Cohere2Model)
-* [GLM](https://huggingface.co/docs/transformers/model_doc/glm#transformers.GLMModel)
-* [Dbrx](https://huggingface.co/docs/transformers/model_doc/dbrx#transformers.DbrxModel)
-* [DiffLlama](https://huggingface.co/docs/transformers/model_doc/diffllama#transformers.DiffLlamaModel)
-* [DistilBert](https://huggingface.co/docs/transformers/model_doc/distilbert#transformers.DistilBertModel)
-* [Emu3](https://huggingface.co/docs/transformers/model_doc/emu3)
-* [Gemma](https://huggingface.co/docs/transformers/model_doc/gemma#transformers.GemmaModel)
-* [Gemma2](https://huggingface.co/docs/transformers/model_doc/gemma2#transformers.Gemma2Model)
-* [GPT2](https://huggingface.co/docs/transformers/model_doc/gpt2)
-* [GPTBigCode](https://huggingface.co/docs/transformers/model_doc/gpt_bigcode#transformers.GPTBigCodeModel)
-* [GPTNeo](https://huggingface.co/docs/transformers/model_doc/gpt_neo#transformers.GPTNeoModel)
-* [GPTNeoX](https://huggingface.co/docs/transformers/model_doc/gpt_neox#transformers.GPTNeoXModel)
-* [GPT-J](https://huggingface.co/docs/transformers/model_doc/gptj#transformers.GPTJModel)
-* [Granite](https://huggingface.co/docs/transformers/model_doc/granite#transformers.GraniteModel)
-* [GraniteMoe](https://huggingface.co/docs/transformers/model_doc/granitemoe#transformers.GraniteMoeModel)
-* [Idefics2](https://huggingface.co/docs/transformers/model_doc/idefics2#transformers.Idefics2Model)
-* [Idefics3](https://huggingface.co/docs/transformers/model_doc/idefics3#transformers.Idefics3Model)
-* [Falcon](https://huggingface.co/docs/transformers/model_doc/falcon#transformers.FalconModel)
-* [JetMoe](https://huggingface.co/docs/transformers/model_doc/jetmoe#transformers.JetMoeModel)
-* [Jamba](https://huggingface.co/docs/transformers/model_doc/jamba#transformers.JambaModel)
-* [Llama](https://huggingface.co/docs/transformers/model_doc/llama#transformers.LlamaModel)
-* [Llava](https://huggingface.co/docs/transformers/model_doc/llava)
-* [Llava-NeXT](https://huggingface.co/docs/transformers/model_doc/llava_next)
-* [Llava-NeXT-Video](https://huggingface.co/docs/transformers/model_doc/llava_next_video)
-* [LLaVA-Onevision](https://huggingface.co/docs/transformers/model_doc/llava_onevision)
-* [Moonshine](https://huggingface.co/docs/transformers/model_doc/moonshine#transformers.MoonshineModel)
-* [Mimi](https://huggingface.co/docs/transformers/model_doc/mimi)
-* [VipLlava](https://huggingface.co/docs/transformers/model_doc/vipllava)
-* [VideoLlava](https://huggingface.co/docs/transformers/model_doc/video_llava)
-* [M2M100](https://huggingface.co/docs/transformers/model_doc/m2m_100)
-* [MBart](https://huggingface.co/docs/transformers/model_doc/mbart#transformers.MBartModel)
-* [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral#transformers.MistralModel)
-* [Mixtral](https://huggingface.co/docs/transformers/model_doc/mixtral#transformers.MixtralModel)
-* [ModernBert](https://huggingface.co/docs/transformers/model_doc/modernbert#transformers.ModernBert)
-* [Moshi](https://huggingface.co/docs/transformers/model_doc/moshi#transformers.MoshiModel)
-* [Musicgen](https://huggingface.co/docs/transformers/model_doc/musicgen#transformers.MusicgenModel)
-* [MusicGen Melody](https://huggingface.co/docs/transformers/model_doc/musicgen_melody#transformers.MusicgenMelodyModel)
-* [Nemotron](https://huggingface.co/docs/transformers/model_doc/nemotron)
-* [NLLB](https://huggingface.co/docs/transformers/model_doc/nllb)
-* [OLMo](https://huggingface.co/docs/transformers/model_doc/olmo#transformers.OlmoModel)
-* [OLMo2](https://huggingface.co/docs/transformers/model_doc/olmo2#transformers.Olmo2Model)
-* [OLMoE](https://huggingface.co/docs/transformers/model_doc/olmoe#transformers.OlmoeModel)
-* [OPT](https://huggingface.co/docs/transformers/model_doc/opt#transformers.OPTModel)
-* [PaliGemma](https://huggingface.co/docs/transformers/model_doc/paligemma#transformers.PaliGemmaForConditionalGeneration)
-* [Phi](https://huggingface.co/docs/transformers/model_doc/phi#transformers.PhiModel)
-* [Phi3](https://huggingface.co/docs/transformers/model_doc/phi3#transformers.Phi3Model)
-* [PhiMoE](https://huggingface.co/docs/transformers/model_doc/phimoe#transformers.PhimoeModel)
-* [StableLm](https://huggingface.co/docs/transformers/model_doc/stablelm#transformers.StableLmModel)
-* [Starcoder2](https://huggingface.co/docs/transformers/model_doc/starcoder2#transformers.Starcoder2Model)
-* [Qwen2](https://huggingface.co/docs/transformers/model_doc/qwen2#transformers.Qwen2Model)
-* [Qwen2Audio](https://huggingface.co/docs/transformers/model_doc/qwen2_audio#transformers.Qwen2AudioEncoder)
-* [Qwen2MoE](https://huggingface.co/docs/transformers/model_doc/qwen2_moe#transformers.Qwen2MoeModel)
-* [Qwen2VL](https://huggingface.co/docs/transformers/model_doc/qwen2_vl#transformers.Qwen2VLModel)
-* [RAG](https://huggingface.co/docs/transformers/model_doc/rag#transformers.RagModel)
-* [SpeechEncoderDecoder](https://huggingface.co/docs/transformers/model_doc/speech_encoder_decoder#transformers.SpeechEncoderDecoderModel)
-* [VisionEncoderDecoder](https://huggingface.co/docs/transformers/model_doc/vision_encoder_decoder#transformers.VisionEncoderDecoderModel)
-* [VisionTextDualEncoder](https://huggingface.co/docs/transformers/model_doc/vision_text_dual_encoder#transformers.VisionTextDualEncoderModel)
-* [Whisper](https://huggingface.co/docs/transformers/model_doc/whisper#transformers.WhisperModel)
-* [Wav2Vec2](https://huggingface.co/docs/transformers/model_doc/wav2vec2#transformers.Wav2Vec2Model)
-* [Hubert](https://huggingface.co/docs/transformers/model_doc/hubert#transformers.HubertModel)
-* [data2vec_audio](https://huggingface.co/docs/transformers/main/en/model_doc/data2vec#transformers.Data2VecAudioModel)
-* [Sew](https://huggingface.co/docs/transformers/main/en/model_doc/sew#transformers.SEWModel)
-* [SigLIP](https://huggingface.co/docs/transformers/model_doc/siglip)
-* [UniSpeech](https://huggingface.co/docs/transformers/v4.39.3/en/model_doc/unispeech#transformers.UniSpeechModel)
-* [unispeech_sat](https://huggingface.co/docs/transformers/v4.39.3/en/model_doc/unispeech-sat#transformers.UniSpeechSatModel)
-* [helium](https://huggingface.co/docs/transformers/main/en/model_doc/heliumtransformers.HeliumModel)
-
-You can request to add FlashAttention-2 support for another model by opening a GitHub Issue or Pull Request.
-
-Before you begin, make sure you have FlashAttention-2 installed.
+Install FlashAttention first for the hardware you're using.
 
 <hfoptions id="install">
 <hfoption id="NVIDIA">
@@ -122,432 +225,66 @@ Before you begin, make sure you have FlashAttention-2 installed.
 pip install flash-attn --no-build-isolation
 ```
 
-We strongly suggest referring to the detailed [installation instructions](https://github.com/Dao-AILab/flash-attention?tab=readme-ov-file#installation-and-features) to learn more about supported hardware and data types!
-
 </hfoption>
 <hfoption id="AMD">
 
-FlashAttention-2 is also supported on AMD GPUs and current support is limited to **Instinct MI210**, **Instinct MI250** and **Instinct MI300**. We strongly suggest using this [Dockerfile](https://github.com/huggingface/optimum-amd/tree/main/docker/transformers-pytorch-amd-gpu-flash/Dockerfile) to use FlashAttention-2 on AMD GPUs.
+FlashAttention2 support is currently limited to Instinct MI210, Instinct MI250 and Instinct MI300. We strongly suggest running this [Dockerfile](https://github.com/huggingface/optimum-amd/tree/main/docker/transformers-pytorch-amd-gpu-flash/Dockerfile) for FlashAttention2 on AMD GPUs.
 
 </hfoption>
 </hfoptions>
 
-To enable FlashAttention-2, pass the argument `attn_implementation="flash_attention_2"` to [`~AutoModelForCausalLM.from_pretrained`]:
-
-```python
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaForCausalLM
-
-model_id = "tiiuae/falcon-7b"
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-
-model = AutoModelForCausalLM.from_pretrained(
-    model_id,
-    torch_dtype=torch.bfloat16,
-    attn_implementation="flash_attention_2",
-)
-```
-
-<Tip>
-
-FlashAttention-2 can only be used when the model's dtype is `fp16` or `bf16`. Make sure to cast your model to the appropriate dtype and load them on a supported device before using FlashAttention-2.
-
-<br>
-
-You can also set `use_flash_attention_2=True` to enable FlashAttention-2 but it is deprecated in favor of `attn_implementation="flash_attention_2"`.
-
-</Tip>
-
-FlashAttention-2 can be combined with other optimization techniques like quantization to further speedup inference. For example, you can combine FlashAttention-2 with 8-bit or 4-bit quantization:
-
-```py
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaForCausalLM
-
-model_id = "tiiuae/falcon-7b"
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-
-# load in 8bit
-model = AutoModelForCausalLM.from_pretrained(
-    model_id,
-    load_in_8bit=True,
-    attn_implementation="flash_attention_2",
-)
-
-# load in 4bit
-model = AutoModelForCausalLM.from_pretrained(
-    model_id,
-    load_in_4bit=True,
-    attn_implementation="flash_attention_2",
-)
-```
-
-### Expected speedups
-
-You can benefit from considerable speedups for inference, especially for inputs with long sequences. However, since FlashAttention-2 does not support computing attention scores with padding tokens, you must manually pad/unpad the attention scores for batched inference when the sequence contains padding tokens. This leads to a significant slowdown for batched generations with padding tokens.
-
-To overcome this, you should use FlashAttention-2 without padding tokens in the sequence during training (by packing a dataset or [concatenating sequences](https://github.com/huggingface/transformers/blob/main/examples/pytorch/language-modeling/run_clm.py#L516) until reaching the maximum sequence length).
-
-For a single forward pass on [tiiuae/falcon-7b](https://hf.co/tiiuae/falcon-7b) with a sequence length of 4096 and various batch sizes without padding tokens, the expected speedup is:
-
-<div style="text-align: center">
-<img src="https://huggingface.co/datasets/ybelkada/documentation-images/resolve/main/falcon-7b-inference-large-seqlen.png">
-</div>
-
-For a single forward pass on [meta-llama/Llama-7b-hf](https://hf.co/meta-llama/Llama-7b-hf) with a sequence length of 4096 and various batch sizes without padding tokens, the expected speedup is:
-
-<div style="text-align: center">
-<img src="https://huggingface.co/datasets/ybelkada/documentation-images/resolve/main/llama-7b-inference-large-seqlen.png">
-</div>
-
-For sequences with padding tokens (generating with padding tokens), you need to unpad/pad the input sequences to correctly compute the attention scores. With a relatively small sequence length, a single forward pass creates overhead leading to a small speedup (in the example below, 30% of the input is filled with padding tokens):
-
-<div style="text-align: center">
-<img src="https://huggingface.co/datasets/ybelkada/documentation-images/resolve/main/llama-2-small-seqlen-padding.png">
-</div>
-
-But for larger sequence lengths, you can expect even more speedup benefits:
-
-<Tip>
-
-FlashAttention is more memory efficient, meaning you can train on much larger sequence lengths without running into out-of-memory issues. You can potentially reduce memory usage up to 20x for larger sequence lengths. Take a look at the [flash-attention](https://github.com/Dao-AILab/flash-attention) repository for more details.
-
-</Tip>
-
-<div style="text-align: center">
-<img src="https://huggingface.co/datasets/ybelkada/documentation-images/resolve/main/llama-2-large-seqlen-padding.png">
-</div>
-
-## PyTorch scaled dot product attention
-
-PyTorch's [`torch.nn.functional.scaled_dot_product_attention`](https://pytorch.org/docs/master/generated/torch.nn.functional.scaled_dot_product_attention.html) (SDPA) can also call FlashAttention and memory-efficient attention kernels under the hood. SDPA support is currently being added natively in Transformers and is used by default for `torch>=2.1.1` when an implementation is available. You may also set `attn_implementation="sdpa"` in `from_pretrained()` to explicitly request SDPA to be used.
-
-For now, Transformers supports SDPA inference and training for the following architectures:
-* [Albert](https://huggingface.co/docs/transformers/model_doc/albert#transformers.AlbertModel)
-* [Aria](https://huggingface.co/docs/transformers/model_doc/aria#transformers.AriaForConditionalGeneration)
-* [Audio Spectrogram Transformer](https://huggingface.co/docs/transformers/model_doc/audio-spectrogram-transformer#transformers.ASTModel)
-* [Bamba](https://huggingface.co/docs/transformers/model_doc/bamba#transformers.BambaModel)
-* [Bart](https://huggingface.co/docs/transformers/model_doc/bart#transformers.BartModel)
-* [Beit](https://huggingface.co/docs/transformers/model_doc/beit#transformers.BeitModel)
-* [Bert](https://huggingface.co/docs/transformers/model_doc/bert#transformers.BertModel)
-* [BioGpt](https://huggingface.co/docs/transformers/model_doc/biogpt#transformers.BioGptModel)
-* [CamemBERT](https://huggingface.co/docs/transformers/model_doc/camembert#transformers.CamembertModel)
-* [Chameleon](https://huggingface.co/docs/transformers/model_doc/chameleon#transformers.Chameleon)
-* [CLIP](https://huggingface.co/docs/transformers/model_doc/clip#transformers.CLIPModel)
-* [GLM](https://huggingface.co/docs/transformers/model_doc/glm#transformers.GLMModel)
-* [Cohere](https://huggingface.co/docs/transformers/model_doc/cohere#transformers.CohereModel)
-* [Cohere2](https://huggingface.co/docs/transformers/model_doc/cohere2#transformers.Cohere2Model)
-* [data2vec_audio](https://huggingface.co/docs/transformers/main/en/model_doc/data2vec#transformers.Data2VecAudioModel)
-* [data2vec_vision](https://huggingface.co/docs/transformers/main/en/model_doc/data2vec#transformers.Data2VecVisionModel)
-* [Dbrx](https://huggingface.co/docs/transformers/model_doc/dbrx#transformers.DbrxModel)
-* [DeiT](https://huggingface.co/docs/transformers/model_doc/deit#transformers.DeiTModel)
-* [DiffLlama](https://huggingface.co/docs/transformers/model_doc/diffllama#transformers.DiffLlamaModel)
-* [Dinov2](https://huggingface.co/docs/transformers/en/model_doc/dinov2)
-* [Dinov2_with_registers](https://huggingface.co/docs/transformers/en/model_doc/dinov2)
-* [DistilBert](https://huggingface.co/docs/transformers/model_doc/distilbert#transformers.DistilBertModel)
-* [Dpr](https://huggingface.co/docs/transformers/model_doc/dpr#transformers.DprReader)
-* [EncoderDecoder](https://huggingface.co/docs/transformers/model_doc/encoder_decoder#transformers.EncoderDecoderModel)
-* [Emu3](https://huggingface.co/docs/transformers/model_doc/emu3)
-* [Falcon](https://huggingface.co/docs/transformers/model_doc/falcon#transformers.FalconModel)
-* [Gemma](https://huggingface.co/docs/transformers/model_doc/gemma#transformers.GemmaModel)
-* [Gemma2](https://huggingface.co/docs/transformers/model_doc/gemma2#transformers.Gemma2Model)
-* [Granite](https://huggingface.co/docs/transformers/model_doc/granite#transformers.GraniteModel)
-* [GPT2](https://huggingface.co/docs/transformers/model_doc/gpt2)
-* [GPTBigCode](https://huggingface.co/docs/transformers/model_doc/gpt_bigcode#transformers.GPTBigCodeModel)
-* [GPTNeoX](https://huggingface.co/docs/transformers/model_doc/gpt_neox#transformers.GPTNeoXModel)
-* [Hubert](https://huggingface.co/docs/transformers/model_doc/hubert#transformers.HubertModel)
-* [Idefics](https://huggingface.co/docs/transformers/model_doc/idefics#transformers.IdeficsModel)
-* [Idefics2](https://huggingface.co/docs/transformers/model_doc/idefics2#transformers.Idefics2Model)
-* [Idefics3](https://huggingface.co/docs/transformers/model_doc/idefics3#transformers.Idefics3Model)
-* [I-JEPA](https://huggingface.co/docs/transformers/model_doc/ijepa#transformers.IJepaModel)
-* [GraniteMoe](https://huggingface.co/docs/transformers/model_doc/granitemoe#transformers.GraniteMoeModel)
-* [JetMoe](https://huggingface.co/docs/transformers/model_doc/jetmoe#transformers.JetMoeModel)
-* [Jamba](https://huggingface.co/docs/transformers/model_doc/jamba#transformers.JambaModel)
-* [Llama](https://huggingface.co/docs/transformers/model_doc/llama#transformers.LlamaModel)
-* [Llava](https://huggingface.co/docs/transformers/model_doc/llava)
-* [Llava-NeXT](https://huggingface.co/docs/transformers/model_doc/llava_next)
-* [Llava-NeXT-Video](https://huggingface.co/docs/transformers/model_doc/llava_next_video)
-* [LLaVA-Onevision](https://huggingface.co/docs/transformers/model_doc/llava_onevision)
-* [M2M100](https://huggingface.co/docs/transformers/model_doc/m2m_100#transformers.M2M100Model)
-* [Moonshine](https://huggingface.co/docs/transformers/model_doc/moonshine#transformers.MoonshineModel)
-* [Mimi](https://huggingface.co/docs/transformers/model_doc/mimi)
-* [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral#transformers.MistralModel)
-* [Mllama](https://huggingface.co/docs/transformers/model_doc/mllama#transformers.MllamaForConditionalGeneration)
-* [Mixtral](https://huggingface.co/docs/transformers/model_doc/mixtral#transformers.MixtralModel)
-* [ModernBert](https://huggingface.co/docs/transformers/model_doc/modernbert#transformers.ModernBert)
-* [Moshi](https://huggingface.co/docs/transformers/model_doc/moshi#transformers.MoshiModel)
-* [Musicgen](https://huggingface.co/docs/transformers/model_doc/musicgen#transformers.MusicgenModel)
-* [MusicGen Melody](https://huggingface.co/docs/transformers/model_doc/musicgen_melody#transformers.MusicgenMelodyModel)
-* [NLLB](https://huggingface.co/docs/transformers/model_doc/nllb)
-* [OLMo](https://huggingface.co/docs/transformers/model_doc/olmo#transformers.OlmoModel)
-* [OLMo2](https://huggingface.co/docs/transformers/model_doc/olmo2#transformers.Olmo2Model)
-* [OLMoE](https://huggingface.co/docs/transformers/model_doc/olmoe#transformers.OlmoeModel)
-* [OPT](https://huggingface.co/docs/transformers/en/model_doc/opt)
-* [PaliGemma](https://huggingface.co/docs/transformers/model_doc/paligemma#transformers.PaliGemmaForConditionalGeneration)
-* [Phi](https://huggingface.co/docs/transformers/model_doc/phi#transformers.PhiModel)
-* [Phi3](https://huggingface.co/docs/transformers/model_doc/phi3#transformers.Phi3Model)
-* [PhiMoE](https://huggingface.co/docs/transformers/model_doc/phimoe#transformers.PhimoeModel)
-* [Idefics](https://huggingface.co/docs/transformers/model_doc/idefics#transformers.IdeficsModel)
-* [mBart](https://huggingface.co/docs/transformers/model_doc/mbart#transformers.MBartModel)
-* [Moonshine](https://huggingface.co/docs/transformers/model_doc/moonshine#transformers.MoonshineModel)
-* [Mistral](https://huggingface.co/docs/transformers/model_doc/mistral#transformers.MistralModel)
-* [Mixtral](https://huggingface.co/docs/transformers/model_doc/mixtral#transformers.MixtralModel)
-* [StableLm](https://huggingface.co/docs/transformers/model_doc/stablelm#transformers.StableLmModel)
-* [Starcoder2](https://huggingface.co/docs/transformers/model_doc/starcoder2#transformers.Starcoder2Model)
-* [Qwen2](https://huggingface.co/docs/transformers/model_doc/qwen2#transformers.Qwen2Model)
-* [Qwen2Audio](https://huggingface.co/docs/transformers/model_doc/qwen2_audio#transformers.Qwen2AudioEncoder)
-* [Qwen2MoE](https://huggingface.co/docs/transformers/model_doc/qwen2_moe#transformers.Qwen2MoeModel)
-* [RoBERTa](https://huggingface.co/docs/transformers/model_doc/roberta#transformers.RobertaModel)
-* [Sew](https://huggingface.co/docs/transformers/main/en/model_doc/sew#transformers.SEWModel)
-* [SigLIP](https://huggingface.co/docs/transformers/model_doc/siglip)
-* [StableLm](https://huggingface.co/docs/transformers/model_doc/stablelm#transformers.StableLmModel)
-* [Starcoder2](https://huggingface.co/docs/transformers/model_doc/starcoder2#transformers.Starcoder2Model)
-* [UniSpeech](https://huggingface.co/docs/transformers/v4.39.3/en/model_doc/unispeech#transformers.UniSpeechModel)
-* [unispeech_sat](https://huggingface.co/docs/transformers/v4.39.3/en/model_doc/unispeech-sat#transformers.UniSpeechSatModel)
-* [RoBERTa](https://huggingface.co/docs/transformers/model_doc/roberta#transformers.RobertaModel)
-* [Qwen2VL](https://huggingface.co/docs/transformers/model_doc/qwen2_vl#transformers.Qwen2VLModel)
-* [Musicgen](https://huggingface.co/docs/transformers/model_doc/musicgen#transformers.MusicgenModel)
-* [MusicGen Melody](https://huggingface.co/docs/transformers/model_doc/musicgen_melody#transformers.MusicgenMelodyModel)
-* [Nemotron](https://huggingface.co/docs/transformers/model_doc/nemotron)
-* [SpeechEncoderDecoder](https://huggingface.co/docs/transformers/model_doc/speech_encoder_decoder#transformers.SpeechEncoderDecoderModel)
-* [VideoLlava](https://huggingface.co/docs/transformers/model_doc/video_llava)
-* [VipLlava](https://huggingface.co/docs/transformers/model_doc/vipllava)
-* [VisionEncoderDecoder](https://huggingface.co/docs/transformers/model_doc/vision_encoder_decoder#transformers.VisionEncoderDecoderModel)
-* [ViT](https://huggingface.co/docs/transformers/model_doc/vit#transformers.ViTModel)
-* [ViTHybrid](https://huggingface.co/docs/transformers/model_doc/vit_hybrid#transformers.ViTHybridModel)
-* [ViTMAE](https://huggingface.co/docs/transformers/model_doc/vit_mae#transformers.ViTMAEModel)
-* [ViTMSN](https://huggingface.co/docs/transformers/model_doc/vit_msn#transformers.ViTMSNModel)
-* [VisionTextDualEncoder](https://huggingface.co/docs/transformers/model_doc/vision_text_dual_encoder#transformers.VisionTextDualEncoderModel)
-* [VideoMAE](https://huggingface.co/docs/transformers/model_doc/videomae#transformers.VideoMAEModell)
-* [ViViT](https://huggingface.co/docs/transformers/model_doc/vivit#transformers.VivitModel)
-* [wav2vec2](https://huggingface.co/docs/transformers/model_doc/wav2vec2#transformers.Wav2Vec2Model)
-* [Whisper](https://huggingface.co/docs/transformers/model_doc/whisper#transformers.WhisperModel)
-* [XLM-RoBERTa](https://huggingface.co/docs/transformers/model_doc/xlm-roberta#transformers.XLMRobertaModel)
-* [XLM-RoBERTa-XL](https://huggingface.co/docs/transformers/model_doc/xlm-roberta-xl#transformers.XLMRobertaXLModel)
-* [YOLOS](https://huggingface.co/docs/transformers/model_doc/yolos#transformers.YolosModel)
-* [helium](https://huggingface.co/docs/transformers/main/en/model_doc/heliumtransformers.HeliumModel)
-
-<Tip>
-
-FlashAttention can only be used for models with the `fp16` or `bf16` torch type, so make sure to cast your model to the appropriate type first. The memory-efficient attention backend is able to handle `fp32` models.
-
-</Tip>
-
-<Tip>
-
-SDPA does not support certain sets of attention parameters, such as `head_mask` and `output_attentions=True`.
-In that case, you should see a warning message and we will fall back to the (slower) eager implementation.
-
-</Tip>
-
-By default, SDPA selects the most performant kernel available but you can check whether a backend is available in a given setting (hardware, problem size) with [`torch.nn.attention.sdpa_kernel`](https://pytorch.org/docs/stable/generated/torch.nn.attention.sdpa_kernel.html) as a context manager:
-
-```diff
-import torch
-+ from torch.nn.attention import SDPBackend, sdpa_kernel
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-tokenizer = AutoTokenizer.from_pretrained("facebook/opt-350m")
-model = AutoModelForCausalLM.from_pretrained("facebook/opt-350m", torch_dtype=torch.float16).to("cuda")
-
-input_text = "Hello my dog is cute and"
-inputs = tokenizer(input_text, return_tensors="pt").to("cuda")
-
-+ with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
-    outputs = model.generate(**inputs)
-
-print(tokenizer.decode(outputs[0], skip_special_tokens=True))
-```
-
-If you see a bug with the traceback below, try using the nightly version of PyTorch which may have broader coverage for FlashAttention:
-
-```bash
-RuntimeError: No available kernel. Aborting execution.
-
-# install PyTorch nightly
-pip3 install -U --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu118
-```
-
-## BetterTransformer
-
-<Tip warning={true}>
-
-Some BetterTransformer features are being upstreamed to Transformers with default support for native `torch.nn.scaled_dot_product_attention`. BetterTransformer still has a wider coverage than the Transformers SDPA integration, but you can expect more and more architectures to natively support SDPA in Transformers.
-
-</Tip>
-
-<Tip>
-
-Check out our benchmarks with BetterTransformer and scaled dot product attention in the [Out of the box acceleration and memory savings of 🤗 decoder models with PyTorch 2.0](https://pytorch.org/blog/out-of-the-box-acceleration/) and learn more about the fastpath execution in the [BetterTransformer](https://medium.com/pytorch/bettertransformer-out-of-the-box-performance-for-huggingface-transformers-3fbe27d50ab2) blog post.
-
-</Tip>
-
-BetterTransformer accelerates inference with its fastpath (native PyTorch specialized implementation of Transformer functions) execution. The two optimizations in the fastpath execution are:
-
-1. fusion, which combines multiple sequential operations into a single "kernel" to reduce the number of computation steps
-2. skipping the inherent sparsity of padding tokens to avoid unnecessary computation with nested tensors
-
-BetterTransformer also converts all attention operations to use the more memory-efficient [scaled dot product attention (SDPA)](https://pytorch.org/docs/master/generated/torch.nn.functional.scaled_dot_product_attention), and it calls optimized kernels like [FlashAttention](https://huggingface.co/papers/2205.14135) under the hood.
-
-Before you start, make sure you have 🤗 Optimum [installed](https://huggingface.co/docs/optimum/installation).
-
-Then you can enable BetterTransformer with the [`PreTrainedModel.to_bettertransformer`] method:
-
-```python
-model = model.to_bettertransformer()
-```
-
-You can return the original Transformers model with the [`~PreTrainedModel.reverse_bettertransformer`] method. You should use this before saving your model to use the canonical Transformers modeling:
-
-```py
-model = model.reverse_bettertransformer()
-model.save_pretrained("saved_model")
-```
-
-## bitsandbytes
-
-bitsandbytes is a quantization library that includes support for 4-bit and 8-bit quantization. Quantization reduces your model size compared to its native full precision version, making it easier to fit large models onto GPUs with limited memory.
-
-Make sure you have bitsandbytes and 🤗 Accelerate installed:
-
-```bash
-# these versions support 8-bit and 4-bit
-pip install bitsandbytes>=0.39.0 accelerate>=0.20.0
-
-# install Transformers
-pip install transformers
-```
-
-### 4-bit
-
-To load a model in 4-bit for inference, use the `load_in_4bit` parameter. The `device_map` parameter is optional, but we recommend setting it to `"auto"` to allow 🤗 Accelerate to automatically and efficiently allocate the model given the available resources in the environment.
+Enable FlashAttention2 by setting `attn_implementation="flash_attention_2"` in [`~PreTrainedModel.from_pretrained`]. FlashAttention2 is only supported for models with the fp16 or bf16 torch type. Make sure to cast your model to the appropriate data type first.
 
 ```py
 from transformers import AutoModelForCausalLM
 
-model_name = "bigscience/bloom-2b5"
-model_4bit = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", device_map="auto", load_in_4bit=True)
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B", device_map="auto", torch_dtype=torch.bfloat16, attn_implementation="sdpa")
 ```
 
-To load a model in 4-bit for inference with multiple GPUs, you can control how much GPU RAM you want to allocate to each GPU. For example, to distribute 600MB of memory to the first GPU and 1GB of memory to the second GPU:
+### Benchmark results
 
-```py
-max_memory_mapping = {0: "600MB", 1: "1GB"}
-model_name = "bigscience/bloom-3b"
-model_4bit = AutoModelForCausalLM.from_pretrained(
-    model_name, torch_dtype="auto", device_map="auto", load_in_4bit=True, max_memory=max_memory_mapping
-)
-```
+FlashAttention2 speeds up inference considerably especially for inputs with long sequences. However, since FlashAttention2 doesn't support computing attention scores with padding tokens, you must manually pad and unpad the attention scores for batched inference if a sequence contains padding tokens. The downside is batched generation is slower with padding tokens. 
 
-### 8-bit
+<hfoptions id="padded">
+<hfoption id="short sequence length">
 
-<Tip>
+With a relatively small sequence length, a single forward pass creates overhead leading to a small speed up. The graph below shows the expected speed up for a single forward pass with [meta-llama/Llama-7b-hf](https://hf.co/meta-llama/Llama-7b-hf) with padding.
 
-If you're curious and interested in learning more about the concepts underlying 8-bit quantization, read the [Gentle Introduction to 8-bit Matrix Multiplication for transformers at scale using Hugging Face Transformers, Accelerate and bitsandbytes](https://huggingface.co/blog/hf-bitsandbytes-integration) blog post.
+<div class="flex justify-center">
+    <img src="https://huggingface.co/datasets/ybelkada/documentation-images/resolve/main/llama-2-small-seqlen-padding.png"/>
+</div>
 
-</Tip>
+</hfoption>
+<hfoption id="long sequence length">
 
-To load a model in 8-bit for inference, use the `load_in_8bit` parameter. The `device_map` parameter is optional, but we recommend setting it to `"auto"` to allow 🤗 Accelerate to automatically and efficiently allocate the model given the available resources in the environment:
+You can train on much longer sequence lengths without running into out-of-memory issues with FlashAttention2, and potentially reduce memory usage up to 20x. The speed up benefits are even better. The graph below shows the expected speed up for a single forward pass with [meta-llama/Llama-7b-hf](https://hf.co/meta-llama/Llama-7b-hf) with padding on a longer sequence length.
 
-```py
-from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+<div class="flex justify-center">
+    <img src="https://huggingface.co/datasets/ybelkada/documentation-images/resolve/main/llama-2-large-seqlen-padding.png"/>
+</div>
 
-model_name = "bigscience/bloom-2b5"
-model_8bit = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", quantization_config=BitsAndBytesConfig(load_in_8bit=True))
-```
+</hfoption>
+</hfoptions>
 
-If you're loading a model in 8-bit for text generation, you should use the [`~transformers.GenerationMixin.generate`] method instead of the [`Pipeline`] function which is not optimized for 8-bit models and will be slower. Some sampling strategies, like nucleus sampling, are also not supported by the [`Pipeline`] for 8-bit models. You should also place all inputs on the same device as the model:
+To avoid this slowdown, use FlashAttention2 without padding tokens in the sequence during training. Pack the dataset or concatenate sequences until reaching the maximum sequence length.
 
-```py
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+<hfoptions id="not-padded">
+<hfoption id="tiiuae/falcon-7b">
 
-model_name = "bigscience/bloom-2b5"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model_8bit = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", quantization_config=BitsAndBytesConfig(load_in_8bit=True))
+The graph below shows the expected speed up for a single forward pass with [tiiuae/falcon-7b](https://hf.co/tiiuae/falcon-7b) with a sequence length of 4096 and various batch sizes without padding tokens.
 
-prompt = "Hello, my llama is cute"
-inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
-generated_ids = model.generate(**inputs)
-outputs = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-```
+<div class="flex justify-center">
+    <img src="https://huggingface.co/datasets/ybelkada/documentation-images/resolve/main/falcon-7b-inference-large-seqlen.png"/>
+</div>
 
-To load a model in 8-bit for inference with multiple GPUs, you can control how much GPU RAM you want to allocate to each GPU. For example, to distribute 1GB of memory to the first GPU and 2GB of memory to the second GPU:
+</hfoption>
+<hfoption id="meta-llama/Llama-7b-hf">
 
-```py
-max_memory_mapping = {0: "1GB", 1: "2GB"}
-model_name = "bigscience/bloom-3b"
-model_8bit = AutoModelForCausalLM.from_pretrained(
-    model_name, torch_dtype="auto", device_map="auto", load_in_8bit=True, max_memory=max_memory_mapping
-)
-```
+The graph below shows the expected speed up for a single forward pass with [meta-llama/Llama-7b-hf](https://hf.co/meta-llama/Llama-7b-hf) with a sequence length of 4096 and various batch sizes without padding tokens.
 
-<Tip>
+<div class="flex justify-center">
+    <img src="https://huggingface.co/datasets/ybelkada/documentation-images/resolve/main/llama-7b-inference-large-seqlen.png"/>
+</div>
 
-Feel free to try running a 11 billion parameter [T5 model](https://colab.research.google.com/drive/1YORPWx4okIHXnjW7MSAidXN29mPVNT7F?usp=sharing) or the 3 billion parameter [BLOOM model](https://colab.research.google.com/drive/1qOjXfQIAULfKvZqwCen8-MoWKGdSatZ4?usp=sharing) for inference on Google Colab's free tier GPUs!
-
-</Tip>
-
-## 🤗 Optimum
-
-<Tip>
-
-Learn more details about using ORT with 🤗 Optimum in the [Accelerated inference on NVIDIA GPUs](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/gpu#accelerated-inference-on-nvidia-gpus) and [Accelerated inference on AMD GPUs](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/amdgpu#accelerated-inference-on-amd-gpus) guides. This section only provides a brief and simple example.
-
-</Tip>
-
-ONNX Runtime (ORT) is a model accelerator that supports accelerated inference on Nvidia GPUs, and AMD GPUs that use [ROCm](https://www.amd.com/en/products/software/rocm.html) stack. ORT uses optimization techniques like fusing common operations into a single node and constant folding to reduce the number of computations performed and speedup inference. ORT also places the most computationally intensive operations on the GPU and the rest on the CPU to intelligently distribute the workload between the two devices.
-
-ORT is supported by 🤗 Optimum which can be used in 🤗 Transformers. You'll need to use an [`~optimum.onnxruntime.ORTModel`] for the task you're solving, and specify the `provider` parameter which can be set to either [`CUDAExecutionProvider`](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/gpu#cudaexecutionprovider), [`ROCMExecutionProvider`](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/amdgpu) or [`TensorrtExecutionProvider`](https://huggingface.co/docs/optimum/onnxruntime/usage_guides/gpu#tensorrtexecutionprovider). If you want to load a model that was not yet exported to ONNX, you can set `export=True` to convert your model on-the-fly to the ONNX format:
-
-```py
-from optimum.onnxruntime import ORTModelForSequenceClassification
-
-ort_model = ORTModelForSequenceClassification.from_pretrained(
-  "distilbert/distilbert-base-uncased-finetuned-sst-2-english",
-  export=True,
-  provider="CUDAExecutionProvider",
-)
-```
-
-Now you're free to use the model for inference:
-
-```py
-from optimum.pipelines import pipeline
-from transformers import AutoTokenizer
-
-tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-uncased-finetuned-sst-2-english")
-
-pipeline = pipeline(task="text-classification", model=ort_model, tokenizer=tokenizer, device="cuda:0")
-result = pipeline("Both the music and visual were astounding, not to mention the actors performance.")
-```
-
-## Combine optimizations
-
-It is often possible to combine several of the optimization techniques described above to get the best inference performance possible for your model. For example, you can load a model in 4-bit, and then enable BetterTransformer with FlashAttention:
-
-```py
-import torch
-from torch.nn.attention import SDPBackend, sdpa_kernel
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-
-# load model in 4-bit
-quantization_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_compute_dtype=torch.float16
-)
-
-tokenizer = AutoTokenizer.from_pretrained("facebook/opt-350m")
-model = AutoModelForCausalLM.from_pretrained("facebook/opt-350m", torch_dtype="auto", quantization_config=quantization_config)
-
-# enable BetterTransformer
-model = model.to_bettertransformer()
-
-input_text = "Hello my dog is cute and"
-inputs = tokenizer(input_text, return_tensors="pt").to("cuda")
-
-# enable FlashAttention
-with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
-    outputs = model.generate(**inputs)
-
-print(tokenizer.decode(outputs[0], skip_special_tokens=True))
-```
+</hfoption>
+</hfoptions>

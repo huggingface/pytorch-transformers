@@ -233,6 +233,7 @@ if is_accelerate_available():
     from accelerate.utils import (
         DistributedDataParallelKwargs,
         DistributedType,
+        TorchTensorParallelPlugin,
         load_fsdp_model,
         load_fsdp_optimizer,
         save_fsdp_model,
@@ -5055,6 +5056,11 @@ class Trainer:
             args["dataloader_config"] = dataloader_config
         else:
             args.update(accelerator_config)
+        # tp is initialized at Accelerator init phase so
+        # args should be prepared here
+        if self.args.tp_size > 1:
+            self.is_tp_enabled = True
+            args["torch_tp_plugin"] = TorchTensorParallelPlugin(tp_size=self.args.tp_size)
 
         # create accelerator object
         self.accelerator = Accelerator(**args)
@@ -5069,7 +5075,7 @@ class Trainer:
         # deepspeed and accelerate flags covering both trainer args and accelerate launcher
         self.is_deepspeed_enabled = getattr(self.accelerator.state, "deepspeed_plugin", None) is not None
         self.is_fsdp_enabled = getattr(self.accelerator.state, "fsdp_plugin", None) is not None
-
+        self.is_tp_enabled = getattr(self.accelerator.state, "tp_plugin", None) is not None
         # post accelerator creation setup
         if self.is_fsdp_enabled:
             fsdp_plugin = self.accelerator.state.fsdp_plugin

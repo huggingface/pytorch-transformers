@@ -14,7 +14,9 @@
     - local: models
       title: Load
     - local: custom_models
-      title: Customize
+      title: Create a custom model
+    - local: how_to_hack_models
+      title: Customize model components
     - local: model_sharing
       title: Share
     - local: add_new_model
@@ -98,8 +100,8 @@
       title: CPU
   - local: agents
     title: Agents
-  - local: agents_advanced
-    title: Agents, supercharged - Multi-agents, External tools, and more
+  - local: tools
+    title: Tools
   - local: multilingual
     title: Run inference with multilingual models
   - local: gguf

@@ -13,6 +13,8 @@
     sections:
     - local: models
       title: Load
+    - local: gguf
+      title: GGUF
     - local: custom_models
       title: Create a custom model
     - local: how_to_hack_models
@@ -36,6 +38,8 @@
     sections:
     - local: fast_tokenizers
       title: Tokenizers
+    - local: tiktoken
+      title: TikToken
     - local: image_processors
       title: Image processors
     - local: backbones
@@ -51,6 +55,7 @@
 - title: Inference
   sections:
   - title: Pipeline API
+    isExpanded: false
     sections:
     - local: pipeline_tutorial
       title: Pipeline
@@ -61,6 +66,7 @@
     - local: add_new_pipeline
       title: Add a new pipeline
   - title: LLMs
+    isExpanded: false
     sections:
     - local: tasks/prompting
       title: Prompt engineering
@@ -79,6 +85,7 @@
     - local: perplexity
       title: Perplexity of fixed-length models
     - title: Chat
+      isExpanded: false
       sections:
       - local: conversations
         title: Chat pipeline
@@ -89,6 +96,7 @@
       - local: chat_extras
         title: Tools and RAG
   - title: Optimization
+    isExpanded: false
     sections:
     - local: perf_torch_compile
       title: torch.compile
@@ -104,10 +112,6 @@
     title: Tools
   - local: multilingual
     title: Run inference with multilingual models
-  - local: gguf
-    title: Interoperability with GGUF files
-  - local: tiktoken
-    title: Interoperability with TikToken files
 - title: Training
   sections:
   - title: Trainer API

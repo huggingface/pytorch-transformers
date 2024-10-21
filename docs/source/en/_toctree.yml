@@ -7,6 +7,7 @@
   - local: installation
     title: Installation
 - title: Base classes
+  isExpanded: False
   sections:
   - title: Models
     sections:
@@ -51,6 +52,7 @@
     - local: pad_truncation
       title: Padding and truncation
 - title: Inference
+  isExpanded: False
   sections:
   - title: Pipeline API
     sections:
@@ -107,6 +109,7 @@
   - local: multilingual
     title: Run inference with multilingual models
 - title: Training
+  isExpanded: False
   sections:
   - title: Trainer API
     sections:
@@ -187,6 +190,7 @@
   - local: torchscript
     title: Export to TorchScript
 - title: Resources
+  isExpanded: False
   sections:
   - title: Task recipes
     sections:
@@ -277,6 +281,7 @@
   - local: glossary
     title: Glossary
 - title: API
+  isExpanded: False
   sections:
   - title: Main classes
     sections:

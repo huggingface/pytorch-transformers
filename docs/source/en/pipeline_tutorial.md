@@ -53,7 +53,7 @@ This guide will introduce you to the [`Pipeline`], demonstrate its features, and
 
 Here are some examples of how to use [`Pipeline`] for different tasks and modalities.
 
-<hfoption id="tasks">
+<hfoptions id="tasks">
 <hfoption id="summarization">
 
 ```py

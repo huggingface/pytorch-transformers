@@ -113,10 +113,12 @@
   sections:
   - title: Trainer API
     sections:
-    - local: training
-      title: Finetuning
     - local: trainer
       title: Trainer
+    - local: training
+      title: Finetuning
+    - local: optimizers
+      title: Optimizers
     - local: hpo_train
       title: Hyperparameter Search using Trainer API
     - local: run_scripts

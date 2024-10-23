@@ -234,10 +234,272 @@ trainer = Trainer(
 
 ## Accelerate
 
+[Accelerate](https://hf.co/docs/accelerate/index) is a library that simplifies training in distributed environments and across different hardware. Its integration with [`Trainer`] means [`Trainer`] supports distributed training frameworks like [Fully Sharded Data Parallel (FSDP)](https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/) and [DeepSpeed](https://www.deepspeed.ai/).
+
+> [!TIP]
+> Learn more about FSDP sharding strategies, CPU offloading, and more with [`Trainer`] in the [Fully Sharded Data Parallel](./fsdp) guide.
+
+To use Accelerate with [`Trainer`], run the [accelerate_config](https://hf.co/docs/accelerate/package_reference/cli#accelerate-config) command to configure your training environment. This command creates a `config_file.yaml` file that stores the configuration settings of your training environment and it's used whenever you launch your training script. Some example distributed training configurations are shown below.
+
+<hfoptions id="distributed-training">
+<hfoption id="DistributedDataParallel">
+
+```yaml
+compute_environment: LOCAL_MACHINE
+distributed_type: MULTI_GPU
+downcast_bf16: 'no'
+gpu_ids: all
+machine_rank: 0 #change rank as per the node
+main_process_ip: 192.168.20.1
+main_process_port: 9898
+main_training_function: main
+mixed_precision: fp16
+num_machines: 2
+num_processes: 8
+rdzv_backend: static
+same_network: true
+tpu_env: []
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: false
+```
+
+</hfoption>
+<hfoption id="FullyShardedDataParallel">
+
+```yaml
+compute_environment: LOCAL_MACHINE
+distributed_type: FSDP
+downcast_bf16: 'no'
+fsdp_config:
+  fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  fsdp_backward_prefetch_policy: BACKWARD_PRE
+  fsdp_forward_prefetch: true
+  fsdp_offload_params: false
+  fsdp_sharding_strategy: 1
+  fsdp_state_dict_type: FULL_STATE_DICT
+  fsdp_sync_module_states: true
+  fsdp_transformer_layer_cls_to_wrap: BertLayer
+  fsdp_use_orig_params: true
+machine_rank: 0
+main_training_function: main
+mixed_precision: bf16
+num_machines: 1
+num_processes: 2
+rdzv_backend: static
+same_network: true
+tpu_env: []
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: false
+```
+
+</hfoption>
+<hfoption id="DeepSpeed">
+
+```yaml
+compute_environment: LOCAL_MACHINE
+deepspeed_config:
+  deepspeed_config_file: /home/user/configs/ds_zero3_config.json
+  zero3_init_flag: true
+distributed_type: DEEPSPEED
+downcast_bf16: 'no'
+machine_rank: 0
+main_training_function: main
+num_machines: 1
+num_processes: 4
+rdzv_backend: static
+same_network: true
+tpu_env: []
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: false
+```
+
+</hfoption>
+<hfoption id="DeepSpeed with Accelerate plugin">
+
+```yaml
+compute_environment: LOCAL_MACHINE
+deepspeed_config:
+  gradient_accumulation_steps: 1
+  gradient_clipping: 0.7
+  offload_optimizer_device: cpu
+  offload_param_device: cpu
+  zero3_init_flag: true
+  zero_stage: 2
+distributed_type: DEEPSPEED
+downcast_bf16: 'no'
+machine_rank: 0
+main_training_function: main
+mixed_precision: bf16
+num_machines: 1
+num_processes: 4
+rdzv_backend: static
+same_network: true
+tpu_env: []
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: false
+```
+
+</hfoption>
+</hfoptions>
+
+Run [accelerate_launch](https://hf.co/docs/accelerate/package_reference/cli#accelerate-launch) to start training with the configurations set in `config_file.yaml`. This file is saved to the Accelerate cache folder and automatically loaded when you run `accelerate_launch`.
+
+The example below launches the [run_glue.py](../../../examples/pytorch/text-classification/run_glue) script with the FSDP configuration shown earlier. Parameters from the `config_file.yaml` file can also be directly set in the command line.
+
+```bash
+accelerate launch \
+    ./examples/pytorch/text-classification/run_glue.py \
+    --model_name_or_path google-bert/bert-base-cased \
+    --task_name $TASK_NAME \
+    --do_train \
+    --do_eval \
+    --max_seq_length 128 \
+    --per_device_train_batch_size 16 \
+    --learning_rate 5e-5 \
+    --num_train_epochs 3 \
+    --output_dir /tmp/$TASK_NAME/ \
+    --overwrite_output_dir
+```
+
+> [!TIP]
+> Refer to the [Launching your Accelerate scripts](https://hf.co/docs/accelerate/basic_tutorials/launch) tutorial to learn more about `accelerate_launch` and custom configurations.
+
 ## Optimization
 
-### NEFTune
+[`Trainer`] supports various optimizations to improve *training* performance - reduce memory and increase training speed - and *model* performance.
 
 ### GaLore
 
+[Gradient Low-Rank Projection (GaLore)](https://hf.co/papers/2403.03507) significantly reduces memory usage when training large language models (LLMs). One of GaLores key benefits is *full-parameter* learning, unlike low-rank adaptation methods like [LoRA](https://hf.co/papers/2106.09685), which produces better model performance.
+
+Install the [GaLore](https://github.com/jiaweizzhao/GaLore) library, [TRL](https://hf.co/docs/trl/index), and [Datasets](https://hf.co/docs/datasets/index).
+
+```bash
+pip install galore-torch trl datasets
+```
+
+Then pick a GaLore optimizer (`"galore_adamw"`, `"galore_adafactor"`, `"galore_adamw_8bit`") and pass it to the `optim` parameter in [`TrainingArguments`]. Use the `optim_target_modules` parameter to specify which modules to adapt (can be a list of strings, regex, or a full path).
+
+Extra parameters supported by GaLore, `rank`, `update_proj_gap`, and `scale` should be passed to the `optim_args` parameter in [`TrainingArguments`].
+
+The example below shows how to enable GaLore with [`~trl.SFTTrainer`] that targets the `attn` and `mlp` layers with regex.
+
+> [!TIP]
+> It can take some time before training starts (~3 minutes for a 2B model on a NVIDIA A100).
+
+<hfoptions id="galore">
+<hfoption id="GaLore optimizer">
+
+```py
+import torch
+import datasets
+import trl
+from transformers import TrainingArguments, AutoConfig, AutoTokenizer, AutoModelForCausalLM
+
+train_dataset = datasets.load_dataset('imdb', split='train')
+args = TrainingArguments(
+    output_dir="./test-galore",
+    max_steps=100,
+    per_device_train_batch_size=2,
+    optim="galore_adamw",
+    optim_target_modules=[r".*.attn.*", r".*.mlp.*"],
+    optim_args="rank=64, update_proj_gap=100, scale=0.10",
+)
+config = AutoConfig.from_pretrained("google/gemma-2b")
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b")
+model = AutoModelForCausalLM.from_config("google/gemma-2b").to(0)
+trainer = trl.SFTTrainer(
+    model=model,
+    args=args,
+    train_dataset=train_dataset,
+    dataset_text_field='text',
+    max_seq_length=512,
+)
+trainer.train()
+```
+
+</hfoption>
+<hfoption id="GaLore optimizer with layerwise optimization">
+
+Append `layerwise` to the optimizer name to enable layerwise optimization. For example, `"galore_adamw"` becomes `"galore_adamw_layerwise"`. This feature is still experimental and does not support Distributed Data Parallel (DDP). The code below can only be run on a [single GPU](https://github.com/jiaweizzhao/GaLore?tab=readme-ov-file#train-7b-model-with-a-single-gpu-with-24gb-memory). Other features like gradient clipping and DeepSpeed may not be available out of the box. Feel free to open an [issue](https://github.com/huggingface/transformers/issues) if you encounter any problems!
+
+```py
+import torch
+import datasets
+import trl
+from transformers import TrainingArguments, AutoConfig, AutoTokenizer, AutoModelForCausalLM
+
+train_dataset = datasets.load_dataset('imdb', split='train')
+args = TrainingArguments(
+    output_dir="./test-galore",
+    max_steps=100,
+    per_device_train_batch_size=2,
+    optim="galore_adamw_layerwise",
+    optim_target_modules=[r".*.attn.*", r".*.mlp.*"],
+    optim_args="rank=64, update_proj_gap=100, scale=0.10",
+)
+config = AutoConfig.from_pretrained("google/gemma-2b")
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b")
+model = AutoModelForCausalLM.from_config("google/gemma-2b").to(0)
+trainer = trl.SFTTrainer(
+    model=model,
+    args=args,
+    train_dataset=train_dataset,
+    dataset_text_field='text',
+    max_seq_length=512,
+)
+trainer.train()
+```
+
+</hfoption>
+</hfoptions>
+
+Only linear layers that are considered GaLore layers can be trained with low-rank decomposition. The rest of the model layers are optimized in the usual way.
+
 ### Liger
+
+[Liger Kernel](https://github.com/linkedin/Liger-Kernel) is a collection of layers such as RMSNorm, RoPE, SwiGLU, CrossEntropy, FusedLinearCrossEntropy and more that have been fused into a single Triton kernel for training LLMs. These kernels are also compatible with FlashAttention, FSDP, and DeepSpeed. As a result, Liger Kernel can increase multi-GPU training throughput and reduce memory usage. This is useful for multi-head training and supporting larger vocabulary sizes, larger batch sizes and longer context lengths.
+
+```bash
+pip install liger-kernel
+```
+
+Enable Liger Kernel for training by setting `use_liger_kernel=True` in [`TrainingArguments`]. This patches the corresponding layers in the model with Ligers kernels.
+
+> [!TIP]
+> Liger Kernel supports Llama, Gemma, Mistral, and Mixtral models. Refer to the [patching](https://github.com/linkedin/Liger-Kernel#patching) list for the latest list of supported models.
+
+```py
+from transformers import TrainingArguments
+
+training_args = TrainingArguments(
+    output_dir="your-model",
+    learning_rate=2e-5,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    num_train_epochs=2,
+    weight_decay=0.01,
+    eval_strategy="epoch",
+    save_strategy="epoch",
+    load_best_model_at_end=True,
+    push_to_hub=True,
+    use_liger_kernel=True
+)
+```
+
+### NEFTune
+
+[NEFTune](https://hf.co/papers/2310.05914) adds noise to the embedding vectors during training to improve model performance. Enable it in [`Trainer`] with the `neftune_noise_alpha` parameter in [`TrainingArguments`] to control how much noise is added.
+
+```py
+from transformers import TrainingArguments, Trainer
+
+training_args = TrainingArguments(..., neftune_noise_alpha=0.1)
+trainer = Trainer(..., args=training_args)
+```
+
+The original embedding layer is restored after training to avoid any unexpected behavior.

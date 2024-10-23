@@ -418,6 +418,8 @@
         title: Gemma2
       - local: model_doc/glm
         title: GLM
+      - local: model_doc/got-ocr2
+        title: GOT-OCR2
       - local: model_doc/openai-gpt
         title: GPT
       - local: model_doc/gpt_neo

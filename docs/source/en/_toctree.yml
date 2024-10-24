@@ -639,6 +639,8 @@
         title: XLNet
       - local: model_doc/yoso
         title: YOSO
+      - local: model_doc/zamba
+        title: Zamba
     - title: Vision models
       sections:
       - local: model_doc/beit
@@ -757,8 +759,6 @@
         title: ViTPose
       - local: model_doc/yolos
         title: YOLOS
-      - local: model_doc/zamba
-        title: Zamba
       - local: model_doc/zoedepth
         title: ZoeDepth
     - title: Audio models

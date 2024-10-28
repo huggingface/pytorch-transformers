@@ -120,7 +120,7 @@
     - local: optimizers
       title: Optimizers
     - local: hpo_train
-      title: Hyperparameter Search using Trainer API
+      title: Hyperparameter search
     - local: run_scripts
       title: Train with a script
   - title: Distributed training
@@ -179,6 +179,8 @@
     title: Optimum
   - local: quantization/torchao
     title: TorchAO
+  - local: quantization/bitnet
+    title: BitNet
   - local: quantization/compressed_tensors
     title: compressed-tensors
   - local: quantization/contribute

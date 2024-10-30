@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tokenization classes for GOTOCR2."""
+"""Tokenization classes for GotOcr2."""
 
 import json
 import os
@@ -80,17 +80,17 @@ def get_pairs(word):
     return pairs
 
 
-class GOTOCR2Tokenizer(PreTrainedTokenizer):
+class GotOcr2Tokenizer(PreTrainedTokenizer):
     """
-    Construct a GOTOCR2 tokenizer. Based on byte-level Byte-Pair-Encoding.
+    Construct a GotOcr2 tokenizer. Based on byte-level Byte-Pair-Encoding.
 
     Same with GPT2Tokenizer, this tokenizer has been trained to treat spaces like parts of the tokens so a word will
     be encoded differently whether it is at the beginning of the sentence (without space) or not:
 
     ```python
-    >>> from transformers import GOTOCR2Tokenizer
+    >>> from transformers import GotOcr2Tokenizer
 
-    >>> tokenizer = GOTOCR2Tokenizer.from_pretrained("Qwen/Qwen-tokenizer")
+    >>> tokenizer = GotOcr2Tokenizer.from_pretrained("Qwen/Qwen-tokenizer")
     >>> tokenizer("Hello world")["input_ids"]
     [9707, 1879]
 
@@ -289,7 +289,7 @@ class GOTOCR2Tokenizer(PreTrainedTokenizer):
         **kwargs,
     ) -> str:
         # `spaces_between_special_tokens` defaults to True for _decode in slow tokenizers
-        # and cannot be configured elsewhere, but it should default to False for GOTOCR2Tokenizer
+        # and cannot be configured elsewhere, but it should default to False for GotOcr2Tokenizer
         return super().decode(
             token_ids,
             skip_special_tokens=skip_special_tokens,

@@ -33,40 +33,40 @@ This model was contributed by [INSERT YOUR HF USERNAME HERE](https://huggingface
 The original code can be found [here](<INSERT LINK TO GITHUB REPO HERE>).
 
 
-## GOTOCR2Config
+## GotOcr2Config
 
-[[autodoc]] GOTOCR2Config
+[[autodoc]] GotOcr2Config
 
-## GOTOCR2Tokenizer
+## GotOcr2Tokenizer
 
-[[autodoc]] GOTOCR2Tokenizer
+[[autodoc]] GotOcr2Tokenizer
     - save_vocabulary
 
-## GOTOCR2TokenizerFast
+## GotOcr2TokenizerFast
 
-[[autodoc]] GOTOCR2TokenizerFast
+[[autodoc]] GotOcr2TokenizerFast
 
-## GOTOCR2Model
+## GotOcr2Model
 
-[[autodoc]] GOTOCR2Model
+[[autodoc]] GotOcr2Model
     - forward
 
-## GOTOCR2ForCausalLM
+## GotOcr2ForConditionalGeneration
 
-[[autodoc]] GOTOCR2ForCausalLM
+[[autodoc]] GotOcr2ForConditionalGeneration
     - forward
 
-## GOTOCR2ForSequenceClassification
+## GotOcr2ForSequenceClassification
 
-[[autodoc]] GOTOCR2ForSequenceClassification
+[[autodoc]] GotOcr2ForSequenceClassification
     - forward
 
-## GOTOCR2ForTokenClassification
+## GotOcr2ForTokenClassification
 
-[[autodoc]] GOTOCR2ForTokenClassification
+[[autodoc]] GotOcr2ForTokenClassification
     - forward
 
-## GOTOCR2ForQuestionAnswering
+## GotOcr2ForQuestionAnswering
 
-[[autodoc]] GOTOCR2ForQuestionAnswering
+[[autodoc]] GotOcr2ForQuestionAnswering
     - forward

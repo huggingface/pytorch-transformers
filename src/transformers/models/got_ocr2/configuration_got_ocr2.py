@@ -22,32 +22,36 @@
 
 from ...configuration_utils import PretrainedConfig
 from ...modeling_rope_utils import rope_config_validation
+from ...utils import logging
+
+
+logger = logging.get_logger(__name__)
 
 
 class GotOcr2Config(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a [`GotOcr2Model`]. It is used to instantiate a
-    GotOcr2 model according to the specified arguments, defining the model architecture. Instantiating a configuration
+    Qwen2-VL model according to the specified arguments, defining the model architecture. Instantiating a configuration
     with the defaults will yield a similar configuration to that of
-    GotOcr2-7B-beta [Qwen/GotOcr2-7B-beta](https://huggingface.co/Qwen/GotOcr2-7B-beta).
+    Qwen2-VL-7B-Instruct [Qwen/Qwen2-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-7B-Instruct).
 
     Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
     documentation from [`PretrainedConfig`] for more information.
 
 
     Args:
-        vocab_size (`int`, *optional*, defaults to 151936):
+        vocab_size (`int`, *optional*, defaults to 152064):
             Vocabulary size of the GotOcr2 model. Defines the number of different tokens that can be represented by the
             `inputs_ids` passed when calling [`GotOcr2Model`]
-        hidden_size (`int`, *optional*, defaults to 4096):
+        hidden_size (`int`, *optional*, defaults to 8192):
             Dimension of the hidden representations.
-        intermediate_size (`int`, *optional*, defaults to 22016):
+        intermediate_size (`int`, *optional*, defaults to 29568):
             Dimension of the MLP representations.
-        num_hidden_layers (`int`, *optional*, defaults to 32):
+        num_hidden_layers (`int`, *optional*, defaults to 80):
             Number of hidden layers in the Transformer encoder.
-        num_attention_heads (`int`, *optional*, defaults to 32):
+        num_attention_heads (`int`, *optional*, defaults to 64):
             Number of attention heads for each attention layer in the Transformer encoder.
-        num_key_value_heads (`int`, *optional*, defaults to 32):
+        num_key_value_heads (`int`, *optional*, defaults to 8):
             This is the number of key_value heads that should be used to implement Grouped Query Attention. If
             `num_key_value_heads=num_attention_heads`, the model will use Multi Head Attention (MHA), if
             `num_key_value_heads=1` the model will use Multi Query Attention (MQA) otherwise GQA is used. When
@@ -60,15 +64,25 @@ class GotOcr2Config(PretrainedConfig):
             The maximum sequence length that this model might ever be used with.
         initializer_range (`float`, *optional*, defaults to 0.02):
             The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
-        rms_norm_eps (`float`, *optional*, defaults to 1e-06):
+        rms_norm_eps (`float`, *optional*, defaults to 1e-05):
             The epsilon used by the rms normalization layers.
         use_cache (`bool`, *optional*, defaults to `True`):
             Whether or not the model should return the last key/values attentions (not used by all models). Only
             relevant if `config.is_decoder=True`.
         tie_word_embeddings (`bool`, *optional*, defaults to `False`):
             Whether the model's input and output word embeddings should be tied.
-        rope_theta (`float`, *optional*, defaults to 10000.0):
+        rope_theta (`float`, *optional*, defaults to 1000000.0):
             The base period of the RoPE embeddings.
+        use_sliding_window (`bool`, *optional*, defaults to `False`):
+            Whether to use sliding window attention.
+        sliding_window (`int`, *optional*, defaults to 4096):
+            Sliding window attention (SWA) window size. If not specified, will default to `4096`.
+        max_window_layers (`int`, *optional*, defaults to 80):
+            The number of layers that use SWA (Sliding Window Attention). The bottom layers use SWA while the top use full attention.
+        attention_dropout (`float`, *optional*, defaults to 0.0):
+            The dropout ratio for the attention probabilities.
+        vision_config (`Dict`, *optional*):
+            The config for the visual encoder initialization.
         rope_scaling (`Dict`, *optional*):
             Dictionary containing the scaling configuration for the RoPE embeddings. NOTE: if you apply new rope type
             and you expect the model to work on longer `max_position_embeddings`, we recommend you to update this value
@@ -106,23 +120,15 @@ class GotOcr2Config(PretrainedConfig):
                     Only used with 'llama3'. Scaling factor applied to low frequency components of the RoPE
                 `high_freq_factor` (`float`, *optional*):
                     Only used with 'llama3'. Scaling factor applied to high frequency components of the RoPE
-        use_sliding_window (`bool`, *optional*, defaults to `False`):
-            Whether to use sliding window attention.
-        sliding_window (`int`, *optional*, defaults to 4096):
-            Sliding window attention (SWA) window size. If not specified, will default to `4096`.
-        max_window_layers (`int`, *optional*, defaults to 28):
-            The number of layers that use SWA (Sliding Window Attention). The bottom layers use SWA while the top use full attention.
-        attention_dropout (`float`, *optional*, defaults to 0.0):
-            The dropout ratio for the attention probabilities.
 
     ```python
-    >>> from transformers import GotOcr2Model, GotOcr2Config
+    >>> from transformers import GotOcr2ForConditionalGeneration, GotOcr2Config
 
     >>> # Initializing a GotOcr2 style configuration
     >>> configuration = GotOcr2Config()
 
-    >>> # Initializing a model from the GotOcr2-7B style configuration
-    >>> model = GotOcr2Model(configuration)
+    >>> # Initializing a model from the Qwen2-VL-7B style configuration
+    >>> model = GotOcr2ForConditionalGeneration(configuration)
 
     >>> # Accessing the model configuration
     >>> configuration = model.config
@@ -133,26 +139,32 @@ class GotOcr2Config(PretrainedConfig):
 
     def __init__(
         self,
-        vocab_size=151936,
-        hidden_size=4096,
-        intermediate_size=22016,
-        num_hidden_layers=32,
-        num_attention_heads=32,
-        num_key_value_heads=32,
+        vocab_size=152064,
+        hidden_size=8192,
+        intermediate_size=29568,
+        num_hidden_layers=80,
+        num_attention_heads=64,
+        num_key_value_heads=8,
         hidden_act="silu",
         max_position_embeddings=32768,
         initializer_range=0.02,
-        rms_norm_eps=1e-6,
+        rms_norm_eps=1e-05,
         use_cache=True,
         tie_word_embeddings=False,
-        rope_theta=10000.0,
-        rope_scaling=None,
+        rope_theta=1000000.0,
         use_sliding_window=False,
         sliding_window=4096,
-        max_window_layers=28,
+        max_window_layers=80,
         attention_dropout=0.0,
+        vision_config=None,
+        rope_scaling=None,
         **kwargs,
     ):
+        if isinstance(vision_config, dict):
+            self.vision_config = GotOcr2VisionConfig(**vision_config)
+        elif vision_config is None:
+            self.vision_config = GotOcr2VisionConfig()
+
         self.vocab_size = vocab_size
         self.max_position_embeddings = max_position_embeddings
         self.hidden_size = hidden_size
@@ -160,7 +172,7 @@ class GotOcr2Config(PretrainedConfig):
         self.num_hidden_layers = num_hidden_layers
         self.num_attention_heads = num_attention_heads
         self.use_sliding_window = use_sliding_window
-        self.sliding_window = sliding_window if use_sliding_window else None
+        self.sliding_window = sliding_window
         self.max_window_layers = max_window_layers
 
         # for backward compatibility
@@ -173,15 +185,116 @@ class GotOcr2Config(PretrainedConfig):
         self.rms_norm_eps = rms_norm_eps
         self.use_cache = use_cache
         self.rope_theta = rope_theta
-        self.rope_scaling = rope_scaling
         self.attention_dropout = attention_dropout
+        self.rope_scaling = rope_scaling
+
         # Validate the correctness of rotary position embeddings parameters
         # BC: if there is a 'type' field, move it to 'rope_type'.
+        # and change type from 'mrope' to 'default' because `mrope` does defeault RoPE calculations
+        # one can set it to "linear"/"dynamic" etc. to have scaled RoPE
+        # TODO: @raushan update config in the hub
         if self.rope_scaling is not None and "type" in self.rope_scaling:
+            if self.rope_scaling["type"] == "mrope":
+                self.rope_scaling["type"] = "default"
             self.rope_scaling["rope_type"] = self.rope_scaling["type"]
-        rope_config_validation(self)
+        rope_config_validation(self, ignore_keys={"mrope_section"})
 
-        super().__init__(
-            tie_word_embeddings=tie_word_embeddings,
-            **kwargs,
-        )
+        super().__init__(tie_word_embeddings=tie_word_embeddings, **kwargs)
+
+
+class GotOcr2VisionConfig(PretrainedConfig):
+    r"""
+    This is the configuration class to store the configuration of a [`GotOcr2VisionModel`]. It is used to instantiate a GOT_OCR2
+    vision encoder according to the specified arguments, defining the model architecture. Instantiating a configuration
+    defaults will yield a similar configuration to that of the GOT_OCR2 ViT-h
+    [facebook/got_ocr2-vit-huge](https://huggingface.co/facebook/got_ocr2-vit-huge) architecture.
+
+    Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
+    documentation from [`PretrainedConfig`] for more information.
+
+    Args:
+        hidden_size (`int`, *optional*, defaults to 768):
+            Dimensionality of the encoder layers and the pooler layer.
+        output_channels (`int`, *optional*, defaults to 256):
+            Dimensionality of the output channels in the Patch Encoder.
+        num_hidden_layers (`int`, *optional*, defaults to 12):
+            Number of hidden layers in the Transformer encoder.
+        num_attention_heads (`int`, *optional*, defaults to 12):
+            Number of attention heads for each attention layer in the Transformer encoder.
+        num_channels (`int`, *optional*, defaults to 3):
+            Number of channels in the input image.
+        image_size (`int`, *optional*, defaults to 1024):
+            Expected resolution. Target size of the resized input image.
+        patch_size (`int`, *optional*, defaults to 16):
+            Size of the patches to be extracted from the input image.
+        hidden_act (`str`, *optional*, defaults to `"gelu"`):
+            The non-linear activation function (function or string)
+        layer_norm_eps (`float`, *optional*, defaults to 1e-06):
+            The epsilon used by the layer normalization layers.
+        attention_dropout (`float`, *optional*, defaults to 0.0):
+            The dropout ratio for the attention probabilities.
+        initializer_range (`float`, *optional*, defaults to 1e-10):
+            The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
+        qkv_bias (`bool`, *optional*, defaults to `True`):
+            Whether to add a bias to query, key, value projections.
+        mlp_ratio (`float`, *optional*, defaults to 4.0):
+            Ratio of mlp hidden dim to embedding dim.
+        use_abs_pos (`bool`, *optional*, defaults to `True`):
+            Whether to use absolute position embedding.
+        use_rel_pos (`bool`, *optional*, defaults to `True`):
+            Whether to use relative position embedding.
+        window_size (`int`, *optional*, defaults to 14):
+            Window size for relative position.
+        global_attn_indexes (`List[int]`, *optional*, defaults to `[2, 5, 8, 11]`):
+            The indexes of the global attention layers.
+        num_pos_feats (`int`, *optional*, defaults to 128):
+            The dimensionality of the position embedding.
+        mlp_dim (`int`, *optional*):
+            The dimensionality of the MLP layer in the Transformer encoder. If `None`, defaults to `mlp_ratio *
+            hidden_size`.
+    """
+
+    def __init__(
+        self,
+        hidden_size=768,
+        output_channels=256,
+        num_hidden_layers=12,
+        num_attention_heads=12,
+        num_channels=3,
+        image_size=1024,
+        patch_size=16,
+        hidden_act="gelu",
+        layer_norm_eps=1e-06,
+        attention_dropout=0.0,
+        initializer_range=1e-10,
+        qkv_bias=True,
+        mlp_ratio=4.0,
+        use_abs_pos=True,
+        use_rel_pos=True,
+        window_size=14,
+        global_attn_indexes=[2, 5, 8, 11],
+        num_pos_feats=128,
+        mlp_dim=None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        self.hidden_size = hidden_size
+        self.output_channels = output_channels
+        self.num_hidden_layers = num_hidden_layers
+        self.num_attention_heads = num_attention_heads
+        self.num_channels = num_channels
+        self.image_size = image_size
+        self.patch_size = patch_size
+        self.hidden_act = hidden_act
+        self.layer_norm_eps = layer_norm_eps
+        self.attention_dropout = attention_dropout
+        self.initializer_range = initializer_range
+        self.qkv_bias = qkv_bias
+        self.mlp_ratio = mlp_ratio
+        self.use_abs_pos = use_abs_pos
+        self.use_rel_pos = use_rel_pos
+        self.window_size = window_size
+        self.global_attn_indexes = global_attn_indexes
+        self.num_pos_feats = num_pos_feats
+        self.mlp_dim = int(hidden_size * mlp_ratio) if mlp_dim is None else mlp_dim

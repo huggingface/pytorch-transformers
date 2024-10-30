@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Testing suite for the PyTorch GOTOCR2 model."""
+"""Testing suite for the PyTorch GotOcr2 model."""
 
 import gc
 import tempfile
@@ -20,7 +20,7 @@ import unittest
 
 import pytest
 
-from transformers import AutoTokenizer, GOTOCR2Config, is_torch_available, set_seed
+from transformers import AutoTokenizer, GotOcr2Config, is_torch_available, set_seed
 from transformers.testing_utils import (
     backend_empty_cache,
     require_bitsandbytes,
@@ -42,15 +42,15 @@ if is_torch_available():
     import torch
 
     from transformers import (
-        GOTOCR2ForCausalLM,
-        GOTOCR2ForQuestionAnswering,
-        GOTOCR2ForSequenceClassification,
-        GOTOCR2ForTokenClassification,
-        GOTOCR2Model,
+        GotOcr2ForConditionalGeneration,
+        GotOcr2ForQuestionAnswering,
+        GotOcr2ForSequenceClassification,
+        GotOcr2ForTokenClassification,
+        GotOcr2Model,
     )
 
 
-class GOTOCR2ModelTester:
+class GotOcr2ModelTester:
     def __init__(
         self,
         parent,
@@ -135,7 +135,7 @@ class GOTOCR2ModelTester:
         return config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
 
     def get_config(self):
-        return GOTOCR2Config(
+        return GotOcr2Config(
             vocab_size=self.vocab_size,
             hidden_size=self.hidden_size,
             num_hidden_layers=self.num_hidden_layers,
@@ -159,7 +159,7 @@ class GOTOCR2ModelTester:
     def create_and_check_model(
         self, config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
     ):
-        model = GOTOCR2Model(config=config)
+        model = GotOcr2Model(config=config)
         model.to(torch_device)
         model.eval()
         result = model(input_ids, attention_mask=input_mask)
@@ -179,7 +179,7 @@ class GOTOCR2ModelTester:
         encoder_attention_mask,
     ):
         config.add_cross_attention = True
-        model = GOTOCR2Model(config)
+        model = GotOcr2Model(config)
         model.to(torch_device)
         model.eval()
         result = model(
@@ -208,7 +208,7 @@ class GOTOCR2ModelTester:
         encoder_hidden_states,
         encoder_attention_mask,
     ):
-        model = GOTOCR2ForCausalLM(config=config)
+        model = GotOcr2ForConditionalGeneration(config=config)
         model.to(torch_device)
         model.eval()
         result = model(input_ids, attention_mask=input_mask, labels=token_labels)
@@ -228,7 +228,7 @@ class GOTOCR2ModelTester:
     ):
         config.is_decoder = True
         config.add_cross_attention = True
-        model = GOTOCR2ForCausalLM(config=config)
+        model = GotOcr2ForConditionalGeneration(config=config)
         model.to(torch_device)
         model.eval()
 
@@ -292,20 +292,20 @@ class GOTOCR2ModelTester:
 
 
 @require_torch
-# Copied from tests.models.mistral.test_modeling_mistral.MistralModelTest with Mistral->GOTOCR2
-class GOTOCR2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
+# Copied from tests.models.mistral.test_modeling_mistral.MistralModelTest with Mistral->GotOcr2
+class GotOcr2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (
         (
-            GOTOCR2Model,
-            GOTOCR2ForCausalLM,
-            GOTOCR2ForSequenceClassification,
-            GOTOCR2ForTokenClassification,
-            GOTOCR2ForQuestionAnswering,
+            GotOcr2Model,
+            GotOcr2ForConditionalGeneration,
+            GotOcr2ForSequenceClassification,
+            GotOcr2ForTokenClassification,
+            GotOcr2ForQuestionAnswering,
         )
         if is_torch_available()
         else ()
     )
-    all_generative_model_classes = (GOTOCR2ForCausalLM,) if is_torch_available() else ()
+    all_generative_model_classes = (GotOcr2ForConditionalGeneration,) if is_torch_available() else ()
     test_headmasking = False
     test_pruning = False
     fx_compatible = False
@@ -319,8 +319,8 @@ class GOTOCR2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
         super().test_eager_matches_sdpa_generate()
 
     def setUp(self):
-        self.model_tester = GOTOCR2ModelTester(self)
-        self.config_tester = ConfigTester(self, config_class=GOTOCR2Config, hidden_size=37)
+        self.model_tester = GotOcr2ModelTester(self)
+        self.config_tester = ConfigTester(self, config_class=GotOcr2Config, hidden_size=37)
 
     def test_config(self):
         self.config_tester.run_common_tests()
@@ -335,33 +335,33 @@ class GOTOCR2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
             config_and_inputs[0].position_embedding_type = type
             self.model_tester.create_and_check_model(*config_and_inputs)
 
-    def test_GOTOCR2_sequence_classification_model(self):
+    def test_GotOcr2_sequence_classification_model(self):
         config, input_dict = self.model_tester.prepare_config_and_inputs_for_common()
         print(config)
         config.num_labels = 3
         input_ids = input_dict["input_ids"]
         attention_mask = input_ids.ne(1).to(torch_device)
         sequence_labels = ids_tensor([self.model_tester.batch_size], self.model_tester.type_sequence_label_size)
-        model = GOTOCR2ForSequenceClassification(config)
+        model = GotOcr2ForSequenceClassification(config)
         model.to(torch_device)
         model.eval()
         result = model(input_ids, attention_mask=attention_mask, labels=sequence_labels)
         self.assertEqual(result.logits.shape, (self.model_tester.batch_size, self.model_tester.num_labels))
 
-    def test_GOTOCR2_sequence_classification_model_for_single_label(self):
+    def test_GotOcr2_sequence_classification_model_for_single_label(self):
         config, input_dict = self.model_tester.prepare_config_and_inputs_for_common()
         config.num_labels = 3
         config.problem_type = "single_label_classification"
         input_ids = input_dict["input_ids"]
         attention_mask = input_ids.ne(1).to(torch_device)
         sequence_labels = ids_tensor([self.model_tester.batch_size], self.model_tester.type_sequence_label_size)
-        model = GOTOCR2ForSequenceClassification(config)
+        model = GotOcr2ForSequenceClassification(config)
         model.to(torch_device)
         model.eval()
         result = model(input_ids, attention_mask=attention_mask, labels=sequence_labels)
         self.assertEqual(result.logits.shape, (self.model_tester.batch_size, self.model_tester.num_labels))
 
-    def test_GOTOCR2_sequence_classification_model_for_multi_label(self):
+    def test_GotOcr2_sequence_classification_model_for_multi_label(self):
         config, input_dict = self.model_tester.prepare_config_and_inputs_for_common()
         config.num_labels = 3
         config.problem_type = "multi_label_classification"
@@ -370,19 +370,19 @@ class GOTOCR2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
         sequence_labels = ids_tensor(
             [self.model_tester.batch_size, config.num_labels], self.model_tester.type_sequence_label_size
         ).to(torch.float)
-        model = GOTOCR2ForSequenceClassification(config)
+        model = GotOcr2ForSequenceClassification(config)
         model.to(torch_device)
         model.eval()
         result = model(input_ids, attention_mask=attention_mask, labels=sequence_labels)
         self.assertEqual(result.logits.shape, (self.model_tester.batch_size, self.model_tester.num_labels))
 
-    def test_GOTOCR2_token_classification_model(self):
+    def test_GotOcr2_token_classification_model(self):
         config, input_dict = self.model_tester.prepare_config_and_inputs_for_common()
         config.num_labels = 3
         input_ids = input_dict["input_ids"]
         attention_mask = input_ids.ne(1).to(torch_device)
         token_labels = ids_tensor([self.model_tester.batch_size, self.model_tester.seq_length], config.num_labels)
-        model = GOTOCR2ForTokenClassification(config=config)
+        model = GotOcr2ForTokenClassification(config=config)
         model.to(torch_device)
         model.eval()
         result = model(input_ids, attention_mask=attention_mask, labels=token_labels)
@@ -391,11 +391,11 @@ class GOTOCR2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
             (self.model_tester.batch_size, self.model_tester.seq_length, self.model_tester.num_labels),
         )
 
-    @unittest.skip(reason="GOTOCR2 buffers include complex numbers, which breaks this test")
+    @unittest.skip(reason="GotOcr2 buffers include complex numbers, which breaks this test")
     def test_save_load_fast_init_from_base(self):
         pass
 
-    @unittest.skip(reason="GOTOCR2 uses GQA on all models so the KV cache is a non standard format")
+    @unittest.skip(reason="GotOcr2 uses GQA on all models so the KV cache is a non standard format")
     def test_past_key_values_format(self):
         pass
 
@@ -459,7 +459,7 @@ class GOTOCR2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
                 model.save_pretrained(tmpdirname)
 
                 dummy_attention_mask = inputs_dict.get("attention_mask", torch.ones_like(dummy_input))
-                # NOTE: GOTOCR2 apparently does not support right padding + use_cache with FA2.
+                # NOTE: GotOcr2 apparently does not support right padding + use_cache with FA2.
                 dummy_attention_mask[:, -1] = 1
 
                 model = model_class.from_pretrained(
@@ -483,15 +483,15 @@ class GOTOCR2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     @pytest.mark.flash_attn_test
     @slow
     def test_flash_attn_2_inference_equivalence_right_padding(self):
-        self.skipTest(reason="GOTOCR2 flash attention does not support right padding")
+        self.skipTest(reason="GotOcr2 flash attention does not support right padding")
 
 
 @require_torch
-class GOTOCR2IntegrationTest(unittest.TestCase):
+class GotOcr2IntegrationTest(unittest.TestCase):
     @slow
     def test_model_450m_logits(self):
         input_ids = [1, 306, 4658, 278, 6593, 310, 2834, 338]
-        model = GOTOCR2ForCausalLM.from_pretrained("Qwen/GOTOCR2-450m-beta", device_map="auto")
+        model = GotOcr2ForConditionalGeneration.from_pretrained("Qwen/GotOcr2-450m-beta", device_map="auto")
         input_ids = torch.tensor([input_ids]).to(model.model.embed_tokens.weight.device)
         with torch.no_grad():
             out = model(input_ids).logits.float().cpu()
@@ -511,8 +511,8 @@ class GOTOCR2IntegrationTest(unittest.TestCase):
     def test_model_450m_generation(self):
         EXPECTED_TEXT_COMPLETION = """My favourite condiment is 100% ketchup. I love it on everything. I’m not a big"""
         prompt = "My favourite condiment is "
-        tokenizer = AutoTokenizer.from_pretrained("Qwen/GOTOCR2-450m-beta", use_fast=False)
-        model = GOTOCR2ForCausalLM.from_pretrained("Qwen/GOTOCR2-450m-beta", device_map="auto")
+        tokenizer = AutoTokenizer.from_pretrained("Qwen/GotOcr2-450m-beta", use_fast=False)
+        model = GotOcr2ForConditionalGeneration.from_pretrained("Qwen/GotOcr2-450m-beta", device_map="auto")
         input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.model.embed_tokens.weight.device)
 
         # greedy generation outputs
@@ -532,8 +532,8 @@ class GOTOCR2IntegrationTest(unittest.TestCase):
         EXPECTED_OUTPUT_TOKEN_IDS = [306, 338]
         # An input with 4097 tokens that is above the size of the sliding window
         input_ids = [1] + [306, 338] * 2048
-        model = GOTOCR2ForCausalLM.from_pretrained(
-            "Qwen/GOTOCR2-450m-beta",
+        model = GotOcr2ForConditionalGeneration.from_pretrained(
+            "Qwen/GotOcr2-450m-beta",
             device_map="auto",
             load_in_4bit=True,
             attn_implementation="flash_attention_2",
@@ -560,8 +560,8 @@ class GOTOCR2IntegrationTest(unittest.TestCase):
         EXPECTED_OUTPUT_TOKEN_IDS = [306, 338]
         # An input with 4097 tokens that is above the size of the sliding window
         input_ids = [1] + [306, 338] * 2048
-        model = GOTOCR2ForCausalLM.from_pretrained(
-            "Qwen/GOTOCR2-450m-beta",
+        model = GotOcr2ForConditionalGeneration.from_pretrained(
+            "Qwen/GotOcr2-450m-beta",
             device_map="auto",
             attn_implementation="sdpa",
         )
@@ -583,7 +583,7 @@ class GOTOCR2IntegrationTest(unittest.TestCase):
 
         EXPECTED_TEXT_COMPLETION = """My favourite condiment is 100% ketchup. I love it on everything. I’m not a big"""
         prompt = "My favourite condiment is "
-        tokenizer = AutoTokenizer.from_pretrained("Qwen/GOTOCR2-450m-beta", use_fast=False)
+        tokenizer = AutoTokenizer.from_pretrained("Qwen/GotOcr2-450m-beta", use_fast=False)
 
         input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.model.embed_tokens.weight.device)
 
@@ -599,9 +599,11 @@ class GOTOCR2IntegrationTest(unittest.TestCase):
         )
         prompt = "My favourite condiment is "
         tokenizer = AutoTokenizer.from_pretrained("stepfun-ai/GOT-OCR2-hf", use_fast=False)
-        model = GOTOCR2ForCausalLM.from_pretrained("Qwen/GOTOCR2-450m-beta", device_map="auto", torch_dtype=torch.float16)
-        assistant_model = GOTOCR2ForCausalLM.from_pretrained(
-            "Qwen/GOTOCR2-450m-beta", device_map="auto", torch_dtype=torch.float16
+        model = GotOcr2ForConditionalGeneration.from_pretrained(
+            "Qwen/GotOcr2-450m-beta", device_map="auto", torch_dtype=torch.float16
+        )
+        assistant_model = GotOcr2ForConditionalGeneration.from_pretrained(
+            "Qwen/GotOcr2-450m-beta", device_map="auto", torch_dtype=torch.float16
         )
         input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.model.embed_tokens.weight.device)
 

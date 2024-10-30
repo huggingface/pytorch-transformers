@@ -225,7 +225,7 @@ CONFIG_MAPPING_NAMES = OrderedDict(
         ("pvt_v2", "PvtV2Config"),
         ("qdqbert", "QDQBertConfig"),
         ("qwen2", "Qwen2Config"),
-        ("got-ocr2", "GOTOCR2Config"),
+        ("got-ocr2", "GotOcr2Config"),
         ("qwen2_audio", "Qwen2AudioConfig"),
         ("qwen2_audio_encoder", "Qwen2AudioEncoderConfig"),
         ("qwen2_moe", "Qwen2MoeConfig"),

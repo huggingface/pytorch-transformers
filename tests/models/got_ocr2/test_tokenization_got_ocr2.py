@@ -18,7 +18,7 @@ import json
 import os
 import unittest
 
-from transformers import AddedToken, GOTOCR2Tokenizer, GOTOCR2TokenizerFast
+from transformers import AddedToken, GotOcr2Tokenizer, GotOcr2TokenizerFast
 from transformers.models.got_ocr2.tokenization_got_ocr2 import VOCAB_FILES_NAMES, bytes_to_unicode
 from transformers.testing_utils import require_tokenizers, slow
 
@@ -26,10 +26,10 @@ from ...test_tokenization_common import TokenizerTesterMixin
 
 
 @require_tokenizers
-class GOTOCR2TokenizationTest(TokenizerTesterMixin, unittest.TestCase):
+class GotOcr2TokenizationTest(TokenizerTesterMixin, unittest.TestCase):
     from_pretrained_id = "qwen/qwen-tokenizer"
-    tokenizer_class = GOTOCR2Tokenizer
-    rust_tokenizer_class = GOTOCR2TokenizerFast
+    tokenizer_class = GotOcr2Tokenizer
+    rust_tokenizer_class = GotOcr2TokenizerFast
     test_slow_tokenizer = True
     test_rust_tokenizer = True
     space_between_special_tokens = False
@@ -92,11 +92,11 @@ class GOTOCR2TokenizationTest(TokenizerTesterMixin, unittest.TestCase):
 
     def get_tokenizer(self, **kwargs):
         kwargs.update(self.special_tokens_map)
-        return GOTOCR2Tokenizer.from_pretrained(self.tmpdirname, **kwargs)
+        return GotOcr2Tokenizer.from_pretrained(self.tmpdirname, **kwargs)
 
     def get_rust_tokenizer(self, **kwargs):
         kwargs.update(self.special_tokens_map)
-        return GOTOCR2TokenizerFast.from_pretrained(self.tmpdirname, **kwargs)
+        return GotOcr2TokenizerFast.from_pretrained(self.tmpdirname, **kwargs)
 
     def get_input_output_texts(self, tokenizer):
         # this case should cover
@@ -178,13 +178,13 @@ class GOTOCR2TokenizationTest(TokenizerTesterMixin, unittest.TestCase):
         self.assertListEqual(tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sequence)), token_ids)
 
     def test_slow_tokenizer_decode_spaces_between_special_tokens_default(self):
-        # GOTOCR2Tokenizer changes the default `spaces_between_special_tokens` in `decode` to False
+        # GotOcr2Tokenizer changes the default `spaces_between_special_tokens` in `decode` to False
         if not self.test_slow_tokenizer:
             self.skipTest(reason="test_slow_tokenizer is set to False")
 
         # tokenizer has a special token: `"<|endfotext|>"` as eos, but it is not `legacy_added_tokens`
         # special tokens in `spaces_between_special_tokens` means spaces between `legacy_added_tokens`
-        # that would be `"<|im_start|>"` and `"<|im_end|>"` in Qwen/GOTOCR2 Models
+        # that would be `"<|im_start|>"` and `"<|im_end|>"` in Qwen/GotOcr2 Models
         token_ids = [259, 260, 270, 271, 26]
         sequence = " lower<|endoftext|><|im_start|>;"
         sequence_with_space = " lower<|endoftext|> <|im_start|> ;"

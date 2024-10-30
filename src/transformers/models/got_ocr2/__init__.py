@@ -22,8 +22,8 @@ from ...utils import (
 
 
 _import_structure = {
-    "configuration_got_ocr2": ["GOTOCR2Config"],
-    "tokenization_got_ocr2": ["GOTOCR2Tokenizer"],
+    "configuration_got_ocr2": ["GotOcr2Config", "GotOcr2VisionConfig"],
+    "tokenization_got_ocr2": ["GotOcr2Tokenizer"],
 }
 
 try:
@@ -32,7 +32,7 @@ try:
 except OptionalDependencyNotAvailable:
     pass
 else:
-    _import_structure["tokenization_got_ocr2_fast"] = ["GOTOCR2TokenizerFast"]
+    _import_structure["tokenization_got_ocr2_fast"] = ["GotOcr2TokenizerFast"]
 
 try:
     if not is_torch_available():
@@ -41,18 +41,15 @@ except OptionalDependencyNotAvailable:
     pass
 else:
     _import_structure["modeling_got_ocr2"] = [
-        "GOTOCR2ForCausalLM",
-        "GOTOCR2ForQuestionAnswering",
-        "GOTOCR2Model",
-        "GOTOCR2PreTrainedModel",
-        "GOTOCR2ForSequenceClassification",
-        "GOTOCR2ForTokenClassification",
+        "GotOcr2ForConditionalGeneration",
+        "GotOcr2Model",
+        "GotOcr2PreTrainedModel",
     ]
 
 
 if TYPE_CHECKING:
-    from .configuration_got_ocr2 import GOTOCR2Config
-    from .tokenization_got_ocr2 import GOTOCR2Tokenizer
+    from .configuration_got_ocr2 import GotOcr2Config, GotOcr2VisionConfig
+    from .tokenization_got_ocr2 import GotOcr2Tokenizer
 
     try:
         if not is_tokenizers_available():
@@ -60,7 +57,7 @@ if TYPE_CHECKING:
     except OptionalDependencyNotAvailable:
         pass
     else:
-        from .tokenization_got_ocr2_fast import GOTOCR2TokenizerFast
+        from .tokenization_got_ocr2_fast import GotOcr2TokenizerFast
 
     try:
         if not is_torch_available():
@@ -69,12 +66,9 @@ if TYPE_CHECKING:
         pass
     else:
         from .modeling_got_ocr2 import (
-            GOTOCR2ForCausalLM,
-            GOTOCR2ForQuestionAnswering,
-            GOTOCR2ForSequenceClassification,
-            GOTOCR2ForTokenClassification,
-            GOTOCR2Model,
-            GOTOCR2PreTrainedModel,
+            GotOcr2ForConditionalGeneration,
+            GotOcr2Model,
+            GotOcr2PreTrainedModel,
         )
 
 

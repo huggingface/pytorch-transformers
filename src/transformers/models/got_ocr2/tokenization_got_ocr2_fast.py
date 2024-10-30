@@ -12,14 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tokenization classes for GOTOCR2."""
+"""Tokenization classes for GotOcr2."""
 
 from typing import Optional, Tuple
 
 from ...tokenization_utils import AddedToken
 from ...tokenization_utils_fast import PreTrainedTokenizerFast
 from ...utils import logging
-from .tokenization_got_ocr2 import GOTOCR2Tokenizer
+from .tokenization_got_ocr2 import GotOcr2Tokenizer
 
 
 logger = logging.get_logger(__name__)
@@ -34,18 +34,18 @@ VOCAB_FILES_NAMES = {
 MAX_MODEL_INPUT_SIZES = {"qwen/qwen-tokenizer": 32768}
 
 
-class GOTOCR2TokenizerFast(PreTrainedTokenizerFast):
+class GotOcr2TokenizerFast(PreTrainedTokenizerFast):
     """
-    Construct a "fast" GOTOCR2 tokenizer (backed by HuggingFace's *tokenizers* library). Based on byte-level
+    Construct a "fast" GotOcr2 tokenizer (backed by HuggingFace's *tokenizers* library). Based on byte-level
     Byte-Pair-Encoding.
 
     Same with GPT2Tokenizer, this tokenizer has been trained to treat spaces like parts of the tokens so a word will
     be encoded differently whether it is at the beginning of the sentence (without space) or not:
 
     ```python
-    >>> from transformers import GOTOCR2TokenizerFast
+    >>> from transformers import GotOcr2TokenizerFast
 
-    >>> tokenizer = GOTOCR2TokenizerFast.from_pretrained("Qwen/Qwen-tokenizer")
+    >>> tokenizer = GotOcr2TokenizerFast.from_pretrained("Qwen/Qwen-tokenizer")
     >>> tokenizer("Hello world")["input_ids"]
     [9707, 1879]
 
@@ -78,7 +78,7 @@ class GOTOCR2TokenizerFast(PreTrainedTokenizerFast):
 
     vocab_files_names = VOCAB_FILES_NAMES
     model_input_names = ["input_ids", "attention_mask"]
-    slow_tokenizer_class = GOTOCR2Tokenizer
+    slow_tokenizer_class = GotOcr2Tokenizer
 
     def __init__(
         self,

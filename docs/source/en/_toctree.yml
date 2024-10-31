@@ -121,12 +121,10 @@
       title: Optimizers
     - local: hpo_train
       title: Hyperparameter search
-    - local: run_scripts
-      title: Train with a script
   - title: Distributed training
     sections:
     - local: accelerate
-      title: Set up distributed training with 🤗 Accelerate
+      title: Accelerate
     - local: perf_train_gpu_many
       title: Multiple GPUs and parallelism
     - local: fsdp
@@ -264,6 +262,8 @@
         title: Image-text-to-text
       - local: tasks/video_text_to_text
         title: Video-text-to-text
+  - local: run_scripts
+    title: Training scripts
   - local: benchmarks
     title: Benchmarks
   - local: notebooks

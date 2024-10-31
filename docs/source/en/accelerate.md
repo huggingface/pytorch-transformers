@@ -1,4 +1,4 @@
-<!--Copyright 2022 The HuggingFace Team. All rights reserved.
+<!--Copyright 2024 The HuggingFace Team. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may obtain a copy of the License at
@@ -14,123 +14,152 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Distributed training with 🤗 Accelerate
+# Accelerate
 
-As models get bigger, parallelism has emerged as a strategy for training larger models on limited hardware and accelerating training speed by several orders of magnitude. At Hugging Face, we created the [🤗 Accelerate](https://huggingface.co/docs/accelerate) library to help users easily train a 🤗 Transformers model on any type of distributed setup, whether it is multiple GPU's on one machine or multiple GPU's across several machines. In this tutorial, learn how to customize your native PyTorch training loop to enable training in a distributed environment.
+[Accelerate](https://hf.co/docs/accelerate/index) is a library designed to simplify distributed training on any type of setup with PyTorch by uniting the most common frameworks ([Fully Sharded Data Parallel (FSDP)](https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/) and [DeepSpeed](https://www.deepspeed.ai/)) for it into a single interface. [`Trainer`] is powered by Accelerate under the hood, enabling loading big models and distributed training.
 
-## Setup
-
-Get started by installing 🤗 Accelerate:
+This guide will show you two ways to use Accelerate with Transformers, using FSDP as the backend. The first method demonstrates distributed training with [`Trainer`], and the second method demonstrates adapting a PyTorch training loop. For more detailed information about Accelerate, please refer to the [documentation](https://hf.co/docs/accelerate/index).
 
 ```bash
 pip install accelerate
 ```
 
-Then import and create an [`~accelerate.Accelerator`] object. The [`~accelerate.Accelerator`] will automatically detect your type of distributed setup and initialize all the necessary components for training. You don't need to explicitly place your model on a device.
-
-```py
->>> from accelerate import Accelerator
-
->>> accelerator = Accelerator()
-```
-
-## Prepare to accelerate
-
-The next step is to pass all the relevant training objects to the [`~accelerate.Accelerator.prepare`] method. This includes your training and evaluation DataLoaders, a model and an optimizer:
-
-```py
->>> train_dataloader, eval_dataloader, model, optimizer = accelerator.prepare(
-...     train_dataloader, eval_dataloader, model, optimizer
-... )
-```
-
-## Backward
-
-The last addition is to replace the typical `loss.backward()` in your training loop with 🤗 Accelerate's [`~accelerate.Accelerator.backward`] method:
-
-```py
->>> for epoch in range(num_epochs):
-...     for batch in train_dataloader:
-...         outputs = model(**batch)
-...         loss = outputs.loss
-...         accelerator.backward(loss)
-
-...         optimizer.step()
-...         lr_scheduler.step()
-...         optimizer.zero_grad()
-...         progress_bar.update(1)
-```
-
-As you can see in the following code, you only need to add four additional lines of code to your training loop to enable distributed training!
-
-```diff
-+ from accelerate import Accelerator
-  from transformers import AdamW, AutoModelForSequenceClassification, get_scheduler
-
-+ accelerator = Accelerator()
-
-  model = AutoModelForSequenceClassification.from_pretrained(checkpoint, num_labels=2)
-  optimizer = AdamW(model.parameters(), lr=3e-5)
-
-- device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-- model.to(device)
-
-+ train_dataloader, eval_dataloader, model, optimizer = accelerator.prepare(
-+     train_dataloader, eval_dataloader, model, optimizer
-+ )
-
-  num_epochs = 3
-  num_training_steps = num_epochs * len(train_dataloader)
-  lr_scheduler = get_scheduler(
-      "linear",
-      optimizer=optimizer,
-      num_warmup_steps=0,
-      num_training_steps=num_training_steps
-  )
-
-  progress_bar = tqdm(range(num_training_steps))
-
-  model.train()
-  for epoch in range(num_epochs):
-      for batch in train_dataloader:
--         batch = {k: v.to(device) for k, v in batch.items()}
-          outputs = model(**batch)
-          loss = outputs.loss
--         loss.backward()
-+         accelerator.backward(loss)
-
-          optimizer.step()
-          lr_scheduler.step()
-          optimizer.zero_grad()
-          progress_bar.update(1)
-```
-
-## Train
-
-Once you've added the relevant lines of code, launch your training in a script or a notebook like Colaboratory.
-
-### Train with a script
-
-If you are running your training from a script, run the following command to create and save a configuration file:
+Start by running [accelerate config](https://hf.co/docs/accelerate/main/en/package_reference/cli#accelerate-config) in the command line to answer a series of prompts about your training system. This creates and saves a configuration file to help Accelerate correctly set up training based on your setup.
 
 ```bash
 accelerate config
 ```
 
-Then launch your training with:
+Depending on your setup and the answers you provide, an example configuration file for distributing training with FSDP on one machine with two GPUs.
 
-```bash
-accelerate launch train.py
+```yaml
+compute_environment: LOCAL_MACHINE
+debug: false
+distributed_type: FSDP
+downcast_bf16: 'no'
+fsdp_config:
+  fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP
+  fsdp_backward_prefetch_policy: BACKWARD_PRE
+  fsdp_forward_prefetch: false
+  fsdp_cpu_ram_efficient_loading: true
+  fsdp_offload_params: false
+  fsdp_sharding_strategy: FULL_SHARD
+  fsdp_state_dict_type: SHARDED_STATE_DICT
+  fsdp_sync_module_states: true
+  fsdp_transformer_layer_cls_to_wrap: BertLayer
+  fsdp_use_orig_params: true
+machine_rank: 0
+main_training_function: main
+mixed_precision: bf16
+num_machines: 1
+num_processes: 2
+rdzv_backend: static
+same_network: true
+tpu_env: []
+tpu_use_cluster: false
+tpu_use_sudo: false
+use_cpu: false
 ```
 
-### Train with a notebook
+## Trainer
 
-🤗 Accelerate can also run in a notebook if you're planning on using Colaboratory's TPUs. Wrap all the code responsible for training in a function, and pass it to [`~accelerate.notebook_launcher`]:
+Pass the path to the saved configuration file to [`TrainingArguments`], and from there, pass your [`TrainingArguments`] to [`Trainer`].
 
 ```py
->>> from accelerate import notebook_launcher
+from transformers import TrainingArguments, Trainer
 
->>> notebook_launcher(training_function)
+training_args = TrainingArguments(
+    output_dir="your-model",
+    learning_rate=2e-5,
+    per_device_train_batch_size=16,
+    per_device_eval_batch_size=16,
+    num_train_epochs=2,
+    fsdp_config="path/to/fsdp_config",
+    fsdp_strategy="full_shard",
+    weight_decay=0.01,
+    eval_strategy="epoch",
+    save_strategy="epoch",
+    load_best_model_at_end=True,
+    push_to_hub=True,
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=dataset["train"],
+    eval_dataset=dataset["test"],
+    processing_class=tokenizer,
+    data_collator=data_collator,
+    compute_metrics=compute_metrics,
+)
+
+trainer.train()
 ```
 
-For more information about 🤗 Accelerate and its rich features, refer to the [documentation](https://huggingface.co/docs/accelerate).
+## Native PyTorch
+
+Accelerate can also be added to any PyTorch training loop to enable distributed training. The [`~accelerate.Accelerator`] is the main entry point for adapting your PyTorch code to work with Accelerate. It automatically detects your distributed training setup and initializes all the necessary components for training. You don't need to explicitly place your model on a device because [`~accelerate.Accelerator`] knows which device to move your model to.
+
+```py
+from accelerate import Accelerator
+
+accelerator = Accelerator()
+device = accelerator.device
+```
+
+All PyTorch objects (model, optimizer, scheduler, dataloaders) should be passed to the [`~accelerate.Accelerator.prepare`] method now. This method moves your model to the appropriate device or devices, adapts the optimizer and scheduler to use [`~accelerate.AcceleratedOptimizer`] and [`~accelerate.AcceleratedScheduler`], and creates a new shardable dataloader.
+
+```py
+train_dataloader, eval_dataloader, model, optimizer = accelerator.prepare(
+    train_dataloader, eval_dataloader, model, optimizer
+)
+```
+
+Replace `loss.backward` in your training loop with Accelerates [`~accelerate.Accelerator.backward`] method to scale the gradients and determine the appropriate `backward` method to use depending on your framework (for example, DeepSpeed or Megatron).
+
+```py
+for epoch in range(num_epochs):
+    for batch in train_dataloader:
+        outputs = model(**batch)
+        loss = outputs.loss
+        accelerator.backward(loss)
+        optimizer.step()
+        lr_scheduler.step()
+        optimizer.zero_grad()
+        progress_bar.update(1)
+```
+
+Combine everything into a function and make it callable as a script.
+
+```py
+from accelerate import Accelerator
+  
+def main():
+  accelerator = Accelerator()
+
+  model, optimizer, training_dataloader, scheduler = accelerator.prepare(
+      model, optimizer, training_dataloader, scheduler
+  )
+
+  for batch in training_dataloader:
+      optimizer.zero_grad()
+      inputs, targets = batch
+      outputs = model(inputs)
+      loss = loss_function(outputs, targets)
+      accelerator.backward(loss)
+      optimizer.step()
+      scheduler.step()
+
+if __name__ == "__main__":
+    main()
+```
+
+From the command line, call [accelerate launch](https://hf.co/docs/accelerate/main/en/package_reference/cli#accelerate-launch) to run your training script. Any additional arguments or parameters can be passed here as well.
+
+To launch your training script on two GPUs, add the `--num_processes` argument.
+
+```bash
+accelerate launch --num_processes=2 your_script.py
+```
+
+Refer to the [Launching Accelerate scripts](https://hf.co/docs/accelerate/main/en/basic_tutorials/launch) for more details.

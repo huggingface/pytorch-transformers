@@ -38,11 +38,11 @@ from transformers.tokenization_utils_base import (
 )
 
 
-class GotOcr2Config(Qwen2VLConfig):
+class GotOcr2VisionConfig(SamVisionConfig):
     pass
 
 
-class GotOcr2VisionConfig(SamVisionConfig):
+class GotOcr2Config(Qwen2VLConfig):
     pass
 
 
@@ -50,7 +50,7 @@ class GotOcr2TextKwargs(TextKwargs, total=False):
     format: Optional[bool]
 
 
-class Kosmos2ImagesKwargs(ImagesKwargs, total=False):
+class GotOcr2ImagesKwargs(ImagesKwargs, total=False):
     box: Optional[Union[Tuple[float, float], Tuple[float, float, float, float]]]
     color: Optional[str]
     num_image_tokens: Optional[int]
@@ -58,12 +58,15 @@ class Kosmos2ImagesKwargs(ImagesKwargs, total=False):
 
 class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
     text_kwargs: GotOcr2TextKwargs
+    images_kwargs: GotOcr2ImagesKwargs
     _defaults = {
         "text_kwargs": {
             "padding": False,
             "format": False,
         },
-        "num_image_tokens": 256,
+        "images_kwargs": {
+            "num_image_tokens": 256,
+        },
     }
 
 

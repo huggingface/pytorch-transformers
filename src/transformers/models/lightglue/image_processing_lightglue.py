@@ -13,25 +13,34 @@
 # limitations under the License.
 """Image processor class for LightGlue."""
 
-from typing import Dict, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from ... import is_vision_available
+from ... import is_torch_available, is_vision_available
 from ...image_processing_utils import BaseImageProcessor, BatchFeature, get_size_dict
 from ...image_transforms import resize, to_channel_dimension_format
 from ...image_utils import (
     ChannelDimension,
     ImageInput,
+    ImageType,
     PILImageResampling,
+    get_image_type,
     infer_channel_dimension_format,
+    is_pil_image,
     is_scaled_image,
+    is_valid_image,
     make_list_of_images,
     to_numpy_array,
     valid_images,
 )
 from ...utils import TensorType, logging, requires_backends
 
+
+if is_torch_available():
+    import torch
+if TYPE_CHECKING:
+    from .modeling_lightglue import LightGlueKeypointMatchingOutput
 
 if is_vision_available():
     import PIL
@@ -137,6 +146,152 @@ def pad_images(images, pad_value=0, data_format: Optional[Union[str, ChannelDime
         padded_images.append(padded_image)
 
     return padded_images
+
+
+# Copied from transformers.models.superglue.image_processing_superglue.validate_and_format_image_pairs
+def validate_and_format_image_pairs(images: ImageInput):
+    error_message = (
+        "Input images must be a one of the following :",
+        " - A pair of PIL images.",
+        " - A pair of 3D arrays.",
+        " - A 4D array with shape (2, H, W, C).",
+        " - A 5D array with shape (B, 2, H, W, C).",
+        " - A list of pairs of PIL images.",
+        " - A list of pairs of 3D arrays.",
+        " - A list of 4D arrays with shape (2, H, W, C).",
+    )
+
+    def _flatten_image_list(image_list):
+        """
+        Flattens a list of images.
+        In the case of images being an array of shape (B, H, W, C), returns a B long list of (H, W, C) images.
+        """
+        return list(image_list)
+
+    def _flatten_image_list_sequence(image_list_sequence):
+        """
+        Flattens a list of list of images.
+        In the case of images being an array of shape (B, 2, H, W, C), returns a B * 2 long list of (H, W, C) images.
+        """
+        return [image for image_list in image_list_sequence for image in image_list]
+
+    def _is_pair_of_PIL(images):
+        """images is a pair of PIL images."""
+        return len(images) == 2 and all(is_pil_image(image) for image in images)
+
+    def _is_3d_array(image):
+        """images is a 3D array."""
+        return is_valid_image(image) and get_image_type(image) != ImageType.PIL and len(image.shape) == 3
+
+    def _is_pair_of_3d_arrays(images):
+        """images is a pair of 3D arrays."""
+        return all(_is_3d_array(image) for image in images) and len(images) == 2
+
+    def _is_list_of_images_with_length_different_from_two(images):
+        """images is a flat list of either PIL images or 3D arrays but not a pair of images."""
+        return (
+            all(is_valid_image(image) and (is_pil_image(image) or _is_3d_array(image)) for image in images)
+            and len(images) != 2
+        )
+
+    def _is_list_of_4d_arrays(images):
+        """images is a list of 4D arrays with shape (2, H, W, C)."""
+        return all(_is_4d_array(image) for image in images)
+
+    def _is_4d_array(image):
+        """images is a 4D array with shape (2, H, W, C)."""
+        return is_valid_image(image) and not is_pil_image(image) and len(image.shape) == 4 and image.shape[0] == 2
+
+    def _is_5d_array(images):
+        """images is a 5D array with shape (B, 2, H, W, C)."""
+        return (
+            is_valid_image(images)
+            and get_image_type(images) != ImageType.PIL
+            and len(images.shape) == 5
+            and images.shape[1] == 2
+        )
+
+    def _format_image_list(images):
+        """
+        Function that takes a valid image input and turns it into a list of images.
+
+        A valid image input is one of the following:
+        - A pair of PIL images.
+        - A pair of 3D arrays.
+        - A list of 4D arrays with shape (2, H, W, C).
+        - A 5D array with shape (B, 2, H, W, C).
+
+        Raises a ValueError if the input is one of the following :
+        - A list of images of length != 2.
+        - A single PIL image.
+        - A single 3D array.
+        """
+        if isinstance(images, list):
+            if _is_pair_of_PIL(images) or _is_pair_of_3d_arrays(images):
+                return images
+            if _is_list_of_images_with_length_different_from_two(images):
+                raise ValueError(error_message)
+            if _is_list_of_4d_arrays(images):
+                return _flatten_image_list_sequence(images)
+        if is_valid_image(images):
+            if is_pil_image(images):
+                raise ValueError(error_message)
+            if _is_3d_array(images):
+                raise ValueError(error_message)
+            if _is_4d_array(images):
+                return _flatten_image_list(images)
+            if _is_5d_array(images):
+                return _flatten_image_list_sequence(images)
+        return images
+
+    def _is_list_sequence(images):
+        """images is a list of lists of images."""
+        return isinstance(images, list) and all(isinstance(image, list) for image in images)
+
+    def _is_list_of_pairs(images):
+        """images is a list of either pairs of PIL images or pairs of 3D arrays."""
+        return all(_is_pair_of_PIL(image) or _is_pair_of_3d_arrays(image) for image in images)
+
+    def _format_image_list_sequence(images):
+        """Function that takes an image pair sequence that is either a list of pairs of PIL images or a list of pairs of 3D
+        arrays and turns it into a flatten list of images."""
+        if _is_list_sequence(images):
+            if _is_list_of_pairs(images):
+                return _flatten_image_list_sequence(images)
+        return images
+
+    def _is_list_of_pil(images):
+        """images is a list of PIL images with even length."""
+        return (
+            all(is_valid_image(image) and get_image_type(image) == ImageType.PIL for image in images)
+            and len(images) % 2 == 0
+        )
+
+    def _is_list_of_3d_arrays(images):
+        """images is a list of 3D arrays with even length."""
+        return all(_is_3d_array(image) for image in images) and len(images) % 2 == 0
+
+    def _validate_image_list_format(images):
+        """
+        Function that validates the format of the output list.
+
+        A valid output is one of the following:
+        - A list of PIL images with even length.
+        - A list of 3D arrays with even length.
+
+        Raises a ValueError if the output is not one of the above.
+        """
+        if _is_list_of_pil(images):
+            return images
+        if _is_list_of_3d_arrays(images):
+            return images
+        raise ValueError(error_message)
+
+    images = _format_image_list(images)
+    images = _format_image_list_sequence(images)
+    images = _validate_image_list_format(images)
+
+    return images
 
 
 class LightGlueImageProcessor(BaseImageProcessor):
@@ -359,3 +514,63 @@ class LightGlueImageProcessor(BaseImageProcessor):
         data = {"pixel_values": image_pairs}
 
         return BatchFeature(data=data, tensor_type=return_tensors)
+
+    def post_process_keypoint_matching(
+        self, outputs: "LightGlueKeypointMatchingOutput", target_sizes: Union[TensorType, List[Tuple]]
+    ):
+        """
+        Converts the raw output of [`SuperPointForKeypointDetection`] into lists of keypoints, scores and descriptors
+        with coordinates absolute to the original image sizes.
+        Args:
+            outputs ([`SuperPointKeypointDescriptionOutput`]):
+                Raw outputs of the model.q
+            target_sizes (`torch.Tensor` or `List[Tuple[Tuple[int, int]]]`, *optional*):
+                Tensor of shape `(batch_size, 2, 2)` or list of tuples of tuples (`Tuple[int, int]`) containing the
+                target size `(height, width)` of each image in the batch. This must be the original image size (before
+                any processing).
+        Returns:
+            `List[Dict]`: A list of dictionaries, each dictionary containing the keypoints in the first and second image
+            of the pair, the matching scores and the matching indices.
+        """
+        if outputs.mask.shape[0] != len(target_sizes):
+            raise ValueError("Make sure that you pass in as many target sizes as the batch dimension of the mask")
+        if not all(len(target_size) == 2 for target_size in target_sizes):
+            raise ValueError("Each element of target_sizes must contain the size (h, w) of each image of the batch")
+
+        if isinstance(target_sizes, List):
+            image_pair_sizes = torch.tensor(target_sizes)
+        else:
+            if target_sizes.shape[1] != 2 or target_sizes.shape[2] != 2:
+                raise ValueError(
+                    "Each element of target_sizes must contain the size (h, w) of each image of the batch"
+                )
+            image_pair_sizes = target_sizes
+
+        keypoints = outputs.keypoints.clone()
+        keypoints = keypoints * image_pair_sizes.flip(-1).reshape(-1, 2, 1, 2)
+        keypoints = keypoints.to(torch.int32)
+
+        results = []
+        for mask_pair, keypoints_pair, matches, scores in zip(
+            outputs.mask, keypoints, outputs.matches[:, 0], outputs.matching_scores[:, 0]
+        ):
+            mask0 = mask_pair[0] > 0
+            mask1 = mask_pair[1] > 0
+            keypoints0 = keypoints_pair[0][mask0]
+            keypoints1 = keypoints_pair[1][mask1]
+            matches0 = matches[mask0]
+            scores0 = scores[mask0]
+
+            matched_keypoints0 = keypoints0[matches0 > -1]
+            matched_keypoints1 = keypoints1[matches0[matches0 > -1]]
+            matching_scores = scores0[matches0 > -1]
+
+            results.append(
+                {
+                    "keypoints0": matched_keypoints0,
+                    "keypoints1": matched_keypoints1,
+                    "matching_scores": matching_scores,
+                }
+            )
+
+        return results

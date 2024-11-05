@@ -24,6 +24,9 @@ from ...test_image_processing_common import (
 
 if is_torch_available():
     import numpy as np
+    import torch
+
+    from transformers.models.lightglue.modeling_lightglue import LightGlueKeypointMatchingOutput
 
 if is_vision_available():
     from transformers import LightGlueImageProcessor
@@ -74,6 +77,32 @@ class LightGlueImageProcessingTester(unittest.TestCase):
         if pairs:
             image_inputs = [image_inputs[i : i + 2] for i in range(0, len(image_inputs), 2)]
         return image_inputs
+
+    def prepare_keypoint_matching_output(self, pixel_values):
+        max_number_keypoints = 50
+        batch_size = len(pixel_values)
+        mask = torch.zeros((batch_size, 2, max_number_keypoints), dtype=torch.int)
+        keypoints = torch.zeros((batch_size, 2, max_number_keypoints, 2))
+        matches = torch.full((batch_size, 2, max_number_keypoints), -1, dtype=torch.int)
+        scores = torch.zeros((batch_size, 2, max_number_keypoints))
+        prune = torch.zeros((batch_size, 2, max_number_keypoints), dtype=torch.int)
+        for i in range(batch_size):
+            random_number_keypoints0 = np.random.randint(10, max_number_keypoints)
+            random_number_keypoints1 = np.random.randint(10, max_number_keypoints)
+            random_number_matches = np.random.randint(5, min(random_number_keypoints0, random_number_keypoints1))
+            mask[i, 0, :random_number_keypoints0] = 1
+            mask[i, 1, :random_number_keypoints1] = 1
+            keypoints[i, 0, :random_number_keypoints0] = torch.rand((random_number_keypoints0, 2))
+            keypoints[i, 1, :random_number_keypoints1] = torch.rand((random_number_keypoints1, 2))
+            random_matches_indices0 = torch.randperm(random_number_keypoints1, dtype=torch.int)[:random_number_matches]
+            random_matches_indices1 = torch.randperm(random_number_keypoints0, dtype=torch.int)[:random_number_matches]
+            matches[i, 0, random_matches_indices1] = random_matches_indices0
+            matches[i, 1, random_matches_indices0] = random_matches_indices1
+            scores[i, 0, random_matches_indices1] = torch.rand((random_number_matches,))
+            scores[i, 1, random_matches_indices0] = torch.rand((random_number_matches,))
+        return LightGlueKeypointMatchingOutput(
+            mask=mask, keypoints=keypoints, matches=matches, matching_scores=scores, prune=prune
+        )
 
 
 @require_torch
@@ -242,3 +271,47 @@ class LightGlueImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         max_width = max(image.shape[1] for image in image_pairs)
         expected_output_image_shape = (2, 3, max_height, max_width)
         self.assertEqual(tuple(encoded_images.shape), (1, *expected_output_image_shape))
+
+    @require_torch
+    def test_post_processing_keypoint_detection(self):
+        image_processor = self.image_processing_class.from_dict(self.image_processor_dict)
+        image_inputs = self.image_processor_tester.prepare_image_inputs()
+        pre_processed_images = image_processor.preprocess(image_inputs, return_tensors="pt")
+        outputs = self.image_processor_tester.prepare_keypoint_matching_output(**pre_processed_images)
+
+        def check_post_processed_output(post_processed_output, image_pair_size):
+            for post_processed_output, (image_size0, image_size1) in zip(post_processed_output, image_pair_size):
+                self.assertTrue("keypoints0" in post_processed_output)
+                self.assertTrue("keypoints1" in post_processed_output)
+                self.assertTrue("matching_scores" in post_processed_output)
+                keypoints0 = post_processed_output["keypoints0"]
+                keypoints1 = post_processed_output["keypoints1"]
+                all_below_image_size0 = torch.all(keypoints0[:, 0] <= image_size0[1]) and torch.all(
+                    keypoints0[:, 1] <= image_size0[0]
+                )
+                all_below_image_size1 = torch.all(keypoints1[:, 0] <= image_size1[1]) and torch.all(
+                    keypoints1[:, 1] <= image_size1[0]
+                )
+                all_above_zero0 = torch.all(keypoints0[:, 0] >= 0) and torch.all(keypoints0[:, 1] >= 0)
+                all_above_zero1 = torch.all(keypoints0[:, 0] >= 0) and torch.all(keypoints0[:, 1] >= 0)
+                self.assertTrue(all_below_image_size0)
+                self.assertTrue(all_below_image_size1)
+                self.assertTrue(all_above_zero0)
+                self.assertTrue(all_above_zero1)
+                all_scores_different_from_minus_one = torch.all(post_processed_output["matching_scores"] != -1)
+                self.assertTrue(all_scores_different_from_minus_one)
+
+        tuple_image_sizes = [
+            ((image_pair[0].size[0], image_pair[0].size[1]), (image_pair[1].size[0], image_pair[1].size[1]))
+            for image_pair in image_inputs
+        ]
+        tuple_post_processed_outputs = image_processor.post_process_keypoint_matching(outputs, tuple_image_sizes)
+
+        check_post_processed_output(tuple_post_processed_outputs, tuple_image_sizes)
+
+        tensor_image_sizes = torch.tensor(
+            [(image_pair[0].size, image_pair[1].size) for image_pair in image_inputs]
+        ).flip(2)
+        tensor_post_processed_outputs = image_processor.post_process_keypoint_matching(outputs, tensor_image_sizes)
+
+        check_post_processed_output(tensor_post_processed_outputs, tensor_image_sizes)

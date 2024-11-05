@@ -700,6 +700,8 @@ class ModelTesterMixin:
                 check_equal(load_state_dict(pt_checkpoint_path))
 
     def test_initialization(self):
+        # TODO (ydshieh) -- Other tests may change the default dtype, this test requires float32
+        torch.set_default_dtype(torch.float32)
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
 
         configs_no_init = _config_zero_init(config)

@@ -2144,12 +2144,26 @@ class GenerationTesterMixin:
                 del model_eager
                 gc.collect()
 
-                model_attn = model_class.from_pretrained(
-                    tmpdirname,
-                    torch_dtype=torch.float16,
-                    low_cpu_mem_usage=True,
-                    attn_implementation=attn_implementation,
-                ).to(torch_device)
+                # SDPA only: Some models partially support SDPA: they will load SDPA where they can by default, but if
+                # we specify `attn_implementation = "sdpa"`, they will try (and fail) to load SDPA everywhere.
+                # This logic will break if we stop using SDPA by default.
+                try:
+                    model_attn = model_class.from_pretrained(
+                        tmpdirname,
+                        torch_dtype=torch.float16,
+                        low_cpu_mem_usage=True,
+                        attn_implementation=attn_implementation,
+                    ).to(torch_device)
+                except ValueError:
+                    if attn_implementation == "sdpa":
+                        model_attn = model_class.from_pretrained(
+                            tmpdirname,
+                            torch_dtype=torch.float16,
+                            low_cpu_mem_usage=True,
+                        ).to(torch_device)
+                    else:
+                        raise
+
                 res_attn = model_attn.generate(**inputs_dict, **generate_kwargs)
                 del model_attn
                 gc.collect()

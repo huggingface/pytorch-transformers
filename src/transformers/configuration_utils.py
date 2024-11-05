@@ -296,7 +296,8 @@ class PretrainedConfig(PushToHubMixin):
 
         # Attention implementation to use, if relevant.
         self._attn_implementation_internal = kwargs.pop("attn_implementation", None)
-        self._attn_implementation_autoset = False
+        self._attn_implementation_autoset_was_run = False
+        self._attn_implementation_was_set_by_autoset = False
 
         # Drop the transformers version info
         self.transformers_version = kwargs.pop("transformers_version", None)

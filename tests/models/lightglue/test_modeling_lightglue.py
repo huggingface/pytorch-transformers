@@ -309,9 +309,9 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
         with torch.no_grad():
             outputs = model(**inputs, output_hidden_states=True, output_attentions=True)
 
-        expected_number_keypoints_image0 = 1116
-        expected_number_keypoints_image1 = 1426
-        expected_number_keypoints_image2 = 948
+        expected_number_keypoints_image0 = 593
+        expected_number_keypoints_image1 = 866
+        expected_number_keypoints_image2 = 560
         expected_max_number_keypoints = max(
             [expected_number_keypoints_image0, expected_number_keypoints_image1, expected_number_keypoints_image2]
         )
@@ -322,12 +322,12 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
         self.assertEqual(outputs.matching_scores.shape, expected_matching_scores_shape)
 
         ###### Check matching of first pair
-        expected_first_matches_values = torch.tensor([-1, -1, -1, -1, -1, 43, -1, 46, -1, 44], dtype=torch.int64).to(
+        expected_first_matches_values = torch.tensor([-1, -1, -1, -1, -1, -1, -1, -1, 540, -1], dtype=torch.int64).to(
             torch_device
         )
-        expected_first_matching_scores_values = torch.tensor([0, 0, 0, 0, 0, 0.1171, 0.0896, 0.5196, 0, 0.3388]).to(
-            torch_device
-        )
+        expected_first_matching_scores_values = torch.tensor(
+            [0, 0, 0.0167, 0.0304, 0.0328, 0, 0, 0.0095, 0.2964, 0.0352]
+        ).to(torch_device)
 
         predicted_first_matches_values = outputs.matches[0, 0, 20:30]
         predicted_first_matching_scores_values = outputs.matching_scores[0, 0, 20:30]
@@ -337,7 +337,7 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
             torch.allclose(predicted_first_matching_scores_values, expected_first_matching_scores_values, atol=1e-4)
         )
 
-        expected_first_number_of_matches = 235
+        expected_first_number_of_matches = 127
         predicted_first_number_of_matches = torch.sum(outputs.matches[0][0] != -1).item()
         self.assertEqual(predicted_first_number_of_matches, expected_first_number_of_matches)
 
@@ -346,7 +346,7 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
             torch_device
         )
         expected_second_matching_scores_values = torch.tensor(
-            [0.9929, 0.5083, 0.8715, 0.4840, 0.5910, 0.7002, 0.6597, 0.8990, 0.9530, 0.7407]
+            [0.9980, 0.9978, 0.9991, 0.9399, 0.9837, 0.9970, 0.9932, 0.9945, 0.9992, 0.9983]
         ).to(torch_device)
 
         predicted_second_matches_values = outputs.matches[1, 0, 20:30]
@@ -357,8 +357,8 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
             torch.allclose(predicted_second_matching_scores_values, expected_second_matching_scores_values, atol=1e-4)
         )
 
-        expected_early_stopping_layer = 3
-        expected_second_number_of_matches = 1421
+        expected_early_stopping_layer = 2
+        expected_second_number_of_matches = expected_number_keypoints_image1
         predicted_early_stopping_layer = torch.max(outputs.prune[1]).item()
         predicted_second_number_of_matches = torch.sum(outputs.matches[1][0] != -1).item()
         self.assertEqual(predicted_early_stopping_layer, expected_early_stopping_layer)

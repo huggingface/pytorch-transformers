@@ -21,6 +21,8 @@ import torch.nn as nn
 import torch.utils.checkpoint
 from torch.nn import CrossEntropyLoss
 
+from transformers.feature_extraction_utils import BatchFeature
+from transformers.image_utils import ImageInput
 from transformers.models.qwen2_vl.configuration_qwen2_vl import Qwen2VLConfig
 from transformers.models.qwen2_vl.modeling_qwen2_vl import (
     Qwen2VLCausalLMOutputWithPast,
@@ -29,6 +31,11 @@ from transformers.models.qwen2_vl.modeling_qwen2_vl import (
 )
 from transformers.models.sam.configuration_sam import SamVisionConfig
 from transformers.models.sam.modeling_sam import SamVisionEncoder
+from transformers.processing_utils import ImagesKwargs, ProcessingKwargs, ProcessorMixin, TextKwargs, Unpack
+from transformers.tokenization_utils_base import (
+    PreTokenizedInput,
+    TextInput,
+)
 
 
 class GotOcr2Config(Qwen2VLConfig):
@@ -37,6 +44,168 @@ class GotOcr2Config(Qwen2VLConfig):
 
 class GotOcr2VisionConfig(SamVisionConfig):
     pass
+
+
+class GotOcr2TextKwargs(TextKwargs, total=False):
+    format: Optional[bool]
+
+
+class Kosmos2ImagesKwargs(ImagesKwargs, total=False):
+    box: Optional[Union[Tuple[float, float], Tuple[float, float, float, float]]]
+    color: Optional[str]
+    num_image_tokens: Optional[int]
+
+
+class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
+    text_kwargs: GotOcr2TextKwargs
+    _defaults = {
+        "text_kwargs": {
+            "padding": False,
+            "format": False,
+        },
+        "num_image_tokens": 256,
+    }
+
+
+class GotOcr2Processor(ProcessorMixin):
+    r"""
+    Constructs a GotOcr2 processor which wraps a [`BlipImageProcessor`] and
+    [`PretrainedTokenizerFast`] tokenizer into a single processor that inherits both the image processor and
+    tokenizer functionalities. See the [`~GotOcr2Processor.__call__`] and [`~GotOcr2Processor.decode`] for more information.
+    Args:
+        image_processor ([`BlipImageProcessor`], *optional*):
+            The image processor is a required input.
+        tokenizer ([`PreTrainedTokenizer`, `PreTrainedTokenizerFast`], *optional*):
+            The tokenizer is a required input.
+        chat_template (`str`, *optional*): A Jinja template which will be used to convert lists of messages
+            in a chat into a tokenizable string.
+    """
+
+    attributes = ["image_processor", "tokenizer"]
+    valid_kwargs = ["chat_template"]
+    image_processor_class = "BlipImageProcessor"
+    tokenizer_class = "PreTrainedTokenizerFast"
+
+    def __init__(self, image_processor=None, tokenizer=None, chat_template=None, **kwargs):
+        super().__init__(image_processor, tokenizer, chat_template=chat_template)
+
+        self.img_start_token = "<img>"
+        self.img_end_token = "</img>"
+        self.img_pad_token = "<imgpad>"
+        self.system_query = "system\nYou should follow the instructions carefully and explain your answers in detail."
+
+    def __call__(
+        self,
+        images: Optional[ImageInput] = None,
+        text: Optional[Union[TextInput, PreTokenizedInput, List[TextInput], List[PreTokenizedInput]]] = None,
+        audio=None,
+        videos=None,
+        **kwargs: Unpack[GotOcr2ProcessorKwargs],
+    ) -> BatchFeature:
+        """
+        Main method to prepare for the model one or several sequences(s) and image(s). This method forwards the `text`
+        and `kwargs` arguments to Qwen2TokenizerFast's [`~Qwen2TokenizerFast.__call__`] if `text` is not `None` to encode
+        the text. To prepare the vision inputs, this method forwards the `vision_infos` and `kwrags` arguments to
+        Qwen2VLImageProcessor's [`~Qwen2VLImageProcessor.__call__`] if `vision_infos` is not `None`.
+
+        Args:
+            images (`PIL.Image.Image`, `np.ndarray`, `torch.Tensor`, `List[PIL.Image.Image]`, `List[np.ndarray]`, `List[torch.Tensor]`):
+                The image or batch of images to be prepared. Each image can be a PIL image, NumPy array or PyTorch
+                tensor. Both channels-first and channels-last formats are supported.
+            text (`str`, `List[str]`, `List[List[str]]`):
+                The sequence or batch of sequences to be encoded. Each sequence can be a string or a list of strings
+                (pretokenized string). If the sequences are provided as list of strings (pretokenized), you must set
+                `is_split_into_words=True` (to lift the ambiguity with a batch of sequences).
+            return_tensors (`str` or [`~utils.TensorType`], *optional*):
+                If set, will return tensors of a particular framework. Acceptable values are:
+                - `'tf'`: Return TensorFlow `tf.constant` objects.
+                - `'pt'`: Return PyTorch `torch.Tensor` objects.
+                - `'np'`: Return NumPy `np.ndarray` objects.
+                - `'jax'`: Return JAX `jnp.ndarray` objects.
+
+        Returns:
+            [`BatchFeature`]: A [`BatchFeature`] with the following fields:
+
+            - **input_ids** -- List of token ids to be fed to a model. Returned when `text` is not `None`.
+            - **attention_mask** -- List of indices specifying which tokens should be attended to by the model (when
+              `return_attention_mask=True` or if *"attention_mask"* is in `self.model_input_names` and if `text` is not
+              `None`).
+            - **pixel_values** -- Pixel values to be fed to a model. Returned when `images` is not `None`.
+            - **pixel_values_videos** -- Pixel values of videos to be fed to a model. Returned when `videos` is not `None`.
+            - **image_grid_thw** -- List of image 3D grid in LLM. Returned when `images` is not `None`.
+            - **video_grid_thw** -- List of video 3D grid in LLM. Returned when `videos` is not `None`.
+        """
+        if images is None:
+            raise ValueError("Images are required to be passed to the processor.")
+
+        # Check if images are nested and force nesting if not
+        if not isinstance(images[0], (list, tuple)):
+            images = [[image] for image in images]
+
+        format = kwargs.pop("format", False)
+        num_image_tokens = kwargs.pop("num_image_tokens", 256)
+        box = kwargs.pop("box", None)
+        color = kwargs.pop("color", None)
+        if box is not None and color is not None:
+            raise ValueError("Both `box` and `color` cannot be set at the same time.")
+        # TODO change logic box (depends on the image size)
+
+        output_kwargs = self._merge_kwargs(
+            GotOcr2ProcessorKwargs,
+            tokenizer_init_kwargs=self.tokenizer.init_kwargs,
+            **kwargs,
+        )
+        image_inputs = self.image_processor(images=images, videos=None, **output_kwargs["images_kwargs"])
+        if text is None:
+            text = []
+            # Use base prompt
+            for image_group in images:
+                num_images = len(image_group)
+                query = (
+                    f"{f'[{color}] ' if color is not None else ''}"
+                    f"{str(box) if box is not None else ''}"
+                    "OCR"
+                    f"{' with format' if format else ''}"
+                    f"{' across multi pages' if num_images > 1 else ''}"
+                    ": "
+                )
+                prompt = (
+                    "<|im_start|>"
+                    + self.system_query
+                    + "<|im_end|>"
+                    + "<|im_start|>user\n"
+                    + self.img_start_token
+                    + self.img_pad_token * num_image_tokens * num_images
+                    + self.img_end_token
+                    + "\n"
+                    + query
+                    + "<|im_end|><|im_start|>assistant\n"
+                )
+                text.append(prompt)
+
+        text_inputs = self.tokenizer(text, **output_kwargs["text_kwargs"])
+
+        return BatchFeature(data={**text_inputs, **image_inputs})
+
+    def batch_decode(self, *args, **kwargs):
+        """
+        This method forwards all its arguments to Qwen2TokenizerFast's [`~PreTrainedTokenizer.batch_decode`]. Please
+        refer to the docstring of this method for more information.
+        """
+        return self.tokenizer.batch_decode(*args, **kwargs)
+
+    def decode(self, *args, **kwargs):
+        """
+        This method forwards all its arguments to Qwen2TokenizerFast's [`~PreTrainedTokenizer.decode`]. Please refer to
+        the docstring of this method for more information.
+        """
+        return self.tokenizer.decode(*args, **kwargs)
+
+    @property
+    def model_input_names(self):
+        tokenizer_input_names = self.tokenizer.model_input_names
+        image_processor_input_names = self.image_processor.model_input_names
+        return list(dict.fromkeys(tokenizer_input_names + image_processor_input_names))
 
 
 class GotOcr2VisionAdapter(nn.Module):

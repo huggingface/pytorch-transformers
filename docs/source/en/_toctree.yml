@@ -126,7 +126,7 @@
     - local: accelerate
       title: Accelerate
     - local: perf_train_gpu_many
-      title: Multiple GPUs and parallelism
+      title: Parallelism methods
     - local: fsdp
       title: Fully Sharded Data Parallel
     - local: deepspeed

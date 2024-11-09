@@ -62,27 +62,17 @@ def verify_model_outputs(model):
 
 
 ORIGINAL_TO_CONVERTED_KEY_MAPPING = {
-    r"posenc.Wr.weight": r"positional_encoder.projector.weight",
-    r"self_attn.(\d+).Wqkv.weight": r"transformer_layers.\1.self_attention_block.Wqkv.weight",
-    r"self_attn.(\d+).Wqkv.bias": r"transformer_layers.\1.self_attention_block.Wqkv.bias",
-    r"self_attn.(\d+).out_proj.weight": r"transformer_layers.\1.self_attention_block.output_projection.weight",
-    r"self_attn.(\d+).out_proj.bias": r"transformer_layers.\1.self_attention_block.output_projection.bias",
-    r"self_attn.(\d+).ffn.(\d+).weight": r"transformer_layers.\1.self_attention_block.ffn.\2.weight",
-    r"self_attn.(\d+).ffn.(\d+).bias": r"transformer_layers.\1.self_attention_block.ffn.\2.bias",
-    r"cross_attn.(\d+).to_qk.weight": r"transformer_layers.\1.cross_attention_block.to_qk.weight",
-    r"cross_attn.(\d+).to_qk.bias": r"transformer_layers.\1.cross_attention_block.to_qk.bias",
-    r"cross_attn.(\d+).to_v.weight": r"transformer_layers.\1.cross_attention_block.to_v.weight",
-    r"cross_attn.(\d+).to_v.bias": r"transformer_layers.\1.cross_attention_block.to_v.bias",
-    r"cross_attn.(\d+).to_out.weight": r"transformer_layers.\1.cross_attention_block.to_out.weight",
-    r"cross_attn.(\d+).to_out.bias": r"transformer_layers.\1.cross_attention_block.to_out.bias",
-    r"cross_attn.(\d+).ffn.(\d+).weight": r"transformer_layers.\1.cross_attention_block.ffn.\2.weight",
-    r"cross_attn.(\d+).ffn.(\d+).bias": r"transformer_layers.\1.cross_attention_block.ffn.\2.bias",
-    r"log_assignment.(\d+).matchability.weight": r"match_assignment_layers.\1.matchability.weight",
-    r"log_assignment.(\d+).matchability.bias": r"match_assignment_layers.\1.matchability.bias",
-    r"log_assignment.(\d+).final_proj.weight": r"match_assignment_layers.\1.final_projection.weight",
-    r"log_assignment.(\d+).final_proj.bias": r"match_assignment_layers.\1.final_projection.bias",
-    r"token_confidence.(\d+).token.0.weight": r"token_confidence.\1.token.weight",
-    r"token_confidence.(\d+).token.0.bias": r"token_confidence.\1.token.bias",
+    r"posenc.Wr": r"positional_encoder.projector",
+    r"self_attn.(\d+).Wqkv": r"transformer_layers.\1.self_attention_block.Wqkv",
+    r"self_attn.(\d+).out_proj": r"transformer_layers.\1.self_attention_block.output_projection",
+    r"self_attn.(\d+).ffn.(\d+)": r"transformer_layers.\1.self_attention_block.ffn.\2",
+    r"cross_attn.(\d+).to_qk": r"transformer_layers.\1.cross_attention_block.to_qk",
+    r"cross_attn.(\d+).to_v": r"transformer_layers.\1.cross_attention_block.to_v",
+    r"cross_attn.(\d+).to_out": r"transformer_layers.\1.cross_attention_block.to_out",
+    r"cross_attn.(\d+).ffn.(\d+)": r"transformer_layers.\1.cross_attention_block.ffn.\2",
+    r"log_assignment.(\d+).matchability": r"match_assignment_layers.\1.matchability",
+    r"log_assignment.(\d+).final_proj": r"match_assignment_layers.\1.final_projection",
+    r"token_confidence.(\d+).token.0": r"token_confidence.\1.token",
 }
 
 

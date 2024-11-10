@@ -31,7 +31,7 @@ import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss
 
 from ...activations import ACT2FN
-from ...cache_utils import Cache, SlidingWindowCache, StaticCache
+from ...cache_utils import Cache, DynamicCache, SlidingWindowCache, StaticCache
 from ...generation import GenerationMixin
 from ...modeling_attn_mask_utils import AttentionMaskConverter
 from ...modeling_outputs import BaseModelOutputWithPast, ModelOutput
@@ -44,9 +44,12 @@ from ...utils import (
     is_flash_attn_2_available,
     is_flash_attn_greater_or_equal_2_10,
     logging,
-    replace_return_docstrings,
 )
 from .configuration_got_ocr2 import GotOcr2Config, GotOcr2VisionConfig
+
+
+if is_flash_attn_2_available():
+    from ...modeling_flash_attention_utils import _flash_attention_forward
 
 
 if is_flash_attn_2_available():
@@ -63,7 +66,35 @@ else:
 
 logger = logging.get_logger(__name__)
 
-_CONFIG_FOR_DOC = "GotOcr2Config"
+
+class GotOcr2LayerNorm(nn.Module):
+    r"""LayerNorm that supports two data formats: channels_last (default) or channels_first.
+    The ordering of the dimensions in the inputs. channels_last corresponds to inputs with shape (batch_size, height,
+    width, channels) while channels_first corresponds to inputs with shape (batch_size, channels, height, width).
+    """
+
+    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(normalized_shape))
+        self.bias = nn.Parameter(torch.zeros(normalized_shape))
+        self.eps = eps
+        self.data_format = data_format
+        if self.data_format not in ["channels_last", "channels_first"]:
+            raise NotImplementedError(f"Unsupported data format: {self.data_format}")
+        self.normalized_shape = (normalized_shape,)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.data_format == "channels_last":
+            x = torch.nn.functional.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        elif self.data_format == "channels_first":
+            input_dtype = x.dtype
+            x = x.float()
+            u = x.mean(1, keepdim=True)
+            s = (x - u).pow(2).mean(1, keepdim=True)
+            x = (x - u) / torch.sqrt(s + self.eps)
+            x = x.to(dtype=input_dtype)
+            x = self.weight[:, None, None] * x + self.bias[:, None, None]
+        return x
 
 
 class GotOcr2VisionAdapter(nn.Module):
@@ -78,6 +109,7 @@ class GotOcr2VisionAdapter(nn.Module):
     def forward(self, vision_embeddings):
         x = self.net_2(vision_embeddings)
         x = self.net_3(x)
+        x = x.flatten(2).permute(0, 2, 1)
         x = self.mm_projector_vary(x)
         return x
 
@@ -159,36 +191,6 @@ class GotOcr2MLPBlock(nn.Module):
         hidden_states = self.act(hidden_states)
         hidden_states = self.lin2(hidden_states)
         return hidden_states
-
-
-class GotOcr2LayerNorm(nn.Module):
-    r"""LayerNorm that supports two data formats: channels_last (default) or channels_first.
-    The ordering of the dimensions in the inputs. channels_last corresponds to inputs with shape (batch_size, height,
-    width, channels) while channels_first corresponds to inputs with shape (batch_size, channels, height, width).
-    """
-
-    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(normalized_shape))
-        self.bias = nn.Parameter(torch.zeros(normalized_shape))
-        self.eps = eps
-        self.data_format = data_format
-        if self.data_format not in ["channels_last", "channels_first"]:
-            raise NotImplementedError(f"Unsupported data format: {self.data_format}")
-        self.normalized_shape = (normalized_shape,)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.data_format == "channels_last":
-            x = torch.nn.functional.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
-        elif self.data_format == "channels_first":
-            input_dtype = x.dtype
-            x = x.float()
-            u = x.mean(1, keepdim=True)
-            s = (x - u).pow(2).mean(1, keepdim=True)
-            x = (x - u) / torch.sqrt(s + self.eps)
-            x = x.to(dtype=input_dtype)
-            x = self.weight[:, None, None] * x + self.bias[:, None, None]
-        return x
 
 
 class GotOcr2VisionAttention(nn.Module):
@@ -541,6 +543,71 @@ class GotOcr2VisionEncoder(nn.Module):
         )
 
 
+GOT_OCR2_START_DOCSTRING = r"""
+    This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
+    library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
+    etc.)
+
+    This model is also a PyTorch [torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module) subclass.
+    Use it as a regular PyTorch Module and refer to the PyTorch documentation for all matter related to general usage
+    and behavior.
+
+    Parameters:
+        config ([`GotOcr2Config`]):
+            Model configuration class with all the parameters of the model. Initializing with a config file does not
+            load the weights associated with the model, only the configuration. Check out the
+            [`~PreTrainedModel.from_pretrained`] method to load the model weights.
+"""
+
+
+@add_start_docstrings(
+    "The bare GotOcr2 Model outputting raw hidden-states without any specific head on top.",
+    GOT_OCR2_START_DOCSTRING,
+)
+class GotOcr2PreTrainedModel(PreTrainedModel):
+    config_class = GotOcr2Config
+    base_model_prefix = "model"
+    supports_gradient_checkpointing = True
+    _no_split_modules = ["GotOcr2DecoderLayer"]
+    _skip_keys_device_placement = "past_key_values"
+    _supports_flash_attn_2 = True
+    _supports_sdpa = True
+    _supports_cache_class = True
+    _supports_quantized_cache = True
+    _supports_static_cache = True
+
+    def _init_weights(self, module):
+        std = self.config.initializer_range
+        if isinstance(module, nn.Linear):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+
+
+class GotOcr2RMSNorm(nn.Module):
+    def __init__(self, hidden_size, eps=1e-6):
+        """
+        GotOcr2RMSNorm is equivalent to T5LayerNorm
+        """
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(hidden_size))
+        self.variance_epsilon = eps
+
+    def forward(self, hidden_states):
+        input_dtype = hidden_states.dtype
+        hidden_states = hidden_states.to(torch.float32)
+        variance = hidden_states.pow(2).mean(-1, keepdim=True)
+        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+        return self.weight * hidden_states.to(input_dtype)
+
+    def extra_repr(self):
+        return f"{tuple(self.weight.shape)}, eps={self.variance_epsilon}"
+
+
 class GotOcr2RotaryEmbedding(nn.Module):
     def __init__(
         self,
@@ -609,15 +676,14 @@ class GotOcr2RotaryEmbedding(nn.Module):
         if "dynamic" in self.rope_type:
             self._dynamic_frequency_update(position_ids, device=x.device)
 
-        # Core RoPE block. In contrast to other models, GotOcr2 has different position ids for thw grids
-        # So we expand the inv_freq to shape (3, ...)
-        inv_freq_expanded = self.inv_freq[None, None, :, None].float().expand(3, position_ids.shape[1], -1, 1)
-        position_ids_expanded = position_ids[:, :, None, :].float()  # shape (3, bs, 1, positions)
+        # Core RoPE block
+        inv_freq_expanded = self.inv_freq[None, :, None].float().expand(position_ids.shape[0], -1, 1)
+        position_ids_expanded = position_ids[:, None, :].float()
         # Force float32 (see https://github.com/huggingface/transformers/pull/29285)
         device_type = x.device.type
         device_type = device_type if isinstance(device_type, str) and device_type != "mps" else "cpu"
         with torch.autocast(device_type=device_type, enabled=False):
-            freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(2, 3)
+            freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(1, 2)
             emb = torch.cat((freqs, freqs), dim=-1)
             cos = emb.cos()
             sin = emb.sin()
@@ -629,27 +695,7 @@ class GotOcr2RotaryEmbedding(nn.Module):
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
 
 
-class Qwen2RMSNorm(nn.Module):
-    def __init__(self, hidden_size, eps=1e-6):
-        """
-        Qwen2RMSNorm is equivalent to T5LayerNorm
-        """
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(hidden_size))
-        self.variance_epsilon = eps
-
-    def forward(self, hidden_states):
-        input_dtype = hidden_states.dtype
-        hidden_states = hidden_states.to(torch.float32)
-        variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
-        return self.weight * hidden_states.to(input_dtype)
-
-    def extra_repr(self):
-        return f"{tuple(self.weight.shape)}, eps={self.variance_epsilon}"
-
-
-class Qwen2MLP(nn.Module):
+class GotOcr2MLP(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.hidden_size = config.hidden_size
@@ -670,28 +716,16 @@ def rotate_half(x):
     return torch.cat((-x2, x1), dim=-1)
 
 
-def apply_multimodal_rotary_pos_emb(q, k, cos, sin, mrope_section, unsqueeze_dim=1):
-    """Applies Rotary Position Embedding with Multimodal Sections to the query and key tensors (https://qwenlm.github.io/blog/qwen2-vl/).
-
-    Explanation:
-        Multimodal 3D rotary position embedding is an extension to 1D rotary position embedding. The input embedding
-        sequence contains vision (images / videos) embedding and text embedding or just contains text embedding. For
-        vision embedding part, we apply rotary position embedding on temporal, height and width dimension seperately.
-        Here we split the channel dimension to 3 chunks for the temporal, height and width rotary position embedding.
-        For text embedding part, we just apply 1D rotary position embedding. The three rotary position index (temporal,
-        height and width) of text embedding is always the same, so the text embedding rotary position embedding has no
-        difference with modern LLMs.
+def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
+    """Applies Rotary Position Embedding to the query and key tensors.
 
     Args:
         q (`torch.Tensor`): The query tensor.
         k (`torch.Tensor`): The key tensor.
         cos (`torch.Tensor`): The cosine part of the rotary embedding.
         sin (`torch.Tensor`): The sine part of the rotary embedding.
-        position_ids (`torch.Tensor`):
-            The position indices of the tokens corresponding to the query and key tensors. For example, this can be
-            used to pass offsetted position ids when working with a KV-cache.
-        mrope_section(`List(int)`):
-            Multimodal rope section is for channel dimension of temporal, height and width in rope calculation.
+        position_ids (`torch.Tensor`, *optional*):
+            Deprecated and unused.
         unsqueeze_dim (`int`, *optional*, defaults to 1):
             The 'unsqueeze_dim' argument specifies the dimension along which to unsqueeze cos[position_ids] and
             sin[position_ids] so that they can be properly broadcasted to the dimensions of q and k. For example, note
@@ -702,14 +736,8 @@ def apply_multimodal_rotary_pos_emb(q, k, cos, sin, mrope_section, unsqueeze_dim
     Returns:
         `tuple(torch.Tensor)` comprising of the query and key tensors rotated using the Rotary Position Embedding.
     """
-    mrope_section = mrope_section * 2
-    cos = torch.cat([m[i % 3] for i, m in enumerate(cos.split(mrope_section, dim=-1))], dim=-1).unsqueeze(
-        unsqueeze_dim
-    )
-    sin = torch.cat([m[i % 3] for i, m in enumerate(sin.split(mrope_section, dim=-1))], dim=-1).unsqueeze(
-        unsqueeze_dim
-    )
-
+    cos = cos.unsqueeze(unsqueeze_dim)
+    sin = sin.unsqueeze(unsqueeze_dim)
     q_embed = (q * cos) + (rotate_half(q) * sin)
     k_embed = (k * cos) + (rotate_half(k) * sin)
     return q_embed, k_embed
@@ -753,7 +781,6 @@ class GotOcr2Attention(nn.Module):
         self.rope_theta = config.rope_theta
         self.is_causal = True
         self.attention_dropout = config.attention_dropout
-        self.rope_scaling = config.rope_scaling
 
         if (self.head_dim * self.num_heads) != self.hidden_size:
             raise ValueError(
@@ -765,11 +792,7 @@ class GotOcr2Attention(nn.Module):
         self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=True)
         self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=False)
 
-        self.rotary_emb = GotOcr2RotaryEmbedding(
-            self.head_dim,
-            max_position_embeddings=self.max_position_embeddings,
-            base=self.rope_theta,
-        )
+        self.rotary_emb = GotOcr2RotaryEmbedding(config=self.config)
 
     def forward(
         self,
@@ -792,10 +815,6 @@ class GotOcr2Attention(nn.Module):
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-        kv_seq_len = key_states.shape[-2]
-        if past_key_value is not None:
-            kv_seq_len += cache_position[0] + 1
-
         if position_embeddings is None:
             logger.warning_once(
                 "The attention layers in this model are transitioning from computing the RoPE embeddings internally "
@@ -806,9 +825,7 @@ class GotOcr2Attention(nn.Module):
             cos, sin = self.rotary_emb(value_states, position_ids)
         else:
             cos, sin = position_embeddings
-        query_states, key_states = apply_multimodal_rotary_pos_emb(
-            query_states, key_states, cos, sin, self.rope_scaling["mrope_section"]
-        )
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
         if past_key_value is not None:
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}  # Specific to RoPE models
@@ -819,15 +836,9 @@ class GotOcr2Attention(nn.Module):
         value_states = repeat_kv(value_states, self.num_key_value_groups)
 
         attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
-
         if attention_mask is not None:  # no matter the length, we just slice it
             causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
             attn_weights = attn_weights + causal_mask
-
-        # Fix precision issues in Qwen2-VL float16 inference
-        # Replace inf values with zeros in attention weights to prevent NaN propagation
-        if query_states.dtype == torch.float16:
-            attn_weights = torch.where(torch.isinf(attn_weights), torch.zeros_like(attn_weights), attn_weights)
 
         # upcast attention to fp32
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
@@ -841,7 +852,7 @@ class GotOcr2Attention(nn.Module):
             )
 
         attn_output = attn_output.transpose(1, 2).contiguous()
-        attn_output = attn_output.reshape(bsz, q_len, -1)
+        attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
 
         attn_output = self.o_proj(attn_output)
 
@@ -889,17 +900,6 @@ class GotOcr2FlashAttention2(GotOcr2Attention):
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-        kv_seq_len = key_states.shape[-2]
-        if past_key_value is not None:
-            if self.layer_idx is None:
-                raise ValueError(
-                    f"The cache structure has changed since version v4.36. If you are using {self.__class__.__name__} "
-                    "for auto-regressive decoding with k/v caching, please make sure to initialize the attention class "
-                    "with a layer index."
-                )
-            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
-
-        # Because the input can be padded, the absolute sequence length depends on the max position id.
         if position_embeddings is None:
             logger.warning_once(
                 "The attention layers in this model are transitioning from computing the RoPE embeddings internally "
@@ -910,10 +910,7 @@ class GotOcr2FlashAttention2(GotOcr2Attention):
             cos, sin = self.rotary_emb(value_states, position_ids)
         else:
             cos, sin = position_embeddings
-
-        query_states, key_states = apply_multimodal_rotary_pos_emb(
-            query_states, key_states, cos, sin, self.rope_scaling["mrope_section"]
-        )
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
         if past_key_value is not None:
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}  # Specific to RoPE models
@@ -967,6 +964,7 @@ class GotOcr2FlashAttention2(GotOcr2Attention):
             value_states,
             attention_mask,
             q_len,
+            position_ids=position_ids,
             dropout=dropout_rate,
             sliding_window=sliding_window,
             is_causal=self.is_causal,
@@ -984,12 +982,12 @@ class GotOcr2FlashAttention2(GotOcr2Attention):
 
 class GotOcr2SdpaAttention(GotOcr2Attention):
     """
-    Qwen2 attention module using torch.nn.functional.scaled_dot_product_attention. This module inherits from
-    `Qwen2Attention` as the weights of the module stays untouched. The only changes are on the forward pass to adapt to
+    GotOcr2 attention module using torch.nn.functional.scaled_dot_product_attention. This module inherits from
+    `GotOcr2Attention` as the weights of the module stays untouched. The only changes are on the forward pass to adapt to
     SDPA API.
     """
 
-    # Adapted from Qwen2Attention.forward
+    # Adapted from GotOcr2Attention.forward
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -1014,7 +1012,6 @@ class GotOcr2SdpaAttention(GotOcr2Attention):
                 past_key_value=past_key_value,
                 output_attentions=output_attentions,
                 use_cache=use_cache,
-                cache_position=cache_position,
             )
 
         bsz, q_len, _ = hidden_states.size()
@@ -1027,9 +1024,6 @@ class GotOcr2SdpaAttention(GotOcr2Attention):
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-        kv_seq_len = key_states.shape[-2]
-        if past_key_value is not None:
-            kv_seq_len += past_key_value.get_usable_length(kv_seq_len, self.layer_idx)
         if position_embeddings is None:
             logger.warning_once(
                 "The attention layers in this model are transitioning from computing the RoPE embeddings internally "
@@ -1040,9 +1034,7 @@ class GotOcr2SdpaAttention(GotOcr2Attention):
             cos, sin = self.rotary_emb(value_states, position_ids)
         else:
             cos, sin = position_embeddings
-        query_states, key_states = apply_multimodal_rotary_pos_emb(
-            query_states, key_states, cos, sin, self.rope_scaling["mrope_section"]
-        )
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
         if past_key_value is not None:
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}  # Specific to RoPE models
@@ -1096,16 +1088,16 @@ class GotOcr2DecoderLayer(nn.Module):
         super().__init__()
         self.hidden_size = config.hidden_size
 
-        if config.use_sliding_window and config._attn_implementation != "flash_attention_2":
+        if config.sliding_window and config._attn_implementation != "flash_attention_2":
             logger.warning_once(
                 f"Sliding Window Attention is enabled but not implemented for `{config._attn_implementation}`; "
                 "unexpected results may be encountered."
             )
         self.self_attn = GOT_OCR2_ATTENTION_CLASSES[config._attn_implementation](config, layer_idx)
 
-        self.mlp = Qwen2MLP(config)
-        self.input_layernorm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.mlp = GotOcr2MLP(config)
+        self.input_layernorm = GotOcr2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = GotOcr2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
     def forward(
         self,
@@ -1175,55 +1167,93 @@ class GotOcr2DecoderLayer(nn.Module):
         return outputs
 
 
-GotOcr2_START_DOCSTRING = r"""
-    This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
-    library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
-    etc.)
+GOT_OCR2_INPUTS_DOCSTRING = r"""
+    Args:
+        input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
+            Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
+            it.
 
-    This model is also a PyTorch [torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module) subclass.
-    Use it as a regular PyTorch Module and refer to the PyTorch documentation for all matter related to general usage
-    and behavior.
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            [`PreTrainedTokenizer.__call__`] for details.
 
-    Parameters:
-        config ([`GotOcr2Config`]):
-            Model configuration class with all the parameters of the model. Initializing with a config file does not
-            load the weights associated with the model, only the configuration. Check out the
-            [`~PreTrainedModel.from_pretrained`] method to load the model weights.
+            [What are input IDs?](../glossary#input-ids)
+        attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
+            Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
+
+            - 1 for tokens that are **not masked**,
+            - 0 for tokens that are **masked**.
+
+            [What are attention masks?](../glossary#attention-mask)
+
+            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
+            [`PreTrainedTokenizer.__call__`] for details.
+
+            If `past_key_values` is used, optionally only the last `decoder_input_ids` have to be input (see
+            `past_key_values`).
+
+            If you want to change padding behavior, you should read [`modeling_opt._prepare_decoder_attention_mask`]
+            and modify to your needs. See diagram 1 in [the paper](https://arxiv.org/abs/1910.13461) for more
+            information on the default strategy.
+
+            - 1 indicates the head is **not masked**,
+            - 0 indicates the head is **masked**.
+        position_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
+            Indices of positions of each input sequence tokens in the position embeddings. Selected in the range `[0,
+            config.n_positions - 1]`.
+
+            [What are position IDs?](../glossary#position-ids)
+        past_key_values (`Cache` or `tuple(tuple(torch.FloatTensor))`, *optional*):
+            Pre-computed hidden-states (key and values in the self-attention blocks and in the cross-attention
+            blocks) that can be used to speed up sequential decoding. This typically consists in the `past_key_values`
+            returned by the model at a previous stage of decoding, when `use_cache=True` or `config.use_cache=True`.
+
+            Two formats are allowed:
+            - a [`~cache_utils.Cache`] instance, see our
+            [kv cache guide](https://huggingface.co/docs/transformers/en/kv_cache);
+            - Tuple of `tuple(torch.FloatTensor)` of length `config.n_layers`, with each tuple having 2 tensors of
+            shape `(batch_size, num_heads, sequence_length, embed_size_per_head)`). This is also known as the legacy
+            cache format.
+
+            The model will output the same cache format that is fed as input. If no `past_key_values` are passed, the
+            legacy cache format will be returned.
+
+            If `past_key_values` are used, the user can optionally input only the last `input_ids` (those that don't
+            have their past key value states given to this model) of shape `(batch_size, 1)` instead of all `input_ids`
+            of shape `(batch_size, sequence_length)`.
+        inputs_embeds (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`, *optional*):
+            Optionally, instead of passing `input_ids` you can choose to directly pass an embedded representation. This
+            is useful if you want more control over how to convert `input_ids` indices into associated vectors than the
+            model's internal embedding lookup matrix.
+        use_cache (`bool`, *optional*):
+            If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding (see
+            `past_key_values`).
+        output_attentions (`bool`, *optional*):
+            Whether or not to return the attentions tensors of all attention layers. See `attentions` under returned
+            tensors for more detail.
+        output_hidden_states (`bool`, *optional*):
+            Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors for
+            more detail.
+        return_dict (`bool`, *optional*):
+            Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
+        cache_position (`torch.LongTensor` of shape `(sequence_length)`, *optional*):
+            Indices depicting the position of the input sequence tokens in the sequence. Contrarily to `position_ids`,
+            this tensor is not affected by padding. It is used to update the cache in the correct position and to infer
+            the complete sequence length.
 """
 
 
 @add_start_docstrings(
     "The bare GotOcr2 Model outputting raw hidden-states without any specific head on top.",
-    GotOcr2_START_DOCSTRING,
-)
-class GotOcr2PreTrainedModel(PreTrainedModel):
-    config_class = GotOcr2Config
-    base_model_prefix = "model"
-    supports_gradient_checkpointing = True
-    _no_split_modules = ["GotOcr2DecoderLayer", "GotOcr2VisionBlock"]
-    _skip_keys_device_placement = "past_key_values"
-    _supports_flash_attn_2 = True
-    _supports_sdpa = True
-    _supports_cache_class = True
-    _supports_static_cache = True
-
-    def _init_weights(self, module):
-        std = self.config.initializer_range
-        if isinstance(module, (nn.Linear, nn.Conv3d)):
-            module.weight.data.normal_(mean=0.0, std=std)
-            if module.bias is not None:
-                module.bias.data.zero_()
-        elif isinstance(module, nn.Embedding):
-            module.weight.data.normal_(mean=0.0, std=std)
-            if module.padding_idx is not None:
-                module.weight.data[module.padding_idx].zero_()
-
-
-@add_start_docstrings(
-    "The bare GotOcr2 Model outputting raw hidden-states without any specific head on top.",
-    GotOcr2_START_DOCSTRING,
+    GOT_OCR2_START_DOCSTRING,
 )
 class GotOcr2Model(GotOcr2PreTrainedModel):
+    """
+    Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`GotOcr2DecoderLayer`]
+
+    Args:
+        config: GotOcr2Config
+    """
+
     def __init__(self, config: GotOcr2Config):
         super().__init__(config)
         self.padding_idx = config.pad_token_id
@@ -1234,7 +1264,7 @@ class GotOcr2Model(GotOcr2PreTrainedModel):
             [GotOcr2DecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
         self._attn_implementation = config._attn_implementation
-        self.norm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.norm = GotOcr2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.rotary_emb = GotOcr2RotaryEmbedding(config=config)
 
         self.gradient_checkpointing = False
@@ -1247,6 +1277,7 @@ class GotOcr2Model(GotOcr2PreTrainedModel):
     def set_input_embeddings(self, value):
         self.embed_tokens = value
 
+    @add_start_docstrings_to_model_forward(GOT_OCR2_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -1278,6 +1309,20 @@ class GotOcr2Model(GotOcr2PreTrainedModel):
                 )
                 use_cache = False
 
+        # kept for BC (non `Cache` `past_key_values` inputs)
+        return_legacy_cache = False
+        if use_cache and not isinstance(past_key_values, Cache):
+            return_legacy_cache = True
+            if past_key_values is None:
+                past_key_values = DynamicCache()
+            else:
+                past_key_values = DynamicCache.from_legacy_cache(past_key_values)
+                logger.warning_once(
+                    "We detected that you are passing `past_key_values` as a tuple of tuples. This is deprecated and "
+                    "will be removed in v4.47. Please convert your cache or use an appropriate `Cache` class "
+                    "(https://huggingface.co/docs/transformers/kv_cache#legacy-cache-format)"
+                )
+
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
 
@@ -1286,12 +1331,8 @@ class GotOcr2Model(GotOcr2PreTrainedModel):
             cache_position = torch.arange(
                 past_seen_tokens, past_seen_tokens + inputs_embeds.shape[1], device=inputs_embeds.device
             )
-
-        # the hard coded `3` is for temporal, height and width.
         if position_ids is None:
-            position_ids = cache_position.view(1, 1, -1).expand(3, inputs_embeds.shape[0], -1)
-        elif position_ids.dim() == 2:
-            position_ids = position_ids[None, ...].expand(3, position_ids.shape[0], -1)
+            position_ids = cache_position.unsqueeze(0)
 
         causal_mask = self._update_causal_mask(
             attention_mask, inputs_embeds, cache_position, past_key_values, output_attentions
@@ -1350,6 +1391,8 @@ class GotOcr2Model(GotOcr2PreTrainedModel):
             all_hidden_states += (hidden_states,)
 
         next_cache = next_decoder_cache if use_cache else None
+        if return_legacy_cache:
+            next_cache = next_cache.to_legacy_cache()
 
         if not return_dict:
             return tuple(v for v in [hidden_states, next_cache, all_hidden_states, all_self_attns] if v is not None)
@@ -1542,82 +1585,6 @@ class GotOcr2CausalLMOutputWithPast(ModelOutput):
     rope_deltas: Optional[torch.LongTensor] = None
 
 
-GOT_OCR2_INPUTS_DOCSTRING = r"""
-    Args:
-        input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
-            Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
-            it.
-
-            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
-            [`PreTrainedTokenizer.__call__`] for details.
-
-            [What are input IDs?](../glossary#input-ids)
-        attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
-            Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
-
-            - 1 for tokens that are **not masked**,
-            - 0 for tokens that are **masked**.
-
-            [What are attention masks?](../glossary#attention-mask)
-
-            Indices can be obtained using [`AutoTokenizer`]. See [`PreTrainedTokenizer.encode`] and
-            [`PreTrainedTokenizer.__call__`] for details.
-
-            If `past_key_values` is used, optionally only the last `decoder_input_ids` have to be input (see
-            `past_key_values`).
-
-            If you want to change padding behavior, you should read [`modeling_opt._prepare_decoder_attention_mask`]
-            and modify to your needs. See diagram 1 in [the paper](https://arxiv.org/abs/1910.13461) for more
-            information on the default strategy.
-
-            - 1 indicates the head is **not masked**,
-            - 0 indicates the head is **masked**.
-        position_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
-            Indices of positions of each input sequence tokens in the position embeddings. Selected in the range `[0,
-            config.n_positions - 1]`. [What are position IDs?](../glossary#position-ids)
-        past_key_values (`tuple(tuple(torch.FloatTensor))`, *optional*, returned when `use_cache=True` is passed or when `config.use_cache=True`):
-            Tuple of `tuple(torch.FloatTensor)` of length `config.n_layers`, with each tuple having 2 tensors of shape
-            `(batch_size, num_heads, sequence_length, embed_size_per_head)`) and 2 additional tensors of shape
-            `(batch_size, num_heads, encoder_sequence_length, embed_size_per_head)`.
-
-            Contains pre-computed hidden-states (key and values in the self-attention blocks and in the cross-attention
-            blocks) that can be used (see `past_key_values` input) to speed up sequential decoding.
-
-            If `past_key_values` are used, the user can optionally input only the last `decoder_input_ids` (those that
-            don't have their past key value states given to this model) of shape `(batch_size, 1)` instead of all
-            `decoder_input_ids` of shape `(batch_size, sequence_length)`.
-        inputs_embeds (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`, *optional*):
-            Optionally, instead of passing `input_ids` you can choose to directly pass an embedded representation. This
-            is useful if you want more control over how to convert `input_ids` indices into associated vectors than the
-            model's internal embedding lookup matrix.
-        use_cache (`bool`, *optional*):
-            If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding (see
-            `past_key_values`).
-        output_attentions (`bool`, *optional*):
-            Whether or not to return the attentions tensors of all attention layers. See `attentions` under returned
-            tensors for more detail.
-        output_hidden_states (`bool`, *optional*):
-            Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors for
-            more detail.
-        return_dict (`bool`, *optional*):
-            Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
-        pixel_values (`torch.FloatTensor` of shape `(seq_length, num_channels * image_size * image_size)):
-            The tensors corresponding to the input images. Pixel values can be obtained using
-            [`AutoImageProcessor`]. See [`GotOcr2ImageProcessor.__call__`] for details. [`GotOcr2Processor`] uses
-            [`GotOcr2ImageProcessor`] for processing images.
-        pixel_values_videos (`torch.FloatTensor` of shape `(seq_length, num_channels * temporal_size * image_size * image_size)):
-            The tensors corresponding to the input videos. Pixel values can be obtained using
-            [`AutoImageProcessor`]. See [`GotOcr2ImageProcessor.__call__`] for details. [`GotOcr2Processor`] uses
-            [`GotOcr2ImageProcessor`] for processing videos.
-        image_grid_thw (`torch.LongTensor` of shape `(num_images, 3)`, *optional*):
-            The temporal, height and width of feature shape of each image in LLM.
-        video_grid_thw (`torch.LongTensor` of shape `(num_videos, 3)`, *optional*):
-            The temporal, height and width of feature shape of each video in LLM.
-        rope_deltas (`torch.LongTensor` of shape `(batch_size, )`, *optional*):
-            The rope index difference between sequence length and multimodal rope.
-"""
-
-
 class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
     _tied_weights_keys = ["lm_head.weight"]
 
@@ -1702,10 +1669,10 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
             position_ids (`torch.LongTensor` of shape `(3, batch_size, sequence_length)`)
             mrope_position_deltas (`torch.Tensor` of shape `(batch_size)`)
         """
-        spatial_merge_size = self.config.vision_config.spatial_merge_size
-        image_token_id = self.config.image_token_id
-        video_token_id = self.config.video_token_id
-        vision_start_token_id = self.config.vision_start_token_id
+        # spatial_merge_size = self.config.vision_config.spatial_merge_size
+        image_token_id = 151859
+        vision_start_token_id = 151857
+        video_token_id = -1
         mrope_position_deltas = []
         if image_grid_thw is not None or video_grid_thw is not None:
             total_input_ids = input_ids
@@ -1755,8 +1722,8 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
                         ed = ed_video
                     llm_grid_t, llm_grid_h, llm_grid_w = (
                         t.item(),
-                        h.item() // spatial_merge_size,
-                        w.item() // spatial_merge_size,
+                        h.item() // 4,
+                        w.item() // 4,
                     )
                     text_len = ed - st
 
@@ -1819,8 +1786,6 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
 
         return model_kwargs
 
-    @add_start_docstrings_to_model_forward(GOT_OCR2_INPUTS_DOCSTRING)
-    @replace_return_docstrings(output_type=GotOcr2CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -1888,21 +1853,15 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
         if inputs_embeds is None:
             inputs_embeds = self.model.embed_tokens(input_ids)
             if pixel_values is not None:
-                pixel_values = pixel_values.type(self.visual.get_dtype())
-                image_embeds = self.visual(pixel_values, grid_thw=image_grid_thw)
-                image_embeds = self.visual_adapter(image_embeds)
-                n_image_tokens = (input_ids == self.config.image_token_id).sum().item()
-                n_image_features = image_embeds.shape[0]
+                image_embeds = self.visual(pixel_values)
+                image_embeds = self.visual_adapter(image_embeds.last_hidden_state)
+                n_image_tokens = (input_ids == 151859).sum().item()
+                n_image_features = image_embeds.shape[1]
                 if n_image_tokens != n_image_features:
                     raise ValueError(
                         f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
                     )
-                image_mask = (
-                    (input_ids == self.config.image_token_id)
-                    .unsqueeze(-1)
-                    .expand_as(inputs_embeds)
-                    .to(inputs_embeds.device)
-                )
+                image_mask = (input_ids == 151859).unsqueeze(-1).expand_as(inputs_embeds).to(inputs_embeds.device)
                 image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
                 inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
 
@@ -1927,8 +1886,8 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
             if attention_mask is not None:
                 attention_mask = attention_mask.to(inputs_embeds.device)
 
-        if position_ids is None and input_ids is not None:
-            position_ids, _ = self.get_rope_index(input_ids, image_grid_thw, video_grid_thw, attention_mask)
+        # if position_ids is None and input_ids is not None:
+        #     position_ids, _ = self.get_rope_index(input_ids, attention_mask=attention_mask)
 
         outputs = self.model(
             input_ids=None,
@@ -2000,20 +1959,18 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
                 input_ids = input_ids[:, cache_position]
 
         rope_deltas = kwargs.get("rope_deltas", None)
-        if attention_mask is not None and position_ids is None:
-            if cache_position is None or (cache_position is not None and cache_position[0] == 0):
-                position_ids, rope_deltas = self.get_rope_index(
-                    input_ids, image_grid_thw, video_grid_thw, attention_mask
-                )
-            else:
-                batch_size, seq_length = input_ids.shape
-                delta = (
-                    cache_position[0] + rope_deltas if cache_position is not None and rope_deltas is not None else 0
-                )
-                position_ids = torch.arange(seq_length, device=input_ids.device)
-                position_ids = position_ids.view(1, -1).expand(batch_size, -1)
-                position_ids = position_ids.add(delta)
-                position_ids = position_ids.unsqueeze(0).expand(3, -1, -1)
+        # if attention_mask is not None and position_ids is None:
+        #     if cache_position is None or (cache_position is not None and cache_position[0] == 0):
+        #         position_ids, rope_deltas = self.get_rope_index(input_ids, attention_mask=attention_mask)
+        #     else:
+        #         batch_size, seq_length = input_ids.shape
+        #         delta = (
+        #             cache_position[0] + rope_deltas if cache_position is not None and rope_deltas is not None else 0
+        #         )
+        #         position_ids = torch.arange(seq_length, device=input_ids.device)
+        #         position_ids = position_ids.view(1, -1).expand(batch_size, -1)
+        #         position_ids = position_ids.add(delta)
+        #         position_ids = position_ids.unsqueeze(0).expand(3, -1, -1)
 
         if cache_position[0] != 0:
             pixel_values = None
@@ -2052,9 +2009,6 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
                 "use_cache": use_cache,
                 "attention_mask": attention_mask,
                 "pixel_values": pixel_values,
-                "pixel_values_videos": pixel_values_videos,
-                "image_grid_thw": image_grid_thw,
-                "video_grid_thw": video_grid_thw,
                 "rope_deltas": rope_deltas,
             }
         )

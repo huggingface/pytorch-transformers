@@ -124,23 +124,23 @@ class GotOcr2Processor(ProcessorMixin):
             raise ValueError("Images are required to be passed to the processor.")
 
         # Check if images are nested and force nesting if not
-        if not isinstance(images[0], (list, tuple)):
+        if not isinstance(images, (list, tuple)):
+            images = [[images]]
+        elif not isinstance(images[0], (list, tuple)):
             images = [[image] for image in images]
-
-        format = kwargs.pop("format", False)
-        num_image_tokens = kwargs.pop("num_image_tokens", 256)
-        box = kwargs.pop("box", None)
-        color = kwargs.pop("color", None)
-        if box is not None and color is not None:
-            raise ValueError("Both `box` and `color` cannot be set at the same time.")
-        # TODO change logic box (depends on the image size)
-
         output_kwargs = self._merge_kwargs(
             GotOcr2ProcessorKwargs,
             tokenizer_init_kwargs=self.tokenizer.init_kwargs,
             **kwargs,
         )
-        image_inputs = self.image_processor(images=images, videos=None, **output_kwargs["images_kwargs"])
+        format = output_kwargs["text_kwargs"].pop("format", False)
+        num_image_tokens = output_kwargs["images_kwargs"].pop("num_image_tokens", 256)
+        box = output_kwargs["images_kwargs"].pop("box", None)
+        color = output_kwargs["images_kwargs"].pop("color", None)
+        if box is not None and color is not None:
+            raise ValueError("Both `box` and `color` cannot be set at the same time.")
+        # TODO change logic box (depends on the image size)
+
         if text is None:
             text = []
             # Use base prompt
@@ -169,6 +169,9 @@ class GotOcr2Processor(ProcessorMixin):
                 text.append(prompt)
 
         text_inputs = self.tokenizer(text, **output_kwargs["text_kwargs"])
+        # flatten images
+        images = [image for image_group in images for image in image_group]
+        image_inputs = self.image_processor(images=images, **output_kwargs["images_kwargs"])
 
         return BatchFeature(data={**text_inputs, **image_inputs})
 

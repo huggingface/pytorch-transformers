@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -23,11 +23,10 @@ from torch.nn import CrossEntropyLoss
 
 from transformers.feature_extraction_utils import BatchFeature
 from transformers.image_utils import ImageInput
+from transformers.models.qwen2.modeling_qwen2 import Qwen2Model, Qwen2PreTrainedModel
 from transformers.models.qwen2_vl.configuration_qwen2_vl import Qwen2VLConfig
 from transformers.models.qwen2_vl.modeling_qwen2_vl import (
     Qwen2VLCausalLMOutputWithPast,
-    Qwen2VLForConditionalGeneration,
-    Qwen2VLModel,
 )
 from transformers.models.sam.configuration_sam import SamVisionConfig
 from transformers.models.sam.modeling_sam import SamVisionEncoder
@@ -36,6 +35,10 @@ from transformers.tokenization_utils_base import (
     PreTokenizedInput,
     TextInput,
 )
+
+from ...cache_utils import StaticCache
+from ...generation import GenerationMixin
+from ...utils import ModelOutput
 
 
 class GotOcr2VisionConfig(SamVisionConfig):
@@ -134,31 +137,28 @@ class GotOcr2Processor(ProcessorMixin):
               `return_attention_mask=True` or if *"attention_mask"* is in `self.model_input_names` and if `text` is not
               `None`).
             - **pixel_values** -- Pixel values to be fed to a model. Returned when `images` is not `None`.
-            - **pixel_values_videos** -- Pixel values of videos to be fed to a model. Returned when `videos` is not `None`.
-            - **image_grid_thw** -- List of image 3D grid in LLM. Returned when `images` is not `None`.
-            - **video_grid_thw** -- List of video 3D grid in LLM. Returned when `videos` is not `None`.
         """
         if images is None:
             raise ValueError("Images are required to be passed to the processor.")
 
         # Check if images are nested and force nesting if not
-        if not isinstance(images[0], (list, tuple)):
+        if not isinstance(images, (list, tuple)):
+            images = [[images]]
+        elif not isinstance(images[0], (list, tuple)):
             images = [[image] for image in images]
-
-        format = kwargs.pop("format", False)
-        num_image_tokens = kwargs.pop("num_image_tokens", 256)
-        box = kwargs.pop("box", None)
-        color = kwargs.pop("color", None)
-        if box is not None and color is not None:
-            raise ValueError("Both `box` and `color` cannot be set at the same time.")
-        # TODO change logic box (depends on the image size)
-
         output_kwargs = self._merge_kwargs(
             GotOcr2ProcessorKwargs,
             tokenizer_init_kwargs=self.tokenizer.init_kwargs,
             **kwargs,
         )
-        image_inputs = self.image_processor(images=images, videos=None, **output_kwargs["images_kwargs"])
+        format = output_kwargs["text_kwargs"].pop("format", False)
+        num_image_tokens = output_kwargs["images_kwargs"].pop("num_image_tokens", 256)
+        box = output_kwargs["images_kwargs"].pop("box", None)
+        color = output_kwargs["images_kwargs"].pop("color", None)
+        if box is not None and color is not None:
+            raise ValueError("Both `box` and `color` cannot be set at the same time.")
+        # TODO change logic box (depends on the image size)
+
         if text is None:
             text = []
             # Use base prompt
@@ -187,6 +187,9 @@ class GotOcr2Processor(ProcessorMixin):
                 text.append(prompt)
 
         text_inputs = self.tokenizer(text, **output_kwargs["text_kwargs"])
+        # flatten images
+        images = [image for image_group in images for image in image_group]
+        image_inputs = self.image_processor(images=images, **output_kwargs["images_kwargs"])
 
         return BatchFeature(data={**text_inputs, **image_inputs})
 
@@ -211,6 +214,36 @@ class GotOcr2Processor(ProcessorMixin):
         return list(dict.fromkeys(tokenizer_input_names + image_processor_input_names))
 
 
+class GotOcr2LayerNorm(nn.Module):
+    r"""LayerNorm that supports two data formats: channels_last (default) or channels_first.
+    The ordering of the dimensions in the inputs. channels_last corresponds to inputs with shape (batch_size, height,
+    width, channels) while channels_first corresponds to inputs with shape (batch_size, channels, height, width).
+    """
+
+    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(normalized_shape))
+        self.bias = nn.Parameter(torch.zeros(normalized_shape))
+        self.eps = eps
+        self.data_format = data_format
+        if self.data_format not in ["channels_last", "channels_first"]:
+            raise NotImplementedError(f"Unsupported data format: {self.data_format}")
+        self.normalized_shape = (normalized_shape,)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.data_format == "channels_last":
+            x = torch.nn.functional.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        elif self.data_format == "channels_first":
+            input_dtype = x.dtype
+            x = x.float()
+            u = x.mean(1, keepdim=True)
+            s = (x - u).pow(2).mean(1, keepdim=True)
+            x = (x - u) / torch.sqrt(s + self.eps)
+            x = x.to(dtype=input_dtype)
+            x = self.weight[:, None, None] * x + self.bias[:, None, None]
+        return x
+
+
 class GotOcr2VisionAdapter(nn.Module):
     def __init__(self, config: GotOcr2VisionConfig):
         super().__init__()
@@ -223,6 +256,7 @@ class GotOcr2VisionAdapter(nn.Module):
     def forward(self, vision_embeddings):
         x = self.net_2(vision_embeddings)
         x = self.net_3(x)
+        x = x.flatten(2).permute(0, 2, 1)
         x = self.mm_projector_vary(x)
         return x
 
@@ -231,7 +265,11 @@ class GotOcr2VisionEncoder(SamVisionEncoder):
     pass
 
 
-class GotOcr2Model(Qwen2VLModel):
+class GotOcr2PreTrainedModel(Qwen2PreTrainedModel):
+    pass
+
+
+class GotOcr2Model(Qwen2Model):
     pass
 
 
@@ -239,17 +277,39 @@ class GotOcr2CausalLMOutputWithPast(Qwen2VLCausalLMOutputWithPast):
     pass
 
 
-class GotOcr2ForConditionalGeneration(Qwen2VLForConditionalGeneration):
+class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
+    _tied_weights_keys = ["lm_head.weight"]
+
     def __init__(self, config):
         super().__init__(config)
         self.visual = GotOcr2VisionEncoder(config.vision_config)
-        self.visual_adapter = GotOcr2VisionAdapter(config.vision_config)
         self.model = GotOcr2Model(config)
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.padding_side = "left"  # set it to left by default, user can use setter to change padding_sides
+        self.visual_adapter = GotOcr2VisionAdapter(config.vision_config)
 
         # Initialize weights and apply final processing
         self.post_init()
+
+    def _update_model_kwargs_for_generation(
+        self,
+        outputs: ModelOutput,
+        model_kwargs: Dict[str, Any],
+        is_encoder_decoder: bool = False,
+        num_new_tokens: int = 1,
+    ) -> Dict[str, Any]:
+        model_kwargs = super()._update_model_kwargs_for_generation(
+            outputs=outputs,
+            model_kwargs=model_kwargs,
+            is_encoder_decoder=is_encoder_decoder,
+            num_new_tokens=num_new_tokens,
+        )
+
+        if getattr(outputs, "rope_deltas", None) is not None:
+            model_kwargs["rope_deltas"] = outputs.rope_deltas
+
+        return model_kwargs
 
     def forward(
         self,
@@ -264,9 +324,6 @@ class GotOcr2ForConditionalGeneration(Qwen2VLForConditionalGeneration):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         pixel_values: Optional[torch.Tensor] = None,
-        pixel_values_videos: Optional[torch.FloatTensor] = None,
-        image_grid_thw: Optional[torch.LongTensor] = None,
-        video_grid_thw: Optional[torch.LongTensor] = None,
         rope_deltas: Optional[torch.LongTensor] = None,
     ) -> Union[Tuple, GotOcr2CausalLMOutputWithPast]:
         r"""
@@ -318,47 +375,20 @@ class GotOcr2ForConditionalGeneration(Qwen2VLForConditionalGeneration):
         if inputs_embeds is None:
             inputs_embeds = self.model.embed_tokens(input_ids)
             if pixel_values is not None:
-                pixel_values = pixel_values.type(self.visual.get_dtype())
-                image_embeds = self.visual(pixel_values, grid_thw=image_grid_thw)
-                image_embeds = self.visual_adapter(image_embeds)
-                n_image_tokens = (input_ids == self.config.image_token_id).sum().item()
-                n_image_features = image_embeds.shape[0]
+                image_embeds = self.visual(pixel_values)
+                image_embeds = self.visual_adapter(image_embeds.last_hidden_state)
+                n_image_tokens = (input_ids == 151859).sum().item()
+                n_image_features = image_embeds.shape[1]
                 if n_image_tokens != n_image_features:
                     raise ValueError(
                         f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
                     )
-                image_mask = (
-                    (input_ids == self.config.image_token_id)
-                    .unsqueeze(-1)
-                    .expand_as(inputs_embeds)
-                    .to(inputs_embeds.device)
-                )
+                image_mask = (input_ids == 151859).unsqueeze(-1).expand_as(inputs_embeds).to(inputs_embeds.device)
                 image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
                 inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
 
-            if pixel_values_videos is not None:
-                pixel_values_videos = pixel_values_videos.type(self.visual.get_dtype())
-                video_embeds = self.visual(pixel_values_videos, grid_thw=video_grid_thw)
-                n_video_tokens = (input_ids == self.config.video_token_id).sum().item()
-                n_video_features = video_embeds.shape[0]
-                if n_video_tokens != n_video_features:
-                    raise ValueError(
-                        f"Video features and video tokens do not match: tokens: {n_video_tokens}, features {n_video_features}"
-                    )
-                video_mask = (
-                    (input_ids == self.config.video_token_id)
-                    .unsqueeze(-1)
-                    .expand_as(inputs_embeds)
-                    .to(inputs_embeds.device)
-                )
-                video_embeds = video_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
-                inputs_embeds = inputs_embeds.masked_scatter(video_mask, video_embeds)
-
             if attention_mask is not None:
                 attention_mask = attention_mask.to(inputs_embeds.device)
-
-        if position_ids is None and input_ids is not None:
-            position_ids, _ = self.get_rope_index(input_ids, image_grid_thw, video_grid_thw, attention_mask)
 
         outputs = self.model(
             input_ids=None,
@@ -402,3 +432,69 @@ class GotOcr2ForConditionalGeneration(Qwen2VLForConditionalGeneration):
             attentions=outputs.attentions,
             rope_deltas=rope_deltas,
         )
+
+    def prepare_inputs_for_generation(
+        self,
+        input_ids,
+        past_key_values=None,
+        attention_mask=None,
+        inputs_embeds=None,
+        cache_position=None,
+        position_ids=None,
+        use_cache=True,
+        pixel_values=None,
+        **kwargs,
+    ):
+        # Overwritten -- in specific circumstances we don't want to forward image inputs to the model
+
+        # If we have cache: let's slice `input_ids` through `cache_position`, to keep only the unprocessed tokens
+        # Exception 1: when passing input_embeds, input_ids may be missing entries
+        # Exception 2: some generation methods do special slicing of input_ids, so we don't need to do it here
+        if past_key_values is not None:
+            if inputs_embeds is not None:  # Exception 1
+                input_ids = input_ids[:, -cache_position.shape[0] :]
+            elif input_ids.shape[1] != cache_position.shape[0]:  # Default case (the "else", a no op, is Exception 2)
+                input_ids = input_ids[:, cache_position]
+
+        rope_deltas = kwargs.get("rope_deltas", None)
+
+        if cache_position[0] != 0:
+            pixel_values = None
+
+        # if `inputs_embeds` are passed, we only want to use them in the 1st generation step
+        if inputs_embeds is not None and cache_position[0] == 0:
+            model_inputs = {"inputs_embeds": inputs_embeds, "input_ids": None}
+        else:
+            model_inputs = {"input_ids": input_ids, "inputs_embeds": None}
+
+        if isinstance(past_key_values, StaticCache) and attention_mask.ndim == 2:
+            if model_inputs["inputs_embeds"] is not None:
+                batch_size, sequence_length, _ = inputs_embeds.shape
+                device = inputs_embeds.device
+            else:
+                batch_size, sequence_length = input_ids.shape
+                device = input_ids.device
+
+            attention_mask = self.model._prepare_4d_causal_attention_mask_with_cache_position(
+                attention_mask,
+                sequence_length=sequence_length,
+                target_length=past_key_values.get_max_cache_shape(),
+                dtype=self.lm_head.weight.dtype,
+                device=device,
+                cache_position=cache_position,
+                batch_size=batch_size,
+                config=self.config,
+                past_key_values=past_key_values,
+            )
+
+        model_inputs.update(
+            {
+                "position_ids": position_ids,
+                "past_key_values": past_key_values,
+                "use_cache": use_cache,
+                "attention_mask": attention_mask,
+                "pixel_values": pixel_values,
+                "rope_deltas": rope_deltas,
+            }
+        )
+        return model_inputs

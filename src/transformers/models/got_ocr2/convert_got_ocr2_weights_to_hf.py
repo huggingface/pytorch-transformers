@@ -38,17 +38,17 @@ from transformers.tokenization_utils import AddedToken
 # fmt: off
 ORIGINAL_TO_CONVERTED_KEY_MAPPING = {
     # Vision encoder mapping
-    r"model.vision_tower_high.pos_embed":                                                       r"visual.pos_embed",
-    r"model.vision_tower_high.patch_embed.proj":                                               r"visual.patch_embed.projection",
-    r"model.vision_tower_high.blocks.(\d+).norm":                                               r"visual.layers.\1.layer_norm",
-    r"model.vision_tower_high.blocks.(\d+).attn":                                               r"visual.layers.\1.attn",
-    r"model.vision_tower_high.blocks.(\d+).mlp":                                                    r"visual.layers.\1.mlp",
-    r"model.vision_tower_high.neck.0":                                                   r"visual.neck.conv1",
-    r"model.vision_tower_high.neck.1":                                                          r"visual.neck.layer_norm1",
-    r"model.vision_tower_high.neck.2":                                                          r"visual.neck.conv2",
-    r"model.vision_tower_high.neck.3":                                                          r"visual.neck.layer_norm2",
-    r"model.vision_tower_high.net_(\d+).":                                                      r"visual_adapter.net_\1.",
-    r"model.mm_projector_vary" :                                                               r"visual_adapter.mm_projector_vary",
+    r"model.vision_tower_high.pos_embed":                           r"visual.pos_embed",
+    r"model.vision_tower_high.patch_embed.proj":                    r"visual.patch_embed.projection",
+    r"model.vision_tower_high.blocks.(\d+).norm":                   r"visual.layers.\1.layer_norm",
+    r"model.vision_tower_high.blocks.(\d+).attn":                   r"visual.layers.\1.attn",
+    r"model.vision_tower_high.blocks.(\d+).mlp":                    r"visual.layers.\1.mlp",
+    r"model.vision_tower_high.neck.0":                              r"visual.neck.conv1",
+    r"model.vision_tower_high.neck.1":                              r"visual.neck.layer_norm1",
+    r"model.vision_tower_high.neck.2":                              r"visual.neck.conv2",
+    r"model.vision_tower_high.neck.3":                              r"visual.neck.layer_norm2",
+    r"model.vision_tower_high.net_(\d+)":                           lambda m: f"visual_adapter.conv_up{int(m.group(1)) - 1}",
+    r"model.mm_projector_vary" :                                    r"visual_adapter.multimodal_projector",
 }
 # fmt: on
 
@@ -103,6 +103,7 @@ def get_got_ocr2_config():
         max_window_layers=21,
         attention_dropout=0.0,
         rope_scaling=None,
+        image_token_id=151859,
     )
 
     return config

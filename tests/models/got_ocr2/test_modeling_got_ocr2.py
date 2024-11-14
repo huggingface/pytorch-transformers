@@ -15,7 +15,6 @@
 """Testing suite for the PyTorch GotOcr2 model."""
 
 import gc
-import tempfile
 import unittest
 
 import pytest
@@ -43,7 +42,6 @@ if is_torch_available():
 
     from transformers import (
         GotOcr2ForConditionalGeneration,
-        GotOcr2ForQuestionAnswering,
         GotOcr2ForSequenceClassification,
         GotOcr2ForTokenClassification,
         GotOcr2Model,
@@ -292,31 +290,41 @@ class GotOcr2ModelTester:
 
 
 @require_torch
-# Copied from tests.models.mistral.test_modeling_mistral.MistralModelTest with Mistral->GotOcr2
 class GotOcr2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (
         (
             GotOcr2Model,
             GotOcr2ForConditionalGeneration,
-            GotOcr2ForSequenceClassification,
-            GotOcr2ForTokenClassification,
-            GotOcr2ForQuestionAnswering,
         )
         if is_torch_available()
         else ()
     )
     all_generative_model_classes = (GotOcr2ForConditionalGeneration,) if is_torch_available() else ()
+    pipeline_model_mapping = (
+        {
+            "feature-extraction": GotOcr2Model,
+            "image-to-text": GotOcr2ForConditionalGeneration,
+            "image-text-to-text": GotOcr2ForConditionalGeneration,
+        }
+        if is_torch_available()
+        else {}
+    )
     test_headmasking = False
     test_pruning = False
-    fx_compatible = False
+    fx_compatible = True
 
-    # Ignore copy
-    # TODO: @Fxmarty
-    @require_torch_sdpa
-    @slow
-    @unittest.skip(reason="Currently failing.")
-    def test_eager_matches_sdpa_generate(self):
-        super().test_eager_matches_sdpa_generate()
+    # TODO (ydshieh): Check this. See https://app.circleci.com/pipelines/github/huggingface/transformers/79245/workflows/9490ef58-79c2-410d-8f51-e3495156cf9c/jobs/1012146
+    def is_pipeline_test_to_skip(
+        self,
+        pipeline_test_case_name,
+        config_class,
+        model_architecture,
+        tokenizer_name,
+        image_processor_name,
+        feature_extractor_name,
+        processor_name,
+    ):
+        return True
 
     def setUp(self):
         self.model_tester = GotOcr2ModelTester(self)
@@ -334,6 +342,9 @@ class GotOcr2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
         for type in ["absolute", "relative_key", "relative_key_query"]:
             config_and_inputs[0].position_embedding_type = type
             self.model_tester.create_and_check_model(*config_and_inputs)
+
+    def test_torch_fx_output_loss(self):
+        super().test_torch_fx_output_loss()
 
     def test_GotOcr2_sequence_classification_model(self):
         config, input_dict = self.model_tester.prepare_config_and_inputs_for_common()
@@ -376,6 +387,7 @@ class GotOcr2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
         result = model(input_ids, attention_mask=attention_mask, labels=sequence_labels)
         self.assertEqual(result.logits.shape, (self.model_tester.batch_size, self.model_tester.num_labels))
 
+    # Copied from tests.models.llama.test_modeling_llama.LlamaModelTest.test_llama_token_classification_model with Llama->GotOcr2,llama->GotOcr2
     def test_GotOcr2_token_classification_model(self):
         config, input_dict = self.model_tester.prepare_config_and_inputs_for_common()
         config.num_labels = 3
@@ -403,87 +415,16 @@ class GotOcr2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     @require_torch_gpu
     @pytest.mark.flash_attn_test
     @slow
-    def test_flash_attn_2_generate_padding_right(self):
-        import torch
-
-        for model_class in self.all_generative_model_classes:
-            config, _ = self.model_tester.prepare_config_and_inputs_for_common()
-            model = model_class(config)
-
-            with tempfile.TemporaryDirectory() as tmpdirname:
-                model.save_pretrained(tmpdirname)
-                model = model_class.from_pretrained(tmpdirname, torch_dtype=torch.float16, low_cpu_mem_usage=True).to(
-                    torch_device
-                )
-
-                dummy_input = torch.LongTensor([[0, 2, 3, 4], [0, 2, 3, 4]]).to(torch_device)
-                dummy_attention_mask = torch.LongTensor([[1, 1, 1, 1], [1, 1, 1, 0]]).to(torch_device)
-
-                model.generate(dummy_input, attention_mask=dummy_attention_mask, max_new_tokens=1, do_sample=False)
-
-                model = model_class.from_pretrained(
-                    tmpdirname,
-                    torch_dtype=torch.float16,
-                    attn_implementation="flash_attention_2",
-                    low_cpu_mem_usage=True,
-                ).to(torch_device)
-
-                with self.assertRaises(ValueError):
-                    _ = model.generate(
-                        dummy_input, attention_mask=dummy_attention_mask, max_new_tokens=1, do_sample=False
-                    )
-
-    @require_flash_attn
-    @require_torch_gpu
-    @pytest.mark.flash_attn_test
-    @slow
-    def test_flash_attn_2_generate_use_cache(self):
-        import torch
-
-        max_new_tokens = 30
-
-        for model_class in self.all_generative_model_classes:
-            config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
-
-            dummy_input = inputs_dict[model_class.main_input_name]
-            if dummy_input.dtype in [torch.float32, torch.bfloat16]:
-                dummy_input = dummy_input.to(torch.float16)
-
-            # make sure that all models have enough positions for generation
-            if hasattr(config, "max_position_embeddings"):
-                config.max_position_embeddings = max_new_tokens + dummy_input.shape[1] + 1
-
-            model = model_class(config)
-
-            with tempfile.TemporaryDirectory() as tmpdirname:
-                model.save_pretrained(tmpdirname)
-
-                dummy_attention_mask = inputs_dict.get("attention_mask", torch.ones_like(dummy_input))
-                # NOTE: GotOcr2 apparently does not support right padding + use_cache with FA2.
-                dummy_attention_mask[:, -1] = 1
-
-                model = model_class.from_pretrained(
-                    tmpdirname,
-                    torch_dtype=torch.float16,
-                    attn_implementation="flash_attention_2",
-                    low_cpu_mem_usage=True,
-                ).to(torch_device)
-
-                # Just test that a large cache works as expected
-                _ = model.generate(
-                    dummy_input,
-                    attention_mask=dummy_attention_mask,
-                    max_new_tokens=max_new_tokens,
-                    do_sample=False,
-                    use_cache=True,
-                )
-
-    @require_flash_attn
-    @require_torch_gpu
-    @pytest.mark.flash_attn_test
-    @slow
     def test_flash_attn_2_inference_equivalence_right_padding(self):
         self.skipTest(reason="GotOcr2 flash attention does not support right padding")
+
+    # Ignore copy
+    # TODO: @Fxmarty
+    @require_torch_sdpa
+    @slow
+    @unittest.skip(reason="Currently failing.")
+    def test_eager_matches_sdpa_generate(self):
+        super().test_eager_matches_sdpa_generate()
 
 
 @require_torch

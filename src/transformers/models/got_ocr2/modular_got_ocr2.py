@@ -25,9 +25,6 @@ from transformers.feature_extraction_utils import BatchFeature
 from transformers.image_utils import ImageInput
 from transformers.models.qwen2.modeling_qwen2 import Qwen2Model, Qwen2PreTrainedModel
 from transformers.models.qwen2_vl.configuration_qwen2_vl import Qwen2VLConfig
-from transformers.models.qwen2_vl.modeling_qwen2_vl import (
-    Qwen2VLCausalLMOutputWithPast,
-)
 from transformers.models.sam.configuration_sam import SamVisionConfig
 from transformers.models.sam.modeling_sam import SamVisionEncoder
 from transformers.processing_utils import ImagesKwargs, ProcessingKwargs, ProcessorMixin, TextKwargs, Unpack
@@ -38,6 +35,7 @@ from transformers.tokenization_utils_base import (
 
 from ...cache_utils import StaticCache
 from ...generation import GenerationMixin
+from ...modeling_outputs import CausalLMOutputWithPast
 from ...utils import ModelOutput
 
 
@@ -245,19 +243,21 @@ class GotOcr2LayerNorm(nn.Module):
 
 
 class GotOcr2VisionAdapter(nn.Module):
-    def __init__(self, config: GotOcr2VisionConfig):
+    def __init__(self, language_hidden_size: int, vision_output_channels: int):
         super().__init__()
-        self.config = config
-
-        self.net_2 = nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1, bias=False)
-        self.net_3 = nn.Conv2d(512, 1024, kernel_size=3, stride=2, padding=1, bias=False)
-        self.mm_projector_vary = nn.Linear(1024, 1024)
+        self.conv_up1 = nn.Conv2d(
+            vision_output_channels, vision_output_channels * 2, kernel_size=3, stride=2, padding=1, bias=False
+        )
+        self.conv_up2 = nn.Conv2d(
+            vision_output_channels * 2, language_hidden_size, kernel_size=3, stride=2, padding=1, bias=False
+        )
+        self.multimodal_projector = nn.Linear(language_hidden_size, language_hidden_size)
 
     def forward(self, vision_embeddings):
-        x = self.net_2(vision_embeddings)
-        x = self.net_3(x)
+        x = self.conv_up1(vision_embeddings)
+        x = self.conv_up2(x)
         x = x.flatten(2).permute(0, 2, 1)
-        x = self.mm_projector_vary(x)
+        x = self.multimodal_projector(x)
         return x
 
 
@@ -273,10 +273,6 @@ class GotOcr2Model(Qwen2Model):
     pass
 
 
-class GotOcr2CausalLMOutputWithPast(Qwen2VLCausalLMOutputWithPast):
-    pass
-
-
 class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
     _tied_weights_keys = ["lm_head.weight"]
 
@@ -286,10 +282,9 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
         self.model = GotOcr2Model(config)
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
-        self.padding_side = "left"  # set it to left by default, user can use setter to change padding_sides
-        self.visual_adapter = GotOcr2VisionAdapter(config.vision_config)
+        self.padding_side = "left"
+        self.visual_adapter = GotOcr2VisionAdapter(config.hidden_size, config.vision_config.output_channels)
 
-        # Initialize weights and apply final processing
         self.post_init()
 
     def _update_model_kwargs_for_generation(
@@ -306,9 +301,6 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
             num_new_tokens=num_new_tokens,
         )
 
-        if getattr(outputs, "rope_deltas", None) is not None:
-            model_kwargs["rope_deltas"] = outputs.rope_deltas
-
         return model_kwargs
 
     def forward(
@@ -324,8 +316,7 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         pixel_values: Optional[torch.Tensor] = None,
-        rope_deltas: Optional[torch.LongTensor] = None,
-    ) -> Union[Tuple, GotOcr2CausalLMOutputWithPast]:
+    ) -> Union[Tuple, CausalLMOutputWithPast]:
         r"""
         Args:
             labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
@@ -377,13 +368,18 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
             if pixel_values is not None:
                 image_embeds = self.visual(pixel_values)
                 image_embeds = self.visual_adapter(image_embeds.last_hidden_state)
-                n_image_tokens = (input_ids == 151859).sum().item()
+                n_image_tokens = (input_ids == self.config.image_token_id).sum().item()
                 n_image_features = image_embeds.shape[1]
                 if n_image_tokens != n_image_features:
                     raise ValueError(
                         f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
                     )
-                image_mask = (input_ids == 151859).unsqueeze(-1).expand_as(inputs_embeds).to(inputs_embeds.device)
+                image_mask = (
+                    (input_ids == self.config.image_token_id)
+                    .unsqueeze(-1)
+                    .expand_as(inputs_embeds)
+                    .to(inputs_embeds.device)
+                )
                 image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
                 inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
 
@@ -424,13 +420,12 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
             output = (logits,) + outputs[1:]
             return (loss,) + output if loss is not None else output
 
-        return GotOcr2CausalLMOutputWithPast(
+        return CausalLMOutputWithPast(
             loss=loss,
             logits=logits,
             past_key_values=outputs.past_key_values,
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
-            rope_deltas=rope_deltas,
         )
 
     def prepare_inputs_for_generation(
@@ -455,8 +450,6 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
                 input_ids = input_ids[:, -cache_position.shape[0] :]
             elif input_ids.shape[1] != cache_position.shape[0]:  # Default case (the "else", a no op, is Exception 2)
                 input_ids = input_ids[:, cache_position]
-
-        rope_deltas = kwargs.get("rope_deltas", None)
 
         if cache_position[0] != 0:
             pixel_values = None
@@ -494,7 +487,6 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
                 "use_cache": use_cache,
                 "attention_mask": attention_mask,
                 "pixel_values": pixel_values,
-                "rope_deltas": rope_deltas,
             }
         )
         return model_inputs

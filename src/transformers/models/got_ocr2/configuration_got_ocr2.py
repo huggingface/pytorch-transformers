@@ -28,8 +28,8 @@ class GotOcr2VisionConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a [`GotOcr2VisionModel`]. It is used to instantiate a GOT_OCR2
     vision encoder according to the specified arguments, defining the model architecture. Instantiating a configuration
-    defaults will yield a similar configuration to that of the GOT_OCR2 ViT-h
-    [facebook/got_ocr2-vit-huge](https://huggingface.co/facebook/got_ocr2-vit-huge) architecture.
+    defaults will yield a similar configuration to that of the SAM ViT-h
+    [facebook/sam-vit-huge](https://huggingface.co/facebook/sam-vit-huge) architecture.
 
     Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
     documentation from [`PretrainedConfig`] for more information.
@@ -69,8 +69,6 @@ class GotOcr2VisionConfig(PretrainedConfig):
             Window size for relative position.
         global_attn_indexes (`List[int]`, *optional*, defaults to `[2, 5, 8, 11]`):
             The indexes of the global attention layers.
-        num_pos_feats (`int`, *optional*, defaults to 128):
-            The dimensionality of the position embedding.
         mlp_dim (`int`, *optional*):
             The dimensionality of the MLP layer in the Transformer encoder. If `None`, defaults to `mlp_ratio *
             hidden_size`.
@@ -95,7 +93,6 @@ class GotOcr2VisionConfig(PretrainedConfig):
         use_rel_pos=True,
         window_size=14,
         global_attn_indexes=[2, 5, 8, 11],
-        num_pos_feats=128,
         mlp_dim=None,
         **kwargs,
     ):
@@ -113,12 +110,10 @@ class GotOcr2VisionConfig(PretrainedConfig):
         self.attention_dropout = attention_dropout
         self.initializer_range = initializer_range
         self.qkv_bias = qkv_bias
-        self.mlp_ratio = mlp_ratio
         self.use_abs_pos = use_abs_pos
         self.use_rel_pos = use_rel_pos
         self.window_size = window_size
         self.global_attn_indexes = global_attn_indexes
-        self.num_pos_feats = num_pos_feats
         self.mlp_dim = int(hidden_size * mlp_ratio) if mlp_dim is None else mlp_dim
 
 

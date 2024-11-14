@@ -37,9 +37,13 @@ The original code can be found [here](<INSERT LINK TO GITHUB REPO HERE>).
 
 [[autodoc]] GotOcr2Config
 
-## Qwen2VLProcessor
+## GotOcr2VisionConfig
 
-[[autodoc]] Qwen2VLProcessor
+[[autodoc]] GotOcr2VisionConfig
+
+## GotOcr2Processor
+
+[[autodoc]] GotOcr2Processor
 
 ## GotOcr2Model
 
@@ -51,17 +55,3 @@ The original code can be found [here](<INSERT LINK TO GITHUB REPO HERE>).
 [[autodoc]] GotOcr2ForConditionalGeneration
     - forward
 
-## GotOcr2ForSequenceClassification
-
-[[autodoc]] GotOcr2ForSequenceClassification
-    - forward
-
-## GotOcr2ForTokenClassification
-
-[[autodoc]] GotOcr2ForTokenClassification
-    - forward
-
-## GotOcr2ForQuestionAnswering
-
-[[autodoc]] GotOcr2ForQuestionAnswering
-    - forward

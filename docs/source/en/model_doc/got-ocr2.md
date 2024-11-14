@@ -37,14 +37,9 @@ The original code can be found [here](<INSERT LINK TO GITHUB REPO HERE>).
 
 [[autodoc]] GotOcr2Config
 
-## GotOcr2Tokenizer
+## Qwen2VLProcessor
 
-[[autodoc]] GotOcr2Tokenizer
-    - save_vocabulary
-
-## GotOcr2TokenizerFast
-
-[[autodoc]] GotOcr2TokenizerFast
+[[autodoc]] Qwen2VLProcessor
 
 ## GotOcr2Model
 

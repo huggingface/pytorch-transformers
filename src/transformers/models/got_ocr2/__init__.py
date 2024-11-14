@@ -23,16 +23,8 @@ from ...utils import (
 
 _import_structure = {
     "configuration_got_ocr2": ["GotOcr2Config", "GotOcr2VisionConfig"],
-    "tokenization_got_ocr2": ["GotOcr2Tokenizer"],
+    "processing_got_ocr2": ["GotOcr2Processor"],
 }
-
-try:
-    if not is_tokenizers_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["tokenization_got_ocr2_fast"] = ["GotOcr2TokenizerFast"]
 
 try:
     if not is_torch_available():
@@ -49,15 +41,7 @@ else:
 
 if TYPE_CHECKING:
     from .configuration_got_ocr2 import GotOcr2Config, GotOcr2VisionConfig
-    from .tokenization_got_ocr2 import GotOcr2Tokenizer
-
-    try:
-        if not is_tokenizers_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .tokenization_got_ocr2_fast import GotOcr2TokenizerFast
+    from .processing_got_ocr2 import GotOcr2Processor
 
     try:
         if not is_torch_available():

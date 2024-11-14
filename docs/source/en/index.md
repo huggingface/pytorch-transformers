@@ -152,7 +152,7 @@ Flax), PyTorch, and/or TensorFlow.
 |                           [GIT](model_doc/git)                           |       ✅        |         ❌         |      ❌      |
 |                           [GLM](model_doc/glm)                           |       ✅        |         ❌         |      ❌      |
 |                          [GLPN](model_doc/glpn)                          |       ✅        |         ❌         |      ❌      |
-|                      [GOT-OCR2](model_doc/got-ocr2)                      |       ✅        |         ❌         |      ❌      |
+|                      [GOT-OCR2](model_doc/got_ocr2)                      |       ✅        |         ❌         |      ❌      |
 |                       [GPT Neo](model_doc/gpt_neo)                       |       ✅        |         ❌         |      ✅      |
 |                      [GPT NeoX](model_doc/gpt_neox)                      |       ✅        |         ❌         |      ❌      |
 |             [GPT NeoX Japanese](model_doc/gpt_neox_japanese)             |       ✅        |         ❌         |      ❌      |

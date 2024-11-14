@@ -688,8 +688,8 @@ _import_structure = {
     ],
     "models.got_ocr2": [
         "GotOcr2Config",
+        "GotOcr2Processor",
         "GotOcr2VisionConfig",
-        "GotOcr2Tokenizer",
     ],
     "models.qwen2_audio": [
         "Qwen2AudioConfig",
@@ -1110,7 +1110,6 @@ else:
     _import_structure["models.openai"].append("OpenAIGPTTokenizerFast")
     _import_structure["models.pegasus"].append("PegasusTokenizerFast")
     _import_structure["models.qwen2"].append("Qwen2TokenizerFast")
-    _import_structure["models.got_ocr2"].append("GotOcr2TokenizerFast")
     _import_structure["models.reformer"].append("ReformerTokenizerFast")
     _import_structure["models.rembert"].append("RemBertTokenizerFast")
     _import_structure["models.roberta"].append("RobertaTokenizerFast")
@@ -5356,7 +5355,7 @@ if TYPE_CHECKING:
     )
     from .models.glm import GlmConfig
     from .models.glpn import GLPNConfig
-    from .models.got_ocr2 import GotOcr2Config, GotOcr2Tokenizer, GotOcr2VisionConfig
+    from .models.got_ocr2 import GotOcr2Config, GotOcr2Processor, GotOcr2VisionConfig
     from .models.gpt2 import (
         GPT2Config,
         GPT2Tokenizer,
@@ -6035,7 +6034,6 @@ if TYPE_CHECKING:
         from .models.fnet import FNetTokenizerFast
         from .models.funnel import FunnelTokenizerFast
         from .models.gemma import GemmaTokenizerFast
-        from .models.got_ocr2 import GotOcr2TokenizerFast
         from .models.gpt2 import GPT2TokenizerFast
         from .models.gpt_neox import GPTNeoXTokenizerFast
         from .models.gpt_neox_japanese import GPTNeoXJapaneseTokenizer

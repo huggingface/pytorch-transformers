@@ -128,7 +128,7 @@
     - local: perf_train_gpu_many
       title: Parallelism methods
     - local: fsdp
-      title: Fully Sharded Data Parallel
+      title: FullyShardedDataParallel
     - local: deepspeed
       title: DeepSpeed
     - local: perf_train_cpu_many

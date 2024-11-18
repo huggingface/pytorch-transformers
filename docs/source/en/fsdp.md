@@ -1,4 +1,4 @@
-<!--Copyright 2023 The HuggingFace Team. All rights reserved.
+<!--Copyright 2024 The HuggingFace Team. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may obtain a copy of the License at
@@ -14,81 +14,86 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Fully Sharded Data Parallel
+# FullyShardedDataParallel
 
-[Fully Sharded Data Parallel (FSDP)](https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/) is a data parallel method that shards a model's parameters, gradients and optimizer states across the number of available GPUs (also called workers or *rank*). Unlike [DistributedDataParallel (DDP)](https://pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html), FSDP reduces memory-usage because a model is replicated on each GPU. This improves GPU memory-efficiency and allows you to train much larger models on fewer GPUs. FSDP is integrated with the Accelerate, a library for easily managing training in distributed environments, which means it is available for use from the [`Trainer`] class.
+[Fully Sharded Data Parallel (FSDP)](https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/) is a [parallelism](./perf_train_gpu_many) method that combines the advantages of data and model parallelism for distributed training.
 
-Before you start, make sure Accelerate is installed and at least PyTorch 2.1.0 or newer.
+Unlike [DistributedDataParallel (DDP)](./perf_train_gpu_many#distributeddataparallel), FSDP saves more memory because it doesn't replicate a model on each GPU. It shards the models parameters, gradients and optimizer states across GPUs. Each model shard processes a portion of the data and the results are synchronized to speed up training.
+
+This guide covers how to setup training a model with FSDP using [Accelerate](https://hf.co/docs/accelerate/index), a library for managing distributed training.
 
 ```bash
 pip install accelerate
 ```
 
-## FSDP configuration
+## Configuration options
 
-To start, run the [`accelerate config`](https://huggingface.co/docs/accelerate/package_reference/cli#accelerate-config) command to create a configuration file for your training environment. Accelerate uses this configuration file to automatically setup the correct training environment based on your selected training options in `accelerate config`.
+Always start by running the [accelerate config](https://hf.co/docs/accelerate/package_reference/cli#accelerate-config) command to help Accelerate setup the correct distributed training environment.
 
 ```bash
 accelerate config
 ```
 
-When you run `accelerate config`, you'll be prompted with a series of options to configure your training environment. This section covers some of the most important FSDP options. To learn more about the other available FSDP options, take a look at the [fsdp_config](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments.fsdp_config) parameters.
+The section below discusses some of the more important FSDP configuration options. Learn more about other available options in the [fsdp_config](https://hf.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments.fsdp_config) parameter.
 
 ### Sharding strategy
 
-FSDP offers a number of sharding strategies to select from:
+FSDP offers several sharding strategies to distribute a model. Refer to the table below to help you choose the best strategy for your setup. Specify a strategy with the `fsdp_sharding_strategy` parameter in the configuration file.
 
-* `FULL_SHARD` - shards model parameters, gradients and optimizer states across workers; select `1` for this option
-* `SHARD_GRAD_OP`- shard gradients and optimizer states across workers; select `2` for this option
-* `NO_SHARD` - don't shard anything (this is equivalent to DDP); select `3` for this option
-* `HYBRID_SHARD` - shard model parameters, gradients and optimizer states within each worker where each worker also has a full copy; select `4` for this option
-* `HYBRID_SHARD_ZERO2` - shard gradients and optimizer states within each worker where each worker also has a full copy; select `5` for this option
-
-This is enabled by the `fsdp_sharding_strategy` flag.
+| sharding strategy | description | parameter value |
+|---|---|---|
+| `FULL_SHARD` | shards model parameters, gradients, and optimizer states | `1` |
+| `SHARD_GRAD_OP` | shards gradients and optimizer states | `2` |
+| `NO_SHARD` | don't shard the model | `3` |
+| `HYBRID_SHARD` | shards model parameters, gradients, and optimizer states within each GPU | `4` |
+| `HYBRID_SHARD_ZERO2` | shards gradients and optimizer states within each GPU | `5` |
 
 ### CPU offload
 
-You could also offload parameters and gradients when they are not in use to the CPU to save even more GPU memory and help you fit large models where even FSDP may not be sufficient. This is enabled by setting `fsdp_offload_params: true` when running `accelerate config`.
+Offload model parameters and gradients when they aren't being used to the CPU to save additional GPU memory. This is useful for scenarios where a model is too large even with FSDP.
+
+Specify `fsdp_offload_params: true` in the configuration file to enable offloading.
 
 ### Wrapping policy
 
-FSDP is applied by wrapping each layer in the network. The wrapping is usually applied in a nested way where the full weights are discarded after each forward pass to save memory for use in the next layer. The *auto wrapping* policy is the simplest way to implement this and you don't need to change any code. You should select `fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP` to wrap a Transformer layer and `fsdp_transformer_layer_cls_to_wrap` to specify which layer to wrap (for example `BertLayer`).
+FSDP is applied by wrapping each layer in the network. The wrapping is usually applied in a nested way where the full weights are discarded after each forward pass to save memory for the next layer.
 
-Otherwise, you can choose a size-based wrapping policy where FSDP is applied to a layer if it exceeds a certain number of parameters. This is enabled by setting `fsdp_wrap_policy: SIZE_BASED_WRAP` and `min_num_param` to the desired size threshold.
+There are several wrapping policies available, but the *auto wrapping* policy is the simplest and doesn't require any changes to your code. Specify `fsdp_auto_wrap_policy: TRANSFORMER_BASED_WRAP` to wrap a Transformer layer and `fsdp_transformer_layer_cls_to_wrap` to determine which layer to wrap (for example, `BertLayer`).
 
-### Checkpointing
+Size-based wrapping is also available. If a layer exceeds a certain number of parameters, it is wrapped. Specify `fsdp_wrap_policy: SIZED_BASED_WRAP` and `min_num_param` to set the minimum number of parameters for a layer to be wrapped.
 
-Intermediate checkpoints should be saved with `fsdp_state_dict_type: SHARDED_STATE_DICT` because saving the full state dict with CPU offloading on rank 0 takes a lot of time and often results in `NCCL Timeout` errors due to indefinite hanging during broadcasting. You can resume training with the sharded state dicts with the [`~accelerate.Accelerator.load_state`] method.
+### Checkpoints
+
+Intermediate checkpoints should be saved as a sharded state dict because saving the full state dict - even with CPU offloading - is time consuming and can cause `NCCL Timeout` errors due to indefinite hanging during broadcasting.
+
+Specify `fsdp_state_dict_type: SHARDED_STATE_DICT` in the configuration file to save the sharded state dict. Now you can resume training from the sharded state dict with the [`~accelerate.Accelerator.load_state`] method.
 
 ```py
-# directory containing checkpoints
-accelerator.load_state("ckpt")
+accelerator.load_state("directory/containing/checkpoints")
 ```
 
-However, when training ends, you want to save the full state dict because sharded state dict is only compatible with FSDP.
+Once training is complete though, you should save the full state dict because the sharded state dict is only compatible with FSDP.
 
 ```py
 if trainer.is_fsdp_enabled:
-    trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
+  trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
 
 trainer.save_model(script_args.output_dir)
 ```
 
 ### TPU
 
-[PyTorch XLA](https://pytorch.org/xla/release/2.1/index.html) supports FSDP training for TPUs and it can be enabled by modifying the FSDP configuration file generated by `accelerate config`. In addition to the sharding strategies and wrapping options specified above, you can add the parameters shown below to the file.
+[PyTorch XLA](https://pytorch.org/xla/release/2.1/index.html), a package for running PyTorch on XLA devices, enables FSDP on TPUs. Modify the configuration file to include the parameters below. Refer to the [xla_fsdp_settings](https://github.com/pytorch/xla/blob/2e6e183e0724818f137c8135b34ef273dea33318/torch_xla/distributed/fsdp/xla_fully_sharded_data_parallel.py#L128) parameter for additional XLA-specific parameters you can configure for FSDP.
 
 ```yaml
 xla: True # must be set to True to enable PyTorch/XLA
-xla_fsdp_settings: # XLA-specific FSDP parameters
-xla_fsdp_grad_ckpt: True # use gradient checkpointing
+xla_fsdp_settings: # XLA specific FSDP parameters
+xla_fsdp_grad_ckpt: True # enable gradient checkpointing
 ```
 
-The [`xla_fsdp_settings`](https://github.com/pytorch/xla/blob/2e6e183e0724818f137c8135b34ef273dea33318/torch_xla/distributed/fsdp/xla_fully_sharded_data_parallel.py#L128) allow you to configure additional XLA-specific parameters for FSDP.
+## Training
 
-## Launch training
-
-An example FSDP configuration file may look like:
+After running [accelerate config](https://hf.co/docs/accelerate/package_reference/cli#accelerate-config), your configuration file should be ready. An example configuration file is show below that fully shards the parameter, gradient and optimizer states on two GPUs. Your file may look different depending on how you setup your configuration.
 
 ```yaml
 compute_environment: LOCAL_MACHINE
@@ -119,20 +124,22 @@ tpu_use_sudo: false
 use_cpu: false
 ```
 
-To launch training, run the [`accelerate launch`](https://huggingface.co/docs/accelerate/package_reference/cli#accelerate-launch) command and it'll automatically use the configuration file you previously created with `accelerate config`.
+Run the [accelerate launch](https://hf.co/docs/accelerate/package_reference/cli#accelerate-launch) command to launch a training script with the FSDP configurations you chose in the configuration file.
 
 ```bash
-accelerate launch my-trainer-script.py
+accelerate launch my-training-script.py
 ```
+
+It is also possible to directly specify some of the FSDP arguments in the command line.
 
 ```bash
-accelerate launch --fsdp="full shard" --fsdp_config="path/to/fsdp_config/ my-trainer-script.py
+accelerate launch --fsdp="full shard" --fsdp_config="path/to/fsdp_config/" my-training-script.py
 ```
 
-## Next steps
+## Resources
 
-FSDP can be a powerful tool for training really large models and you have access to more than one GPU or TPU. By sharding the model parameters, optimizer and gradient states, and even offloading them to the CPU when they're inactive, FSDP can reduce the high cost of large-scale training. If you're interested in learning more, the following may be helpful:
+FSDP is a powerful tool for training large models with fewer GPUs compared to some other parallelism strategies. Refer to the following resources below to learn even more about FSDP.
 
-* Follow along with the more in-depth Accelerate guide for [FSDP](https://huggingface.co/docs/accelerate/usage_guides/fsdp).
-* Read the [Introducing PyTorch Fully Sharded Data Parallel (FSDP) API](https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/) blog post.
-* Read the [Scaling PyTorch models on Cloud TPUs with FSDP](https://pytorch.org/blog/scaling-pytorch-models-on-cloud-tpus-with-fsdp/) blog post.
+- Follow along with the more in-depth Accelerate guide for [FSDP](https://hf.co/docs/accelerate/usage_guides/fsdp).
+- Read the [Introducing PyTorch Fully Sharded Data Parallel (FSDP) API](https://pytorch.org/blog/introducing-pytorch-fully-sharded-data-parallel-api/) blog post.
+- Read the [Scaling PyTorch models on Cloud TPUs with FSDP](https://pytorch.org/blog/scaling-pytorch-models-on-cloud-tpus-with-fsdp/) blog post.

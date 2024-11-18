@@ -100,6 +100,8 @@
       title: XLA
     - local: perf_infer_gpu_one
       title: GPU
+    - local: perf_infer_gpu_multi
+      title: Distributed inference
     - local: perf_infer_cpu
       title: CPU
   - local: agents

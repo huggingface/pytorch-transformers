@@ -27,13 +27,19 @@ from transformers.image_utils import ImageInput
 from transformers.processing_utils import ImagesKwargs, ProcessingKwargs, ProcessorMixin, TextKwargs, Unpack
 from transformers.tokenization_utils_base import PreTokenizedInput, TextInput
 
+from ...utils import is_vision_available
+
+
+if is_vision_available():
+    from ...image_utils import load_images
+
 
 class GotOcr2TextKwargs(TextKwargs, total=False):
     format: Optional[bool]
 
 
 class GotOcr2ImagesKwargs(ImagesKwargs, total=False):
-    box: Optional[Union[Tuple[float, float], Tuple[float, float, float, float]]]
+    box: Optional[Union[List, Tuple[float, float], Tuple[float, float, float, float]]]
     color: Optional[str]
     num_image_tokens: Optional[int]
 
@@ -50,6 +56,20 @@ class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
             "num_image_tokens": 256,
         },
     }
+
+
+def load_box_annotation(box, image_size):
+    width, height = image_size
+    if len(box) == 2:
+        box[0] = int(box[0] / width * 1000)
+        box[1] = int(box[1] / height * 1000)
+    if len(box) == 4:
+        box[0] = int(box[0] / width * 1000)
+        box[1] = int(box[1] / height * 1000)
+        box[2] = int(box[2] / width * 1000)
+        box[3] = int(box[3] / height * 1000)
+
+    return box
 
 
 class GotOcr2Processor(ProcessorMixin):
@@ -120,11 +140,6 @@ class GotOcr2Processor(ProcessorMixin):
         if images is None:
             raise ValueError("Images are required to be passed to the processor.")
 
-        # Check if images are nested and force nesting if not
-        if not isinstance(images, (list, tuple)):
-            images = [[images]]
-        elif not isinstance(images[0], (list, tuple)):
-            images = [[image] for image in images]
         output_kwargs = self._merge_kwargs(
             GotOcr2ProcessorKwargs,
             tokenizer_init_kwargs=self.tokenizer.init_kwargs,
@@ -132,20 +147,35 @@ class GotOcr2Processor(ProcessorMixin):
         )
         format = output_kwargs["text_kwargs"].pop("format", False)
         num_image_tokens = output_kwargs["images_kwargs"].pop("num_image_tokens", 256)
-        box = output_kwargs["images_kwargs"].pop("box", None)
+        box = output_kwargs["images_kwargs"].pop("box", [None])
         color = output_kwargs["images_kwargs"].pop("color", None)
-        if box is not None and color is not None:
+        if box[0] is not None and color is not None:
             raise ValueError("Both `box` and `color` cannot be set at the same time.")
-        # TODO change logic box (depends on the image size)
+
+        # Check if images, box and color are nested and force nesting if not
+        if not isinstance(images, (list, tuple)):
+            images = [[images]]
+        elif not isinstance(images[0], (list, tuple)):
+            images = [[image] for image in images]
+        if not isinstance(box[0], (list, tuple)):
+            box = [box]
+        if not isinstance(color, (list, tuple)):
+            color = [color]
+
+        # Load images as we need to know the image size
+        images = load_images(images)
 
         if text is None:
             text = []
-            # Use base prompt
-            for image_group in images:
+            for image_group, box_single, color_single in zip(images, box, color):
                 num_images = len(image_group)
+                if num_images > 1 and (box_single[0] is not None or color_single is not None):
+                    raise ValueError("Cannot pass `box` or `color` with multi-images inference.")
+                if box_single[0] is not None:
+                    box_single = load_box_annotation(box_single, image_group[0].size)
                 query = (
-                    f"{f'[{color}] ' if color is not None else ''}"
-                    f"{str(box) if box is not None else ''}"
+                    f"{f'[{color_single}] ' if color_single is not None else ''}"
+                    f"{str(box_single) if box_single[0] is not None else ''} "
                     "OCR"
                     f"{' with format' if format else ''}"
                     f"{' across multi pages' if num_images > 1 else ''}"

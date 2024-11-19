@@ -423,7 +423,7 @@ class GenerationMixin:
                     model_input = model_input.clone(memory_format=torch.contiguous_format)
                 model_inputs[model_input_name] = model_input
 
-        # 6. Create 4D attention mask is we are using a `StaticCache` (important for performant compiled forward pass)
+        # 6. Create 4D attention mask if we are using a `StaticCache` (important for performant compiled forward pass)
         if isinstance(past_key_values, StaticCache) and attention_mask.ndim == 2:
             if model_inputs["inputs_embeds"] is not None:
                 batch_size, sequence_length, _ = model_inputs["inputs_embeds"].shape
@@ -1727,16 +1727,6 @@ class GenerationMixin:
             return
 
         # Otherwise we NEED to prepare a cache, based on `generation_config.cache_implementation`
-
-        # TODO(joao): support static caches in assisted generation. assisted generation needs to roll back caches,
-        # which is only supported in dynamic caches atm
-        if assistant_model is not None and generation_config.cache_implementation is not None:
-            logger.warning_once(
-                "An assistant model is provided, using a dynamic cache instead of a cache of type="
-                f"'{generation_config.cache_implementation}'."
-            )
-            generation_config.cache_implementation = None
-
         if generation_config.cache_implementation is not None:
             if generation_config.cache_implementation in NEED_SETUP_CACHE_CLASSES_MAPPING:
                 if generation_config.cache_implementation == "static" and not self._supports_static_cache:
@@ -1751,6 +1741,14 @@ class GenerationMixin:
                     device=device,
                     model_kwargs=model_kwargs,
                 )
+                if assistant_model is not None:
+                    assistant_model._get_cache(
+                        cache_implementation=generation_config.cache_implementation,
+                        batch_size=max(generation_config.num_beams, generation_config.num_return_sequences) * batch_size,
+                        max_cache_len=max_cache_length,
+                        device=device,
+                        model_kwargs=model_kwargs,
+                    )
             elif generation_config.cache_implementation == "quantized":
                 if not self._supports_quantized_cache:
                     raise ValueError(
@@ -2097,6 +2095,7 @@ class GenerationMixin:
             and not self.config.is_encoder_decoder
         ):
             max_cache_length += inputs_tensor.shape[1]
+
         self._prepare_cache_for_generation(
             generation_config, model_kwargs, assistant_model, batch_size, max_cache_length, device
         )
@@ -2150,7 +2149,7 @@ class GenerationMixin:
                 raise ValueError("assisted generate is only supported for batch_size = 1")
             if not model_kwargs["use_cache"]:
                 raise ValueError("assisted generate requires `use_cache=True`")
-            if generation_config.cache_implementation in ["static", "hybrid", "sliding_window"]:
+            if generation_config.cache_implementation in ["hybrid", "sliding_window"]:
                 raise ValueError("assisted generate is not supported with Static cache classes`")
             if self._is_stateful:
                 # In assisted generation we need the ability to confirm whether the model would pick certain tokens,

@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 import numpy as np
 import torch
 
-from ..cache_utils import DynamicCache
+from ..cache_utils import DynamicCache, StaticCache
 from ..pytorch_utils import isin_mps_friendly
 from .logits_process import LogitsProcessorList, MinLengthLogitsProcessor
 
@@ -177,8 +177,6 @@ class AssistedCandidateGenerator(CandidateGenerator):
                     "Please pass in `min_length` into `.generate()` instead"
                 )
 
-        # We need to roll back the cache in assisted generation, only DynamicCache is supported
-        self.generation_config.cache_implementation = None
 
     def get_candidates(self, input_ids: torch.LongTensor) -> Tuple[torch.LongTensor, Optional[torch.FloatTensor]]:
         """
@@ -229,6 +227,7 @@ class AssistedCandidateGenerator(CandidateGenerator):
 
         # 3. Update variables for the next round of candidate generation
         self.assistant_kwargs["past_key_values"] = assistant_output.past_key_values
+        self.generation_config.cache_implementation = None
 
         # 4. Prepare variables for output
         candidate_logits = torch.stack(assistant_output.scores, dim=1)
@@ -751,6 +750,8 @@ def _crop_past_key_values(model, past_key_values, max_length):
             for idx in range(len(past_key_values)):
                 past_key_values[idx] = past_key_values[idx][:, :, :max_length, :]
     elif isinstance(past_key_values, DynamicCache):
+        past_key_values.crop(max_length)
+    elif isinstance(past_key_values, StaticCache):
         past_key_values.crop(max_length)
     elif past_key_values is not None:
         for idx in range(len(past_key_values)):

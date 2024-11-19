@@ -101,7 +101,7 @@
     - local: perf_infer_gpu_one
       title: GPU
     - local: perf_infer_gpu_multi
-      title: Distributed inference
+      title: Distributed GPU inference
     - local: perf_infer_cpu
       title: CPU
   - local: agents
@@ -127,14 +127,14 @@
     sections:
     - local: accelerate
       title: Accelerate
-    - local: perf_train_gpu_many
-      title: Parallelism methods
     - local: fsdp
       title: FullyShardedDataParallel
     - local: deepspeed
       title: DeepSpeed
     - local: perf_train_cpu_many
-      title: Distributed CPU training
+      title: Distributed CPUs
+    - local: perf_train_gpu_many
+      title: Parallelism methods
   - title: Hardware-specific training
     sections:
     - local: perf_train_gpu_one

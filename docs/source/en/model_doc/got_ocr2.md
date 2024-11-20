@@ -41,6 +41,10 @@ The original code can be found [here](<INSERT LINK TO GITHUB REPO HERE>).
 
 [[autodoc]] GotOcr2VisionConfig
 
+## GotOcr2ImageProcessor
+
+[[autodoc]] GotOcr2ImageProcessor
+
 ## GotOcr2Processor
 
 [[autodoc]] GotOcr2Processor

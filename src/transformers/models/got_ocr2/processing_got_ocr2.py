@@ -22,16 +22,22 @@
 
 from typing import List, Optional, Tuple, Union
 
-from transformers.feature_extraction_utils import BatchFeature
-from transformers.image_utils import ImageInput
 from transformers.processing_utils import ImagesKwargs, ProcessingKwargs, ProcessorMixin, TextKwargs, Unpack
 from transformers.tokenization_utils_base import PreTokenizedInput, TextInput
 
-from ...utils import is_vision_available
+from ...image_processing_utils import BatchFeature
+from ...image_utils import ImageInput
+from ...utils import is_vision_available, logging
 
 
 if is_vision_available():
     from ...image_utils import load_images
+
+
+if is_vision_available():
+    from ...image_utils import load_images
+
+logger = logging.get_logger(__name__)
 
 
 class GotOcr2TextKwargs(TextKwargs, total=False):
@@ -42,6 +48,8 @@ class GotOcr2ImagesKwargs(ImagesKwargs, total=False):
     box: Optional[Union[List, Tuple[float, float], Tuple[float, float, float, float]]]
     color: Optional[str]
     num_image_tokens: Optional[int]
+    multi_page: Optional[bool]
+    crop_to_multi_page: Optional[bool]
 
 
 class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
@@ -149,14 +157,30 @@ class GotOcr2Processor(ProcessorMixin):
         num_image_tokens = output_kwargs["images_kwargs"].pop("num_image_tokens", 256)
         box = output_kwargs["images_kwargs"].pop("box", [None])
         color = output_kwargs["images_kwargs"].pop("color", None)
+        multi_page = output_kwargs["images_kwargs"].pop("multi_page", False)
+        crop_to_multi_page = output_kwargs["images_kwargs"].pop("crop_to_multi_page", False)
+
+        if not isinstance(box, (list, tuple)):
+            raise ValueError("`box` must be a list or tuple in the form [x1, y1, x2, y2].")
+
+        if multi_page or crop_to_multi_page:
+            if multi_page and crop_to_multi_page:
+                raise ValueError("Cannot set both `multi_page` and `crop_to_multi_page` to `True`.")
+            if box[0] is not None or color is not None:
+                raise ValueError("Cannot pass `box` or `color` with multi-page inference.")
+
         if box[0] is not None and color is not None:
             raise ValueError("Both `box` and `color` cannot be set at the same time.")
 
-        # Check if images, box and color are nested and force nesting if not
         if not isinstance(images, (list, tuple)):
-            images = [[images]]
-        elif not isinstance(images[0], (list, tuple)):
-            images = [[image] for image in images]
+            if multi_page:
+                logger.warning("Multi-page inference is enabled but only one image is passed.")
+            images = [images]
+        elif isinstance(images[0], (list, tuple)) and not multi_page:
+            raise ValueError("Nested images are only supported with `multi_page` set to `True`.")
+        elif not isinstance(images[0], (list, tuple)) and multi_page:
+            images = [images]
+
         if not isinstance(box[0], (list, tuple)):
             box = [box]
         if not isinstance(color, (list, tuple)):
@@ -168,9 +192,11 @@ class GotOcr2Processor(ProcessorMixin):
         if text is None:
             text = []
             for image_group, box_single, color_single in zip(images, box, color):
-                num_images = len(image_group)
-                if num_images > 1 and (box_single[0] is not None or color_single is not None):
-                    raise ValueError("Cannot pass `box` or `color` with multi-images inference.")
+                if crop_to_multi_page:
+                    image_group = self.image_processor.crop_to_multi_image(
+                        image_group, output_kwargs["images_kwargs"].get("size", None)
+                    )
+                num_images = len(image_group) if (multi_page or crop_to_multi_page) else 1
                 if box_single[0] is not None:
                     box_single = load_box_annotation(box_single, image_group[0].size)
                 query = (
@@ -178,7 +204,8 @@ class GotOcr2Processor(ProcessorMixin):
                     f"{str(box_single) if box_single[0] is not None else ''} "
                     "OCR"
                     f"{' with format' if format else ''}"
-                    f"{' across multi pages' if num_images > 1 else ''}"
+                    f"{' across multi pages' if multi_page else ''}"
+                    f"{' upon the patch reference' if crop_to_multi_page else ''}"
                     ": "
                 )
                 prompt = (
@@ -196,8 +223,9 @@ class GotOcr2Processor(ProcessorMixin):
                 text.append(prompt)
 
         text_inputs = self.tokenizer(text, **output_kwargs["text_kwargs"])
-        # flatten images
-        images = [image for image_group in images for image in image_group]
+        if multi_page:
+            # flatten images
+            images = [image for image_group in images for image in image_group]
         image_inputs = self.image_processor(images=images, **output_kwargs["images_kwargs"])
 
         return BatchFeature(data={**text_inputs, **image_inputs})

@@ -21,8 +21,7 @@ import torch.nn as nn
 import torch.utils.checkpoint
 from torch.nn import CrossEntropyLoss
 
-from transformers.feature_extraction_utils import BatchFeature
-from transformers.image_utils import ImageInput
+from transformers.models.blip.image_processing_blip import BlipImageProcessor
 from transformers.models.qwen2.modeling_qwen2 import Qwen2Model, Qwen2PreTrainedModel
 from transformers.models.qwen2_vl.configuration_qwen2_vl import Qwen2VLConfig
 from transformers.models.sam.modeling_sam import SamVisionEncoder
@@ -35,15 +34,22 @@ from transformers.tokenization_utils_base import (
 from ...cache_utils import StaticCache
 from ...configuration_utils import PretrainedConfig
 from ...generation import GenerationMixin
+from ...image_processing_utils import BatchFeature, get_size_dict
+from ...image_utils import ImageInput
 from ...modeling_outputs import CausalLMOutputWithPast
 from ...utils import (
     ModelOutput,
     is_vision_available,
+    logging,
 )
 
 
 if is_vision_available():
+    import PIL
+
     from ...image_utils import load_images
+
+logger = logging.get_logger(__name__)
 
 
 class GotOcr2VisionConfig(PretrainedConfig):
@@ -151,6 +157,8 @@ class GotOcr2ImagesKwargs(ImagesKwargs, total=False):
     box: Optional[Union[List, Tuple[float, float], Tuple[float, float, float, float]]]
     color: Optional[str]
     num_image_tokens: Optional[int]
+    multi_page: Optional[bool]
+    crop_to_multi_page: Optional[bool]
 
 
 class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
@@ -179,6 +187,69 @@ def load_box_annotation(box, image_size):
         box[3] = int(box[3] / height * 1000)
 
     return box
+
+
+def find_closest_aspect_ratio(aspect_ratio, target_ratios, width, height, image_size):
+    best_ratio_diff = float("inf")
+    best_ratio = (1, 1)
+    area = width * height
+    for ratio in target_ratios:
+        target_aspect_ratio = ratio[0] / ratio[1]
+        ratio_diff = abs(aspect_ratio - target_aspect_ratio)
+        if ratio_diff < best_ratio_diff:
+            best_ratio_diff = ratio_diff
+            best_ratio = ratio
+        elif ratio_diff == best_ratio_diff:
+            if area > 0.5 * image_size * image_size * ratio[0] * ratio[1]:
+                best_ratio = ratio
+
+    return best_ratio
+
+
+class GotOcr2ImageProcessor(BlipImageProcessor):
+    def crop_to_multi_image(self, image: "PIL.Image.Image", min_num=1, max_num=6, use_thumbnail=True, size=None):
+        size = size if size is not None else self.size
+        size = get_size_dict(size, default_to_square=True)
+        orig_width, orig_height = image.size
+        aspect_ratio = orig_width / orig_height
+
+        # calculate the existing image aspect ratio
+        target_ratios = {
+            (i, j)
+            for n in range(min_num, max_num + 1)
+            for i in range(1, n + 1)
+            for j in range(1, n + 1)
+            if i * j <= max_num and i * j >= min_num
+        }
+        target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
+
+        # find the closest aspect ratio to the target
+        target_aspect_ratio = find_closest_aspect_ratio(aspect_ratio, target_ratios, orig_width, orig_height, size)
+
+        # calculate the target width and height
+        target_width = size["width"] * target_aspect_ratio[0]
+        target_height = size["height"] * target_aspect_ratio[1]
+        blocks = target_aspect_ratio[0] * target_aspect_ratio[1]
+
+        # resize the image
+        resized_img = image.resize((target_width, target_height))
+        processed_images = []
+        for i in range(blocks):
+            box = (
+                (i % (target_width // size["width"])) * size["width"],
+                (i // (target_width // size["width"])) * size["width"],
+                ((i % (target_width // size["width"])) + 1) * size["width"],
+                ((i // (target_width // size["width"])) + 1) * size["width"],
+            )
+            # split the image
+            split_img = resized_img.crop(box)
+            processed_images.append(split_img)
+
+        if use_thumbnail and len(processed_images) != 1:
+            thumbnail_img = image.resize((size["width"], size["height"]))
+            processed_images.append(thumbnail_img)
+
+        return processed_images
 
 
 class GotOcr2Processor(ProcessorMixin):
@@ -258,14 +329,30 @@ class GotOcr2Processor(ProcessorMixin):
         num_image_tokens = output_kwargs["images_kwargs"].pop("num_image_tokens", 256)
         box = output_kwargs["images_kwargs"].pop("box", [None])
         color = output_kwargs["images_kwargs"].pop("color", None)
+        multi_page = output_kwargs["images_kwargs"].pop("multi_page", False)
+        crop_to_multi_page = output_kwargs["images_kwargs"].pop("crop_to_multi_page", False)
+
+        if not isinstance(box, (list, tuple)):
+            raise ValueError("`box` must be a list or tuple in the form [x1, y1, x2, y2].")
+
+        if multi_page or crop_to_multi_page:
+            if multi_page and crop_to_multi_page:
+                raise ValueError("Cannot set both `multi_page` and `crop_to_multi_page` to `True`.")
+            if box[0] is not None or color is not None:
+                raise ValueError("Cannot pass `box` or `color` with multi-page inference.")
+
         if box[0] is not None and color is not None:
             raise ValueError("Both `box` and `color` cannot be set at the same time.")
 
-        # Check if images, box and color are nested and force nesting if not
         if not isinstance(images, (list, tuple)):
-            images = [[images]]
-        elif not isinstance(images[0], (list, tuple)):
-            images = [[image] for image in images]
+            if multi_page:
+                logger.warning("Multi-page inference is enabled but only one image is passed.")
+            images = [images]
+        elif isinstance(images[0], (list, tuple)) and not multi_page:
+            raise ValueError("Nested images are only supported with `multi_page` set to `True`.")
+        elif not isinstance(images[0], (list, tuple)) and multi_page:
+            images = [images]
+
         if not isinstance(box[0], (list, tuple)):
             box = [box]
         if not isinstance(color, (list, tuple)):
@@ -277,9 +364,11 @@ class GotOcr2Processor(ProcessorMixin):
         if text is None:
             text = []
             for image_group, box_single, color_single in zip(images, box, color):
-                num_images = len(image_group)
-                if num_images > 1 and (box_single[0] is not None or color_single is not None):
-                    raise ValueError("Cannot pass `box` or `color` with multi-images inference.")
+                if crop_to_multi_page:
+                    image_group = self.image_processor.crop_to_multi_image(
+                        image_group, output_kwargs["images_kwargs"].get("size", None)
+                    )
+                num_images = len(image_group) if (multi_page or crop_to_multi_page) else 1
                 if box_single[0] is not None:
                     box_single = load_box_annotation(box_single, image_group[0].size)
                 query = (
@@ -287,7 +376,8 @@ class GotOcr2Processor(ProcessorMixin):
                     f"{str(box_single) if box_single[0] is not None else ''} "
                     "OCR"
                     f"{' with format' if format else ''}"
-                    f"{' across multi pages' if num_images > 1 else ''}"
+                    f"{' across multi pages' if multi_page else ''}"
+                    f"{' upon the patch reference' if crop_to_multi_page else ''}"
                     ": "
                 )
                 prompt = (
@@ -305,8 +395,9 @@ class GotOcr2Processor(ProcessorMixin):
                 text.append(prompt)
 
         text_inputs = self.tokenizer(text, **output_kwargs["text_kwargs"])
-        # flatten images
-        images = [image for image_group in images for image in image_group]
+        if multi_page:
+            # flatten images
+            images = [image for image_group in images for image in image_group]
         image_inputs = self.image_processor(images=images, **output_kwargs["images_kwargs"])
 
         return BatchFeature(data={**text_inputs, **image_inputs})

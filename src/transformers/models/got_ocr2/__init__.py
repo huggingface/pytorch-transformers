@@ -18,6 +18,7 @@ from ...utils import (
     _LazyModule,
     is_tokenizers_available,
     is_torch_available,
+    is_vision_available,
 )
 
 
@@ -25,6 +26,14 @@ _import_structure = {
     "configuration_got_ocr2": ["GotOcr2Config", "GotOcr2VisionConfig"],
     "processing_got_ocr2": ["GotOcr2Processor"],
 }
+try:
+    if not is_vision_available():
+        raise OptionalDependencyNotAvailable()
+except OptionalDependencyNotAvailable:
+    pass
+else:
+    _import_structure["image_processing_got_ocr2"] = ["GotOcr2ImageProcessor"]
+
 
 try:
     if not is_torch_available():
@@ -43,6 +52,13 @@ if TYPE_CHECKING:
     from .configuration_got_ocr2 import GotOcr2Config, GotOcr2VisionConfig
     from .processing_got_ocr2 import GotOcr2Processor
 
+    try:
+        if not is_vision_available():
+            raise OptionalDependencyNotAvailable()
+    except OptionalDependencyNotAvailable:
+        pass
+    else:
+        from .image_processing_got_ocr2 import GotOcr2ImageProcessor
     try:
         if not is_torch_available():
             raise OptionalDependencyNotAvailable()

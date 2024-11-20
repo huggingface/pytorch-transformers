@@ -176,9 +176,6 @@ class AssistedCandidateGenerator(CandidateGenerator):
                     "Passing `MinLengthLogitsProcessor` when using `assisted_generation is disabled. "
                     "Please pass in `min_length` into `.generate()` instead"
                 )
-        # assume cache created while _prepare_cache_for_generation is called
-        self.generation_config.cache_implementation = None
-
 
     def get_candidates(self, input_ids: torch.LongTensor) -> Tuple[torch.LongTensor, Optional[torch.FloatTensor]]:
         """
@@ -229,6 +226,7 @@ class AssistedCandidateGenerator(CandidateGenerator):
 
         # 3. Update variables for the next round of candidate generation
         self.assistant_kwargs["past_key_values"] = assistant_output.past_key_values
+        self.generation_config.cache_implementation = None
 
         # 4. Prepare variables for output
         candidate_logits = torch.stack(assistant_output.scores, dim=1)

@@ -138,15 +138,15 @@
   - title: Hardware-specific training
     sections:
     - local: perf_train_gpu_one
-      title: Methods and tools for efficient training on a single GPU
+      title: GPU
     - local: perf_train_cpu
-      title: Efficient training on CPU
+      title: CPU
     - local: perf_train_tpu_tf
-      title: Training on TPU with TensorFlow
+      title: TPU wih TensorFlow
     - local: perf_train_special
-      title: PyTorch training on Apple silicon
+      title: Apple Silicon
     - local: perf_hardware
-      title: Custom hardware for training
+      title: Build your own machine
   - local: peft
     title: Load and train adapters with 🤗 PEFT
   - local: sagemaker

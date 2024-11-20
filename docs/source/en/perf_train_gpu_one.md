@@ -1,4 +1,4 @@
-<!--Copyright 2022 The HuggingFace Team. All rights reserved.
+<!--Copyright 2024 The HuggingFace Team. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may obtain a copy of the License at
@@ -13,7 +13,7 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Methods and tools for efficient training on a single GPU
+# GPU
 
 This guide demonstrates practical techniques that you can use to increase the efficiency of your model's training by 
 optimizing memory utilization, speeding up the training, or both. If you'd like to understand how GPU is utilized during 

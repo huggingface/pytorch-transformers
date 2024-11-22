@@ -278,7 +278,7 @@ class GotOcr2IntegrationTest(unittest.TestCase):
         decoded_output = self.processor.decode(
             generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True
         )
-        expected_output = "\\title{\nR'"
+        expected_output = "\\title{\nR"
         self.assertEqual(decoded_output, expected_output)
 
     @slow

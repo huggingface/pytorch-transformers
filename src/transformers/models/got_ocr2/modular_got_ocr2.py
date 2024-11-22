@@ -16,6 +16,7 @@
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
@@ -35,7 +36,12 @@ from ...cache_utils import StaticCache
 from ...configuration_utils import PretrainedConfig
 from ...generation import GenerationMixin
 from ...image_processing_utils import BatchFeature, get_size_dict
-from ...image_utils import ImageInput
+from ...image_transforms import (
+    _rescale_for_pil_conversion,
+    to_channel_dimension_format,
+    to_pil_image,
+)
+from ...image_utils import ChannelDimension, ImageInput
 from ...modeling_outputs import CausalLMOutputWithPast
 from ...utils import (
     ModelOutput,
@@ -207,9 +213,23 @@ def find_closest_aspect_ratio(aspect_ratio, target_ratios, width, height, image_
 
 
 class GotOcr2ImageProcessor(BlipImageProcessor):
-    def crop_image_to_patches(self, image: "PIL.Image.Image", min_num=1, max_num=6, use_thumbnail=True, size=None):
+    def crop_image_to_patches(
+        self,
+        image: ImageInput,
+        min_num=1,
+        max_num=6,
+        use_thumbnail=True,
+        size=None,
+        return_numpy=False,
+        data_format=None,
+    ):
         size = size if size is not None else self.size
         size = get_size_dict(size, default_to_square=True)
+        do_rescale = False
+        if not isinstance(image, PIL.Image.Image):
+            do_rescale = _rescale_for_pil_conversion(image)
+            image = to_pil_image(image, do_rescale=do_rescale)
+
         orig_width, orig_height = image.size
         aspect_ratio = orig_width / orig_height
 
@@ -250,6 +270,26 @@ class GotOcr2ImageProcessor(BlipImageProcessor):
         if use_thumbnail and len(processed_images) != 1:
             thumbnail_img = image.resize((size["width"], size["height"]))
             processed_images.append(thumbnail_img)
+
+        if return_numpy:
+            processed_images_numpy = []
+            for processed_image in processed_images:
+                processed_image = np.array(processed_image)
+                # If the input image channel dimension was of size 1, then it is dropped when converting to a PIL image
+                # so we need to add it back if necessary.
+                processed_image = (
+                    np.expand_dims(processed_image, axis=-1) if processed_image.ndim == 2 else processed_image
+                )
+                # The image is always in channels last format after converting from a PIL image
+                if data_format is not None:
+                    processed_image = to_channel_dimension_format(
+                        processed_image, data_format, input_channel_dim=ChannelDimension.LAST
+                    )
+                # If an image was rescaled to be in the range [0, 255] before converting to a PIL image, then we need to
+                # rescale it back to the original range.
+                processed_image = self.rescale(processed_image, 1 / 255) if do_rescale else processed_image
+                processed_images_numpy.append(processed_image)
+            processed_images = processed_images_numpy
 
         return processed_images
 

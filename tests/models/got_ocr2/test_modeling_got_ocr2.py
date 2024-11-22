@@ -16,11 +16,13 @@
 
 import unittest
 
-from transformers import GotOcr2Config, is_torch_available
-from transformers.testing_utils import (
-    require_torch,
-    torch_device,
+from transformers import (
+    AutoProcessor,
+    GotOcr2Config,
+    is_torch_available,
+    is_vision_available,
 )
+from transformers.testing_utils import cleanup, require_torch, slow, torch_device
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -34,6 +36,10 @@ if is_torch_available():
     from transformers import (
         GotOcr2ForConditionalGeneration,
     )
+
+
+if is_vision_available():
+    from transformers.image_utils import load_image
 
 
 class GotOcr2VisionText2TextModelTester:
@@ -226,3 +232,121 @@ class GotOcr2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     )
     def test_generate_compile_1_end_to_end(self):
         pass
+
+
+@require_torch
+class GotOcr2IntegrationTest(unittest.TestCase):
+    def setUp(self):
+        self.processor = AutoProcessor.from_pretrained("/home/ubuntu/models_implem/GotOcr2")
+
+    def tearDown(self):
+        cleanup(torch_device, gc_collect=True)
+
+    @slow
+    def test_small_model_integration_test_got_ocr_stop_strings(self):
+        model_id = "/home/ubuntu/models_implem/GotOcr2"
+        model = GotOcr2ForConditionalGeneration.from_pretrained(model_id)
+        image = load_image(
+            "https://huggingface.co/datasets/hf-internal-testing/fixtures_ocr/resolve/main/iam_picture.jpeg"
+        )
+
+        inputs = self.processor(image, return_tensors="pt")
+        generate_ids = model.generate(
+            **inputs,
+            do_sample=False,
+            num_beams=1,
+            tokenizer=self.processor.tokenizer,
+            stop_strings="<|im_end|>",
+            max_new_tokens=4096,
+        )
+        decoded_output = self.processor.decode(
+            generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True
+        )
+        expected_output = "industre"
+        self.assertEqual(decoded_output, expected_output)
+
+    @slow
+    def test_small_model_integration_test_got_ocr_format(self):
+        model_id = "/home/ubuntu/models_implem/GotOcr2"
+        model = GotOcr2ForConditionalGeneration.from_pretrained(model_id)
+        image = load_image(
+            "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/image_ocr.jpg"
+        )
+
+        inputs = self.processor(image, return_tensors="pt", format=True)
+        generate_ids = model.generate(**inputs, do_sample=False, num_beams=1, max_new_tokens=4)
+        decoded_output = self.processor.decode(
+            generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True
+        )
+        expected_output = "\\title{\nR'"
+        self.assertEqual(decoded_output, expected_output)
+
+    @slow
+    def test_small_model_integration_test_got_ocr_fine_grained(self):
+        model_id = "/home/ubuntu/models_implem/GotOcr2"
+        model = GotOcr2ForConditionalGeneration.from_pretrained(model_id)
+        image = load_image(
+            "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/multi_box.png"
+        )
+
+        inputs = self.processor(image, return_tensors="pt", color="green")
+        generate_ids = model.generate(**inputs, do_sample=False, num_beams=1, max_new_tokens=4)
+        decoded_output = self.processor.decode(
+            generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True
+        )
+        expected_output = "You should keep in"
+        self.assertEqual(decoded_output, expected_output)
+
+    @slow
+    def test_small_model_integration_test_got_ocr_crop_to_patches(self):
+        model_id = "/home/ubuntu/models_implem/GotOcr2"
+        model = GotOcr2ForConditionalGeneration.from_pretrained(model_id)
+        image = load_image(
+            "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/one_column.png"
+        )
+
+        inputs = self.processor(image, return_tensors="pt", crop_to_patches=True)
+        generate_ids = model.generate(**inputs, do_sample=False, num_beams=1, max_new_tokens=4)
+        decoded_output = self.processor.decode(
+            generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True
+        )
+        expected_output = "on developing architectural improvements"
+        self.assertEqual(decoded_output, expected_output)
+
+    @slow
+    def test_small_model_integration_test_got_ocr_multi_pages(self):
+        model_id = "/home/ubuntu/models_implem/GotOcr2"
+        model = GotOcr2ForConditionalGeneration.from_pretrained(model_id)
+        image1 = load_image(
+            "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/one_column.png"
+        )
+        image2 = load_image(
+            "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/multi_box.png"
+        )
+
+        inputs = self.processor([image1, image2], return_tensors="pt", multi_page=True)
+        generate_ids = model.generate(**inputs, do_sample=False, num_beams=1, max_new_tokens=4)
+        decoded_output = self.processor.decode(
+            generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True
+        )
+        expected_output = "on developing architectural improvements"
+        self.assertEqual(decoded_output, expected_output)
+
+    @slow
+    def test_small_model_integration_test_got_ocr_batched(self):
+        model_id = "/home/ubuntu/models_implem/GotOcr2"
+        model = GotOcr2ForConditionalGeneration.from_pretrained(model_id)
+        image1 = load_image(
+            "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/multi_box.png"
+        )
+        image2 = load_image(
+            "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/image_ocr.jpg"
+        )
+
+        inputs = self.processor([image1, image2], return_tensors="pt")
+        generate_ids = model.generate(**inputs, do_sample=False, num_beams=1, max_new_tokens=4)
+        decoded_output = self.processor.batch_decode(
+            generate_ids[:, inputs["input_ids"].shape[1] :], skip_special_tokens=True
+        )
+        expected_output = ["Reducing the number", "R&D QUALITY"]
+        self.assertEqual(decoded_output, expected_output)

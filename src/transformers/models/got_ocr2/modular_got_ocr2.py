@@ -158,7 +158,7 @@ class GotOcr2ImagesKwargs(ImagesKwargs, total=False):
     color: Optional[str]
     num_image_tokens: Optional[int]
     multi_page: Optional[bool]
-    crop_to_multi_page: Optional[bool]
+    crop_to_patches: Optional[bool]
 
 
 class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
@@ -207,7 +207,7 @@ def find_closest_aspect_ratio(aspect_ratio, target_ratios, width, height, image_
 
 
 class GotOcr2ImageProcessor(BlipImageProcessor):
-    def crop_to_multi_image(self, image: "PIL.Image.Image", min_num=1, max_num=6, use_thumbnail=True, size=None):
+    def crop_image_to_patches(self, image: "PIL.Image.Image", min_num=1, max_num=6, use_thumbnail=True, size=None):
         size = size if size is not None else self.size
         size = get_size_dict(size, default_to_square=True)
         orig_width, orig_height = image.size
@@ -224,7 +224,9 @@ class GotOcr2ImageProcessor(BlipImageProcessor):
         target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
 
         # find the closest aspect ratio to the target
-        target_aspect_ratio = find_closest_aspect_ratio(aspect_ratio, target_ratios, orig_width, orig_height, size)
+        target_aspect_ratio = find_closest_aspect_ratio(
+            aspect_ratio, target_ratios, orig_width, orig_height, size["width"]
+        )
 
         # calculate the target width and height
         target_width = size["width"] * target_aspect_ratio[0]
@@ -254,11 +256,11 @@ class GotOcr2ImageProcessor(BlipImageProcessor):
 
 class GotOcr2Processor(ProcessorMixin):
     r"""
-    Constructs a GotOcr2 processor which wraps a [`BlipImageProcessor`] and
+    Constructs a GotOcr2 processor which wraps a [`GotOcr2ImageProcessor`] and
     [`PretrainedTokenizerFast`] tokenizer into a single processor that inherits both the image processor and
     tokenizer functionalities. See the [`~GotOcr2Processor.__call__`] and [`~GotOcr2Processor.decode`] for more information.
     Args:
-        image_processor ([`BlipImageProcessor`], *optional*):
+        image_processor ([`GotOcr2ImageProcessor`], *optional*):
             The image processor is a required input.
         tokenizer ([`PreTrainedTokenizer`, `PreTrainedTokenizerFast`], *optional*):
             The tokenizer is a required input.
@@ -268,7 +270,7 @@ class GotOcr2Processor(ProcessorMixin):
 
     attributes = ["image_processor", "tokenizer"]
     valid_kwargs = ["chat_template"]
-    image_processor_class = "BlipImageProcessor"
+    image_processor_class = "GotOcr2ImageProcessor"
     tokenizer_class = "PreTrainedTokenizerFast"
 
     def __init__(self, image_processor=None, tokenizer=None, chat_template=None, **kwargs):
@@ -330,14 +332,14 @@ class GotOcr2Processor(ProcessorMixin):
         box = output_kwargs["images_kwargs"].pop("box", [None])
         color = output_kwargs["images_kwargs"].pop("color", None)
         multi_page = output_kwargs["images_kwargs"].pop("multi_page", False)
-        crop_to_multi_page = output_kwargs["images_kwargs"].pop("crop_to_multi_page", False)
+        crop_to_patches = output_kwargs["images_kwargs"].pop("crop_to_patches", False)
 
         if not isinstance(box, (list, tuple)):
             raise ValueError("`box` must be a list or tuple in the form [x1, y1, x2, y2].")
 
-        if multi_page or crop_to_multi_page:
-            if multi_page and crop_to_multi_page:
-                raise ValueError("Cannot set both `multi_page` and `crop_to_multi_page` to `True`.")
+        if multi_page or crop_to_patches:
+            if multi_page and crop_to_patches:
+                raise ValueError("Cannot set both `multi_page` and `crop_to_patches` to `True`.")
             if box[0] is not None or color is not None:
                 raise ValueError("Cannot pass `box` or `color` with multi-page inference.")
 
@@ -354,30 +356,35 @@ class GotOcr2Processor(ProcessorMixin):
             images = [images]
 
         if not isinstance(box[0], (list, tuple)):
-            box = [box]
+            box = [box for _ in range(len(images))]
         if not isinstance(color, (list, tuple)):
-            color = [color]
+            color = [color for _ in range(len(images))]
+        if len(box) != len(images):
+            raise ValueError("The number of `box` must match the number of images.")
+        if len(color) != len(images):
+            raise ValueError("The number of `color` must match the number of images.")
 
         # Load images as we need to know the image size
         images = load_images(images)
 
         if text is None:
             text = []
-            for image_group, box_single, color_single in zip(images, box, color):
-                if crop_to_multi_page:
-                    image_group = self.image_processor.crop_to_multi_image(
-                        image_group, output_kwargs["images_kwargs"].get("size", None)
+            for index, (image_group, box_single, color_single) in enumerate(zip(images, box, color)):
+                if crop_to_patches:
+                    image_group = self.image_processor.crop_image_to_patches(
+                        image_group, size=output_kwargs["images_kwargs"].get("size", None)
                     )
-                num_images = len(image_group) if (multi_page or crop_to_multi_page) else 1
+                    images[index] = image_group
+                num_images = len(image_group) if (multi_page or crop_to_patches) else 1
                 if box_single[0] is not None:
-                    box_single = load_box_annotation(box_single, image_group[0].size)
+                    box_single = load_box_annotation(box_single, image_group.size)
                 query = (
                     f"{f'[{color_single}] ' if color_single is not None else ''}"
                     f"{str(box_single) if box_single[0] is not None else ''} "
                     "OCR"
                     f"{' with format' if format else ''}"
                     f"{' across multi pages' if multi_page else ''}"
-                    f"{' upon the patch reference' if crop_to_multi_page else ''}"
+                    f"{' upon the patch reference' if crop_to_patches else ''}"
                     ": "
                 )
                 prompt = (
@@ -395,7 +402,7 @@ class GotOcr2Processor(ProcessorMixin):
                 text.append(prompt)
 
         text_inputs = self.tokenizer(text, **output_kwargs["text_kwargs"])
-        if multi_page:
+        if multi_page or crop_to_patches:
             # flatten images
             images = [image for image_group in images for image in image_group]
         image_inputs = self.image_processor(images=images, **output_kwargs["images_kwargs"])

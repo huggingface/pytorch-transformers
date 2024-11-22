@@ -25,10 +25,10 @@ from huggingface_hub import snapshot_download
 from safetensors import safe_open
 
 from transformers import (
-    BlipImageProcessor,
     GenerationConfig,
     GotOcr2Config,
     GotOcr2ForConditionalGeneration,
+    GotOcr2ImageProcessor,
     PreTrainedTokenizerFast,
 )
 from transformers.convert_slow_tokenizer import TikTokenConverter
@@ -258,7 +258,7 @@ def write_tokenizer(tokenizer_path: str, save_dir: str, instruct: bool = False):
 
 
 def write_image_processor(save_dir: str):
-    image_processor = BlipImageProcessor(
+    image_processor = GotOcr2ImageProcessor(
         do_resize=True,
         size={"height": 1024, "width": 1024},
         do_rescale=True,

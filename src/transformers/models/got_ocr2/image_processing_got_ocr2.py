@@ -328,7 +328,7 @@ class GotOcr2ImageProcessor(BaseImageProcessor):
 
         return encoded_outputs
 
-    def crop_to_multi_image(self, image: "PIL.Image.Image", min_num=1, max_num=6, use_thumbnail=True, size=None):
+    def crop_image_to_patches(self, image: "PIL.Image.Image", min_num=1, max_num=6, use_thumbnail=True, size=None):
         size = size if size is not None else self.size
         size = get_size_dict(size, default_to_square=True)
         orig_width, orig_height = image.size
@@ -345,7 +345,9 @@ class GotOcr2ImageProcessor(BaseImageProcessor):
         target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
 
         # find the closest aspect ratio to the target
-        target_aspect_ratio = find_closest_aspect_ratio(aspect_ratio, target_ratios, orig_width, orig_height, size)
+        target_aspect_ratio = find_closest_aspect_ratio(
+            aspect_ratio, target_ratios, orig_width, orig_height, size["width"]
+        )
 
         # calculate the target width and height
         target_width = size["width"] * target_aspect_ratio[0]

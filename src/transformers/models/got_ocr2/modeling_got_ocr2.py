@@ -55,6 +55,21 @@ if is_flash_attn_2_available():
 logger = logging.get_logger(__name__)
 
 
+class GotOcr2MLPBlock(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        mlp_dim = config.mlp_dim if config.mlp_dim is not None else int(config.hidden_size * config.mlp_ratio)
+        self.lin1 = nn.Linear(config.hidden_size, mlp_dim)
+        self.lin2 = nn.Linear(mlp_dim, config.hidden_size)
+        self.act = ACT2FN[config.hidden_act]
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = self.lin1(hidden_states)
+        hidden_states = self.act(hidden_states)
+        hidden_states = self.lin2(hidden_states)
+        return hidden_states
+
+
 class GotOcr2LayerNorm(nn.Module):
     r"""LayerNorm that supports two data formats: channels_last (default) or channels_first.
     The ordering of the dimensions in the inputs. channels_last corresponds to inputs with shape (batch_size, height,
@@ -167,20 +182,6 @@ class GotOcr2PatchEmbeddings(nn.Module):
             )
         embeddings = self.projection(pixel_values).permute(0, 2, 3, 1)
         return embeddings
-
-
-class GotOcr2MLPBlock(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.lin1 = nn.Linear(config.hidden_size, config.mlp_dim)
-        self.lin2 = nn.Linear(config.mlp_dim, config.hidden_size)
-        self.act = ACT2FN[config.hidden_act]
-
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        hidden_states = self.lin1(hidden_states)
-        hidden_states = self.act(hidden_states)
-        hidden_states = self.lin2(hidden_states)
-        return hidden_states
 
 
 class GotOcr2VisionAttention(nn.Module):
@@ -1615,28 +1616,25 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
         >>> import requests
         >>> from transformers import AutoProcessor, GotOcr2ForConditionalGeneration
 
-        >>> model = GotOcr2ForConditionalGeneration.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
-        >>> processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+        >>> model = GotOcr2ForConditionalGeneration.from_pretrained("yonigozlan/GotOcr2-hf").to("cuda", dtype=torch.bfloat16)
+        >>> processor = AutoProcessor.from_pretrained("yonigozlan/GotOcr2-hf")
 
-        >>> messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": "What is shown in this image?"},
-                ],
-            },
-        ]
-        >>> url = "https://www.ilankelman.org/stopsigns/australia.jpg"
+        >>> url = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/multi_box.png"
         >>> image = Image.open(requests.get(url, stream=True).raw)
 
-        >>> text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        >>> inputs = processor(text=[text], images=[image], vision_infos=[vision_infos])
+        >>> inputs = processor(image, return_tensors="pt", color="green").to("cuda", dtype=torch.bfloat16)
 
         >>> # Generate
-        >>> generate_ids = model.generate(inputs.input_ids, max_length=30)
-        >>> tokenizer.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
-        "The image shows a street scene with a red stop sign in the foreground. In the background, there is a large red gate with Chinese characters ..."
+        >>> streamer = TextStreamer(processor.tokenizer, skip_prompt=True, skip_special_tokens=True)
+        >>> generate_ids = model.generate(**inputs, do_sample=False,
+                        tokenizer = processor.tokenizer,
+                        stop_strings='<|im_end|>',
+                        streamer=streamer,
+                        max_new_tokens=4096,)
+
+        >>> outputs = processor.batch_decode(generate_ids[:, inputs["input_ids"].shape[1]:])
+        "You should keep in mind what features from the module should be used, especially
+        when you're planning to sell a template."
         ```"""
 
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions

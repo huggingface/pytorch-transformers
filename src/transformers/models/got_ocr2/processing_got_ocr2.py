@@ -117,9 +117,10 @@ class GotOcr2Processor(ProcessorMixin):
     ) -> BatchFeature:
         """
         Main method to prepare for the model one or several sequences(s) and image(s). This method forwards the `text`
-        and `kwargs` arguments to Qwen2TokenizerFast's [`~Qwen2TokenizerFast.__call__`] if `text` is not `None` to encode
-        the text. To prepare the vision inputs, this method forwards the `vision_infos` and `kwrags` arguments to
-        Qwen2VLImageProcessor's [`~Qwen2VLImageProcessor.__call__`] if `vision_infos` is not `None`.
+        and `kwargs` arguments to PreTrainedTokenizerFast's [`~PreTrainedTokenizerFast.__call__`] to encode the text if `text`
+        is not `None`, otherwise encode default OCR queries which depends on the `format`, `box`, `color`, `multi_page` and
+        `crop_to_patches` arguments. To prepare the vision inputs, this method forwards the `images` and `kwrags` arguments to
+        GotOcr2ImageProcessor's [`~GotOcr2ImageProcessor.__call__`] if `images` is not `None`.
 
         Args:
             images (`PIL.Image.Image`, `np.ndarray`, `torch.Tensor`, `List[PIL.Image.Image]`, `List[np.ndarray]`, `List[torch.Tensor]`):
@@ -129,6 +130,20 @@ class GotOcr2Processor(ProcessorMixin):
                 The sequence or batch of sequences to be encoded. Each sequence can be a string or a list of strings
                 (pretokenized string). If the sequences are provided as list of strings (pretokenized), you must set
                 `is_split_into_words=True` (to lift the ambiguity with a batch of sequences).
+            format (`bool`, *optional*):
+                If set, will add the format token to the query, and the model will return the OCR result with formatting.
+            box (`List[float]`, `List[Tuple[float, float]]`, `List[Tuple[float, float, float, float]]`, *optional*):
+                The box annotation to be added to the query. If a list of floats or a tuple of floats is provided, it
+                will be interpreted as [x1, y1, x2, y2]. If a list of tuples is provided, each tuple should be in the
+                form (x1, y1, x2, y2).
+            color (`str`, *optional*):
+                The color annotation to be added to the query. The model will return the OCR result within the box with
+                the specified color.
+            multi_page (`bool`, *optional*):
+                If set, will enable multi-page inference. The model will return the OCR result across multiple pages.
+            crop_to_patches (`bool`, *optional*):
+                If set, will crop the image to patches. The model will return the OCR result upon the patch reference.
+
             return_tensors (`str` or [`~utils.TensorType`], *optional*):
                 If set, will return tensors of a particular framework. Acceptable values are:
                 - `'tf'`: Return TensorFlow `tf.constant` objects.

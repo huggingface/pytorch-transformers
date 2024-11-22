@@ -32,6 +32,7 @@ from transformers.tokenization_utils_base import (
     TextInput,
 )
 
+from ...activations import ACT2FN
 from ...cache_utils import StaticCache
 from ...configuration_utils import PretrainedConfig
 from ...generation import GenerationMixin
@@ -144,11 +145,12 @@ class GotOcr2VisionConfig(PretrainedConfig):
         self.attention_dropout = attention_dropout
         self.initializer_range = initializer_range
         self.qkv_bias = qkv_bias
+        self.mlp_ratio = mlp_ratio
         self.use_abs_pos = use_abs_pos
         self.use_rel_pos = use_rel_pos
         self.window_size = window_size
         self.global_attn_indexes = global_attn_indexes
-        self.mlp_dim = int(hidden_size * mlp_ratio) if mlp_dim is None else mlp_dim
+        self.mlp_dim = mlp_dim
 
 
 class GotOcr2Config(Qwen2VLConfig):
@@ -331,9 +333,10 @@ class GotOcr2Processor(ProcessorMixin):
     ) -> BatchFeature:
         """
         Main method to prepare for the model one or several sequences(s) and image(s). This method forwards the `text`
-        and `kwargs` arguments to Qwen2TokenizerFast's [`~Qwen2TokenizerFast.__call__`] if `text` is not `None` to encode
-        the text. To prepare the vision inputs, this method forwards the `vision_infos` and `kwrags` arguments to
-        Qwen2VLImageProcessor's [`~Qwen2VLImageProcessor.__call__`] if `vision_infos` is not `None`.
+        and `kwargs` arguments to PreTrainedTokenizerFast's [`~PreTrainedTokenizerFast.__call__`] to encode the text if `text`
+        is not `None`, otherwise encode default OCR queries which depends on the `format`, `box`, `color`, `multi_page` and
+        `crop_to_patches` arguments. To prepare the vision inputs, this method forwards the `images` and `kwrags` arguments to
+        GotOcr2ImageProcessor's [`~GotOcr2ImageProcessor.__call__`] if `images` is not `None`.
 
         Args:
             images (`PIL.Image.Image`, `np.ndarray`, `torch.Tensor`, `List[PIL.Image.Image]`, `List[np.ndarray]`, `List[torch.Tensor]`):
@@ -343,6 +346,20 @@ class GotOcr2Processor(ProcessorMixin):
                 The sequence or batch of sequences to be encoded. Each sequence can be a string or a list of strings
                 (pretokenized string). If the sequences are provided as list of strings (pretokenized), you must set
                 `is_split_into_words=True` (to lift the ambiguity with a batch of sequences).
+            format (`bool`, *optional*):
+                If set, will add the format token to the query, and the model will return the OCR result with formatting.
+            box (`List[float]`, `List[Tuple[float, float]]`, `List[Tuple[float, float, float, float]]`, *optional*):
+                The box annotation to be added to the query. If a list of floats or a tuple of floats is provided, it
+                will be interpreted as [x1, y1, x2, y2]. If a list of tuples is provided, each tuple should be in the
+                form (x1, y1, x2, y2).
+            color (`str`, *optional*):
+                The color annotation to be added to the query. The model will return the OCR result within the box with
+                the specified color.
+            multi_page (`bool`, *optional*):
+                If set, will enable multi-page inference. The model will return the OCR result across multiple pages.
+            crop_to_patches (`bool`, *optional*):
+                If set, will crop the image to patches. The model will return the OCR result upon the patch reference.
+
             return_tensors (`str` or [`~utils.TensorType`], *optional*):
                 If set, will return tensors of a particular framework. Acceptable values are:
                 - `'tf'`: Return TensorFlow `tf.constant` objects.
@@ -468,6 +485,21 @@ class GotOcr2Processor(ProcessorMixin):
         tokenizer_input_names = self.tokenizer.model_input_names
         image_processor_input_names = self.image_processor.model_input_names
         return list(dict.fromkeys(tokenizer_input_names + image_processor_input_names))
+
+
+class GotOcr2MLPBlock(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        mlp_dim = config.mlp_dim if config.mlp_dim is not None else int(config.hidden_size * config.mlp_ratio)
+        self.lin1 = nn.Linear(config.hidden_size, mlp_dim)
+        self.lin2 = nn.Linear(mlp_dim, config.hidden_size)
+        self.act = ACT2FN[config.hidden_act]
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        hidden_states = self.lin1(hidden_states)
+        hidden_states = self.act(hidden_states)
+        hidden_states = self.lin2(hidden_states)
+        return hidden_states
 
 
 class GotOcr2LayerNorm(nn.Module):
@@ -619,28 +651,25 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
         >>> import requests
         >>> from transformers import AutoProcessor, GotOcr2ForConditionalGeneration
 
-        >>> model = GotOcr2ForConditionalGeneration.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
-        >>> processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct")
+        >>> model = GotOcr2ForConditionalGeneration.from_pretrained("yonigozlan/GotOcr2-hf").to("cuda", dtype=torch.bfloat16)
+        >>> processor = AutoProcessor.from_pretrained("yonigozlan/GotOcr2-hf")
 
-        >>> messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": "What is shown in this image?"},
-                ],
-            },
-        ]
-        >>> url = "https://www.ilankelman.org/stopsigns/australia.jpg"
+        >>> url = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/multi_box.png"
         >>> image = Image.open(requests.get(url, stream=True).raw)
 
-        >>> text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        >>> inputs = processor(text=[text], images=[image], vision_infos=[vision_infos])
+        >>> inputs = processor(image, return_tensors="pt", color="green").to("cuda", dtype=torch.bfloat16)
 
         >>> # Generate
-        >>> generate_ids = model.generate(inputs.input_ids, max_length=30)
-        >>> tokenizer.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
-        "The image shows a street scene with a red stop sign in the foreground. In the background, there is a large red gate with Chinese characters ..."
+        >>> streamer = TextStreamer(processor.tokenizer, skip_prompt=True, skip_special_tokens=True)
+        >>> generate_ids = model.generate(**inputs, do_sample=False,
+                        tokenizer = processor.tokenizer,
+                        stop_strings='<|im_end|>',
+                        streamer=streamer,
+                        max_new_tokens=4096,)
+
+        >>> outputs = processor.batch_decode(generate_ids[:, inputs["input_ids"].shape[1]:])
+        "You should keep in mind what features from the module should be used, especially
+        when you're planning to sell a template."
         ```"""
 
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions

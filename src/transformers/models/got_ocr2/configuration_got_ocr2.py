@@ -110,11 +110,12 @@ class GotOcr2VisionConfig(PretrainedConfig):
         self.attention_dropout = attention_dropout
         self.initializer_range = initializer_range
         self.qkv_bias = qkv_bias
+        self.mlp_ratio = mlp_ratio
         self.use_abs_pos = use_abs_pos
         self.use_rel_pos = use_rel_pos
         self.window_size = window_size
         self.global_attn_indexes = global_attn_indexes
-        self.mlp_dim = int(hidden_size * mlp_ratio) if mlp_dim is None else mlp_dim
+        self.mlp_dim = mlp_dim
 
 
 class GotOcr2Config(PretrainedConfig):

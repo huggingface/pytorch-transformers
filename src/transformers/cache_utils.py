@@ -1229,21 +1229,27 @@ class StaticCache(Cache):
     def crop(self, max_length: int):
         """Crop the past key values up to a new `max_length` in terms of tokens. `max_length` can also be
         negative to remove `max_length` tokens. This is used in assisted decoding and contrastive search."""
+        seq_length = self.get_seq_length()
         # In case it is negative
         if max_length < 0:
-            max_length = self.get_seq_length() - abs(max_length)
+            max_length = seq_length - abs(max_length)
 
-        if self.get_seq_length() <= max_length:
+        if seq_length <= max_length:
             return
 
         begin = max_length
-        end = self.get_seq_length() + 1
+        end = seq_length + 1
         index = torch.arange(begin, end, device=self.key_cache[0].device)
 
         self._seen_tokens = max_length
         for idx in range(len(self.key_cache)):
-            self.key_cache[idx].index_fill_(2, index, 0)
-            self.value_cache[idx].index_fill_(2, index, 0)
+            try:
+                self.key_cache[idx].index_fill_(2, index, 0)
+                self.value_cache[idx].index_fill_(2, index, 0)
+            except NotImplementedError:
+                # The operator 'aten::index_fill' is not currently implemented for the MPS device.
+                self.key_cache[idx][:, :, index] = 0
+                self.value_cache[idx][:, :, index] = 0
 
     def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
         """Returns the sequence length of the cached states that were seen by the model."""

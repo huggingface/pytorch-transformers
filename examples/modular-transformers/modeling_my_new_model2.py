@@ -667,7 +667,10 @@ class MyNewModel2Model(MyNewModel2PreTrainedModel):
             [MyNewModel2DecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
         self.norm = MyNewModel2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+
         self.gradient_checkpointing = False
+        if getattr(config, "pretraining_tp", 1) != 1:
+            logger.warn("`pretraining_tp` is deprecated, please use `model.tensor_parallel` instead.")
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -752,7 +755,7 @@ class MyNewModel2Model(MyNewModel2PreTrainedModel):
         all_self_attns = () if output_attentions else None
         next_decoder_cache = None
 
-        for decoder_layer in self.layers:
+        for decoder_layer in self.layers[: self.config.num_hidden_layers]:
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
 

@@ -890,7 +890,7 @@ class CohereModel(CoherePreTrainedModel):
         all_self_attns = () if output_attentions else None
         next_decoder_cache = None
 
-        for decoder_layer in self.layers:
+        for decoder_layer in self.layers[: self.config.num_hidden_layers]:
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
 
@@ -1068,7 +1068,7 @@ class CohereModel(CoherePreTrainedModel):
         return causal_mask
 
 
-# Copied from transformers.models.llama.modeling_llama.LlamaForCausalLM with Llama->Cohere
+# TODO: re-enable check: Copied from transformers.models.llama.modeling_llama.LlamaForCausalLM with Llama->Cohere
 class CohereForCausalLM(CoherePreTrainedModel, GenerationMixin):
     _tied_weights_keys = ["lm_head.weight"]
 

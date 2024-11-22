@@ -625,12 +625,14 @@ class VideoLlavaForConditionalGenerationIntegrationTest(unittest.TestCase):
         # check processing with expansion of inputs
         processor.vision_feature_select_strategy = "default"
         processor.patch_size = 14
+        processor.num_additional_image_tokens = 1
         inputs_expanded = processor(prompt, images=image, return_tensors="pt").to(torch_device, torch.float16)
         self.assertTrue(inputs_expanded.input_ids.shape[-1] == 274)
 
         # check processing without expansion of inputs (legacy behavior)
         processor.vision_feature_select_strategy = None
         processor.patch_size = None
+        processor.num_additional_image_tokens = None
         inputs = processor(prompt, images=image, return_tensors="pt").to(torch_device, torch.float16)
         self.assertTrue(inputs.input_ids.shape[-1] == 19)
 
@@ -657,12 +659,14 @@ class VideoLlavaForConditionalGenerationIntegrationTest(unittest.TestCase):
         # check processing with expansion of inputs
         processor.vision_feature_select_strategy = "default"
         processor.patch_size = 14
+        processor.num_additional_image_tokens = 1
         inputs_expanded = processor(prompt, videos=video_file, return_tensors="pt").to(torch_device, torch.float16)
         self.assertTrue(inputs_expanded.input_ids.shape[-1] == 2074)
 
         # check processing without expansion of inputs (legacy behavior)
         processor.vision_feature_select_strategy = None
         processor.patch_size = None
+        processor.num_additional_image_tokens = None
         inputs = processor(prompt, videos=video_file, return_tensors="pt").to(torch_device, torch.float16)
         self.assertTrue(inputs.input_ids.shape[-1] == 19)
 

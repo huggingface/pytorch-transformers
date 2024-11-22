@@ -622,6 +622,7 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
         # check processing with expansion of inputs
         processor.vision_feature_select_strategy = "default"
         processor.patch_size = 14
+        processor.num_additional_image_tokens = 1
         inputs_expanded = processor(text=prompt, images=[raw_image, deer_image], return_tensors="pt").to(
             torch_device, torch.float16
         )
@@ -630,6 +631,7 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
         # check processing without expansion of inputs (legacy behavior)
         processor.vision_feature_select_strategy = None
         processor.patch_size = None
+        processor.num_additional_image_tokens = None
         inputs = processor(text=prompt, images=[raw_image, deer_image], return_tensors="pt").to(
             torch_device, torch.float16
         )
@@ -656,12 +658,14 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
         # check processing with expansion of inputs
         processor.vision_feature_select_strategy = "default"
         processor.patch_size = 14
+        processor.num_additional_image_tokens = 1
         inputs_expanded = processor(images=raw_image, text=prompt, return_tensors="pt").to(torch_device, torch.float16)
         self.assertTrue(inputs_expanded.input_ids.shape[-1] == 2356)
 
         # check processing without expansion of inputs (legacy behavior)
         processor.vision_feature_select_strategy = None
         processor.patch_size = None
+        processor.num_additional_image_tokens = None
         inputs = processor(images=raw_image, text=prompt, return_tensors="pt").to(torch_device, torch.float16)
         self.assertTrue(inputs.input_ids.shape[-1] == 17)
 

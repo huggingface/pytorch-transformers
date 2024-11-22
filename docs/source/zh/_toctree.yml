@@ -86,6 +86,8 @@
     title: 🤗Transformers能做什么
   - local: tokenizer_summary
     title: 分词器的摘要
+  - local: attention
+    title: 注意力机制
   title: 概念指南
 - sections:
   - sections:

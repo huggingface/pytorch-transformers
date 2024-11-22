@@ -1080,7 +1080,8 @@ class MaskFormerImageProcessor(BaseImageProcessor):
     ) -> List[Dict]:
         """
         Converts the output of [`MaskFormerForInstanceSegmentationOutput`] into instance segmentation predictions. Only
-        supports PyTorch.
+        supports PyTorch. If instances could overlap, set either return_coco_annotation or return_binary_maps
+        to `True` to get the correct segmentation result.
 
         Args:
             outputs ([`MaskFormerForInstanceSegmentation`]):
@@ -1102,9 +1103,10 @@ class MaskFormerImageProcessor(BaseImageProcessor):
                 (one per detected instance).
         Returns:
             `List[Dict]`: A list of dictionaries, one per image, each dictionary containing two keys:
-            - **segmentation** -- A tensor of shape `(height, width)` where each pixel represents a `segment_id` or
+            - **segmentation** -- A tensor of shape `(height, width)` where each pixel represents a `segment_id`, or
               `List[List]` run-length encoding (RLE) of the segmentation map if return_coco_annotation is set to
-              `True`. Set to `None` if no mask if found above `threshold`.
+              `True`, or a tensor of shape `(num_instances, height, width)` if return_binary_maps is set to `True`.
+              Set to `None` if no mask if found above `threshold`.
             - **segments_info** -- A dictionary that contains additional information on each segment.
                 - **id** -- An integer representing the `segment_id`.
                 - **label_id** -- An integer representing the label / semantic class id corresponding to `segment_id`.

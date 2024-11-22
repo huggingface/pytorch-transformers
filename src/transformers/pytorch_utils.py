@@ -39,6 +39,14 @@ is_torch_greater_or_equal_than_1_13 = parsed_torch_version_base >= version.parse
 is_torch_greater_or_equal_than_1_12 = parsed_torch_version_base >= version.parse("1.12")
 
 
+if is_torch_greater_or_equal_than_2_4:
+    from torch.distributed.tensor import Replicate
+    from torch.distributed.tensor.parallel import (
+        ColwiseParallel,
+        RowwiseParallel,
+    )
+
+
 def softmax_backward_data(parent, grad_output, output, dim, self):
     """
     A function that calls the internal `_softmax_backward_data` PyTorch method and that adjusts the arguments according
@@ -329,3 +337,22 @@ def isin_mps_friendly(elements: torch.Tensor, test_elements: torch.Tensor | int)
     else:
         # Note: don't use named arguments in `torch.isin`, see https://github.com/pytorch/pytorch/issues/126045
         return torch.isin(elements, test_elements)
+
+
+def translate_to_torch_parallel_style(style: str):
+    """
+    In model configurations, we use a neutral type (string) to specify parallel
+    styles, here we translate them into torch.distributed tensor-parallel
+    types.
+    """
+    if not isinstance(style, str):
+        raise ValueError(f"Unsupported parallel style type {type(style)}, expected str")
+
+    if style == "colwise":
+        return ColwiseParallel()
+    elif style == "rowwise":
+        return RowwiseParallel()
+    elif style == "colwise_rep":
+        return ColwiseParallel(output_layouts=Replicate())
+    else:
+        raise ValueError(f"Unsupported parallel style value: {style}")

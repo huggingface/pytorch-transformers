@@ -918,7 +918,7 @@ class WandbCallback(TrainerCallback):
         if self._log_model.is_enabled and self._initialized and state.is_world_process_zero:
             from ..trainer import Trainer
 
-            fake_trainer = Trainer(args=args, model=model, processing_class=tokenizer)
+            fake_trainer = Trainer(args=args, model=model, processing_class=tokenizer, eval_dataset=["fake"])
             with tempfile.TemporaryDirectory() as temp_dir:
                 fake_trainer.save_model(temp_dir)
                 metadata = (

@@ -1000,6 +1000,7 @@ class Qwen2VisionTransformerPretrainedModel(Qwen2VLPreTrainedModel):
         self.merger = PatchMerger(
             dim=config.hidden_size, context_dim=config.embed_dim, spatial_merge_size=config.spatial_merge_size
         )
+        self.gradient_checkpointing = False
 
     def get_dtype(self) -> torch.dtype:
         return self.blocks[0].mlp.fc2.weight.dtype
@@ -1046,7 +1047,12 @@ class Qwen2VisionTransformerPretrainedModel(Qwen2VLPreTrainedModel):
         cu_seqlens = F.pad(cu_seqlens, (1, 0), value=0)
 
         for blk in self.blocks:
-            hidden_states = blk(hidden_states, cu_seqlens=cu_seqlens, rotary_pos_emb=rotary_pos_emb)
+            if self.gradient_checkpointing and self.training:
+                hidden_states = self._gradient_checkpointing_func(
+                    blk.__call__, hidden_states, cu_seqlens, rotary_pos_emb
+                )
+            else:
+                hidden_states = blk(hidden_states, cu_seqlens=cu_seqlens, rotary_pos_emb=rotary_pos_emb)
 
         return self.merger(hidden_states)
 

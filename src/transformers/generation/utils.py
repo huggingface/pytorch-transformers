@@ -54,6 +54,7 @@ from .candidate_generator import (
     AssistedCandidateGenerator,
     AssistedCandidateGeneratorDifferentTokenizers,
     CandidateGenerator,
+    EarlyExitCandidateGenerator,
     PromptLookupCandidateGenerator,
     _crop_past_key_values,
     _prepare_attention_mask,
@@ -822,7 +823,16 @@ class GenerationMixin:
         """
         different_tokenizers = all(v is not None for v in (assistant_model, target_tokenizer, assistant_tokenizer))
 
-        if generation_config.prompt_lookup_num_tokens is not None:
+        if generation_config.assistant_early_exit is not None:
+            candidate_generator = EarlyExitCandidateGenerator(
+                input_ids=input_ids,
+                assistant_model=self,
+                generation_config=generation_config,
+                model_kwargs=model_kwargs,
+                inputs_tensor=inputs_tensor,
+                logits_processor=logits_processor,
+            )
+        elif generation_config.prompt_lookup_num_tokens is not None:
             candidate_generator = PromptLookupCandidateGenerator(
                 eos_token_id=generation_config._eos_token_tensor,
                 num_output_tokens=generation_config.prompt_lookup_num_tokens,
@@ -1452,10 +1462,11 @@ class GenerationMixin:
         ):
             generation_config.max_length -= inputs_tensor.shape[1]
         elif has_default_max_length:  # by default let's always generate 20 new tokens
-            generation_config.max_length = generation_config.max_length + input_ids_length
-            max_position_embeddings = getattr(self.config, "max_position_embeddings", None)
-            if max_position_embeddings is not None:
-                generation_config.max_length = min(generation_config.max_length, max_position_embeddings)
+            if generation_config.max_length == GenerationConfig().max_length:
+                generation_config.max_length = generation_config.max_length + input_ids_length
+                max_position_embeddings = getattr(self.config, "max_position_embeddings", None)
+                if max_position_embeddings is not None:
+                    generation_config.max_length = min(generation_config.max_length, max_position_embeddings)
 
         # same for min length
         if generation_config.min_new_tokens is not None:
@@ -1635,7 +1646,10 @@ class GenerationMixin:
             # This is needed here if we don't want to make changes in accelerate in order to save execution_device
             # For offloaded case, we need to get the execution device, not just the device where it is offloaded
             if hasattr(self, "hf_device_map"):
-                main_device = [d for d in self.hf_device_map.values() if d not in ["cpu", "disk"]][0]
+                if set(self.hf_device_map.values()) == {"cpu"} or set(self.hf_device_map.values()) == {"cpu", "disk"}:
+                    main_device = "cpu"
+                else:
+                    main_device = [d for d in self.hf_device_map.values() if d not in ["cpu", "disk"]][0]
                 execution_device_map = {
                     name: main_device if device in ["cpu", "disk"] else device
                     for name, device in self.hf_device_map.items()

@@ -962,7 +962,7 @@ class SegGptForImageSegmentation(SegGptPreTrainedModel):
 
         >>> inputs = image_processor(images=image_input, prompt_images=image_prompt, prompt_masks=mask_prompt, return_tensors="pt")
         >>> outputs = model(**inputs)
-        >>> result = image_processor.post_process_semantic_segmentation(outputs, target_sizes=[image_input.size[::-1]])[0]
+        >>> result = image_processor.post_process_semantic_segmentation(outputs, target_sizes=[(image_input.height, image_input.width)])[0]
         >>> print(list(result.shape))
         [170, 297]
         ```

@@ -53,7 +53,7 @@ sections we go through the steps to run inference on CPU and single/multi-GPU se
 
 * [Inference on a single CPU](perf_infer_cpu)
 * [Inference on a single GPU](perf_infer_gpu_one)
-* [Multi-GPU inference](perf_infer_gpu_one)
+* [Multi-GPU inference](perf_infer_gpu_multi)
 * [XLA Integration for TensorFlow Models](tf_xla)
 
 

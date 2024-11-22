@@ -416,7 +416,7 @@ class DetrImageProcessorFast(BaseImageProcessorFast):
     def from_dict(cls, image_processor_dict: Dict[str, Any], **kwargs):
         """
         Overrides the `from_dict` method from the base class to make sure parameters are updated if image processor is
-        created using from_dict and kwargs e.g. `DetrImageProcessor.from_pretrained(checkpoint, size=600,
+        created using from_dict and kwargs e.g. `DetrImageProcessorFast.from_pretrained(checkpoint, size=600,
         max_size=800)`
         """
         image_processor_dict = image_processor_dict.copy()
@@ -863,6 +863,7 @@ class DetrImageProcessorFast(BaseImageProcessorFast):
             input_data_format = infer_channel_dimension_format(images[0])
         if input_data_format == ChannelDimension.LAST:
             images = [image.permute(2, 0, 1).contiguous() for image in images]
+            input_data_format = ChannelDimension.FIRST
 
         if do_rescale and do_normalize:
             # fused rescale and normalize

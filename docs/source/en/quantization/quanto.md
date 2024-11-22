@@ -14,21 +14,21 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Quanto
+# Optimum-quanto
 
 <Tip>
 
-Try Quanto + transformers with this [notebook](https://colab.research.google.com/drive/16CXfVmtdQvciSh9BopZUDYcmXCDpvgrT?usp=sharing)!
+Try optimum-quanto + transformers with this [notebook](https://colab.research.google.com/drive/16CXfVmtdQvciSh9BopZUDYcmXCDpvgrT?usp=sharing)!
 
 </Tip>
 
 
-[🤗 Quanto](https://github.com/huggingface/quanto) library is a versatile pytorch quantization toolkit. The quantization method used is the linear quantization. Quanto provides several unique features such as:
+[🤗 optimum-quanto](https://github.com/huggingface/optimum-quanto) library is a versatile pytorch quantization toolkit. The quantization method used is the linear quantization. Quanto provides several unique features such as:
 
 - weights quantization (`float8`,`int8`,`int4`,`int2`)
 - activation quantization (`float8`,`int8`)
 - modality agnostic (e.g CV,LLM)
-- device agnostic (e.g CUDA,MPS,CPU)
+- device agnostic (e.g CUDA,XPU,MPS,CPU)
 - compatibility with `torch.compile`
 - easy to add custom kernel for specific device
 - supports quantization aware training
@@ -37,12 +37,12 @@ Try Quanto + transformers with this [notebook](https://colab.research.google.com
 Before you begin, make sure the following libraries are installed:
 
 ```bash
-pip install quanto accelerate transformers
+pip install optimum-quanto accelerate transformers
 ```
 
 Now you can quantize a model by passing [`QuantoConfig`] object in the [`~PreTrainedModel.from_pretrained`] method. This works for any model in any modality, as long as it contains `torch.nn.Linear` layers. 
 
-The integration with transformers only supports weights quantization. For the more complex use case such as activation quantization, calibration and quantization aware training, you should use [quanto](https://github.com/huggingface/quanto) library instead. 
+The integration with transformers only supports weights quantization. For the more complex use case such as activation quantization, calibration and quantization aware training, you should use [optimum-quanto](https://github.com/huggingface/optimum-quanto) library instead. 
 
 ```py
 from transformers import AutoModelForCausalLM, AutoTokenizer, QuantoConfig
@@ -55,7 +55,7 @@ quantized_model = AutoModelForCausalLM.from_pretrained(model_id, device_map="cud
 
 Note that serialization is not supported yet with transformers but it is coming soon! If you want to save the model, you can use quanto library instead.
 
-Quanto library uses linear quantization algorithm for quantization. Even though this is a basic quantization technique, we get very good results! Have a look at the following benchmark (llama-2-7b on perplexity metric). You can find more benchmarks [here](https://github.com/huggingface/quanto/tree/main/bench/generation)
+Optimum-quanto library uses linear quantization algorithm for quantization. Even though this is a basic quantization technique, we get very good results! Have a look at the following benchmark (llama-2-7b on perplexity metric). You can find more benchmarks [here](https://github.com/huggingface/optimum-quanto/tree/main/bench/generation)
 
 <div class="flex gap-4">
   <div>

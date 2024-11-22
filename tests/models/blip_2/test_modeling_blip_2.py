@@ -330,7 +330,7 @@ class Blip2TextModelDecoderOnlyTester:
         hidden_act="gelu",
         hidden_dropout_prob=0.1,
         attention_probs_dropout_prob=0.1,
-        max_position_embeddings=20,
+        max_position_embeddings=512,
         eos_token_id=2,
         pad_token_id=1,
         bos_token_id=0,

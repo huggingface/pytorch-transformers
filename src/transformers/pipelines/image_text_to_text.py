@@ -75,16 +75,32 @@ def retrieve_images_in_messages(
     retrieved_images = []
     for message in messages:
         for content in message["content"]:
-            if isinstance(content, dict) and content.get("type") == "image":
-                if "image" in content:
-                    retrieved_images.append(content["image"])
-                elif idx_images < len(images):
-                    retrieved_images.append(images[idx_images])
-                    idx_images += 1
-                else:
-                    raise ValueError(
-                        "The number of images in the chat messages should be the same as the number of images passed to the pipeline."
-                    )
+            if isinstance(content, dict):
+                if content.get("type") == "image":
+                    for key in ["image", "url", "path", "base64"]:
+                        if key in content:
+                            retrieved_images.append(content[key])
+                            break
+                    else:
+                        if idx_images < len(images):
+                            retrieved_images.append(images[idx_images])
+                            idx_images += 1
+                        else:
+                            raise ValueError(
+                                "The number of images in the chat messages should be the same as the number of images passed to the pipeline."
+                            )
+                # Add support for OpenAI/TGI chat format
+                elif content.get("type") == "image_url":
+                    if isinstance(content.get("image_url"), dict) and "url" in content["image_url"]:
+                        retrieved_images.append(content["image_url"]["url"])
+                        # Rewrite content to be in the Transformers chat format
+                        content["type"] = "image"
+                        content["image"] = content["image_url"]["url"]
+                        del content["image_url"]
+                    else:
+                        raise ValueError(
+                            "Wrong format for 'image_url' content type. The content should have an 'image_url' dict with a 'url' key."
+                        )
 
     # The number of images passed should be consistent with the number of images in the chat without an image key
     if idx_images != len(images):

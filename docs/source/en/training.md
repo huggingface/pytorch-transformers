@@ -287,9 +287,10 @@ model.fit(tf_dataset)
 At this point, you may need to restart your notebook or execute the following code to free some memory:
 
 ```py
+from accelerate.utils.memory import clear_device_cache
 del model
 del trainer
-torch.cuda.empty_cache()
+clear_device_cache()
 ```
 
 Next, manually postprocess `tokenized_dataset` to prepare it for training.
@@ -364,8 +365,9 @@ Lastly, specify `device` to use a GPU if you have access to one. Otherwise, trai
 
 ```py
 >>> import torch
+>>> from accelerate.test_utils.testing import get_backend
 
->>> device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+>>> device, _, _ = get_backend() # automatically detects the underlying device type (CUDA, CPU, XPU, MPS, etc.)
 >>> model.to(device)
 ```
 

@@ -54,6 +54,12 @@ If you're interested in submitting a resource to be included here, please feel f
     - preprocess
     - post_process_object_detection
 
+## DeformableDetrImageProcessorFast
+
+[[autodoc]] DeformableDetrImageProcessorFast
+    - preprocess
+    - post_process_object_detection
+
 ## DeformableDetrFeatureExtractor
 
 [[autodoc]] DeformableDetrFeatureExtractor

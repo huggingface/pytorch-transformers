@@ -639,6 +639,7 @@ class RTDetrImageProcessorFast(BaseImageProcessorFast):
             input_data_format = infer_channel_dimension_format(images[0])
         if input_data_format == ChannelDimension.LAST:
             images = [image.permute(2, 0, 1).contiguous() for image in images]
+            input_data_format = ChannelDimension.FIRST
 
         if do_rescale and do_normalize:
             # fused rescale and normalize

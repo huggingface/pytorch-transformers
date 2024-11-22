@@ -148,7 +148,7 @@ with torch.no_grad():
     outputs = model(**inputs)
 
 # Post-process outputs
-outputs = image_processor.post_process_instance_segmentation(outputs, target_sizes=[image.size[::-1]])
+outputs = image_processor.post_process_instance_segmentation(outputs, target_sizes=[(image.height, image.width)])
 
 print("Mask shape: ", outputs[0]["segmentation"].shape)
 print("Mask values: ", outputs[0]["segmentation"].unique())

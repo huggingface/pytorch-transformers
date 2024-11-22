@@ -1780,7 +1780,7 @@ class MaskFormerForInstanceSegmentation(MaskFormerPreTrainedModel):
 
         >>> # you can pass them to image_processor for postprocessing
         >>> predicted_semantic_map = image_processor.post_process_semantic_segmentation(
-        ...     outputs, target_sizes=[image.size[::-1]]
+        ...     outputs, target_sizes=[(image.height, image.width)]
         ... )[0]
 
         >>> # we refer to the demo notebooks for visualization (see "Resources" section in the MaskFormer docs)
@@ -1810,7 +1810,7 @@ class MaskFormerForInstanceSegmentation(MaskFormerPreTrainedModel):
         >>> masks_queries_logits = outputs.masks_queries_logits
 
         >>> # you can pass them to image_processor for postprocessing
-        >>> result = image_processor.post_process_panoptic_segmentation(outputs, target_sizes=[image.size[::-1]])[0]
+        >>> result = image_processor.post_process_panoptic_segmentation(outputs, target_sizes=[(image.height, image.width)])[0]
 
         >>> # we refer to the demo notebooks for visualization (see "Resources" section in the MaskFormer docs)
         >>> predicted_panoptic_map = result["segmentation"]

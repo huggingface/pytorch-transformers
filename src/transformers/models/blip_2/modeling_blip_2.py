@@ -2203,7 +2203,7 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel, GenerationMixin):
             logger.warning_once(
                 "Expanding inputs for image tokens in BLIP-2 should be done in processing. "
                 "Please follow instruction here (https://gist.github.com/zucchini-nlp/e9f20b054fa322f84ac9311d9ab67042) to update your BLIP-2 model. "
-                "Using processors without these attributes in the config is deprecated and will throw an error in v4.47."
+                "Using processors without these attributes in the config is deprecated and will throw an error in v4.50."
             )
             inputs_embeds = torch.cat([language_model_inputs, inputs_embeds.to(language_model_inputs.device)], dim=1)
             attention_mask = torch.cat(
@@ -2326,7 +2326,7 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel, GenerationMixin):
             logger.warning_once(
                 "Expanding inputs for image tokens in BLIP-2 should be done in processing. "
                 "Please follow instruction here (https://gist.github.com/zucchini-nlp/e9f20b054fa322f84ac9311d9ab67042) to update your BLIP-2 model. "
-                "Using processors without these attributes in the config is deprecated and will throw an error in v4.47."
+                "Using processors without these attributes in the config is deprecated and will throw an error in v4.50."
             )
             inputs_embeds = torch.cat([language_model_inputs, inputs_embeds.to(language_model_inputs.device)], dim=1)
             attention_mask = torch.cat(

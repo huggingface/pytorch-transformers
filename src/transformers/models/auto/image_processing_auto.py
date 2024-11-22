@@ -68,7 +68,7 @@ else:
             ("convnextv2", ("ConvNextImageProcessor",)),
             ("cvt", ("ConvNextImageProcessor",)),
             ("data2vec-vision", ("BeitImageProcessor",)),
-            ("deformable_detr", ("DeformableDetrImageProcessor",)),
+            ("deformable_detr", ("DeformableDetrImageProcessor", "DeformableDetrImageProcessorFast")),
             ("deit", ("DeiTImageProcessor",)),
             ("depth_anything", ("DPTImageProcessor",)),
             ("deta", ("DetaImageProcessor",)),

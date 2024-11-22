@@ -57,14 +57,14 @@ class AwqQuantizer(HfQuantizer):
                 raise RuntimeError(
                     "To use IPEX backend, you need autoawq>0.6.2. Please install the latest version or from source."
                 )
-            if (
-                device_map is not None
-                and isinstance(device_map, dict)
-                and (torch.device("cpu") not in device_map.values() or len(device_map.values()) > 1)
-            ):
+            if device_map is None:
+                logger.warning_once(
+                    "You have loaded an AWQ model without setting device_map, please set 'cpu' or 'xpu' or 'auto'"
+                )
+            elif isinstance(device_map, dict) and "disk" in device_map.values():
                 raise ValueError(
-                    "You are attempting to load an IPEX version AWQ model with a device_map that contains more than CPU."
-                    " This is not supported. Please make sure only cpu in the device_map."
+                    "You are attempting to load an IPEX version AWQ model with a device_map that contains disk device."
+                    " This is not supported. Please make sure only cpu and xpu in the device_map."
                 )
         else:
             if not torch.cuda.is_available():

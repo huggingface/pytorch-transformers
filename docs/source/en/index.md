@@ -240,6 +240,7 @@ Flax), PyTorch, and/or TensorFlow.
 |                        [Nougat](model_doc/nougat)                        |       ✅        |         ✅         |      ✅      |
 |                 [Nyströmformer](model_doc/nystromformer)                 |       ✅        |         ❌         |      ❌      |
 |                          [OLMo](model_doc/olmo)                          |       ✅        |         ❌         |      ❌      |
+|                [OLMo November 2024](model_doc/olmo_1124)                 |       ✅        |         ❌         |      ❌      |
 |                         [OLMoE](model_doc/olmoe)                         |       ✅        |         ❌         |      ❌      |
 |                   [OmDet-Turbo](model_doc/omdet-turbo)                   |       ✅        |         ❌         |      ❌      |
 |                     [OneFormer](model_doc/oneformer)                     |       ✅        |         ❌         |      ❌      |

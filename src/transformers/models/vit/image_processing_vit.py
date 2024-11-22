@@ -19,7 +19,7 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 
 from ...image_processing_utils import BaseImageProcessor, BatchFeature, get_size_dict
-from ...image_transforms import resize, to_channel_dimension_format
+from ...image_transforms import convert_to_rgb, resize, to_channel_dimension_format
 from ...image_utils import (
     IMAGENET_STANDARD_MEAN,
     IMAGENET_STANDARD_STD,
@@ -68,6 +68,8 @@ class ViTImageProcessor(BaseImageProcessor):
         image_std (`float` or `List[float]`, *optional*, defaults to `IMAGENET_STANDARD_STD`):
             Standard deviation to use if normalizing the image. This is a float or list of floats the length of the
             number of channels in the image. Can be overridden by the `image_std` parameter in the `preprocess` method.
+        do_convert_rgb (`bool`, *optional*):
+            Whether to convert the image to RGB.
     """
 
     model_input_names = ["pixel_values"]
@@ -82,6 +84,7 @@ class ViTImageProcessor(BaseImageProcessor):
         do_normalize: bool = True,
         image_mean: Optional[Union[float, List[float]]] = None,
         image_std: Optional[Union[float, List[float]]] = None,
+        do_convert_rgb: Optional[bool] = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -95,6 +98,7 @@ class ViTImageProcessor(BaseImageProcessor):
         self.rescale_factor = rescale_factor
         self.image_mean = image_mean if image_mean is not None else IMAGENET_STANDARD_MEAN
         self.image_std = image_std if image_std is not None else IMAGENET_STANDARD_STD
+        self.do_convert_rgb = do_convert_rgb
 
     def resize(
         self,
@@ -159,6 +163,7 @@ class ViTImageProcessor(BaseImageProcessor):
         return_tensors: Optional[Union[str, TensorType]] = None,
         data_format: Union[str, ChannelDimension] = ChannelDimension.FIRST,
         input_data_format: Optional[Union[str, ChannelDimension]] = None,
+        do_convert_rgb: Optional[bool] = None,
     ):
         """
         Preprocess an image or batch of images.
@@ -203,6 +208,8 @@ class ViTImageProcessor(BaseImageProcessor):
                 - `"channels_first"` or `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
                 - `"channels_last"` or `ChannelDimension.LAST`: image in (height, width, num_channels) format.
                 - `"none"` or `ChannelDimension.NONE`: image in (height, width) format.
+            do_convert_rgb (`bool`, *optional*, defaults to `self.do_convert_rgb`):
+                Whether to convert the image to RGB.
         """
         do_resize = do_resize if do_resize is not None else self.do_resize
         do_rescale = do_rescale if do_rescale is not None else self.do_rescale
@@ -211,6 +218,7 @@ class ViTImageProcessor(BaseImageProcessor):
         rescale_factor = rescale_factor if rescale_factor is not None else self.rescale_factor
         image_mean = image_mean if image_mean is not None else self.image_mean
         image_std = image_std if image_std is not None else self.image_std
+        do_convert_rgb = do_convert_rgb if do_convert_rgb is not None else self.do_convert_rgb
 
         size = size if size is not None else self.size
         size_dict = get_size_dict(size)
@@ -232,6 +240,9 @@ class ViTImageProcessor(BaseImageProcessor):
             size=size,
             resample=resample,
         )
+
+        if do_convert_rgb:
+            images = [convert_to_rgb(image) for image in images]
 
         # All transformations expect numpy arrays.
         images = [to_numpy_array(image) for image in images]

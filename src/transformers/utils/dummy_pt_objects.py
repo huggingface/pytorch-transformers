@@ -6758,6 +6758,27 @@ class OlmoPreTrainedModel(metaclass=DummyObject):
         requires_backends(self, ["torch"])
 
 
+class Olmo1124ForCausalLM(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class Olmo1124Model(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class Olmo1124PreTrainedModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
 class OlmoeForCausalLM(metaclass=DummyObject):
     _backends = ["torch"]
 

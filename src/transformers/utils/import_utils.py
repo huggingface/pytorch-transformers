@@ -684,25 +684,27 @@ def is_torch_npu_available(check_device=False):
 
 @lru_cache()
 def is_torch_mlu_available(check_device=False):
-    "Checks if `torch_mlu` is installed and potentially if a MLU is in the environment"
+    """
+    Checks if `mlu` is available via an `cndev-based` check which won't trigger the drivers and leave mlu
+    uninitialized.
+    """
     if not _torch_available or importlib.util.find_spec("torch_mlu") is None:
         return False
 
     import torch
     import torch_mlu  # noqa: F401
 
-    from ..dependency_versions_table import deps
+    pytorch_cndev_based_mlu_check_previous_value = os.environ.get("PYTORCH_CNDEV_BASED_MLU_CHECK")
+    try:
+        os.environ["PYTORCH_CNDEV_BASED_MLU_CHECK"] = str(1)
+        available = torch.mlu.is_available()
+    finally:
+        if pytorch_cndev_based_mlu_check_previous_value:
+            os.environ["PYTORCH_CNDEV_BASED_MLU_CHECK"] = pytorch_cndev_based_mlu_check_previous_value
+        else:
+            os.environ.pop("PYTORCH_CNDEV_BASED_MLU_CHECK", None)
 
-    deps["deepspeed"] = "deepspeed-mlu>=0.10.1"
-
-    if check_device:
-        try:
-            # Will raise a RuntimeError if no MLU is found
-            _ = torch.mlu.device_count()
-            return torch.mlu.is_available()
-        except RuntimeError:
-            return False
-    return hasattr(torch, "mlu") and torch.mlu.is_available()
+    return available
 
 
 @lru_cache()
@@ -927,6 +929,14 @@ def is_flash_attn_greater_or_equal(library_version: str):
         return False
 
     return version.parse(importlib.metadata.version("flash_attn")) >= version.parse(library_version)
+
+
+@lru_cache()
+def is_torch_greater_or_equal(library_version: str):
+    if not _is_package_available("torch"):
+        return False
+
+    return version.parse(importlib.metadata.version("torch")) >= version.parse(library_version)
 
 
 def is_torchdistx_available():

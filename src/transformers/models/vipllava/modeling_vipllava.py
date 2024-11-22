@@ -476,7 +476,7 @@ class VipLlavaForConditionalGeneration(VipLlavaPreTrainedModel, GenerationMixin)
             logger.warning_once(
                 "Expanding inputs for image tokens in VipLLaVa should be done in processing. "
                 "Please add `patch_size` and `vision_feature_select_strategy` to the model's image processing config. "
-                "Using processors without these attributes in the config is deprecated and will throw an error in v4.47."
+                "Using processors without these attributes in the config is deprecated and will throw an error in v4.50."
             )
             # prefill stage vs decoding stage (legacy behavior copied)
             if input_ids.shape[1] != 1:

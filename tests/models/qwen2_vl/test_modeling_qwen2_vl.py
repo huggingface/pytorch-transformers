@@ -285,24 +285,6 @@ class Qwen2VLModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCas
             image_grid_thw = torch.cat([image_grid_thw, image_grid_thw], dim=0)
             _ = model(input_ids=input_ids, pixel_values=pixel_values, image_grid_thw=image_grid_thw)
 
-    @unittest.skip(
-        reason="This architecure seem to not compute gradients properly when using GC, check: https://github.com/huggingface/transformers/pull/27124"
-    )
-    def test_training_gradient_checkpointing(self):
-        pass
-
-    @unittest.skip(
-        reason="This architecure seem to not compute gradients properly when using GC, check: https://github.com/huggingface/transformers/pull/27124"
-    )
-    def test_training_gradient_checkpointing_use_reentrant(self):
-        pass
-
-    @unittest.skip(
-        reason="This architecure seem to not compute gradients properly when using GC, check: https://github.com/huggingface/transformers/pull/27124"
-    )
-    def test_training_gradient_checkpointing_use_reentrant_false(self):
-        pass
-
     @unittest.skip(reason="Feedforward chunking is not yet supported")
     def test_feed_forward_chunking(self):
         pass

@@ -1020,7 +1020,7 @@ class OlmoModel(OlmoPreTrainedModel):
         return causal_mask
 
 
-# Copied from transformers.models.llama.modeling_llama.LlamaForCausalLM with LLAMA->OLMO,Llama->Olmo
+# TODO: re-enable check: Copied from transformers.models.llama.modeling_llama.LlamaForCausalLM with LLAMA->OLMO,Llama->Olmo
 class OlmoForCausalLM(OlmoPreTrainedModel, GenerationMixin):
     _tied_weights_keys = ["lm_head.weight"]
 

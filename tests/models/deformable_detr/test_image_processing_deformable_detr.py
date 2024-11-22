@@ -20,8 +20,8 @@ import unittest
 
 import numpy as np
 
-from transformers.testing_utils import require_torch, require_vision, slow
-from transformers.utils import is_torch_available, is_vision_available
+from transformers.testing_utils import require_torch, require_torch_gpu, require_vision, slow
+from transformers.utils import is_torch_available, is_torchvision_available, is_vision_available
 
 from ...test_image_processing_common import AnnotationFormatTestMixin, ImageProcessingTestMixin, prepare_image_inputs
 
@@ -32,7 +32,7 @@ if is_torch_available():
 if is_vision_available():
     from PIL import Image
 
-    from transformers import DeformableDetrImageProcessor
+    from transformers import DeformableDetrImageProcessor, DeformableDetrImageProcessorFast
 
 
 class DeformableDetrImageProcessingTester(unittest.TestCase):
@@ -52,6 +52,7 @@ class DeformableDetrImageProcessingTester(unittest.TestCase):
         rescale_factor=1 / 255,
         do_pad=True,
     ):
+        super().__init__()
         # by setting size["longest_edge"] > max_resolution we're effectively not testing this :p
         size = size if size is not None else {"shortest_edge": 18, "longest_edge": 1333}
         self.parent = parent
@@ -133,6 +134,7 @@ class DeformableDetrImageProcessingTester(unittest.TestCase):
 @require_vision
 class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessingTestMixin, unittest.TestCase):
     image_processing_class = DeformableDetrImageProcessor if is_vision_available() else None
+    fast_image_processing_class = DeformableDetrImageProcessorFast if is_torchvision_available() else None
 
     def setUp(self):
         super().setUp()
@@ -143,25 +145,27 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
         return self.image_processor_tester.prepare_image_processor_dict()
 
     def test_image_processor_properties(self):
-        image_processing = self.image_processing_class(**self.image_processor_dict)
-        self.assertTrue(hasattr(image_processing, "image_mean"))
-        self.assertTrue(hasattr(image_processing, "image_std"))
-        self.assertTrue(hasattr(image_processing, "do_normalize"))
-        self.assertTrue(hasattr(image_processing, "do_resize"))
-        self.assertTrue(hasattr(image_processing, "do_rescale"))
-        self.assertTrue(hasattr(image_processing, "do_pad"))
-        self.assertTrue(hasattr(image_processing, "size"))
+        for image_processing_class in self.image_processor_list:
+            image_processing = image_processing_class(**self.image_processor_dict)
+            self.assertTrue(hasattr(image_processing, "image_mean"))
+            self.assertTrue(hasattr(image_processing, "image_std"))
+            self.assertTrue(hasattr(image_processing, "do_normalize"))
+            self.assertTrue(hasattr(image_processing, "do_resize"))
+            self.assertTrue(hasattr(image_processing, "do_rescale"))
+            self.assertTrue(hasattr(image_processing, "do_pad"))
+            self.assertTrue(hasattr(image_processing, "size"))
 
     def test_image_processor_from_dict_with_kwargs(self):
-        image_processor = self.image_processing_class.from_dict(self.image_processor_dict)
-        self.assertEqual(image_processor.size, {"shortest_edge": 18, "longest_edge": 1333})
-        self.assertEqual(image_processor.do_pad, True)
+        for image_processing_class in self.image_processor_list:
+            image_processor = image_processing_class.from_dict(self.image_processor_dict)
+            self.assertEqual(image_processor.size, {"shortest_edge": 18, "longest_edge": 1333})
+            self.assertEqual(image_processor.do_pad, True)
 
-        image_processor = self.image_processing_class.from_dict(
-            self.image_processor_dict, size=42, max_size=84, pad_and_return_pixel_mask=False
-        )
-        self.assertEqual(image_processor.size, {"shortest_edge": 42, "longest_edge": 84})
-        self.assertEqual(image_processor.do_pad, False)
+            image_processor = image_processing_class.from_dict(
+                self.image_processor_dict, size=42, max_size=84, pad_and_return_pixel_mask=False
+            )
+            self.assertEqual(image_processor.size, {"shortest_edge": 42, "longest_edge": 84})
+            self.assertEqual(image_processor.do_pad, False)
 
     @slow
     def test_call_pytorch_with_coco_detection_annotations(self):
@@ -172,40 +176,41 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
 
         target = {"image_id": 39769, "annotations": target}
 
-        # encode them
-        image_processing = DeformableDetrImageProcessor()
-        encoding = image_processing(images=image, annotations=target, return_tensors="pt")
+        for image_processing_class in self.image_processor_list:
+            # encode them
+            image_processing = image_processing_class()
+            encoding = image_processing(images=image, annotations=target, return_tensors="pt")
 
-        # verify pixel values
-        expected_shape = torch.Size([1, 3, 800, 1066])
-        self.assertEqual(encoding["pixel_values"].shape, expected_shape)
+            # verify pixel values
+            expected_shape = torch.Size([1, 3, 800, 1066])
+            self.assertEqual(encoding["pixel_values"].shape, expected_shape)
 
-        expected_slice = torch.tensor([0.2796, 0.3138, 0.3481])
-        self.assertTrue(torch.allclose(encoding["pixel_values"][0, 0, 0, :3], expected_slice, atol=1e-4))
+            expected_slice = torch.tensor([0.2796, 0.3138, 0.3481])
+            self.assertTrue(torch.allclose(encoding["pixel_values"][0, 0, 0, :3], expected_slice, atol=1e-4))
 
-        # verify area
-        expected_area = torch.tensor([5887.9600, 11250.2061, 489353.8438, 837122.7500, 147967.5156, 165732.3438])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["area"], expected_area))
-        # verify boxes
-        expected_boxes_shape = torch.Size([6, 4])
-        self.assertEqual(encoding["labels"][0]["boxes"].shape, expected_boxes_shape)
-        expected_boxes_slice = torch.tensor([0.5503, 0.2765, 0.0604, 0.2215])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["boxes"][0], expected_boxes_slice, atol=1e-3))
-        # verify image_id
-        expected_image_id = torch.tensor([39769])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["image_id"], expected_image_id))
-        # verify is_crowd
-        expected_is_crowd = torch.tensor([0, 0, 0, 0, 0, 0])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["iscrowd"], expected_is_crowd))
-        # verify class_labels
-        expected_class_labels = torch.tensor([75, 75, 63, 65, 17, 17])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["class_labels"], expected_class_labels))
-        # verify orig_size
-        expected_orig_size = torch.tensor([480, 640])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["orig_size"], expected_orig_size))
-        # verify size
-        expected_size = torch.tensor([800, 1066])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["size"], expected_size))
+            # verify area
+            expected_area = torch.tensor([5887.9600, 11250.2061, 489353.8438, 837122.7500, 147967.5156, 165732.3438])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["area"], expected_area))
+            # verify boxes
+            expected_boxes_shape = torch.Size([6, 4])
+            self.assertEqual(encoding["labels"][0]["boxes"].shape, expected_boxes_shape)
+            expected_boxes_slice = torch.tensor([0.5503, 0.2765, 0.0604, 0.2215])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["boxes"][0], expected_boxes_slice, atol=1e-3))
+            # verify image_id
+            expected_image_id = torch.tensor([39769])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["image_id"], expected_image_id))
+            # verify is_crowd
+            expected_is_crowd = torch.tensor([0, 0, 0, 0, 0, 0])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["iscrowd"], expected_is_crowd))
+            # verify class_labels
+            expected_class_labels = torch.tensor([75, 75, 63, 65, 17, 17])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["class_labels"], expected_class_labels))
+            # verify orig_size
+            expected_orig_size = torch.tensor([480, 640])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["orig_size"], expected_orig_size))
+            # verify size
+            expected_size = torch.tensor([800, 1066])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["size"], expected_size))
 
     @slow
     def test_call_pytorch_with_coco_panoptic_annotations(self):
@@ -218,43 +223,45 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
 
         masks_path = pathlib.Path("./tests/fixtures/tests_samples/COCO/coco_panoptic")
 
-        # encode them
-        image_processing = DeformableDetrImageProcessor(format="coco_panoptic")
-        encoding = image_processing(images=image, annotations=target, masks_path=masks_path, return_tensors="pt")
+        for image_processing_class in self.image_processor_list:
+            # encode them
+            image_processing = image_processing_class(format="coco_panoptic")
+            encoding = image_processing(images=image, annotations=target, masks_path=masks_path, return_tensors="pt")
 
-        # verify pixel values
-        expected_shape = torch.Size([1, 3, 800, 1066])
-        self.assertEqual(encoding["pixel_values"].shape, expected_shape)
+            # verify pixel values
+            expected_shape = torch.Size([1, 3, 800, 1066])
+            self.assertEqual(encoding["pixel_values"].shape, expected_shape)
 
-        expected_slice = torch.tensor([0.2796, 0.3138, 0.3481])
-        self.assertTrue(torch.allclose(encoding["pixel_values"][0, 0, 0, :3], expected_slice, atol=1e-4))
+            expected_slice = torch.tensor([0.2796, 0.3138, 0.3481])
+            self.assertTrue(torch.allclose(encoding["pixel_values"][0, 0, 0, :3], expected_slice, atol=1e-4))
 
-        # verify area
-        expected_area = torch.tensor([147979.6875, 165527.0469, 484638.5938, 11292.9375, 5879.6562, 7634.1147])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["area"], expected_area))
-        # verify boxes
-        expected_boxes_shape = torch.Size([6, 4])
-        self.assertEqual(encoding["labels"][0]["boxes"].shape, expected_boxes_shape)
-        expected_boxes_slice = torch.tensor([0.2625, 0.5437, 0.4688, 0.8625])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["boxes"][0], expected_boxes_slice, atol=1e-3))
-        # verify image_id
-        expected_image_id = torch.tensor([39769])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["image_id"], expected_image_id))
-        # verify is_crowd
-        expected_is_crowd = torch.tensor([0, 0, 0, 0, 0, 0])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["iscrowd"], expected_is_crowd))
-        # verify class_labels
-        expected_class_labels = torch.tensor([17, 17, 63, 75, 75, 93])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["class_labels"], expected_class_labels))
-        # verify masks
-        expected_masks_sum = 822873
-        self.assertEqual(encoding["labels"][0]["masks"].sum().item(), expected_masks_sum)
-        # verify orig_size
-        expected_orig_size = torch.tensor([480, 640])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["orig_size"], expected_orig_size))
-        # verify size
-        expected_size = torch.tensor([800, 1066])
-        self.assertTrue(torch.allclose(encoding["labels"][0]["size"], expected_size))
+            # verify area
+            expected_area = torch.tensor([147979.6875, 165527.0469, 484638.5938, 11292.9375, 5879.6562, 7634.1147])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["area"], expected_area))
+            # verify boxes
+            expected_boxes_shape = torch.Size([6, 4])
+            self.assertEqual(encoding["labels"][0]["boxes"].shape, expected_boxes_shape)
+            expected_boxes_slice = torch.tensor([0.2625, 0.5437, 0.4688, 0.8625])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["boxes"][0], expected_boxes_slice, atol=1e-3))
+            # verify image_id
+            expected_image_id = torch.tensor([39769])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["image_id"], expected_image_id))
+            # verify is_crowd
+            expected_is_crowd = torch.tensor([0, 0, 0, 0, 0, 0])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["iscrowd"], expected_is_crowd))
+            # verify class_labels
+            expected_class_labels = torch.tensor([17, 17, 63, 75, 75, 93])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["class_labels"], expected_class_labels))
+            # verify masks
+            expected_masks_sum = 822873
+            relative_error = torch.abs(encoding["labels"][0]["masks"].sum() - expected_masks_sum) / expected_masks_sum
+            self.assertTrue(relative_error < 1e-3)
+            # verify orig_size
+            expected_orig_size = torch.tensor([480, 640])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["orig_size"], expected_orig_size))
+            # verify size
+            expected_size = torch.tensor([800, 1066])
+            self.assertTrue(torch.allclose(encoding["labels"][0]["size"], expected_size))
 
     @slow
     # Copied from tests.models.detr.test_image_processing_detr.DetrImageProcessingTest.test_batched_coco_detection_annotations with Detr->DeformableDetr
@@ -549,53 +556,181 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
             self.assertEqual(inputs["pixel_values"].shape, torch.Size([2, 3, 150, 100]))
 
     def test_longest_edge_shortest_edge_resizing_strategy(self):
-        image_1 = torch.ones([958, 653, 3], dtype=torch.uint8)
+        for image_processing_class in self.image_processor_list:
+            image_1 = torch.ones([958, 653, 3], dtype=torch.uint8)
 
-        # max size is set; width < height;
-        # do_pad=False, longest_edge=640, shortest_edge=640, image=958x653 -> 640x436
-        image_processor = DeformableDetrImageProcessor(
-            size={"longest_edge": 640, "shortest_edge": 640},
-            do_pad=False,
-        )
-        inputs = image_processor(images=[image_1], return_tensors="pt")
-        self.assertEqual(inputs["pixel_values"].shape, torch.Size([1, 3, 640, 436]))
+            # max size is set; width < height;
+            # do_pad=False, longest_edge=640, shortest_edge=640, image=958x653 -> 640x436
+            image_processor = image_processing_class(
+                size={"longest_edge": 640, "shortest_edge": 640},
+                do_pad=False,
+            )
+            inputs = image_processor(images=[image_1], return_tensors="pt")
+            self.assertEqual(inputs["pixel_values"].shape, torch.Size([1, 3, 640, 436]))
 
-        image_2 = torch.ones([653, 958, 3], dtype=torch.uint8)
-        # max size is set; height < width;
-        # do_pad=False, longest_edge=640, shortest_edge=640, image=653x958 -> 436x640
-        image_processor = DeformableDetrImageProcessor(
-            size={"longest_edge": 640, "shortest_edge": 640},
-            do_pad=False,
-        )
-        inputs = image_processor(images=[image_2], return_tensors="pt")
-        self.assertEqual(inputs["pixel_values"].shape, torch.Size([1, 3, 436, 640]))
+            image_2 = torch.ones([653, 958, 3], dtype=torch.uint8)
+            # max size is set; height < width;
+            # do_pad=False, longest_edge=640, shortest_edge=640, image=653x958 -> 436x640
+            image_processor = image_processing_class(
+                size={"longest_edge": 640, "shortest_edge": 640},
+                do_pad=False,
+            )
+            inputs = image_processor(images=[image_2], return_tensors="pt")
+            self.assertEqual(inputs["pixel_values"].shape, torch.Size([1, 3, 436, 640]))
 
-        image_3 = torch.ones([100, 120, 3], dtype=torch.uint8)
-        # max size is set; width == size; height > max_size;
-        # do_pad=False, longest_edge=118, shortest_edge=100, image=120x100 -> 118x98
-        image_processor = DeformableDetrImageProcessor(
-            size={"longest_edge": 118, "shortest_edge": 100},
-            do_pad=False,
-        )
-        inputs = image_processor(images=[image_3], return_tensors="pt")
-        self.assertEqual(inputs["pixel_values"].shape, torch.Size([1, 3, 98, 118]))
+            image_3 = torch.ones([100, 120, 3], dtype=torch.uint8)
+            # max size is set; width == size; height > max_size;
+            # do_pad=False, longest_edge=118, shortest_edge=100, image=120x100 -> 118x98
+            image_processor = image_processing_class(
+                size={"longest_edge": 118, "shortest_edge": 100},
+                do_pad=False,
+            )
+            inputs = image_processor(images=[image_3], return_tensors="pt")
+            self.assertEqual(inputs["pixel_values"].shape, torch.Size([1, 3, 98, 118]))
 
-        image_4 = torch.ones([128, 50, 3], dtype=torch.uint8)
-        # max size is set; height == size; width < max_size;
-        # do_pad=False, longest_edge=256, shortest_edge=50, image=50x128 -> 50x128
-        image_processor = DeformableDetrImageProcessor(
-            size={"longest_edge": 256, "shortest_edge": 50},
-            do_pad=False,
-        )
-        inputs = image_processor(images=[image_4], return_tensors="pt")
-        self.assertEqual(inputs["pixel_values"].shape, torch.Size([1, 3, 128, 50]))
+            image_4 = torch.ones([128, 50, 3], dtype=torch.uint8)
+            # max size is set; height == size; width < max_size;
+            # do_pad=False, longest_edge=256, shortest_edge=50, image=50x128 -> 50x128
+            image_processor = image_processing_class(
+                size={"longest_edge": 256, "shortest_edge": 50},
+                do_pad=False,
+            )
+            inputs = image_processor(images=[image_4], return_tensors="pt")
+            self.assertEqual(inputs["pixel_values"].shape, torch.Size([1, 3, 128, 50]))
 
-        image_5 = torch.ones([50, 50, 3], dtype=torch.uint8)
-        # max size is set; height == width; width < max_size;
-        # do_pad=False, longest_edge=117, shortest_edge=50, image=50x50 -> 50x50
-        image_processor = DeformableDetrImageProcessor(
-            size={"longest_edge": 117, "shortest_edge": 50},
-            do_pad=False,
+            image_5 = torch.ones([50, 50, 3], dtype=torch.uint8)
+            # max size is set; height == width; width < max_size;
+            # do_pad=False, longest_edge=117, shortest_edge=50, image=50x50 -> 50x50
+            image_processor = image_processing_class(
+                size={"longest_edge": 117, "shortest_edge": 50},
+                do_pad=False,
+            )
+            inputs = image_processor(images=[image_5], return_tensors="pt")
+            self.assertEqual(inputs["pixel_values"].shape, torch.Size([1, 3, 50, 50]))
+
+    @slow
+    @require_torch_gpu
+    # Copied from tests.models.detr.test_image_processing_detr.DetrImageProcessingTest.test_fast_processor_equivalence_cpu_gpu_coco_detection_annotations
+    def test_fast_processor_equivalence_cpu_gpu_coco_detection_annotations(self):
+        # prepare image and target
+        image = Image.open("./tests/fixtures/tests_samples/COCO/000000039769.png")
+        with open("./tests/fixtures/tests_samples/COCO/coco_annotations.txt", "r") as f:
+            target = json.loads(f.read())
+
+        target = {"image_id": 39769, "annotations": target}
+
+        # Ignore copy
+        processor = self.image_processor_list[1]()
+
+        # 1. run processor on CPU
+        encoding_cpu = processor(images=image, annotations=target, return_tensors="pt", device="cpu")
+        # 2. run processor on GPU
+        encoding_gpu = processor(images=image, annotations=target, return_tensors="pt", device="cuda")
+
+        # verify pixel values
+        self.assertEqual(encoding_cpu["pixel_values"].shape, encoding_gpu["pixel_values"].shape)
+        self.assertTrue(
+            torch.allclose(
+                encoding_cpu["pixel_values"][0, 0, 0, :3],
+                encoding_gpu["pixel_values"][0, 0, 0, :3].to("cpu"),
+                atol=1e-4,
+            )
         )
-        inputs = image_processor(images=[image_5], return_tensors="pt")
-        self.assertEqual(inputs["pixel_values"].shape, torch.Size([1, 3, 50, 50]))
+        # verify area
+        self.assertTrue(torch.allclose(encoding_cpu["labels"][0]["area"], encoding_gpu["labels"][0]["area"].to("cpu")))
+        # verify boxes
+        self.assertEqual(encoding_cpu["labels"][0]["boxes"].shape, encoding_gpu["labels"][0]["boxes"].shape)
+        self.assertTrue(
+            torch.allclose(
+                encoding_cpu["labels"][0]["boxes"][0], encoding_gpu["labels"][0]["boxes"][0].to("cpu"), atol=1e-3
+            )
+        )
+        # verify image_id
+        self.assertTrue(
+            torch.allclose(encoding_cpu["labels"][0]["image_id"], encoding_gpu["labels"][0]["image_id"].to("cpu"))
+        )
+        # verify is_crowd
+        self.assertTrue(
+            torch.allclose(encoding_cpu["labels"][0]["iscrowd"], encoding_gpu["labels"][0]["iscrowd"].to("cpu"))
+        )
+        # verify class_labels
+        self.assertTrue(
+            torch.allclose(
+                encoding_cpu["labels"][0]["class_labels"], encoding_gpu["labels"][0]["class_labels"].to("cpu")
+            )
+        )
+        # verify orig_size
+        self.assertTrue(
+            torch.allclose(encoding_cpu["labels"][0]["orig_size"], encoding_gpu["labels"][0]["orig_size"].to("cpu"))
+        )
+        # verify size
+        self.assertTrue(torch.allclose(encoding_cpu["labels"][0]["size"], encoding_gpu["labels"][0]["size"].to("cpu")))
+
+    @slow
+    @require_torch_gpu
+    # Copied from tests.models.detr.test_image_processing_detr.DetrImageProcessingTest.test_fast_processor_equivalence_cpu_gpu_coco_panoptic_annotations
+    def test_fast_processor_equivalence_cpu_gpu_coco_panoptic_annotations(self):
+        # prepare image, target and masks_path
+        image = Image.open("./tests/fixtures/tests_samples/COCO/000000039769.png")
+        with open("./tests/fixtures/tests_samples/COCO/coco_panoptic_annotations.txt", "r") as f:
+            target = json.loads(f.read())
+
+        target = {"file_name": "000000039769.png", "image_id": 39769, "segments_info": target}
+
+        masks_path = pathlib.Path("./tests/fixtures/tests_samples/COCO/coco_panoptic")
+
+        # Ignore copy
+        processor = self.image_processor_list[1](format="coco_panoptic")
+
+        # 1. run processor on CPU
+        encoding_cpu = processor(
+            images=image, annotations=target, masks_path=masks_path, return_tensors="pt", device="cpu"
+        )
+        # 2. run processor on GPU
+        encoding_gpu = processor(
+            images=image, annotations=target, masks_path=masks_path, return_tensors="pt", device="cuda"
+        )
+
+        # verify pixel values
+        self.assertEqual(encoding_cpu["pixel_values"].shape, encoding_gpu["pixel_values"].shape)
+        self.assertTrue(
+            torch.allclose(
+                encoding_cpu["pixel_values"][0, 0, 0, :3],
+                encoding_gpu["pixel_values"][0, 0, 0, :3].to("cpu"),
+                atol=1e-4,
+            )
+        )
+        # verify area
+        self.assertTrue(torch.allclose(encoding_cpu["labels"][0]["area"], encoding_gpu["labels"][0]["area"].to("cpu")))
+        # verify boxes
+        self.assertEqual(encoding_cpu["labels"][0]["boxes"].shape, encoding_gpu["labels"][0]["boxes"].shape)
+        self.assertTrue(
+            torch.allclose(
+                encoding_cpu["labels"][0]["boxes"][0], encoding_gpu["labels"][0]["boxes"][0].to("cpu"), atol=1e-3
+            )
+        )
+        # verify image_id
+        self.assertTrue(
+            torch.allclose(encoding_cpu["labels"][0]["image_id"], encoding_gpu["labels"][0]["image_id"].to("cpu"))
+        )
+        # verify is_crowd
+        self.assertTrue(
+            torch.allclose(encoding_cpu["labels"][0]["iscrowd"], encoding_gpu["labels"][0]["iscrowd"].to("cpu"))
+        )
+        # verify class_labels
+        self.assertTrue(
+            torch.allclose(
+                encoding_cpu["labels"][0]["class_labels"], encoding_gpu["labels"][0]["class_labels"].to("cpu")
+            )
+        )
+        # verify masks
+        masks_sum_cpu = encoding_cpu["labels"][0]["masks"].sum()
+        masks_sum_gpu = encoding_gpu["labels"][0]["masks"].sum()
+        relative_error = torch.abs(masks_sum_cpu - masks_sum_gpu) / masks_sum_cpu
+        self.assertTrue(relative_error < 1e-3)
+        # verify orig_size
+        self.assertTrue(
+            torch.allclose(encoding_cpu["labels"][0]["orig_size"], encoding_gpu["labels"][0]["orig_size"].to("cpu"))
+        )
+        # verify size
+        self.assertTrue(torch.allclose(encoding_cpu["labels"][0]["size"], encoding_gpu["labels"][0]["size"].to("cpu")))

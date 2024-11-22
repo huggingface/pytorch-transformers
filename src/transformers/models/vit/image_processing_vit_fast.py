@@ -20,7 +20,7 @@ from typing import Dict, List, Optional, Union
 from ...image_processing_base import BatchFeature
 from ...image_processing_utils import get_size_dict
 from ...image_processing_utils_fast import BaseImageProcessorFast, SizeDict
-from ...image_transforms import FusedRescaleNormalize, NumpyToTensor, Rescale
+from ...image_transforms import FusedRescaleNormalize, NumpyToTensor, Rescale, convert_to_rgb
 from ...image_utils import (
     IMAGENET_STANDARD_MEAN,
     IMAGENET_STANDARD_STD,
@@ -76,6 +76,8 @@ class ViTImageProcessorFast(BaseImageProcessorFast):
         image_std (`float` or `List[float]`, *optional*, defaults to `IMAGENET_STANDARD_STD`):
             Standard deviation to use if normalizing the image. This is a float or list of floats the length of the
             number of channels in the image. Can be overridden by the `image_std` parameter in the `preprocess` method.
+        do_convert_rgb (`bool`, *optional*):
+            Whether to convert the image to RGB.
     """
 
     model_input_names = ["pixel_values"]
@@ -101,6 +103,7 @@ class ViTImageProcessorFast(BaseImageProcessorFast):
         do_normalize: bool = True,
         image_mean: Optional[Union[float, List[float]]] = None,
         image_std: Optional[Union[float, List[float]]] = None,
+        do_convert_rgb: Optional[bool] = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -114,6 +117,7 @@ class ViTImageProcessorFast(BaseImageProcessorFast):
         self.rescale_factor = rescale_factor
         self.image_mean = image_mean if image_mean is not None else IMAGENET_STANDARD_MEAN
         self.image_std = image_std if image_std is not None else IMAGENET_STANDARD_STD
+        self.do_convert_rgb = do_convert_rgb
 
     def _build_transforms(
         self,
@@ -199,6 +203,7 @@ class ViTImageProcessorFast(BaseImageProcessorFast):
         return_tensors: Optional[Union[str, TensorType]] = "pt",
         data_format: Union[str, ChannelDimension] = ChannelDimension.FIRST,
         input_data_format: Optional[Union[str, ChannelDimension]] = None,
+        do_convert_rgb: Optional[bool] = None,
         **kwargs,
     ):
         """
@@ -237,6 +242,8 @@ class ViTImageProcessorFast(BaseImageProcessorFast):
                 - `"channels_first"` or `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
                 - `"channels_last"` or `ChannelDimension.LAST`: image in (height, width, num_channels) format.
                 - `"none"` or `ChannelDimension.NONE`: image in (height, width) format.
+        do_convert_rgb (`bool`, *optional*):
+            Whether to convert the image to RGB.
         """
         do_resize = do_resize if do_resize is not None else self.do_resize
         do_rescale = do_rescale if do_rescale is not None else self.do_rescale
@@ -246,6 +253,7 @@ class ViTImageProcessorFast(BaseImageProcessorFast):
         image_mean = image_mean if image_mean is not None else self.image_mean
         image_std = image_std if image_std is not None else self.image_std
         size = size if size is not None else self.size
+        do_convert_rgb = do_convert_rgb if do_convert_rgb is not None else self.do_convert_rgb
         # Make hashable for cache
         size = SizeDict(**size)
         image_mean = tuple(image_mean) if isinstance(image_mean, list) else image_mean
@@ -270,6 +278,9 @@ class ViTImageProcessorFast(BaseImageProcessorFast):
             data_format=data_format,
             image_type=image_type,
         )
+
+        if do_convert_rgb:
+            images = [convert_to_rgb(image) for image in images]
 
         transforms = self.get_transforms(
             do_resize=do_resize,

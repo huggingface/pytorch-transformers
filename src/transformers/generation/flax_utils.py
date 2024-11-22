@@ -398,7 +398,11 @@ class FlaxGenerationMixin:
                 )
             generation_config.max_length = generation_config.max_new_tokens + input_ids_seq_length
         else:  # by default let's always generate 10 new tokens
-            generation_config.max_length = generation_config.max_length + input_ids_seq_length
+            if generation_config.max_length == GenerationConfig().max_length:
+                generation_config.max_length = generation_config.max_length + input_ids_seq_length
+                max_position_embeddings = getattr(self.config, "max_position_embeddings", None)
+                if max_position_embeddings is not None:
+                    generation_config.max_length = min(generation_config.max_length, max_position_embeddings)
 
         if generation_config.min_length is not None and generation_config.min_length > generation_config.max_length:
             raise ValueError(

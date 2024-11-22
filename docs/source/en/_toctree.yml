@@ -218,6 +218,8 @@
       title: CPU inference
     - local: perf_infer_gpu_one
       title: GPU inference
+    - local: perf_infer_gpu_multi
+      title: Multi-GPU inference
     title: Optimizing inference
   - local: big_models
     title: Instantiate a big model
@@ -514,6 +516,8 @@
         title: Nyströmformer
       - local: model_doc/olmo
         title: OLMo
+      - local: model_doc/olmo_1124
+        title: OLMo November 2024
       - local: model_doc/olmoe
         title: OLMoE
       - local: model_doc/open-llama

@@ -174,7 +174,7 @@ trainer = Trainer(
     processing_class=tokenizer,
     data_collator=data_collator,
     compute_metrics=compute_metrics,
-    callback=[EarlyStoppingCallback()],
+    callbacks=[EarlyStoppingCallback()],
 )
 ```
 

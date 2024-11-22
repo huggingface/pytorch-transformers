@@ -433,19 +433,22 @@ class DynamicCache(Cache):
             self._seen_tokens += key_states.shape[-2]
 
         # Update the cache
-        if len(self.key_cache) <= layer_idx:
-            # There may be skipped layers, fill them with empty lists
-            for _ in range(len(self.key_cache), layer_idx):
-                self.key_cache.append([])
-                self.value_cache.append([])
-            self.key_cache.append(key_states)
-            self.value_cache.append(value_states)
-        elif len(self.key_cache[layer_idx]) == 0:  # fills previously skipped layers; checking for tensor causes errors
-            self.key_cache[layer_idx] = key_states
-            self.value_cache[layer_idx] = value_states
-        else:
-            self.key_cache[layer_idx] = torch.cat([self.key_cache[layer_idx], key_states], dim=-2)
-            self.value_cache[layer_idx] = torch.cat([self.value_cache[layer_idx], value_states], dim=-2)
+        if key_states is not None:
+            if len(self.key_cache) <= layer_idx:
+                # There may be skipped layers, fill them with empty lists
+                for _ in range(len(self.key_cache), layer_idx):
+                    self.key_cache.append([])
+                    self.value_cache.append([])
+                self.key_cache.append(key_states)
+                self.value_cache.append(value_states)
+            elif (
+                len(self.key_cache[layer_idx]) == 0
+            ):  # fills previously skipped layers; checking for tensor causes errors
+                self.key_cache[layer_idx] = key_states
+                self.value_cache[layer_idx] = value_states
+            else:
+                self.key_cache[layer_idx] = torch.cat([self.key_cache[layer_idx], key_states], dim=-2)
+                self.value_cache[layer_idx] = torch.cat([self.value_cache[layer_idx], value_states], dim=-2)
 
         return self.key_cache[layer_idx], self.value_cache[layer_idx]
 
@@ -525,7 +528,7 @@ class DynamicCache(Cache):
         cache = cls()
         for idx in range(len(splits[0])):
             key_cache = [current.key_cache[idx] for current in splits if current.key_cache[idx] != []]
-            value_cache = [current.key_cache[idx] for current in splits if current.key_cache[idx] != []]
+            value_cache = [current.value_cache[idx] for current in splits if current.value_cache[idx] != []]
             if key_cache != []:
                 layer_keys = torch.cat(key_cache, dim=0)
                 layer_values = torch.cat(value_cache, dim=0)
@@ -781,6 +784,11 @@ class QuantoQuantizedCache(QuantizedCache):
         super().__init__(cache_config)
 
         if is_optimum_quanto_available():
+            optimum_quanto_version = version.parse(importlib.metadata.version("optimum-quanto"))
+            if optimum_quanto_version <= version.parse("0.2.5"):
+                raise ImportError(
+                    f"You need optimum-quanto package version to be greater or equal than 0.2.5 to use `QuantoQuantizedCache`. Detected version {optimum_quanto_version}."
+                )
             from optimum.quanto import MaxOptimizer, qint2, qint4
         elif is_quanto_available():
             logger.warning_once(
@@ -813,7 +821,8 @@ class QuantoQuantizedCache(QuantizedCache):
         if is_optimum_quanto_available():
             from optimum.quanto import quantize_weight
 
-            qtensor = quantize_weight(tensor, self.qtype, axis, self.q_group_size)
+            scale, zeropoint = self.optimizer(tensor, self.qtype, axis, self.q_group_size)
+            qtensor = quantize_weight(tensor, self.qtype, axis, scale, zeropoint, self.q_group_size)
             return qtensor
         elif is_quanto_available():
             logger.warning_once(
@@ -1539,7 +1548,10 @@ class EncoderDecoderCache(Cache):
         self.check_dynamic_cache(self.crop.__name__)
         self.self_attention_cache.crop(maximum_length)
 
-    def batch_split(self, full_batch_size: int, split_size: int) -> "List[EncoderDecoderCache]":
+    @deprecate_kwarg("num_hidden_layers", version="4.47.0")
+    def batch_split(
+        self, full_batch_size: int, split_size: int, num_hidden_layers: int = None
+    ) -> "List[EncoderDecoderCache]":
         """Split the current instance into a list of `DynamicCache` by the batch size. This will be used by
         `_split_model_inputs()` in `generation.utils`"""
         self.check_dynamic_cache(self.batch_split.__name__)
@@ -1552,7 +1564,10 @@ class EncoderDecoderCache(Cache):
         return out
 
     @classmethod
-    def from_batch_splits(cls, splits: List["EncoderDecoderCache"]) -> "EncoderDecoderCache":
+    @deprecate_kwarg("num_hidden_layers", version="4.47.0")
+    def from_batch_splits(
+        cls, splits: List["EncoderDecoderCache"], num_hidden_layers: int = None
+    ) -> "EncoderDecoderCache":
         """This is the opposite of the above `batch_split()` method. This will be used by `stack_model_outputs` in
         `generation.utils`"""
         self_attention_cache = DynamicCache()

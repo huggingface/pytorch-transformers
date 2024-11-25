@@ -35,7 +35,7 @@ class GotOcr2ProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         self.tmpdirname = tempfile.mkdtemp()
 
         image_processor = GotOcr2ImageProcessor()
-        tokenizer = PreTrainedTokenizerFast.from_pretrained("yonigozlan/GotOcr2-hf")
+        tokenizer = PreTrainedTokenizerFast.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
         processor_kwargs = self.prepare_processor_dict()
         processor = GotOcr2Processor(image_processor, tokenizer, **processor_kwargs)
         processor.save_pretrained(self.tmpdirname)

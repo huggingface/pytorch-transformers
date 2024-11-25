@@ -29,10 +29,16 @@ from transformers import (
     GotOcr2Config,
     GotOcr2ForConditionalGeneration,
     GotOcr2ImageProcessor,
+    GotOcr2Processor,
     PreTrainedTokenizerFast,
+    is_vision_available,
 )
 from transformers.convert_slow_tokenizer import TikTokenConverter
 from transformers.tokenization_utils import AddedToken
+
+
+if is_vision_available():
+    from transformers.image_utils import load_image
 
 
 # fmt: off
@@ -142,20 +148,34 @@ def write_model(
     print("Loading the checkpoint in a GotOcr2ForConditionalGeneration model.")
     model = GotOcr2ForConditionalGeneration(config)
     missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
+    model = model.to(torch.bfloat16)
+    print("model dtype:", model.dtype)
     print("Missing keys:", missing_keys)
     print("Unexpected keys:", unexpected_keys)
 
     print("Saving the model.")
     model.save_pretrained(model_path)
     if push_to_hub:
-        model.push_to_hub("yonigozlan/GotOcr2-hf", use_temp_dir=True)
+        model.push_to_hub("yonigozlan/GOT-OCR-2.0-hf", use_temp_dir=True)
     del state_dict, model
 
     # Safety check: reload the converted model
     gc.collect()
     print("Reloading the model to check if it's saved correctly.")
-    GotOcr2ForConditionalGeneration.from_pretrained(model_path, torch_dtype=torch.bfloat16, device_map="auto")
+    model = GotOcr2ForConditionalGeneration.from_pretrained(model_path, device_map="auto")
+    processor = GotOcr2Processor.from_pretrained(model_path)
+    image = load_image(
+        "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/image_ocr.jpg"
+    )
+
+    inputs = processor(image, return_tensors="pt", format=True).to(model.device, dtype=model.dtype)
+    generate_ids = model.generate(**inputs, do_sample=False, num_beams=1, max_new_tokens=4)
+    decoded_output = processor.decode(generate_ids[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True)
+    expected_output = "\\title{\nR"
+    print("Decoded output:", decoded_output)
+    assert decoded_output == expected_output
     print("Model reloaded successfully.")
+    del model
 
     # generation config
     if instruct:
@@ -253,7 +273,7 @@ def write_tokenizer(tokenizer_path: str, save_dir: str, instruct: bool = False, 
     tokenizer.save_pretrained(save_dir)
 
     if push_to_hub:
-        tokenizer.push_to_hub("yonigozlan/GotOcr2-hf", use_temp_dir=True)
+        tokenizer.push_to_hub("yonigozlan/GOT-OCR-2.0-hf", use_temp_dir=True)
 
     if instruct:
         print("Saving chat template...")
@@ -275,7 +295,7 @@ def write_image_processor(save_dir: str, push_to_hub: bool = False):
 
     image_processor.save_pretrained(save_dir)
     if push_to_hub:
-        image_processor.push_to_hub("yonigozlan/GotOcr2-hf", use_temp_dir=True)
+        image_processor.push_to_hub("yonigozlan/GOT-OCR-2.0-hf", use_temp_dir=True)
 
 
 def main():
@@ -300,13 +320,6 @@ def main():
         "--push_to_hub", action="store_true", help="Whether or not to push the converted model to the 🤗 hub."
     )
     args = parser.parse_args()
-    write_model(
-        model_path=args.output_dir,
-        input_base_path=args.input_dir,
-        instruct=args.instruct,
-        push_to_hub=args.push_to_hub,
-    )
-
     write_tokenizer(
         tokenizer_path="qwen.tiktoken",
         save_dir=args.output_dir,
@@ -316,6 +329,12 @@ def main():
 
     write_image_processor(
         save_dir=args.output_dir,
+        push_to_hub=args.push_to_hub,
+    )
+    write_model(
+        model_path=args.output_dir,
+        input_base_path=args.input_dir,
+        instruct=args.instruct,
         push_to_hub=args.push_to_hub,
     )
 

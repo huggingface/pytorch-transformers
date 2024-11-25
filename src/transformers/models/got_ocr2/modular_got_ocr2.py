@@ -404,6 +404,8 @@ class GotOcr2Processor(ProcessorMixin):
         color = output_kwargs["images_kwargs"].pop("color", None)
         multi_page = output_kwargs["images_kwargs"].pop("multi_page", False)
         crop_to_patches = output_kwargs["images_kwargs"].pop("crop_to_patches", False)
+        min_patches = output_kwargs["images_kwargs"].pop("min_patches")
+        max_patches = output_kwargs["images_kwargs"].pop("max_patches")
 
         if not isinstance(box, (list, tuple)):
             raise ValueError("`box` must be a list or tuple in the form [x1, y1, x2, y2].")
@@ -445,8 +447,8 @@ class GotOcr2Processor(ProcessorMixin):
                     image_group = self.image_processor.crop_image_to_patches(
                         image_group,
                         size=output_kwargs["images_kwargs"].get("size"),
-                        min_num=output_kwargs["images_kwargs"].get("min_patches"),
-                        max_num=output_kwargs["images_kwargs"].get("max_patches"),
+                        min_num=min_patches,
+                        max_num=max_patches,
                     )
                     images[index] = image_group
                 num_images = len(image_group) if (multi_page or crop_to_patches) else 1
@@ -740,8 +742,8 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
         >>> import requests
         >>> from transformers import AutoProcessor, GotOcr2ForConditionalGeneration
 
-        >>> model = GotOcr2ForConditionalGeneration.from_pretrained("yonigozlan/GotOcr2-hf").to("cuda", dtype=torch.bfloat16)
-        >>> processor = AutoProcessor.from_pretrained("yonigozlan/GotOcr2-hf")
+        >>> model = GotOcr2ForConditionalGeneration.from_pretrained("yonigozlan/GOT-OCR-2.0-hf").to("cuda", dtype=torch.bfloat16)
+        >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
         >>> url = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/multi_box.png"
         >>> image = Image.open(requests.get(url, stream=True).raw)

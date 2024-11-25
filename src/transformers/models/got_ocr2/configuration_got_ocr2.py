@@ -291,3 +291,6 @@ class GotOcr2Config(PretrainedConfig):
         rope_config_validation(self, ignore_keys={"mrope_section"})
 
         super().__init__(tie_word_embeddings=tie_word_embeddings, **kwargs)
+
+
+__all__ = ["GotOcr2VisionConfig", "GotOcr2Config"]

@@ -898,3 +898,14 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
             }
         )
         return model_inputs
+
+
+__all__ = [
+    "GotOcr2VisionConfig",
+    "GotOcr2Config",
+    "GotOcr2Processor",
+    "GotOcr2PreTrainedModel",
+    "GotOcr2Model",
+    "GotOcr2ForConditionalGeneration",
+    "GotOcr2ImageProcessor",
+]

@@ -13,66 +13,19 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import (
-    OptionalDependencyNotAvailable,
-    _LazyModule,
-    is_tokenizers_available,
-    is_torch_available,
-    is_vision_available,
-)
-
-
-_import_structure = {
-    "configuration_got_ocr2": ["GotOcr2Config", "GotOcr2VisionConfig"],
-    "processing_got_ocr2": ["GotOcr2Processor"],
-}
-try:
-    if not is_vision_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["image_processing_got_ocr2"] = ["GotOcr2ImageProcessor"]
-
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_got_ocr2"] = [
-        "GotOcr2ForConditionalGeneration",
-        "GotOcr2Model",
-        "GotOcr2PreTrainedModel",
-    ]
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
 
 if TYPE_CHECKING:
-    from .configuration_got_ocr2 import GotOcr2Config, GotOcr2VisionConfig
-    from .processing_got_ocr2 import GotOcr2Processor
-
-    try:
-        if not is_vision_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .image_processing_got_ocr2 import GotOcr2ImageProcessor
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_got_ocr2 import (
-            GotOcr2ForConditionalGeneration,
-            GotOcr2Model,
-            GotOcr2PreTrainedModel,
-        )
+    from .configuration_got_ocr2 import *
+    from .image_processing_got_ocr2 import *
+    from .modeling_got_ocr2 import *
+    from .processing_got_ocr2 import *
 
 
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

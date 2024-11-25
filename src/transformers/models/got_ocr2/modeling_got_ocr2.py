@@ -44,6 +44,7 @@ from ...utils import (
     is_flash_attn_2_available,
     is_flash_attn_greater_or_equal_2_10,
     logging,
+    replace_return_docstrings,
 )
 from .configuration_got_ocr2 import GotOcr2Config, GotOcr2VisionConfig
 
@@ -53,6 +54,8 @@ if is_flash_attn_2_available():
 
 
 logger = logging.get_logger(__name__)
+
+_CONFIG_FOR_DOC = "GotOcr2Config"
 
 
 class GotOcr2MLPBlock(nn.Module):
@@ -1585,6 +1588,8 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
 
         return model_kwargs
 
+    @add_start_docstrings_to_model_forward(GOT_OCR2_INPUTS_DOCSTRING)
+    @replace_return_docstrings(output_type=CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -1772,3 +1777,6 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
             }
         )
         return model_inputs
+
+
+__all__ = ["GotOcr2PreTrainedModel", "GotOcr2Model", "GotOcr2ForConditionalGeneration"]

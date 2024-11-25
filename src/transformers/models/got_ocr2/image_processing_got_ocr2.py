@@ -57,14 +57,6 @@ if is_vision_available():
     import PIL
 
 
-if is_vision_available():
-    import PIL
-
-
-if is_vision_available():
-    import PIL
-
-
 logger = logging.get_logger(__name__)
 
 
@@ -413,3 +405,6 @@ class GotOcr2ImageProcessor(BaseImageProcessor):
             processed_images = processed_images_numpy
 
         return processed_images
+
+
+__all__ = ["GotOcr2ImageProcessor"]

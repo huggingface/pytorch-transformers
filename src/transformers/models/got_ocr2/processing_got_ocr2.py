@@ -33,10 +33,6 @@ from ...utils import is_vision_available, logging
 if is_vision_available():
     from ...image_utils import load_images
 
-
-if is_vision_available():
-    from ...image_utils import load_images
-
 logger = logging.get_logger(__name__)
 
 
@@ -147,6 +143,12 @@ class GotOcr2Processor(ProcessorMixin):
                 If set, will enable multi-page inference. The model will return the OCR result across multiple pages.
             crop_to_patches (`bool`, *optional*):
                 If set, will crop the image to patches. The model will return the OCR result upon the patch reference.
+            min_patches (`int`, *optional*):
+                The minimum number of patches to be cropped from the image. Only used when `crop_to_patches` is set to
+                `True`.
+            max_patches (`int`, *optional*):
+                The maximum number of patches to be cropped from the image. Only used when `crop_to_patches` is set to
+                `True`.
 
             return_tensors (`str` or [`~utils.TensorType`], *optional*):
                 If set, will return tensors of a particular framework. Acceptable values are:
@@ -178,6 +180,8 @@ class GotOcr2Processor(ProcessorMixin):
         color = output_kwargs["images_kwargs"].pop("color", None)
         multi_page = output_kwargs["images_kwargs"].pop("multi_page", False)
         crop_to_patches = output_kwargs["images_kwargs"].pop("crop_to_patches", False)
+        min_patches = output_kwargs["images_kwargs"].pop("min_patches")
+        max_patches = output_kwargs["images_kwargs"].pop("max_patches")
 
         if not isinstance(box, (list, tuple)):
             raise ValueError("`box` must be a list or tuple in the form [x1, y1, x2, y2].")
@@ -219,8 +223,8 @@ class GotOcr2Processor(ProcessorMixin):
                     image_group = self.image_processor.crop_image_to_patches(
                         image_group,
                         size=output_kwargs["images_kwargs"].get("size"),
-                        min_num=output_kwargs["images_kwargs"].get("min_patches"),
-                        max_num=output_kwargs["images_kwargs"].get("max_patches"),
+                        min_num=min_patches,
+                        max_num=max_patches,
                     )
                     images[index] = image_group
                 num_images = len(image_group) if (multi_page or crop_to_patches) else 1
@@ -259,14 +263,14 @@ class GotOcr2Processor(ProcessorMixin):
 
     def batch_decode(self, *args, **kwargs):
         """
-        This method forwards all its arguments to Qwen2TokenizerFast's [`~PreTrainedTokenizer.batch_decode`]. Please
+        This method forwards all its arguments to PreTrainedTokenizerFast's [`~PreTrainedTokenizer.batch_decode`]. Please
         refer to the docstring of this method for more information.
         """
         return self.tokenizer.batch_decode(*args, **kwargs)
 
     def decode(self, *args, **kwargs):
         """
-        This method forwards all its arguments to Qwen2TokenizerFast's [`~PreTrainedTokenizer.decode`]. Please refer to
+        This method forwards all its arguments to PreTrainedTokenizerFast's [`~PreTrainedTokenizer.decode`]. Please refer to
         the docstring of this method for more information.
         """
         return self.tokenizer.decode(*args, **kwargs)
@@ -276,3 +280,6 @@ class GotOcr2Processor(ProcessorMixin):
         tokenizer_input_names = self.tokenizer.model_input_names
         image_processor_input_names = self.image_processor.model_input_names
         return list(dict.fromkeys(tokenizer_input_names + image_processor_input_names))
+
+
+__all__ = ["GotOcr2Processor"]

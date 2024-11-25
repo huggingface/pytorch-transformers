@@ -49,7 +49,7 @@ The original code can be found [here](https://github.com/Ucas-HaoranWei/GOT-OCR2
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/image_ocr.jpg"
->>> inputs = processor(image, return_tensors="pt").to("cuda", dtype=model.dtype)
+>>> inputs = processor(image, return_tensors="pt").to("cuda")
 
 >>> generate_ids = model.generate(
 >>>     **inputs,
@@ -99,7 +99,7 @@ GOT-OCR2 can also generate formatted text, such as markdown or LaTeX. Here is an
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/latex.png"
->>> inputs = processor(image, return_tensors="pt", format=True).to("cuda", dtype=model.dtype)
+>>> inputs = processor(image, return_tensors="pt", format=True).to("cuda")
 
 >>> generate_ids = model.generate(
 >>>     **inputs,
@@ -127,7 +127,7 @@ Here is an example of how to process multiple pages at once:
 
 >>> image1 = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/page1.png"
 >>> image2 = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/page2.png"
->>> inputs = processor([image1, image2], return_tensors="pt", format=True).to("cuda", dtype=model.dtype)
+>>> inputs = processor([image1, image2], return_tensors="pt", format=True).to("cuda")
 
 >>> generate_ids = model.generate(
 >>>     **inputs,
@@ -154,7 +154,7 @@ Here is an example of how to process cropped patches:
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/one_column.png"
->>> inputs = processor(image, return_tensors="pt", format=True, crop_to_patches=True, max_patches=3).to("cuda", dtype=model.dtype)
+>>> inputs = processor(image, return_tensors="pt", format=True, crop_to_patches=True, max_patches=3).to("cuda")
 
 >>> generate_ids = model.generate(
 >>>     **inputs,
@@ -180,7 +180,7 @@ GOT supports interactive OCR, where the user can specify the region to be recogn
 
 >>> image = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/multi_box.png"
 >>> inputs = processor(image, return_tensors="pt", color="green") # or box=[x1, y1, x2, y2] for coordinates (image pixels)
->>> inputs = inputs.to("cuda", dtype=model.dtype)
+>>> inputs = inputs.to("cuda")
 
 >>> generate_ids = model.generate(
 >>>     **inputs,
@@ -207,7 +207,7 @@ Here is an example of how to process sheet music:
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/sheet_music.png"
->>> inputs = processor(image, return_tensors="pt", format=True).to("cuda", dtype=model.dtype)
+>>> inputs = processor(image, return_tensors="pt", format=True).to("cuda")
 
 >>> generate_ids = model.generate(
 >>>     **inputs,

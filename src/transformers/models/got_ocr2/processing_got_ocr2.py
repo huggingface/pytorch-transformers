@@ -50,6 +50,8 @@ class GotOcr2ImagesKwargs(ImagesKwargs, total=False):
     num_image_tokens: Optional[int]
     multi_page: Optional[bool]
     crop_to_patches: Optional[bool]
+    min_patches: Optional[int]
+    max_patches: Optional[int]
 
 
 class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
@@ -62,6 +64,8 @@ class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
         },
         "images_kwargs": {
             "num_image_tokens": 256,
+            "min_patches": 1,
+            "max_patches": 6,
         },
     }
 
@@ -213,7 +217,10 @@ class GotOcr2Processor(ProcessorMixin):
             for index, (image_group, box_single, color_single) in enumerate(zip(images, box, color)):
                 if crop_to_patches:
                     image_group = self.image_processor.crop_image_to_patches(
-                        image_group, size=output_kwargs["images_kwargs"].get("size", None)
+                        image_group,
+                        size=output_kwargs["images_kwargs"].get("size"),
+                        min_num=output_kwargs["images_kwargs"].get("min_patches"),
+                        max_num=output_kwargs["images_kwargs"].get("max_patches"),
                     )
                     images[index] = image_group
                 num_images = len(image_group) if (multi_page or crop_to_patches) else 1

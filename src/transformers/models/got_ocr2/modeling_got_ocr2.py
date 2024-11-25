@@ -1651,6 +1651,7 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
         if inputs_embeds is None:
             inputs_embeds = self.model.embed_tokens(input_ids)
             if pixel_values is not None:
+                pixel_values = pixel_values.to(inputs_embeds.dtype)
                 image_embeds = self.visual(pixel_values)
                 image_embeds = self.visual_adapter(image_embeds.last_hidden_state)
                 n_image_tokens = (input_ids == self.config.image_token_id).sum().item()

@@ -145,7 +145,7 @@ conda install conda-forge::transformers
 
 学習済みモデルはダウンロードされ、ローカルにキャッシュされます: `~/.cache/huggingface/hub`. これはシェル環境変数`TRANSFORMERS_CACHE`で指定されるデフォルトのディレクトリです。Windowsでは、デフォルトのディレクトリは`C:\Users\username\.cache\huggingface\hub`になっています。異なるキャッシュディレクトリを指定するために、以下のシェル環境変数を変更することが可能です。優先度は以下の順番に対応します:
 
-1. シェル環境変数 (デフォルト): `HUGGINGFACE_HUB_CACHE` または `TRANSFORMERS_CACHE`.
+1. シェル環境変数 (デフォルト): `HF_HUB_CACHE` または `TRANSFORMERS_CACHE`.
 2. シェル環境変数: `HF_HOME`.
 3. シェル環境変数: `XDG_CACHE_HOME` + `/huggingface`.
 

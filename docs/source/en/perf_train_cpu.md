@@ -51,7 +51,7 @@ To enable auto mixed precision with IPEX in Trainer, users should add `use_ipex`
 Take an example of the use cases on [Transformers question-answering](https://github.com/huggingface/transformers/tree/main/examples/pytorch/question-answering)
 
 - Training with IPEX using BF16 auto mixed precision on CPU:
-<pre> python run_qa.py \
+<pre> python examples/pytorch/question-answering/run_qa.py \
 --model_name_or_path google-bert/bert-base-uncased \
 --dataset_name squad \
 --do_train \

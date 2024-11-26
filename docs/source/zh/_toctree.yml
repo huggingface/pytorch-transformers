@@ -52,6 +52,8 @@
     title: 导出为 TorchScript
   - local: gguf
     title: 与 GGUF 格式的互操作性
+  - local: tiktoken
+    title: 与 Tiktoken 文件的互操作性
   title: 开发者指南
 - sections:
   - local: performance

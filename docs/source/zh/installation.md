@@ -157,7 +157,7 @@ conda install conda-forge::transformers
 
 预训练模型会被下载并本地缓存到 `~/.cache/huggingface/hub`。这是由环境变量 `TRANSFORMERS_CACHE` 指定的默认目录。在 Windows 上，默认目录为 `C:\Users\username\.cache\huggingface\hub`。你可以按照不同优先级改变下述环境变量，以指定不同的缓存目录。
 
-1. 环境变量（默认）: `HUGGINGFACE_HUB_CACHE` 或 `TRANSFORMERS_CACHE`。
+1. 环境变量（默认）: `HF_HUB_CACHE` 或 `TRANSFORMERS_CACHE`。
 2. 环境变量 `HF_HOME`。
 3. 环境变量 `XDG_CACHE_HOME` + `/huggingface`。
 

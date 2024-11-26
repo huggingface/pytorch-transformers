@@ -144,7 +144,7 @@ conda install conda-forge::transformers
 
 تُحمّل النماذج المُسبقة التدريب وتُخزّن مؤقتًا في: `~/.cache/huggingface/hub`. هذا هو المجلد الافتراضي الذي يُحدده متغير البيئة `TRANSFORMERS_CACHE`. على Windows، يكون دليل ذاكرة التخزين المؤقت الافتراضي هو `C:\Users\username\.cache\huggingface\hub`. يمكنك تغيير متغيرات البيئة shell الموضحة أدناه - حسب الأولوية - لتحديد دليل ذاكرة تخزين مؤقت مختلف:
 
-1. متغير البيئة (افتراضي): `HUGGINGFACE_HUB_CACHE` أو `TRANSFORMERS_CACHE`.
+1. متغير البيئة (افتراضي): `HF_HUB_CACHE` أو `TRANSFORMERS_CACHE`.
 2. متغير البيئة: `HF_HOME`.
 3. متغير البيئة: `XDG_CACHE_HOME` + `/huggingface`.
 

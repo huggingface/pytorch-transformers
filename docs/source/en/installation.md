@@ -157,7 +157,7 @@ conda install conda-forge::transformers
 
 Pretrained models are downloaded and locally cached at: `~/.cache/huggingface/hub`. This is the default directory given by the shell environment variable `TRANSFORMERS_CACHE`. On Windows, the default directory is given by `C:\Users\username\.cache\huggingface\hub`. You can change the shell environment variables shown below - in order of priority - to specify a different cache directory:
 
-1. Shell environment variable (default): `HUGGINGFACE_HUB_CACHE` or `TRANSFORMERS_CACHE`.
+1. Shell environment variable (default): `HF_HUB_CACHE` or `TRANSFORMERS_CACHE`.
 2. Shell environment variable: `HF_HOME`.
 3. Shell environment variable: `XDG_CACHE_HOME` + `/huggingface`.
 

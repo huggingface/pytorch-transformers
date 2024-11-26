@@ -75,7 +75,7 @@ The following command enables training with 2 processes on one Xeon node, with o
  export CCL_WORKER_COUNT=1
  export MASTER_ADDR=127.0.0.1
  mpirun -n 2 -genv OMP_NUM_THREADS=23 \
- python3 run_qa.py \
+ python3 examples/pytorch/question-answering/run_qa.py \
  --model_name_or_path google-bert/bert-large-uncased \
  --dataset_name squad \
  --do_train \
@@ -104,7 +104,7 @@ Now, run the following command in node0 and **4DDP** will be enabled in node0 an
  export MASTER_ADDR=xxx.xxx.xxx.xxx #node0 ip
  mpirun -f hostfile -n 4 -ppn 2 \
  -genv OMP_NUM_THREADS=23 \
- python3 run_qa.py \
+ python3 examples/pytorch/question-answering/run_qa.py \
  --model_name_or_path google-bert/bert-large-uncased \
  --dataset_name squad \
  --do_train \

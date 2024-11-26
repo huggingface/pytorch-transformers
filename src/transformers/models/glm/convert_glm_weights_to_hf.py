@@ -37,16 +37,28 @@ STATE_DICT_MAPPING = {
 # fmt: on
 
 
-def merge_safetensors(input_dir: str):
-    all_files = [os.path.join(input_dir, x) for x in os.listdir(input_dir) if x.endswith(".safetensors")]
-    all_files = sorted(all_files, key=lambda x: int(x.rsplit("-", 3)[1]))
+def load_weights(input_dir: str):
+    safetensor_files = [os.path.join(input_dir, x) for x in os.listdir(input_dir) if x.endswith(".safetensors")]
+    bin_files = [os.path.join(input_dir, x) for x in os.listdir(input_dir) if x.endswith(".bin")]
 
     all_weights = {}
-    for file in all_files:
-        tensors = load_file(file)
-        all_weights.update(tensors)
 
-    return all_weights
+    if safetensor_files:
+        safetensor_files = sorted(safetensor_files, key=lambda x: int(x.rsplit("-", 3)[1]))
+        for file in safetensor_files:
+            tensors = load_file(file)
+            all_weights.update(tensors)
+        return all_weights
+
+    elif bin_files:
+        bin_files = sorted(bin_files, key=lambda x: int(x.rsplit("-", 3)[1]))
+        for file in bin_files:
+            tensors = torch.load(file, map_location="cpu")
+            all_weights.update(tensors)
+        return all_weights
+
+    else:
+        raise ValueError("No .safetensors or .bin files found in the specified directory.")
 
 
 def map_old_key_to_new(old_key):
@@ -100,7 +112,8 @@ def convert_config(original_config: dict):
         "attention_bias": "add_qkv_bias",
     }
     similar_keys_to_keep = [
-        "num_attention_heads" "hidden_size",
+        "num_attention_heads",
+        "hidden_size",
         "attention_dropout",
         "use_cache",
         "eos_token_id",
@@ -120,24 +133,27 @@ def convert_config(original_config: dict):
     return new_config
 
 
-def convert_glm_tokenizer(input_dir):
+def convert_glm_tokenizer(input_dir, use_post_processor=False):
     fast_tok = PreTrainedTokenizerFast.from_pretrained(input_dir, model_input_names=["input_ids", "attention_mask"])
-    # Add the two tokens automatically with post processor
-    fast_tok._tokenizer.post_processor = processors.Sequence(
-        [
-            processors.ByteLevel(trim_offsets=False),
-            processors.TemplateProcessing(
-                single="[gMASK]:0 <sop>:0 $A:0",
-                pair="[gMASK]:0 <sop>:0 $A:0 $B:1",
-                special_tokens=[("[gMASK]", 151331), ("<sop>", 151333)],
-            ),
-        ],
-    )
-
+    if use_post_processor:
+        fast_tok._tokenizer.post_processor = processors.Sequence(
+            [
+                processors.ByteLevel(trim_offsets=False),
+                processors.TemplateProcessing(
+                    single="[gMASK]:0 <sop>:0 $A:0",
+                    pair="[gMASK]:0 <sop>:0 $A:0 $B:1",
+                    special_tokens=[("[gMASK]", 151331), ("<sop>", 151333)],
+                ),
+            ],
+        )
+    else:
+        fast_tok._tokenizer.post_processor = processors.Sequence(
+            [processors.ByteLevel(trim_offsets=False)],
+        )
     return fast_tok
 
 
-def convert_glm_model(input_dir, output_dir):
+def convert_glm_model(input_dir, output_dir, use_post_processor=False):
     # Load and convert config
     with open(os.path.join(input_dir, "config.json")) as f:
         original_config = json.load(f)
@@ -145,7 +161,7 @@ def convert_glm_model(input_dir, output_dir):
     config.save_pretrained(output_dir)
 
     # Load and convert weights
-    original_state_dict = merge_safetensors(input_dir)
+    original_state_dict = load_weights(input_dir)
     new_dict = convert_state_dict(original_state_dict, config)
     with torch.device("meta"):
         model = GlmForCausalLM(config)
@@ -153,7 +169,7 @@ def convert_glm_model(input_dir, output_dir):
     model.save_pretrained(output_dir)
 
     # Load and convert tokenizer
-    tokenizer = convert_glm_tokenizer(input_dir)
+    tokenizer = convert_glm_tokenizer(input_dir, use_post_processor)
     tokenizer.save_pretrained(output_dir)
 
 
@@ -169,6 +185,11 @@ if __name__ == "__main__":
         type=str,
         help="Location to write HF model and tokenizer",
     )
+    parser.add_argument(
+        "--use_post_processor",
+        action="store_true",
+        help="Whether to apply post processor with special tokens",
+    )
 
     args = parser.parse_args()
-    convert_glm_model(args.input_dir, args.output_dir)
+    convert_glm_model(args.input_dir, args.output_dir, args.use_post_processor)

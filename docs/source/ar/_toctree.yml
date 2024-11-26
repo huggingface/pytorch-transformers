@@ -129,8 +129,8 @@
     title: التصدير إلى TFLite
   - local: torchscript
     title: التصدير إلى TorchScript
-#   - local: benchmarks
-#     title: المعايير
+  - local: benchmarks
+    title: المعايير
 #   - local: notebooks
 #     title: دفاتر الملاحظات مع الأمثلة
 #   - local: community

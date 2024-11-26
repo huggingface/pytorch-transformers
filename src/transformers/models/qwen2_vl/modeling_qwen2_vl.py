@@ -1025,7 +1025,7 @@ class Qwen2VisionTransformerPretrainedModel(Qwen2VLPreTrainedModel):
         rotary_pos_emb = self.rot_pos_emb(grid_thw)
 
         cu_seqlens = torch.repeat_interleave(grid_thw[:, 1] * grid_thw[:, 2], grid_thw[:, 0]).cumsum(
-            dim=0, dtype=torch.int32
+            dim=0, dtype=grid_thw.dtype
         )
         cu_seqlens = F.pad(cu_seqlens, (1, 0), value=0)
 

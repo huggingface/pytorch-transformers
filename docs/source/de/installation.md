@@ -149,7 +149,7 @@ conda install conda-forge::transformers
 
 Vorgefertigte Modelle werden heruntergeladen und lokal zwischengespeichert unter: `~/.cache/huggingface/hub`. Dies ist das Standardverzeichnis, das durch die Shell-Umgebungsvariable "TRANSFORMERS_CACHE" vorgegeben ist. Unter Windows wird das Standardverzeichnis durch `C:\Benutzer\Benutzername\.cache\huggingface\hub` angegeben. Sie können die unten aufgeführten Shell-Umgebungsvariablen - in der Reihenfolge ihrer Priorität - ändern, um ein anderes Cache-Verzeichnis anzugeben:
 
-1. Shell-Umgebungsvariable (Standard): `HUGGINGFACE_HUB_CACHE` oder `TRANSFORMERS_CACHE`.
+1. Shell-Umgebungsvariable (Standard): `HF_HUB_CACHE` oder `TRANSFORMERS_CACHE`.
 2. Shell-Umgebungsvariable: `HF_HOME`.
 3. Shell-Umgebungsvariable: `XDG_CACHE_HOME` + `/huggingface`.
 

@@ -333,6 +333,10 @@ class Qwen2VLModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCas
     def test_generate_from_inputs_embeds_with_static_cache(self):
         pass
 
+    @unittest.skip(reason="Can't compile fullgraph due to dynamic control flow in `prepare_inputs_for_generate`")
+    def test_generate_compile_fullgraph(self):
+        pass
+
 
 @require_torch
 class Qwen2VLIntegrationTest(unittest.TestCase):

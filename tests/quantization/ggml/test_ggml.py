@@ -61,6 +61,8 @@ class GgufIntegrationTests(unittest.TestCase):
     starcoder2_original_model_id = "bigcode/starcoder2-3b"
     mamba_original_model_id = "state-spaces/mamba-2.8b-hf"
     mamba_model_id = "jpodivin/mamba-2.8b-hf-GGUF"
+    nemotron_original_model_id = "nvidia/Nemotron-Mini-4B-Instruct"
+    nemotron_model_id = "bartowski/Nemotron-Mini-4B-Instruct-GGUF"
 
     # standard quants
     q4_0_gguf_model_id = "tinyllama-1.1b-chat-v1.0.Q4_0.gguf"
@@ -106,6 +108,8 @@ class GgufIntegrationTests(unittest.TestCase):
     fp16_starcoder2_gguf_model_id = "starcoder2-3b.fp16.gguf"
     q6_k_mamba_model_id = "ggml-model-Q6_K.gguf"
     fp16_mamba_model_id = "ggml-model-f16.gguf"
+    q6_k_nemotron_model_id = "Nemotron-Mini-4B-Instruct-Q6_K.gguf"
+    fp16_nemotron_model_id = "Nemotron-Mini-4B-Instruct-f16.gguf"
 
     example_text = "Hello"
 
@@ -619,8 +623,8 @@ class GgufIntegrationTests(unittest.TestCase):
             torch_dtype=torch.float16,
         )
 
-        text = tokenizer(self.example_text, return_tensors="pt").to(torch_device)
-        out = model.generate(**text, max_new_tokens=10)
+        text = tokenizer(self.example_text, return_tensors="pt")["input_ids"].to(torch_device)
+        out = model.generate(text, max_new_tokens=10)
 
         EXPECTED_TEXT = "Hello All,\nI am new to this forum."
         self.assertEqual(tokenizer.decode(out[0], skip_special_tokens=True), EXPECTED_TEXT)
@@ -790,6 +794,42 @@ class GgufIntegrationTests(unittest.TestCase):
         out = model.generate(text, max_new_tokens=10)
 
         EXPECTED_TEXT = "Hello,I answerthe question.\n\nA"
+        self.assertEqual(tokenizer.decode(out[0], skip_special_tokens=True), EXPECTED_TEXT)
+
+    def test_nemotron_weights_conversion_fp16(self):
+        original_model = AutoModelForCausalLM.from_pretrained(
+            self.nemotron_original_model_id,
+            torch_dtype=torch.float16,
+        )
+
+        converted_model = AutoModelForCausalLM.from_pretrained(
+            self.nemotron_model_id,
+            gguf_file=self.fp16_nemotron_model_id,
+            torch_dtype=torch.float16,
+        )
+
+        converted_state_dict = converted_model.state_dict()
+        original_state_dict = original_model.state_dict()
+
+        for layer_name, original_params in original_state_dict.items():
+            if layer_name in converted_state_dict:
+                self.assertTrue(original_params.shape == converted_state_dict[layer_name].shape)
+                torch.testing.assert_close(original_params, converted_state_dict[layer_name])
+            else:
+                raise ValueError(f"Layer {layer_name} is not presented in GGUF model")
+
+    def test_nemotron_q6_k(self):
+        model = AutoModelForCausalLM.from_pretrained(
+            self.nemotron_model_id,
+            gguf_file=self.q6_k_nemotron_model_id,
+            torch_dtype=torch.float16,
+        )
+
+        tokenizer = AutoTokenizer.from_pretrained(self.nemotron_model_id, gguf_file=self.q6_k_nemotron_model_id)
+        text = tokenizer(self.example_text, return_tensors="pt")["input_ids"]
+        out = model.generate(text, max_new_tokens=10)
+
+        EXPECTED_TEXT = "'Hello. hotmail.com.'"
         self.assertEqual(tokenizer.decode(out[0], skip_special_tokens=True), EXPECTED_TEXT)
 
     def test_tokenization_xnli(self):

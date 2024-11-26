@@ -14,11 +14,11 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# OLMo November 2024
+# OLMo2
 
 ## Overview
 
-The OLMo November 2024 model is a successor of the OLMo model, which was proposed in
+The OLMo2 model is the successor of the OLMo model, which was proposed in
 [OLMo: Accelerating the Science of Language Models](https://arxiv.org/abs/2402.00838).
 
  The architectural changes from the original OLMo model to this model are:
@@ -31,16 +31,16 @@ This model was contributed by [shanearora](https://huggingface.co/shanearora).
 The original code can be found [here](https://github.com/allenai/OLMo/tree/main/olmo).
 
 
-## Olmo1124Config
+## Olmo2Config
 
-[[autodoc]] Olmo1124Config
+[[autodoc]] Olmo2Config
 
-## Olmo1124Model
+## Olmo2Model
 
-[[autodoc]] Olmo1124Model
+[[autodoc]] Olmo2Model
     - forward
 
-## Olmo1124ForCausalLM
+## Olmo2ForCausalLM
 
-[[autodoc]] Olmo1124ForCausalLM
+[[autodoc]] Olmo2ForCausalLM
     - forward

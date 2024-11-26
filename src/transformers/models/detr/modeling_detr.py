@@ -1805,3 +1805,11 @@ class DetrMHAttentionMap(nn.Module):
         weights = nn.functional.softmax(weights.flatten(2), dim=-1).view(weights.size())
         weights = self.dropout(weights)
         return weights
+
+
+__all__ = [
+    "DetrForObjectDetection",
+    "DetrForSegmentation",
+    "DetrModel",
+    "DetrPreTrainedModel",
+]

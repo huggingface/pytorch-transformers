@@ -624,7 +624,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         if return_tensors is None and not return_overflowing_tokens:
             batched_output = BatchEncoding(
                 {
-                    key: value[0] if len(value) > 0 and isinstance(value[0], list) else value
+                    key: (value[0] if len(value) > 0 and isinstance(value[0], list) else value)
                     for key, value in batched_output.items()
                 },
                 batched_output.encodings,
@@ -635,7 +635,11 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         return batched_output
 
     def convert_tokens_to_string(self, tokens: List[str]) -> str:
-        return self.backend_tokenizer.decoder.decode(tokens)
+        return (
+            self.backend_tokenizer.decoder.decode(tokens)
+            if self.backend_tokenizer.decoder is not None
+            else " ".join(tokens)
+        )
 
     def _decode(
         self,

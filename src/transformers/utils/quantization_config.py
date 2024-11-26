@@ -1264,8 +1264,13 @@ class TorchAoConfig(QuantizationConfigMixin):
         r"""
         Safety checker that arguments are correct - also replaces some NoneType arguments with their default values.
         """
-        if not version.parse(importlib.metadata.version("torchao")) >= version.parse("0.4.0"):
-            raise ValueError("Requires torchao 0.4.0 version and above")
+        if is_torchao_available():
+            if not version.parse(importlib.metadata.version("torchao")) >= version.parse("0.4.0"):
+                raise ValueError("Requires torchao 0.4.0 version and above")
+        else:
+            raise ValueError(
+                "TorchAoConfig requires torchao to be installed, please install with `pip install torchao`"
+            )
 
         _STR_TO_METHOD = self._get_torchao_quant_type_to_method()
         if self.quant_type not in _STR_TO_METHOD.keys():

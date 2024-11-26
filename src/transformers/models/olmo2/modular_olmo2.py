@@ -28,11 +28,11 @@ if is_flash_attn_2_available():
 logger = logging.get_logger(__name__)
 
 
-class Olmo1124Config(OlmoConfig):
+class Olmo2Config(OlmoConfig):
     r"""
-    This is the configuration class to store the configuration of a [`Olmo1124Model`]. It is used to instantiate an OLMo November 2024
+    This is the configuration class to store the configuration of a [`Olmo2Model`]. It is used to instantiate an OLMo2
     model according to the specified arguments, defining the model architecture. Instantiating a configuration with the
-    defaults will yield a similar configuration to that of the [allenai/Olmo1124-7B-hf](https://huggingface.co/allenai/Olmo1124-7B-hf).
+    defaults will yield a similar configuration to that of the [allenai/Olmo2-7B-1124-hf](https://huggingface.co/allenai/Olmo2-7B-1124-hf).
 
     Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
     documentation from [`PretrainedConfig`] for more information.
@@ -40,8 +40,8 @@ class Olmo1124Config(OlmoConfig):
 
     Args:
         vocab_size (`int`, *optional*, defaults to 50304):
-            Vocabulary size of the Olmo1124 model. Defines the number of different tokens that can be represented by the
-            `inputs_ids` passed when calling [`Olmo1124Model`]
+            Vocabulary size of the Olmo2 model. Defines the number of different tokens that can be represented by the
+            `inputs_ids` passed when calling [`Olmo2Model`]
         hidden_size (`int`, *optional*, defaults to 4096):
             Dimension of the hidden representations.
         intermediate_size (`int`, *optional*, defaults to 11008):
@@ -93,20 +93,20 @@ class Olmo1124Config(OlmoConfig):
             The epsilon used by the rms normalization layers.
 
     ```python
-    >>> from transformers import Olmo1124Model, Olmo1124Config
+    >>> from transformers import Olmo2Model, Olmo2Config
 
-    >>> # Initializing a Olmo November 2024 7B style configuration
-    >>> configuration = Olmo1124Config()
+    >>> # Initializing a Olmo2 7B style configuration
+    >>> configuration = Olmo2Config()
 
-    >>> # Initializing a model from the Olmo November 2024 7B style configuration
-    >>> model = Olmo1124Model(configuration)
+    >>> # Initializing a model from the Olmo2 7B style configuration
+    >>> model = Olmo2Model(configuration)
 
     >>> # Accessing the model configuration
     >>> configuration = model.config
     ```
     """
 
-    model_type = "olmo_1124"
+    model_type = "olmo2"
 
     def __init__(
         self,
@@ -157,21 +157,21 @@ class Olmo1124Config(OlmoConfig):
         del self.clip_qkv
 
 
-class Olmo1124RMSNorm(LlamaRMSNorm):
+class Olmo2RMSNorm(LlamaRMSNorm):
     pass
 
 
-ALL_LAYERNORM_LAYERS.append(Olmo1124RMSNorm)
+ALL_LAYERNORM_LAYERS.append(Olmo2RMSNorm)
 
 
-# Olmo1124 attention is identical to OLMo attention except:
+# Olmo2 attention is identical to OLMo attention except:
 # - Norm is applied to attention queries and keys.
 # - No qkv clipping.
-class Olmo1124Attention(OlmoAttention):
-    def __init__(self, config: Olmo1124Config, layer_idx: Optional[int] = None):
+class Olmo2Attention(OlmoAttention):
+    def __init__(self, config: Olmo2Config, layer_idx: Optional[int] = None):
         super().__init__(config, layer_idx=layer_idx)
-        self.q_norm = Olmo1124RMSNorm(self.num_heads * self.head_dim, config.rms_norm_eps)
-        self.k_norm = Olmo1124RMSNorm(self.num_key_value_heads * self.head_dim, config.rms_norm_eps)
+        self.q_norm = Olmo2RMSNorm(self.num_heads * self.head_dim, config.rms_norm_eps)
+        self.k_norm = Olmo2RMSNorm(self.num_key_value_heads * self.head_dim, config.rms_norm_eps)
 
     def forward(
         self,
@@ -234,15 +234,15 @@ class Olmo1124Attention(OlmoAttention):
         return attn_output, attn_weights, past_key_value
 
 
-class Olmo1124FlashAttention2(OlmoFlashAttention2, Olmo1124Attention):
+class Olmo2FlashAttention2(OlmoFlashAttention2, Olmo2Attention):
     """
-    OLMo November 2024 flash attention module. This module inherits from `Olmo1124Attention` as the weights of the module stays
+    OLMo2 flash attention module. This module inherits from `Olmo2Attention` as the weights of the module stays
     untouched. The only required change would be on the forward pass where it needs to correctly call the public API of
     flash attention and deal with padding tokens in case the input contains any of them.
     """
 
     def __init__(self, *args, **kwargs):
-        Olmo1124Attention.__init__(*args, **kwargs)
+        Olmo2Attention.__init__(*args, **kwargs)
 
         # TODO: Should be removed once Flash Attention for RoCm is bumped to 2.1.
         # flash_attn<2.1 generates top-left aligned causal mask, while what is needed here is bottom-right alignement, that was made default for flash_attn>=2.1. This attribute is used to handle this difference. Reference: https://github.com/Dao-AILab/flash-attention/releases/tag/v2.1.0.
@@ -338,8 +338,8 @@ class Olmo1124FlashAttention2(OlmoFlashAttention2, Olmo1124Attention):
         return attn_output, attn_weights, past_key_value
 
 
-class Olmo1124SdpaAttention(OlmoSdpaAttention, Olmo1124Attention):
-    # Adapted from Olmo1124Attention.forward
+class Olmo2SdpaAttention(OlmoSdpaAttention, Olmo2Attention):
+    # Adapted from Olmo2Attention.forward
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -353,7 +353,7 @@ class Olmo1124SdpaAttention(OlmoSdpaAttention, Olmo1124Attention):
         if output_attentions:
             # TODO: Improve this warning with e.g. `model.config.attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "Olmo1124Model is using Olmo1124SdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention implementation, "
+                "Olmo2Model is using Olmo2SdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention implementation, "
                 'but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
@@ -408,14 +408,14 @@ class Olmo1124SdpaAttention(OlmoSdpaAttention, Olmo1124Attention):
         return attn_output, None, past_key_value
 
 
-# The OLMo November 2024 layers are identical to those of the OLMo model except:
+# The OLMo2 layers are identical to those of the OLMo model except:
 # - RMSNorm is used instead of standard layer norm.
 # - Norm is applied after attention/feedforward rather than before.
-class Olmo1124DecoderLayer(OlmoDecoderLayer):
-    def __init__(self, config: Olmo1124Config, layer_idx: int):
+class Olmo2DecoderLayer(OlmoDecoderLayer):
+    def __init__(self, config: Olmo2Config, layer_idx: int):
         super().__init__(config, layer_idx=layer_idx)
-        self.post_attention_layernorm = Olmo1124RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_feedforward_layernorm = Olmo1124RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = Olmo2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_feedforward_layernorm = Olmo2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         del self.input_layernorm
 
     def forward(
@@ -459,31 +459,31 @@ class Olmo1124DecoderLayer(OlmoDecoderLayer):
         return outputs
 
 
-class Olmo1124PreTrainedModel(OlmoPreTrainedModel):
+class Olmo2PreTrainedModel(OlmoPreTrainedModel):
     pass
 
 
-# The OLMo November 2024 model is identical to the OLMo model, except RMSNorm is used instead of
+# The OLMo2 model is identical to the OLMo model, except RMSNorm is used instead of
 # standard layer norm for the output norm.
-class Olmo1124Model(OlmoModel):
-    def __init__(self, config: Olmo1124Config):
+class Olmo2Model(OlmoModel):
+    def __init__(self, config: Olmo2Config):
         super().__init__(config)
         self.layers = nn.ModuleList(
-            [Olmo1124DecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
+            [Olmo2DecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
-        self.norm = Olmo1124RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.norm = Olmo2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
 
 # The heads now only need to redefine the model inside to the correct `RobertaModel`
-class Olmo1124ForCausalLM(OlmoForCausalLM):
-    def __init__(self, config: Olmo1124Config):
+class Olmo2ForCausalLM(OlmoForCausalLM):
+    def __init__(self, config: Olmo2Config):
         super().__init__(config)
-        self.model = Olmo1124Model(config)
+        self.model = Olmo2Model(config)
 
 
 __all__ = [
-    "Olmo1124Config",
-    "Olmo1124ForCausalLM",
-    "Olmo1124Model",
-    "Olmo1124PreTrainedModel",
+    "Olmo2Config",
+    "Olmo2ForCausalLM",
+    "Olmo2Model",
+    "Olmo2PreTrainedModel",
 ]

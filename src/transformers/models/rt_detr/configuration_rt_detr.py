@@ -359,3 +359,6 @@ class RTDetrConfig(PretrainedConfig):
             backbone_config=backbone_config,
             **kwargs,
         )
+
+
+__all__ = ["RTDetrConfig"]

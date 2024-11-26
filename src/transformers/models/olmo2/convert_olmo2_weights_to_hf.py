@@ -23,7 +23,7 @@ import torch
 import yaml
 from tokenizers import Tokenizer
 
-from transformers import Olmo1124Config, Olmo1124ForCausalLM
+from transformers import Olmo2Config, Olmo2ForCausalLM
 from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
 
 
@@ -31,16 +31,16 @@ from transformers.models.gpt2.tokenization_gpt2_fast import GPT2TokenizerFast
 Sample usage:
 
 ```
-python src/transformers/models/olmo_1124/convert_olmo_1124_weights_to_hf.py \
-    --input_dir /path/to/downloaded/olmo_1124/weights --model_size 7B --output_dir /output/path
+python src/transformers/models/olmo2/convert_olmo2_weights_to_hf.py \
+    --input_dir /path/to/downloaded/olmo2/weights --model_size 7B --output_dir /output/path
 ```
 
 Thereafter, models can be loaded via:
 
 ```py
-from transformers import Olmo1124ForCausalLM, AutoTokenizer
+from transformers import Olmo2ForCausalLM, AutoTokenizer
 
-model = Olmo1124ForCausalLM.from_pretrained("/output/path")
+model = Olmo2ForCausalLM.from_pretrained("/output/path")
 tokenizer = AutoTokenizer.from_pretrained("/output/path")
 ```
 
@@ -77,26 +77,26 @@ def write_model(
     os.makedirs(tmp_model_path, exist_ok=True)
 
     config_path = Path(input_base_path) / "config.yaml"
-    olmo_1124_config = yaml.safe_load(config_path.read_text())["model"]
+    olmo2_config = yaml.safe_load(config_path.read_text())["model"]
 
-    if not olmo_1124_config.get("attention_layer_norm", False):
-        raise RuntimeError("OLMo November 2024 checkpoints must have attention layer norm")
-    if not olmo_1124_config.get("norm_after", False):
-        raise RuntimeError("OLMo November 2024 checkpoints must set norm_after to True")
+    if not olmo2_config.get("attention_layer_norm", False):
+        raise RuntimeError("OLMo2 checkpoints must have attention layer norm")
+    if not olmo2_config.get("norm_after", False):
+        raise RuntimeError("OLMo2 checkpoints must set norm_after to True")
 
-    n_layers = olmo_1124_config["n_layers"]
-    n_heads = olmo_1124_config["n_heads"]
-    dim = olmo_1124_config["d_model"]
+    n_layers = olmo2_config["n_layers"]
+    n_heads = olmo2_config["n_heads"]
+    dim = olmo2_config["d_model"]
     dims_per_head = dim // n_heads
-    base = olmo_1124_config["rope_theta"]
+    base = olmo2_config["rope_theta"]
     inv_freq = 1.0 / (base ** (torch.arange(0, dims_per_head, 2).float() / dims_per_head))
-    max_position_embeddings = olmo_1124_config["max_sequence_length"]
+    max_position_embeddings = olmo2_config["max_sequence_length"]
 
-    vocab_size = olmo_1124_config.get("embedding_size", olmo_1124_config["vocab_size"])
+    vocab_size = olmo2_config.get("embedding_size", olmo2_config["vocab_size"])
 
-    if olmo_1124_config.get("n_kv_heads", None) is not None:
-        num_key_value_heads = olmo_1124_config["n_kv_heads"]  # for GQA / MQA
-    elif olmo_1124_config["multi_query_attention"]:  # compatibility with other checkpoints
+    if olmo2_config.get("n_kv_heads", None) is not None:
+        num_key_value_heads = olmo2_config["n_kv_heads"]  # for GQA / MQA
+    elif olmo2_config["multi_query_attention"]:  # compatibility with other checkpoints
         num_key_value_heads = 1
     else:
         num_key_value_heads = n_heads
@@ -167,17 +167,17 @@ def write_model(
     index_dict["metadata"] = {"total_size": param_count * 2}
     write_json(index_dict, os.path.join(tmp_model_path, "pytorch_model.bin.index.json"))
 
-    if olmo_1124_config.get("mlp_hidden_size", None) is not None:
-        intermediate_size = olmo_1124_config["mlp_hidden_size"] // 2
+    if olmo2_config.get("mlp_hidden_size", None) is not None:
+        intermediate_size = olmo2_config["mlp_hidden_size"] // 2
     else:
-        intermediate_size = (dim * olmo_1124_config["mlp_ratio"]) // 2
+        intermediate_size = (dim * olmo2_config["mlp_ratio"]) // 2
 
-    if fix_eos_token_id and olmo_1124_config["eos_token_id"] == 0:
+    if fix_eos_token_id and olmo2_config["eos_token_id"] == 0:
         # Fixing a bug in OLMo where eos token id was incorrectly set
         print("Changing eos_token_id from 0 to 50279.")
-        olmo_1124_config["eos_token_id"] = 50279
+        olmo2_config["eos_token_id"] = 50279
 
-    config = Olmo1124Config(
+    config = Olmo2Config(
         vocab_size=vocab_size,
         hidden_size=dim,
         intermediate_size=intermediate_size,
@@ -185,11 +185,11 @@ def write_model(
         num_attention_heads=n_heads,
         num_key_value_heads=num_key_value_heads,
         max_position_embeddings=max_position_embeddings,
-        pad_token_id=olmo_1124_config["pad_token_id"],
+        pad_token_id=olmo2_config["pad_token_id"],
         bos_token_id=None,
-        eos_token_id=olmo_1124_config["eos_token_id"],
-        tie_word_embeddings=olmo_1124_config["weight_tying"],
-        rms_norm_eps=olmo_1124_config["layer_norm_eps"],
+        eos_token_id=olmo2_config["eos_token_id"],
+        tie_word_embeddings=olmo2_config["weight_tying"],
+        rms_norm_eps=olmo2_config["layer_norm_eps"],
         rope_theta=base,
     )
     config.save_pretrained(tmp_model_path)
@@ -202,8 +202,8 @@ def write_model(
     if include_tokenizer:
         _write_tokenizer(model_path, config, input_base_path, tokenizer_path)
 
-    print("Loading the checkpoint in a OLMo November 2024 model.")
-    model = Olmo1124ForCausalLM.from_pretrained(tmp_model_path, torch_dtype=torch.float32, low_cpu_mem_usage=True)
+    print("Loading the checkpoint in a OLMo2 model.")
+    model = Olmo2ForCausalLM.from_pretrained(tmp_model_path, torch_dtype=torch.float32, low_cpu_mem_usage=True)
     # Avoid saving this as part of the config.
     del model.config._name_or_path
     print("Saving in the Transformers format.")
@@ -216,7 +216,7 @@ def write_model(
 
 def _write_tokenizer(
     output_path: Path,
-    config: Olmo1124Config,
+    config: Olmo2Config,
     checkpoint_dir: str,
     input_tokenizer_path: Path | None,
 ) -> None:
@@ -251,7 +251,7 @@ def main():
     parser.add_argument(
         "--input_dir",
         required=True,
-        help="Location of OLMo November 2024 weights, which contains config.yaml and model.pt.",
+        help="Location of OLMo2 weights, which contains config.yaml and model.pt.",
     )
     parser.add_argument(
         "--no_tokenizer",
@@ -263,7 +263,7 @@ def main():
         "--tokenizer_json_path",
         type=Path,
         default=None,
-        help="Location of OLMo November 2024 tokenizer json file. Defaults to what is set in the config file.",
+        help="Location of OLMo2 tokenizer json file. Defaults to what is set in the config file.",
     )
     parser.add_argument(
         "--output_dir",

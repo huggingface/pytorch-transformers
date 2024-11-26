@@ -18,6 +18,7 @@ import unittest
 
 from transformers import DepthAnythingConfig, Dinov2Config
 from transformers.file_utils import is_torch_available, is_vision_available
+from transformers.pytorch_utils import is_torch_greater_or_equal_than_2_4
 from transformers.testing_utils import require_torch, require_vision, slow, torch_device
 
 from ...test_configuration_common import ConfigTester
@@ -290,3 +291,30 @@ class DepthAnythingModelIntegrationTest(unittest.TestCase):
         ).to(torch_device)
 
         self.assertTrue(torch.allclose(predicted_depth[0, :3, :3], expected_slice, atol=1e-4))
+
+    def test_export(self):
+        for strict in [True, False]:
+            with self.subTest(strict=strict):
+                if not is_torch_greater_or_equal_than_2_4:
+                    self.skipTest(reason="This test requires torch >= 2.4 to run.")
+                model = (
+                    DepthAnythingForDepthEstimation.from_pretrained("LiheYoung/depth-anything-small-hf")
+                    .to(torch_device)
+                    .eval()
+                )
+                image_processor = DPTImageProcessor.from_pretrained("LiheYoung/depth-anything-small-hf")
+                image = prepare_img()
+                inputs = image_processor(images=image, return_tensors="pt").to(torch_device)
+
+                exported_program = torch.export.export(
+                    model,
+                    args=(inputs["pixel_values"],),
+                    strict=strict,
+                )
+                with torch.no_grad():
+                    eager_outputs = model(**inputs)
+                    exported_outputs = exported_program.module().forward(inputs["pixel_values"])
+                self.assertEqual(eager_outputs.predicted_depth.shape, exported_outputs.predicted_depth.shape)
+                self.assertTrue(
+                    torch.allclose(eager_outputs.predicted_depth, exported_outputs.predicted_depth, atol=1e-4)
+                )

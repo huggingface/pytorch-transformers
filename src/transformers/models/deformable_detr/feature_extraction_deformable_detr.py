@@ -41,3 +41,6 @@ class DeformableDetrFeatureExtractor(DeformableDetrImageProcessor):
             FutureWarning,
         )
         super().__init__(*args, **kwargs)
+
+
+__all__ = ["DeformableDetrFeatureExtractor"]

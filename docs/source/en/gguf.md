@@ -87,6 +87,7 @@ For now the supported model architectures are the architectures that have been v
 - Starcoder2
 - T5
 - Mamba
+- Nemotron
 
 ## Example usage
 

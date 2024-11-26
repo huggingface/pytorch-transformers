@@ -2064,3 +2064,10 @@ class DeformableDetrForObjectDetection(DeformableDetrPreTrainedModel):
         )
 
         return dict_outputs
+
+
+__all__ = [
+    "DeformableDetrForObjectDetection",
+    "DeformableDetrModel",
+    "DeformableDetrPreTrainedModel",
+]

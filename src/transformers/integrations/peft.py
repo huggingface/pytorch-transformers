@@ -381,7 +381,7 @@ class PeftAdapterMixin:
         If you are not familiar with adapters and PEFT methods, we invite you to read more about them on the PEFT
         official documentation: https://huggingface.co/docs/peft
 
-        Enable adapters that are attached to the model. The model will use `self.active_adapter()`
+        Enable adapters that are attached to the model.
         """
         check_peft_version(min_version=MIN_PEFT_VERSION)
 
@@ -457,7 +457,7 @@ class PeftAdapterMixin:
         from peft import get_peft_model_state_dict
 
         if adapter_name is None:
-            adapter_name = self.active_adapter()
+            adapter_name = self.active_adapters()[0]
 
         adapter_state_dict = get_peft_model_state_dict(self, adapter_name=adapter_name)
         return adapter_state_dict

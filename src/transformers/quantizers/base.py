@@ -215,6 +215,9 @@ class HfQuantizer(ABC):
 
         # Delete quantizer and quantization config
         del model.hf_quantizer
+        del model.config.quantization_config
+        del model.config._pre_quantization_dtype
+        model.is_quantized = False
 
         return model
 

@@ -36,3 +36,25 @@ from transformers import AutoTokenizer
 model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
 tokenizer = AutoTokenizer.from_pretrained(model_id, subfolder="original") 
 ```
+## Create tiktoken tokenizer
+
+The `tokenizer.model` file contains no information about additional tokens or pattern strings. If these are important, convert the tokenizer to `tokenizer.json`, the appropriate format for [`PreTrainedTokenizerFast`].
+
+Generate the `tokenizer.model` file with [tiktoken.get_encoding](https://github.com/openai/tiktoken/blob/63527649963def8c759b0f91f2eb69a40934e468/tiktoken/registry.py#L63) and then convert it to `tokenizer.json` with [`convert_tiktoken_to_fast`].
+
+```py
+
+from transformers.integrations.tiktoken import convert_tiktoken_to_fast
+from tiktoken import get_encoding
+
+# You can load your custom encoding or the one provided by OpenAI
+encoding = get_encoding("gpt2")
+convert_tiktoken_to_fast(encoding, "config/save/dir")
+```
+
+The resulting `tokenizer.json` file is saved to the specified directory and can be loaded with [`PreTrainedTokenizerFast`].
+
+```py
+tokenizer = PreTrainedTokenizerFast.from_pretrained("config/save/dir")
+```
+

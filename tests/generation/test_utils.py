@@ -14,6 +14,7 @@
 # limitations under the License.
 
 
+import collections
 import copy
 import gc
 import inspect
@@ -1382,19 +1383,22 @@ class GenerationTesterMixin:
         attention_names = ["encoder_attentions", "decoder_attentions", "cross_attentions"]
         for model_class in self.all_generative_model_classes:
             config, inputs_dict = self.prepare_config_and_inputs_for_generate()
+            text_config = config.get_text_config()
 
             # We want to test only encoder-decoder models
-            if not config.is_encoder_decoder:
+            if not text_config.is_encoder_decoder:
                 continue
             model = model_class(config).to(torch_device)
 
             head_masking = {
-                "head_mask": torch.zeros(config.encoder_layers, config.encoder_attention_heads, device=torch_device),
+                "head_mask": torch.zeros(
+                    text_config.encoder_layers, text_config.encoder_attention_heads, device=torch_device
+                ),
                 "decoder_head_mask": torch.zeros(
-                    config.decoder_layers, config.decoder_attention_heads, device=torch_device
+                    text_config.decoder_layers, text_config.decoder_attention_heads, device=torch_device
                 ),
                 "cross_attn_head_mask": torch.zeros(
-                    config.decoder_layers, config.decoder_attention_heads, device=torch_device
+                    text_config.decoder_layers, text_config.decoder_attention_heads, device=torch_device
                 ),
             }
 
@@ -1526,6 +1530,14 @@ class GenerationTesterMixin:
             num_attention_heads = getattr(text_config, "decoder_attention_heads", text_config.num_attention_heads)
             embed_dim = getattr(text_config, "d_model", text_config.hidden_size)
             per_head_embed_dim = embed_dim // num_attention_heads
+
+            # some models have diffent num-head for query vs key/value so we need to assign correct value
+            # BUT only after `per_head_embed_dim` is set
+            num_attention_heads = (
+                text_config.num_key_value_heads
+                if getattr(text_config, "num_key_value_heads", None) is not None
+                else num_attention_heads
+            )
 
             past_kv = outputs["past_key_values"]
             self.assertEqual(len(past_kv), num_hidden_layers)
@@ -1889,36 +1901,41 @@ class GenerationTesterMixin:
             seq_length = main_input.shape[-1]
             max_new_tokens = 20
 
-            model = model_class(config).to(torch_device).eval()
-            generation_kwargs = {
-                "max_new_tokens": max_new_tokens,
-                "return_dict_in_generate": True,  # Required to return `past_key_values`
-                "output_scores": True,
-                "use_cache": True,
-            }
+            for dtype in (torch.float32, torch.float16):
+                model = model_class(config).to(torch_device).to(dtype).eval()
+                generation_kwargs = {
+                    "max_new_tokens": max_new_tokens,
+                    "return_dict_in_generate": True,  # Required to return `past_key_values`
+                    "output_scores": True,
+                    "use_cache": True,
+                }
 
-            static_cache_generation = model.generate(**generation_kwargs, **inputs_dict, cache_implementation="static")
+                static_cache_generation = model.generate(
+                    **generation_kwargs, **inputs_dict, cache_implementation="static"
+                )
 
-            # Check 1: The cache shapes must match the expected shapes
-            max_cache_len = seq_length + max_new_tokens
-            config = config.text_config if hasattr(config, "text_config") else config
-            head_dim = (
-                config.head_dim if hasattr(config, "head_dim") else config.hidden_size // config.num_attention_heads
-            )
-            num_key_value_heads = (
-                config.num_attention_heads
-                if getattr(config, "num_key_value_heads", None) is None
-                else config.num_key_value_heads
-            )
-            num_hidden_layers = config.num_hidden_layers
-            cache_shape = (batch_size, num_key_value_heads, max_cache_len, head_dim)
-            self.assertTrue(isinstance(static_cache_generation.past_key_values, StaticCache))
-            self.assertTrue(len(static_cache_generation.past_key_values.key_cache) == num_hidden_layers)
-            self.assertTrue(static_cache_generation.past_key_values.key_cache[0].shape == cache_shape)
+                # Check 1: The cache shapes must match the expected shapes
+                max_cache_len = seq_length + max_new_tokens
+                text_config = config.text_config if hasattr(config, "text_config") else config
+                head_dim = (
+                    text_config.head_dim
+                    if hasattr(text_config, "head_dim")
+                    else text_config.hidden_size // text_config.num_attention_heads
+                )
+                num_key_value_heads = (
+                    text_config.num_attention_heads
+                    if getattr(text_config, "num_key_value_heads", None) is None
+                    else text_config.num_key_value_heads
+                )
+                num_hidden_layers = text_config.num_hidden_layers
+                cache_shape = (batch_size, num_key_value_heads, max_cache_len, head_dim)
+                self.assertTrue(isinstance(static_cache_generation.past_key_values, StaticCache))
+                self.assertTrue(len(static_cache_generation.past_key_values.key_cache) == num_hidden_layers)
+                self.assertTrue(static_cache_generation.past_key_values.key_cache[0].shape == cache_shape)
 
-            # Check 2: The outputs must be similar to the case with dynamic cache
-            dynamic_cache_generation = model.generate(**generation_kwargs, **inputs_dict)
-            self._check_similar_generate_outputs(dynamic_cache_generation, static_cache_generation)
+                # Check 2: The outputs must be similar to the case with dynamic cache
+                dynamic_cache_generation = model.generate(**generation_kwargs, **inputs_dict)
+                self._check_similar_generate_outputs(dynamic_cache_generation, static_cache_generation)
 
     @require_optimum_quanto
     @pytest.mark.generate
@@ -2446,6 +2463,58 @@ class UtilsFunctionsTest(unittest.TestCase):
         )
         self.assertTrue(n_matches.item() == 2)
         self.assertTrue(validated_tokens.tolist()[0] == [1, 4, 8])
+
+    def test_speculative_sampling_target_distribution(self):
+        """
+        Asserts that the target distribution is preserved.
+        Should help with catching issues like #32867.
+        """
+        # assume vocab size 10, input length 5 + 3 generated candidates
+        candidate_input_ids = torch.tensor([[8, 0, 3, 9, 8, 1, 4, 5]])  # input tokens
+        candidate_logits = torch.tensor(
+            [
+                [
+                    [-10.0, 10.0, -10.0, -10.0, -10.0, -10.0, -10.0, -10.0, -10.0, -10.0],  # generated 1
+                    [-10.0, -10.0, -10.0, -10.0, 10.0, -10.0, -10.0, -10.0, -10.0, -10.0],  # generated 4
+                    [-10.0, -10.0, -10.0, -10.0, -10.0, 10.0, -10.0, -10.0, -10.0, -10.0],  # generated 5
+                ]
+            ]
+        )
+        candidate_length = 3
+        inf = float("inf")
+        new_logits = torch.tensor(
+            [
+                [
+                    # accepts 1:
+                    [-inf, 10.0, -inf, -inf, -inf, -inf, -inf, -inf, -inf, -inf],
+                    # accepts 4:
+                    [-inf, -inf, -inf, -inf, 10.0, -inf, -inf, -inf, -inf, -inf],
+                    # most likely to be 1 or 8, less likely to be 3, then 7, and should never be any other value:
+                    [-inf, 2.0, -inf, 1.0, -inf, -inf, -inf, -0.01, 2.0, -inf],
+                    # N/A:
+                    [-inf, -inf, -inf, -inf, -inf, -inf, -inf, -inf, -inf, -inf],
+                ]
+            ]
+        )
+        last_assistant_token_is_eos = False
+        last_validated_token = []
+        for _ in range(10_000):
+            validated_tokens, n_matches = _speculative_sampling(
+                candidate_input_ids,
+                candidate_logits,
+                candidate_length,
+                new_logits,
+                last_assistant_token_is_eos,
+            )
+            self.assertTrue(n_matches.item() == 2)
+            self.assertTrue(validated_tokens.tolist()[0][0] == 1)
+            self.assertTrue(validated_tokens.tolist()[0][1] == 4)
+            self.assertTrue(validated_tokens.tolist()[0][2] in [1, 3, 7, 8])
+            last_validated_token.append(validated_tokens.tolist()[0][2])
+        # check that the most likely tokens are selected more often than the less likely ones
+        last_token_counts = collections.Counter(last_validated_token)
+        self.assertTrue(last_token_counts[1] > last_token_counts[3] > last_token_counts[7] > 0)
+        self.assertTrue(last_token_counts[8] > last_token_counts[3])
 
 
 @pytest.mark.generate

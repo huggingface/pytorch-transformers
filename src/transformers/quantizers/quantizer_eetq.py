@@ -53,6 +53,20 @@ class EetqHfQuantizer(HfQuantizer):
                 "Please install the latest version of eetq from : https://github.com/NetEase-FuXi/EETQ"
             )
 
+        try:
+            import eetq  # noqa: F401
+        except ImportError as exc:
+            if "shard_checkpoint" in str(exc):
+                # EETQ 1.0.0 is currently broken with the latest transformers because it tries to import the removed
+                # shard_checkpoint function, see https://github.com/NetEase-FuXi/EETQ/issues/34.
+                # TODO: Update message once eetq releases a fix
+                raise ImportError(
+                    "You are using a version of EETQ that is incompatible with the current transformers version. "
+                    "Either downgrade transformers to <= v4.46.3 or, if available, upgrade EETQ to > v1.0.0."
+                ) from exc
+            else:
+                raise
+
         if not is_accelerate_available():
             raise ImportError("Loading an EETQ quantized model requires accelerate (`pip install accelerate`)")
 

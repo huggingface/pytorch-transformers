@@ -91,6 +91,15 @@ class TorchAoHfQuantizer(HfQuantizer):
                     )
                 else:
                     self.offload = True
+        if self.pre_quantized:
+            weights_only = kwargs.get("weights_only", None)
+            if weights_only:
+                torch_version = version.parse(importlib.metadata.version("torch"))
+                if torch_version < version.parse("2.5.0"):
+                    raise RuntimeError(
+                        f"In order to use torchao pre-quantized model, you need to have torch>=2.5.0. However, the current version is {torch_version}."
+                        f" You can also set with `weights_only=False` in `from_pretrained` if you don't want to update torch"
+                    )
 
     def update_torch_dtype(self, torch_dtype):
         if self.quantization_config.quant_type == "int4_weight_only":
@@ -103,6 +112,10 @@ class TorchAoHfQuantizer(HfQuantizer):
                     "Setting torch_dtype to torch.bfloat16 for int4_weight_only quantization since only bfloat16 is supported right now. Please set torch_dtype=torch.bfloat16 to remove this warning."
                 )
                 torch_dtype = torch.bfloat16
+        if self.quantization_config.quant_type == "int8_dynamic_activation_int8_weight":
+            if torch_dtype is None:
+                # we need to set the torch_dtype, otherwise we have dtype mismatch when performing the quantized linear op
+                torch_dtype = torch.float32
         return torch_dtype
 
     def adjust_target_dtype(self, target_dtype: "torch.dtype") -> "torch.dtype":
@@ -198,6 +211,12 @@ class TorchAoHfQuantizer(HfQuantizer):
         )
         if not _is_torchao_serializable:
             logger.warning("torchao quantized model is only serializable after huggingface_hub >= 0.25.0 ")
+        if self.offload and self.quantization_config.modules_to_not_convert is None:
+            logger.warning(
+                "The model contains offloaded modules and these modules are not quantized. We don't recommend saving the model as we won't be able to reload them."
+                "If you want to specify modules to not quantize, please specify modules_to_not_convert in the quantization_config."
+            )
+            return False
         return _is_torchao_serializable
 
     @property

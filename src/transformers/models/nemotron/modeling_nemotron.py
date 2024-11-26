@@ -24,7 +24,7 @@ import torch.utils.checkpoint
 from torch import Size, Tensor, nn
 
 from ...activations import ACT2FN
-from ...cache_utils import Cache, StaticCache
+from ...cache_utils import Cache, DynamicCache, StaticCache
 from ...generation import GenerationMixin
 from ...modeling_attn_mask_utils import AttentionMaskConverter
 from ...modeling_flash_attention_utils import _flash_attention_forward
@@ -780,11 +780,20 @@ class NemotronModel(NemotronPreTrainedModel):
             )
             use_cache = False
 
+        if use_cache and past_key_values is None:
+            past_key_values = DynamicCache()
+
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
 
+        if use_cache and past_key_values is None:
+            past_key_values = DynamicCache()
+
         if cache_position is None:
-            cache_position = torch.arange(inputs_embeds.shape[1], device=inputs_embeds.device)
+            past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
+            cache_position = torch.arange(
+                past_seen_tokens, past_seen_tokens + inputs_embeds.shape[1], device=inputs_embeds.device
+            )
         if position_ids is None:
             position_ids = cache_position.unsqueeze(0)
 

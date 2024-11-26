@@ -1217,6 +1217,8 @@ class StaticCache(Cache):
 
         k_out = self.key_cache[layer_idx]
         v_out = self.value_cache[layer_idx]
+        key_states = key_states.to(k_out.dtype)
+        value_states = value_states.to(v_out.dtype)
 
         if cache_position is None:
             k_out.copy_(key_states)

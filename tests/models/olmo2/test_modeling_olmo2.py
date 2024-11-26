@@ -12,14 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Testing suite for the PyTorch OLMo November 2024 model."""
+"""Testing suite for the PyTorch OLMo2 model."""
 
 import unittest
 
 from packaging import version
 from parameterized import parameterized
 
-from transformers import Olmo1124Config, is_torch_available, set_seed
+from transformers import Olmo2Config, is_torch_available, set_seed
 from transformers.generation.configuration_utils import GenerationConfig
 from transformers.models.auto.tokenization_auto import AutoTokenizer
 from transformers.testing_utils import (
@@ -39,12 +39,12 @@ if is_torch_available():
     import torch
 
     from transformers import (
-        Olmo1124ForCausalLM,
-        Olmo1124Model,
+        Olmo2ForCausalLM,
+        Olmo2Model,
     )
 
 
-class Olmo1124ModelTester:
+class Olmo2ModelTester:
     def __init__(
         self,
         parent,
@@ -119,7 +119,7 @@ class Olmo1124ModelTester:
         return config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
 
     def get_config(self):
-        return Olmo1124Config(
+        return Olmo2Config(
             vocab_size=self.vocab_size,
             hidden_size=self.hidden_size,
             num_hidden_layers=self.num_hidden_layers,
@@ -138,7 +138,7 @@ class Olmo1124ModelTester:
     def create_and_check_model(
         self, config, input_ids, token_type_ids, input_mask, sequence_labels, token_labels, choice_labels
     ):
-        model = Olmo1124Model(config=config)
+        model = Olmo2Model(config=config)
         model.to(torch_device)
         model.eval()
         result = model(input_ids, attention_mask=input_mask)
@@ -158,7 +158,7 @@ class Olmo1124ModelTester:
         encoder_attention_mask,
     ):
         config.add_cross_attention = True
-        model = Olmo1124Model(config)
+        model = Olmo2Model(config)
         model.to(torch_device)
         model.eval()
         result = model(
@@ -187,7 +187,7 @@ class Olmo1124ModelTester:
         encoder_hidden_states,
         encoder_attention_mask,
     ):
-        model = Olmo1124ForCausalLM(config=config)
+        model = Olmo2ForCausalLM(config=config)
         model.to(torch_device)
         model.eval()
         result = model(input_ids, attention_mask=input_mask, labels=token_labels)
@@ -207,7 +207,7 @@ class Olmo1124ModelTester:
     ):
         config.is_decoder = True
         config.add_cross_attention = True
-        model = Olmo1124ForCausalLM(config=config)
+        model = Olmo2ForCausalLM(config=config)
         model.to(torch_device)
         model.eval()
 
@@ -271,13 +271,13 @@ class Olmo1124ModelTester:
 
 
 @require_torch
-class Olmo1124ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
-    all_model_classes = (Olmo1124Model, Olmo1124ForCausalLM) if is_torch_available() else ()
-    all_generative_model_classes = (Olmo1124ForCausalLM,) if is_torch_available() else ()
+class Olmo2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
+    all_model_classes = (Olmo2Model, Olmo2ForCausalLM) if is_torch_available() else ()
+    all_generative_model_classes = (Olmo2ForCausalLM,) if is_torch_available() else ()
     pipeline_model_mapping = (
         {
-            "feature-extraction": Olmo1124Model,
-            "text-generation": Olmo1124ForCausalLM,
+            "feature-extraction": Olmo2Model,
+            "text-generation": Olmo2ForCausalLM,
         }
         if is_torch_available()
         else {}
@@ -290,8 +290,8 @@ class Olmo1124ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterM
     model_split_percents = [0.5, 0.7, 0.8]
 
     def setUp(self):
-        self.model_tester = Olmo1124ModelTester(self)
-        self.config_tester = ConfigTester(self, config_class=Olmo1124Config, hidden_size=37)
+        self.model_tester = Olmo2ModelTester(self)
+        self.config_tester = ConfigTester(self, config_class=Olmo2Config, hidden_size=37)
 
     def test_config(self):
         self.config_tester.run_common_tests()
@@ -300,7 +300,7 @@ class Olmo1124ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterM
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_model(*config_and_inputs)
 
-    @unittest.skip(reason="OLMo November 2024 does not support head pruning.")
+    @unittest.skip(reason="OLMo2 does not support head pruning.")
     def test_headmasking(self):
         pass
 
@@ -310,7 +310,7 @@ class Olmo1124ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterM
             config_and_inputs[0].position_embedding_type = type
             self.model_tester.create_and_check_model(*config_and_inputs)
 
-    @unittest.skip(reason="OLMo November 2024 buffers include complex numbers, which breaks this test")
+    @unittest.skip(reason="OLMo2 buffers include complex numbers, which breaks this test")
     def test_save_load_fast_init_from_base(self):
         pass
 
@@ -321,7 +321,7 @@ class Olmo1124ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterM
         long_input = ids_tensor([1, int(config.max_position_embeddings * 1.5)], config.vocab_size)
 
         set_seed(42)  # Fixed seed at init time so the two models get the same random weights
-        original_model = Olmo1124Model(config)
+        original_model = Olmo2Model(config)
         original_model.to(torch_device)
         original_model.eval()
         original_short_output = original_model(short_input).last_hidden_state
@@ -329,7 +329,7 @@ class Olmo1124ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterM
 
         set_seed(42)  # Fixed seed at init time so the two models get the same random weights
         config.rope_scaling = {"type": scaling_type, "factor": 10.0}
-        scaled_model = Olmo1124Model(config)
+        scaled_model = Olmo2Model(config)
         scaled_model.to(torch_device)
         scaled_model.eval()
         scaled_short_output = scaled_model(short_input).last_hidden_state
@@ -347,11 +347,11 @@ class Olmo1124ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterM
 
 
 @require_torch
-class Olmo1124IntegrationTest(unittest.TestCase):
+class Olmo2IntegrationTest(unittest.TestCase):
     @slow
     def test_model_7b_logits(self):
         input_ids = [[1, 306, 4658, 278, 6593, 310, 2834, 338]]
-        model = Olmo1124ForCausalLM.from_pretrained("shanearora/OLMo-7B-1124-hf", device_map="auto")
+        model = Olmo2ForCausalLM.from_pretrained("shanearora/OLMo2-7B-1124-hf", device_map="auto")
         out = model(torch.tensor(input_ids)).logits.float()
         # Expected mean on dim = -1
         EXPECTED_MEAN = torch.tensor(
@@ -366,8 +366,8 @@ class Olmo1124IntegrationTest(unittest.TestCase):
     def test_model_7b_greedy_generation(self):
         EXPECTED_TEXT_COMPLETION = """Simply put, the theory of relativity states that 1) the speed of light is constant, 2) the speed of light is the fastest speed possible, and 3) the speed of light is the same for all observers, regardless of their relative motion. The theory of relativity is based on the idea that the speed of light is constant. This means that"""
         prompt = "Simply put, the theory of relativity states that "
-        tokenizer = AutoTokenizer.from_pretrained("shanearora/OLMo-7B-1124-hf", device_map="auto")
-        model = Olmo1124ForCausalLM.from_pretrained("shanearora/OLMo-7B-1124-hf", device_map="auto")
+        tokenizer = AutoTokenizer.from_pretrained("shanearora/OLMo2-7B-1124-hf", device_map="auto")
+        model = Olmo2ForCausalLM.from_pretrained("shanearora/OLMo2-7B-1124-hf", device_map="auto")
         input_ids = tokenizer.encode(prompt, return_tensors="pt").to(model.device)
 
         # greedy generation outputs
@@ -377,7 +377,7 @@ class Olmo1124IntegrationTest(unittest.TestCase):
 
     @require_tokenizers
     def test_simple_encode_decode(self):
-        rust_tokenizer = AutoTokenizer.from_pretrained("shanearora/OLMo-7B-1124-hf")
+        rust_tokenizer = AutoTokenizer.from_pretrained("shanearora/OLMo2-7B-1124-hf")
 
         self.assertEqual(rust_tokenizer.encode("This is a test"), [2028, 374, 264, 1296])
         self.assertEqual(rust_tokenizer.decode([2028, 374, 264, 1296], skip_special_tokens=True), "This is a test")
@@ -414,9 +414,9 @@ class Olmo1124IntegrationTest(unittest.TestCase):
             convert_and_export_with_cache,
         )
 
-        olmo_1124_model = "shanearora/OLMo-7B-1124-hf"
+        olmo2_model = "shanearora/OLMo2-7B-1124-hf"
 
-        tokenizer = AutoTokenizer.from_pretrained(olmo_1124_model, pad_token="</s>", padding_side="right")
+        tokenizer = AutoTokenizer.from_pretrained(olmo2_model, pad_token="</s>", padding_side="right")
         EXPECTED_TEXT_COMPLETION = [
             "Simply put, the theory of relativity states that 1) the speed of light is constant, 2) the speed of light",
         ]
@@ -439,8 +439,8 @@ class Olmo1124IntegrationTest(unittest.TestCase):
                 "max_cache_len": max_generation_length,
             },
         )
-        model = Olmo1124ForCausalLM.from_pretrained(
-            olmo_1124_model,
+        model = Olmo2ForCausalLM.from_pretrained(
+            olmo2_model,
             device_map=device,
             torch_dtype=dtype,
             attn_implementation=attn_implementation,

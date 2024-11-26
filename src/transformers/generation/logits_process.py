@@ -1782,7 +1782,7 @@ class SuppressTokensAtBeginLogitsProcessor(LogitsProcessor):
     r"""
     [`SuppressTokensAtBeginLogitsProcessor`] supresses a list of tokens as soon as the `generate` function starts
     generating using `begin_index` tokens. This should ensure that the tokens defined by `begin_suppress_tokens` are
-    not generated at the begining. Originally created for
+    not generated at the beginning. Originally created for
     [Whisper](https://huggingface.co/docs/transformers/model_doc/whisper).
 
     Examples:

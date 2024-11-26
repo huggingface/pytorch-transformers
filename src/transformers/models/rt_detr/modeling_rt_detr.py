@@ -2162,3 +2162,10 @@ class RTDetrForObjectDetection(RTDetrPreTrainedModel):
             enc_outputs_coord_logits=outputs.enc_outputs_coord_logits,
             denoising_meta_values=outputs.denoising_meta_values,
         )
+
+
+__all__ = [
+    "RTDetrForObjectDetection",
+    "RTDetrModel",
+    "RTDetrPreTrainedModel",
+]

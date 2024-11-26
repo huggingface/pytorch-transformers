@@ -2527,7 +2527,7 @@ class MoshiForConditionalGeneration(MoshiPreTrainedModel, GenerationMixin):
         - [ B, -1, -1, -1, -1, -1]
         - [ B, -1, -1, -1, -1, -1]
         - [ B, -1, -1, -1, -1, -1]
-        where B is the begining-of-sentence token, P is the special padding token id and -1 indicates that the token is valid for prediction. If we include
+        where B is the beginning-of-sentence token, P is the special padding token id and -1 indicates that the token is valid for prediction. If we include
         a prompt (input ids), the -1 positions indicate where new tokens should be predicted. Otherwise, the
         mask is set to the value in the prompt:
         - [ a0, a1, -1, -1, -1,  P]

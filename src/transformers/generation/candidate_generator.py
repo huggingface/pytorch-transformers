@@ -253,7 +253,8 @@ class AssistedCandidateGenerator(CandidateGenerator):
             "heuristic",
             "heuristic_transient",
         }:
-            if num_matches == int(self.num_assistant_tokens):
+            # len(scores[0])-1 is the number of candidates according to the target tokenizer.
+            if num_matches == len(scores[0]) - 1:
                 self.num_assistant_tokens += 2.0
             else:
                 self.num_assistant_tokens = max(1.0, self.num_assistant_tokens - 1.0)

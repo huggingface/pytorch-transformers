@@ -1495,3 +1495,6 @@ class DetrImageProcessorFast(BaseImageProcessorFast):
 
             results.append({"segmentation": segmentation, "segments_info": segments})
         return results
+
+
+__all__ = ["DetrImageProcessorFast"]

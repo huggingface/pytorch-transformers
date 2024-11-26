@@ -516,8 +516,8 @@
         title: Nyströmformer
       - local: model_doc/olmo
         title: OLMo
-      - local: model_doc/olmo_1124
-        title: OLMo November 2024
+      - local: model_doc/olmo2
+        title: OLMo2
       - local: model_doc/olmoe
         title: OLMoE
       - local: model_doc/open-llama

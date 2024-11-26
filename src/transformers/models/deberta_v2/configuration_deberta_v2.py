@@ -82,6 +82,9 @@ class DebertaV2Config(PretrainedConfig):
             `["p2c", "c2p"]`, `["p2c", "c2p"]`.
         layer_norm_eps (`float`, *optional*, defaults to 1e-12):
             The epsilon used by the layer normalization layers.
+        legacy (`bool`, *optional*, defaults to `True`):
+            Whether or not the model should use the legacy `LegacyDebertaOnlyMLMHead`, which does not work properly
+            for mask infilling tasks.
 
     Example:
 
@@ -121,6 +124,7 @@ class DebertaV2Config(PretrainedConfig):
         pos_att_type=None,
         pooler_dropout=0,
         pooler_hidden_act="gelu",
+        legacy=True,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -151,6 +155,7 @@ class DebertaV2Config(PretrainedConfig):
         self.pooler_hidden_size = kwargs.get("pooler_hidden_size", hidden_size)
         self.pooler_dropout = pooler_dropout
         self.pooler_hidden_act = pooler_hidden_act
+        self.legacy = legacy
 
 
 class DebertaV2OnnxConfig(OnnxConfig):

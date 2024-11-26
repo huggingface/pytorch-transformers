@@ -1000,7 +1000,7 @@ class SpecialTokensMixin:
     ) -> int:
         """
         Add a list of new tokens to the tokenizer class. If the new tokens are not in the vocabulary, they are added to
-        it with indices starting from length of the current vocabulary and and will be isolated before the tokenization
+        it with indices starting from length of the current vocabulary and will be isolated before the tokenization
         algorithm is applied. Added tokens and tokens from the vocabulary of the tokenization algorithm are therefore
         not treated in the same way.
 

@@ -434,7 +434,7 @@ class AutomaticSpeechRecognitionPipeline(ChunkPipeline):
             for item in chunk_iter(
                 inputs, self.feature_extractor, chunk_len, stride_left, stride_right, self.torch_dtype
             ):
-                yield item
+                yield {**item, **extra}
         else:
             if self.type == "seq2seq_whisper" and inputs.shape[0] > self.feature_extractor.n_samples:
                 processed = self.feature_extractor(

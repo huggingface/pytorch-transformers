@@ -512,7 +512,7 @@ class TFSuppressTokensAtBeginLogitsProcessor(TFLogitsProcessor):
     r"""
     [`TFSuppressTokensAtBeginLogitsProcessor`] suppresses a list of tokens as soon as the `generate` function starts
     generating using `begin_index` tokens. This should ensure that the tokens defined by `begin_suppress_tokens` at not
-    sampled at the begining of the generation.
+    sampled at the beginning of the generation.
     """
 
     def __init__(self, begin_suppress_tokens, begin_index):

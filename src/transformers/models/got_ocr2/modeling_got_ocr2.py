@@ -1619,15 +1619,15 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
         ```python
         >>> from PIL import Image
         >>> import requests
-        >>> from transformers import AutoProcessor, GotOcr2ForConditionalGeneration
+        >>> from transformers import AutoProcessor, GotOcr2ForConditionalGeneration, TextStreamer
 
-        >>> model = GotOcr2ForConditionalGeneration.from_pretrained("yonigozlan/GOT-OCR-2.0-hf").to("cuda", dtype=torch.bfloat16)
+        >>> model = GotOcr2ForConditionalGeneration.from_pretrained("yonigozlan/GOT-OCR-2.0-hf").to("cuda")
         >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
         >>> url = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/multi_box.png"
         >>> image = Image.open(requests.get(url, stream=True).raw)
 
-        >>> inputs = processor(image, return_tensors="pt", color="green").to("cuda", dtype=torch.bfloat16)
+        >>> inputs = processor(image, return_tensors="pt", color="green").to("cuda")
 
         >>> # Generate
         >>> streamer = TextStreamer(processor.tokenizer, skip_prompt=True, skip_special_tokens=True)

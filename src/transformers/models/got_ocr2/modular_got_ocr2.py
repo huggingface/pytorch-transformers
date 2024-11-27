@@ -191,94 +191,122 @@ class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
     }
 
 
-def load_box_annotation(box, image_size):
+def load_box_annotation(box: Union[List, Tuple], image_size: Tuple[int, int]) -> List:
+    """
+    Load the box annotation and convert it to the format [x1, y1, x2, y2] in the range [0, 1000]."""
     width, height = image_size
-    if len(box) == 2:
-        box[0] = int(box[0] / width * 1000)
-        box[1] = int(box[1] / height * 1000)
     if len(box) == 4:
         box[0] = int(box[0] / width * 1000)
         box[1] = int(box[1] / height * 1000)
         box[2] = int(box[2] / width * 1000)
         box[3] = int(box[3] / height * 1000)
+    else:
+        raise ValueError("Box must be a list or tuple of lists in the form [x1, y1, x2, y2].")
 
-    return box
+    return list(box)
 
 
-def find_closest_aspect_ratio(aspect_ratio, target_ratios, width, height, image_size):
+def find_best_patches_grid(
+    original_image_size: dict,
+    target_patch_size: dict,
+    min_patches: int = 1,
+    max_patches: int = 6,
+) -> Tuple[int, int]:
+    """
+    Given a minimum and maximum number of patches, find the patches grid with the closest aspect ratio to the
+    original image aspect ratio.
+    In case of tie-breaking condition when two grids have the same aspect ratio difference, we favor the grids with
+    more patches, until the area covered by the patches is more than twice the target area, in order to avoid unnecessarily
+    excessive patching.
+    """
+    # compute possible patches grids
+    target_patches_grids = {
+        (i, j)
+        for n in range(min_patches, max_patches + 1)
+        for i in range(1, n + 1)
+        for j in range(1, n + 1)
+        if i * j <= max_patches and i * j >= min_patches
+    }
+    target_patches_grids = sorted(target_patches_grids, key=lambda x: x[0] * x[1])
+
+    # find the grid with the best aspect ratio
     best_ratio_diff = float("inf")
-    best_ratio = (1, 1)
-    area = width * height
-    for ratio in target_ratios:
-        target_aspect_ratio = ratio[0] / ratio[1]
-        ratio_diff = abs(aspect_ratio - target_aspect_ratio)
+    best_grid = (1, 1)
+    original_width, original_height = original_image_size["width"], original_image_size["height"]
+    aspect_ratio = original_width / original_height
+    area = original_width * original_height
+    for grid in target_patches_grids:
+        grid_aspect_ratio = grid[0] / grid[1]
+        ratio_diff = abs(aspect_ratio - grid_aspect_ratio)
         if ratio_diff < best_ratio_diff:
             best_ratio_diff = ratio_diff
-            best_ratio = ratio
+            best_grid = grid
         elif ratio_diff == best_ratio_diff:
-            if area > 0.5 * image_size * image_size * ratio[0] * ratio[1]:
-                best_ratio = ratio
+            # if the aspect ratio difference is the same, we favor the grid with more patches
+            # until the area covered by the patches is more than twice the original image area
+            if area > 0.5 * target_patch_size["width"] * target_patch_size["height"] * grid[0] * grid[1]:
+                best_grid = grid
 
-    return best_ratio
+    return best_grid
 
 
 class GotOcr2ImageProcessor(BlipImageProcessor):
     def crop_image_to_patches(
         self,
         image: ImageInput,
-        min_num=1,
-        max_num=6,
+        min_patches=1,
+        max_patches=6,
         use_thumbnail=True,
-        size=None,
+        patch_size=None,
         return_numpy=False,
         data_format=None,
     ):
-        size = size if size is not None else self.size
-        size = get_size_dict(size, default_to_square=True)
+        """
+        Crop the image to patches and return a list of cropped images.
+        The number of patches and their grid arrangement are determined by the original image size,
+        the target patch size and the minimum and maximum number of patches.
+        The aspect ratio of the patches grid is chosen to be the closest to the original image aspect ratio.
+        """
+        patch_size = patch_size if patch_size is not None else self.size
+        patch_size = get_size_dict(patch_size, default_to_square=True)
+        original_size = get_size_dict(image.size, height_width_order=False)
         do_rescale = False
         if not isinstance(image, PIL.Image.Image):
             do_rescale = _rescale_for_pil_conversion(image)
             image = to_pil_image(image, do_rescale=do_rescale)
 
-        orig_width, orig_height = image.size
-        aspect_ratio = orig_width / orig_height
-
-        # calculate the existing image aspect ratio
-        target_ratios = {
-            (i, j)
-            for n in range(min_num, max_num + 1)
-            for i in range(1, n + 1)
-            for j in range(1, n + 1)
-            if i * j <= max_num and i * j >= min_num
-        }
-        target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
-
         # find the closest aspect ratio to the target
-        target_aspect_ratio = find_closest_aspect_ratio(
-            aspect_ratio, target_ratios, orig_width, orig_height, size["width"]
+        target_patches_grid = find_best_patches_grid(
+            original_size, patch_size, min_patches=min_patches, max_patches=max_patches
         )
 
         # calculate the target width and height
-        target_width = size["width"] * target_aspect_ratio[0]
-        target_height = size["height"] * target_aspect_ratio[1]
-        blocks = target_aspect_ratio[0] * target_aspect_ratio[1]
+        patch_size_width, patch_size_height = patch_size["width"], patch_size["height"]
+        target_width = patch_size_width * target_patches_grid[0]
+        target_height = patch_size_height * target_patches_grid[1]
+        num_blocks = target_patches_grid[0] * target_patches_grid[1]
 
-        # resize the image
-        resized_img = image.resize((target_width, target_height))
+        # resize the image so that each patch is of patch_size
+        resized_image = image.resize((target_width, target_height))
+
+        # split the image into patches
         processed_images = []
-        for i in range(blocks):
+        num_columns = target_patches_grid[0]
+        for i in range(num_blocks):
+            column = i % num_columns
+            row = i // num_columns
             box = (
-                (i % (target_width // size["width"])) * size["width"],
-                (i // (target_width // size["width"])) * size["width"],
-                ((i % (target_width // size["width"])) + 1) * size["width"],
-                ((i // (target_width // size["width"])) + 1) * size["width"],
+                column * patch_size_width,
+                row * patch_size_height,
+                (column + 1) * patch_size_width,
+                (row + 1) * patch_size_height,
             )
             # split the image
-            split_img = resized_img.crop(box)
-            processed_images.append(split_img)
+            patch_image = resized_image.crop(box)
+            processed_images.append(patch_image)
 
         if use_thumbnail and len(processed_images) != 1:
-            thumbnail_img = image.resize((size["width"], size["height"]))
+            thumbnail_img = image.resize((patch_size_width, patch_size_height))
             processed_images.append(thumbnail_img)
 
         if return_numpy:
@@ -408,7 +436,7 @@ class GotOcr2Processor(ProcessorMixin):
         max_patches = output_kwargs["images_kwargs"].pop("max_patches")
 
         if not isinstance(box, (list, tuple)):
-            raise ValueError("`box` must be a list or tuple in the form [x1, y1, x2, y2].")
+            raise ValueError("Box must be a list or tuple of lists in the form [x1, y1, x2, y2].")
 
         if multi_page or crop_to_patches:
             if multi_page and crop_to_patches:
@@ -429,6 +457,7 @@ class GotOcr2Processor(ProcessorMixin):
             images = [images]
 
         if not isinstance(box[0], (list, tuple)):
+            # Use the same box for all images
             box = [box for _ in range(len(images))]
         if not isinstance(color, (list, tuple)):
             color = [color for _ in range(len(images))]
@@ -446,9 +475,9 @@ class GotOcr2Processor(ProcessorMixin):
                 if crop_to_patches:
                     image_group = self.image_processor.crop_image_to_patches(
                         image_group,
-                        size=output_kwargs["images_kwargs"].get("size"),
-                        min_num=min_patches,
-                        max_num=max_patches,
+                        patch_size=output_kwargs["images_kwargs"].get("size"),
+                        min_patches=min_patches,
+                        max_patches=max_patches,
                     )
                     images[index] = image_group
                 num_images = len(image_group) if (multi_page or crop_to_patches) else 1

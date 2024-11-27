@@ -66,18 +66,19 @@ class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
     }
 
 
-def load_box_annotation(box, image_size):
+def load_box_annotation(box: Union[List, Tuple], image_size: Tuple[int, int]) -> List:
+    """
+    Load the box annotation and convert it to the format [x1, y1, x2, y2] in the range [0, 1000]."""
     width, height = image_size
-    if len(box) == 2:
-        box[0] = int(box[0] / width * 1000)
-        box[1] = int(box[1] / height * 1000)
     if len(box) == 4:
         box[0] = int(box[0] / width * 1000)
         box[1] = int(box[1] / height * 1000)
         box[2] = int(box[2] / width * 1000)
         box[3] = int(box[3] / height * 1000)
+    else:
+        raise ValueError("Box must be a list or tuple of lists in the form [x1, y1, x2, y2].")
 
-    return box
+    return list(box)
 
 
 class GotOcr2Processor(ProcessorMixin):
@@ -184,7 +185,7 @@ class GotOcr2Processor(ProcessorMixin):
         max_patches = output_kwargs["images_kwargs"].pop("max_patches")
 
         if not isinstance(box, (list, tuple)):
-            raise ValueError("`box` must be a list or tuple in the form [x1, y1, x2, y2].")
+            raise ValueError("Box must be a list or tuple of lists in the form [x1, y1, x2, y2].")
 
         if multi_page or crop_to_patches:
             if multi_page and crop_to_patches:
@@ -205,6 +206,7 @@ class GotOcr2Processor(ProcessorMixin):
             images = [images]
 
         if not isinstance(box[0], (list, tuple)):
+            # Use the same box for all images
             box = [box for _ in range(len(images))]
         if not isinstance(color, (list, tuple)):
             color = [color for _ in range(len(images))]
@@ -222,9 +224,9 @@ class GotOcr2Processor(ProcessorMixin):
                 if crop_to_patches:
                     image_group = self.image_processor.crop_image_to_patches(
                         image_group,
-                        size=output_kwargs["images_kwargs"].get("size"),
-                        min_num=min_patches,
-                        max_num=max_patches,
+                        patch_size=output_kwargs["images_kwargs"].get("size"),
+                        min_patches=min_patches,
+                        max_patches=max_patches,
                     )
                     images[index] = image_group
                 num_images = len(image_group) if (multi_page or crop_to_patches) else 1

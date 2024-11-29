@@ -1766,7 +1766,8 @@ class GenerationMixin:
                 if assistant_model is not None:
                     assistant_model._get_cache(
                         cache_implementation=generation_config.cache_implementation,
-                        batch_size=max(generation_config.num_beams, generation_config.num_return_sequences) * batch_size,
+                        batch_size=max(generation_config.num_beams, generation_config.num_return_sequences)
+                        * batch_size,
                         max_cache_len=max_cache_length,
                         device=device,
                         model_kwargs=model_kwargs,

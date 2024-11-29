@@ -14,7 +14,7 @@
 """PyTorch LightGlue model."""
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -34,139 +34,21 @@ logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC_ = "LightGlueConfig"
 
-_CHECKPOINT_FOR_DOC_ = "stevenbucaille/superglue_indoor"
+_CHECKPOINT_FOR_DOC_ = "stevenbucaille/lightglue"
 
 
-def concat_inconsistent_pairs(
-    inconsistent_tensor0: Tuple[torch.Tensor], inconsistent_tensor1: Tuple[torch.Tensor]
-) -> Tuple[torch.Tensor]:
+def concat_pairs(tensor_tuple0: Tuple[torch.Tensor], tensor_tuple1: Tuple[torch.Tensor]) -> Tuple[torch.Tensor]:
     """
-    Concatenate two tuples of tensors with inconsistent dimensions pairwise. We assume that each tuple has the same
-    number of tensors and and the tensors are at least 3D. These tensors can be anything but this function is mainly
-    used to concatenate hidden states and attention probabilities tensors of a keypoint matching model. The
-    inconsistency comes from the dimension containing the number of keypoints.
-
-    If the pair of tensors are hidden states, they are assumed to be of shape `(batch_size, num_keypoints0,
-    num_channels)` and `(batch_size, num_keypoints1, num_channels)` and the output will then be of the form:
-    `(2 * batch_size, max(num_keypoints0, num_keypoints1), num_channels)`
-    If the pair of tensors are attention probabilities, they are assumed to be of shape `(batch_size, num_heads,
-    num_keypoints0, num_keypoints0)` and `(batch_size, num_heads, num_keypoints1, num_keypoints1)` and the output will
-    then be of the form:
-    `(2 * batch_size, num_heads, max(num_keypoints0, num_keypoints1), max(num_keypoints0, num_keypoints1))`
-
-    For `inconsistent_tensors0 = (tensor0_1, tensor0_1, ..., tensor0_N)` and `inconsistent_tensors1 = (tensor1_0,
-    tensor1_1, ..., tensor1_N)`, the output will be `(concat(tensor0_0, tensor1_0), concat(tensor0_1, tensor1_1), ...,
-    concat(tensor0_N, tensor1_N))`. The concatenation is done by padding the tensors from the tuple with the lower
-    number of keypoints with zeros.
+    Concatenate two tuples of tensors pairwise
 
     Args:
-        inconsistent_tensor0 (`Tuple[torch.Tensor]` of shape `(batch_size, num_keypoints0, num_channels)` or
-        `torch.Tensor` of shape `(batch_size, num_heads, num_keypoints0, num_keypoints0)`): Tuple of tensors with
-        inconsistent dimensions.
-        inconsistent_tensor1 (`Tuple[torch.Tensor]` of shape `(batch_size, num_keypoints1, num_channels)` or
-        `torch.Tensor` of shape `(batch_size, num_heads, num_keypoints1, num_keypoints1)`): Tuple of tensors with
-        inconsistent dimensions.
+        tensor_tuple0 (`Tuple[torch.Tensor]`): Tuple of tensors.
+        tensor_tuple1 (`Tuple[torch.Tensor]`): Tuple of tensors.
 
     Returns:
-        consistent_tensors (`Tuple[torch.Tensor]` of shape `(2 * batch_size, max(num_keypoints0, num_keypoints1),
-        num_channels)` or `Tuple[torch.Tensor]` of shape `(2 * batch_size, num_heads,
-        max(num_keypoints0, num_keypoints1) ,max(num_keypoints0, num_keypoints1))`):
-        Tuple of zero padded tensors with consistent dimensions.
+        (`Tuple[torch.Tensor]`): Tuple of concatenated tensors.
     """
-    if len(inconsistent_tensor0) != len(inconsistent_tensor1):
-        raise ValueError("The two tuples must contain the same number of tensors.")
-    if len(inconsistent_tensor0[0].shape) < 3:
-        raise ValueError("The tensors must be at least 3D.")
-    consistent_tensors = ()
-    for tensor0, tensor1 in zip(inconsistent_tensor0, inconsistent_tensor1):
-        if tensor0.shape != tensor1.shape:
-            squeeze_tensors = len(tensor0.shape) == 3 and len(tensor1.shape) == 3
-            if squeeze_tensors:
-                tensor0 = tensor0[..., None]
-                tensor1 = tensor1[..., None]
-            # max_dim1 = num_heads if tensor is attention probabilities else num_keypoints
-            max_dim1 = max(tensor0.shape[1], tensor1.shape[1])
-            # max_dim2 = max_dim3 = num_keypoints if tensor is attention probabilities else num_channels
-            max_dim2 = max(tensor0.shape[2], tensor1.shape[2])
-            # max_dim3 = num_keypoints if tensor is attention probabilities else 1
-            max_dim3 = max(tensor0.shape[3], tensor1.shape[3])
-            consistent_tensor = torch.zeros(2, max_dim1, max_dim2, max_dim3, device=tensor0.device)
-            consistent_tensor[0, : tensor0.shape[1], : tensor0.shape[2], : tensor0.shape[3]] = tensor0
-            consistent_tensor[1, : tensor1.shape[1], : tensor1.shape[2], : tensor1.shape[3]] = tensor1
-            if squeeze_tensors:
-                consistent_tensor = consistent_tensor.squeeze(-1)
-            consistent_tensors = consistent_tensors + (consistent_tensor,)
-        else:
-            consistent_tensors = consistent_tensors + (torch.cat([tensor0, tensor1]),)
-    return consistent_tensors
-
-
-def stack_inconsistent_tensor_list(tensor_list: List[torch.Tensor]) -> torch.Tensor:
-    """
-    Stack a list of tensors with inconsistent dimensions. We assume that each tensor is at least 3D. The tensors can be
-    anything but this function is mainly used to stack hidden states tensors of a keypoint matching model. The
-    inconsistency comes from the dimension containing the number of keypoints.
-
-    If the tensors are hidden states, they are assumed to be of shape `(batch_size, num_keypoints0, num_channels),
-    (batch_size, num_keypoints1, num_channels), ..., (batch_size, num_keypointsN, num_channels)` and the output will
-    then be of the form: `(N, batch_size, max(num_keypoints0, num_keypoints1, ..., num_keypointsN), num_channels)`.
-    If the tensors are attention probabilities, they are assumed to be of shape `(batch_size, num_heads, num_keypoints0,
-    num_keypoints0), (batch_size, num_heads, num_keypoints1, num_keypoints1), ..., (batch_size, num_heads,
-    num_keypointsN, num_keypointsN)` and the output will then be of the form: `(N, batch_size, num_heads,
-    max(num_keypoints0, num_keypoints1, ..., num_keypointsN), max(num_keypoints0, num_keypoints1, ..., num_keypointsN))`.
-
-    For `tensor_list = [tensor0, tensor1, ..., tensorN]` and `max_number_of_keypoints = max(num_keypoints0,
-    num_keypoints1, ..., num_keypointsN)`, the output will be a tensor of shape `(N, batch_size,
-    max_number_of_keypoints, num_channels)`  or `(N, batch_size, num_heads,max_number_of_keypoints,
-    max_number_of_keypoints)`. The stacking is done by padding the tensors with the lower number of keypoints with
-    zeros.
-
-
-    Args:
-        tensor_list (`List[torch.Tensor]` of shape `(batch_size, num_keypoints, num_channels)` or `List[torch.Tensor]`
-        of shape `(batch_size, num_heads, num_keypoints, num_keypoints)`): List of tensors with inconsistent dimensions.
-
-    Returns:
-        (`torch.Tensor` of shape `(N, batch_size, max(num_keypoints0, num_keypoints1, ..., num_keypointsN),
-        num_channels)` or `torch.Tensor` of shape `(N, batch_size, num_heads, max(num_keypoints0, num_keypoints1, ...,
-        num_keypointsN), max(num_keypoints0, num_keypoints1, ..., num_keypointsN))`): Stacked tensors with consistent
-        dimensions.
-    """
-    current_shape = tensor_list[0].shape
-    all_same_shape = all(tensor.shape == current_shape for tensor in tensor_list)
-    if all_same_shape:
-        return torch.stack(tensor_list, dim=0)
-
-    squeeze_tensors = len(tensor_list[0].shape) == 3
-    if squeeze_tensors:
-        tensor_list = [tensor[..., None] for tensor in tensor_list]
-
-    max_dim1 = max(tensor.shape[1] for tensor in tensor_list)
-    max_dim2 = max(tensor.shape[2] for tensor in tensor_list)
-    max_dim3 = max(tensor.shape[3] for tensor in tensor_list)
-    stacked_tensors = torch.zeros(len(tensor_list), 2, max_dim1, max_dim2, max_dim3, device=tensor_list[0].device)
-    for i, tensor in enumerate(tensor_list):
-        stacked_tensors[i, :, : tensor.shape[1], : tensor.shape[2], : tensor.shape[3]] = tensor
-    if squeeze_tensors:
-        stacked_tensors = stacked_tensors.squeeze(-1)
-    return stacked_tensors
-
-
-def batch_inconsistent_tensor_list(tensor_list: List[Tuple[torch.Tensor]]) -> List[torch.Tensor]:
-    """
-    Batch a list of tuples of tensors with inconsistent dimensions.
-    For a list of N tuples of T tensors : `[(tensor0_0, tensor0_1, ..., tensor0_T), (tensor1_0, tensor1_1, ...,
-    tensor1_T), ..., (tensorN_0, tensorN_1, ..., tensorN_T)]`, the output will be a list of T stacked tensors:
-    `[stack(tensor0_0, tensor1_0, ..., tensorN_0), stack(tensor0_1, tensor1_1, ..., tensorN_1), ..., stack(tensor0_T,
-    tensor1_T, ..., tensorN_T)]`.
-
-    Args:
-        tensor_list (`List[Tuple[torch.Tensor]]`): List of tuples of tensors with inconsistent dimensions.
-
-    Returns: (`List[torch.Tensor]`): List of tensors with consistent dimensions.
-    """
-    list_of_tuples = list(zip(*map(list, tensor_list)))
-    return [stack_inconsistent_tensor_list(element) for element in list_of_tuples]
+    return tuple([torch.cat([tensor0, tensor1]) for tensor0, tensor1 in zip(tensor_tuple0, tensor_tuple1)])
 
 
 def normalize_keypoints(keypoints: torch.Tensor, height: int, width: int) -> torch.Tensor:
@@ -252,7 +134,7 @@ def arange_like(x, dim: int):
 
 
 @dataclass
-class KeypointMatchingOutput(ModelOutput):
+class LightGlueKeypointMatchingOutput(ModelOutput):
     """
     Base class for outputs of keypoint matching models. Due to the nature of keypoint detection and matching, the number
     of keypoints is not fixed and can vary from image to image, which makes batching non-trivial. In the batch of
@@ -271,6 +153,8 @@ class KeypointMatchingOutput(ModelOutput):
             Scores of predicted matches.
         keypoints (`torch.FloatTensor` of shape `(batch_size, num_keypoints, 2)`):
             Absolute (x, y) coordinates of predicted keypoints in a given image.
+        prune (`torch.IntTensor` of shape `(batch_size, num_keypoints)`):
+            Pruning mask indicating which keypoints are removed and at which layer.
         hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or
         when `config.output_hidden_states=True`):
             Tuple of `torch.FloatTensor` (one for the output of each stage) of shape `(batch_size, 2, num_channels,
@@ -286,6 +170,7 @@ class KeypointMatchingOutput(ModelOutput):
     matches: torch.FloatTensor = None
     matching_scores: torch.FloatTensor = None
     keypoints: torch.FloatTensor = None
+    prune: torch.IntTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
 
@@ -296,14 +181,20 @@ def rotate_half(x: torch.Tensor) -> torch.Tensor:
     return torch.stack((-x2, x1), dim=-1).flatten(start_dim=-2)
 
 
-def apply_cached_rotary_emb(freqs: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-    return (t * freqs[0]) + (rotate_half(t) * freqs[1])
+def rotary_position_embedding(encoded_keypoints: torch.Tensor, state: torch.Tensor) -> torch.Tensor:
+    first = state * encoded_keypoints[0]
+    rotated = rotate_half(state)
+    second = rotated * encoded_keypoints[1]
+    return first + second
 
 
-def eager_attention(q, k, v):
-    s = q.shape[-1] ** -0.5
-    sim = torch.einsum("...id,...jd->...ij", q, k) * s
-    attention = nn.functional.softmax(sim, -1)
+def eager_attention(q, k, v, mask=None):
+    s = q.shape[-1] ** 0.5
+    scores = torch.einsum("...id,...jd->...ij", q, k) / s
+    if mask is not None:
+        mask = mask.unsqueeze(1).unsqueeze(1)
+        scores = scores.masked_fill(mask == 0, torch.finfo(scores.dtype).min)
+    attention = nn.functional.softmax(scores, -1, dtype=scores.dtype)
     output = torch.einsum("...ij,...jd->...id", attention, v)
     return output, attention
 
@@ -312,8 +203,7 @@ class LightGluePositionalEncoder(nn.Module):
     def __init__(self, config: LightGlueConfig):
         super().__init__()
 
-        M = 2 + 2 * config.add_scale_ori
-        self.projector = nn.Linear(M, config.descriptor_dim // config.num_heads // 2, bias=False)
+        self.projector = nn.Linear(2, config.descriptor_dim // config.num_heads // 2, bias=False)
         self.gamma = 1.0
         nn.init.normal_(self.projector.weight.data, mean=0, std=self.gamma**-2)
 
@@ -332,8 +222,10 @@ class LightGlueAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
 
-    def forward(self, q, k, v):
-        output, attention = eager_attention(q, k, v)
+    def forward(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        output, attention = eager_attention(q, k, v, mask=mask)
         return output, attention
 
 
@@ -341,7 +233,9 @@ class LightGlueFlashAttention(LightGlueAttention):
     def __init__(self, config):
         super().__init__(config)
 
-    def forward(self, q, k, v):
+    def forward(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor
+    ) -> Tuple[torch.Tensor, None]:
         attn_output = flash_attn_func(q, k, v)
         return attn_output, None
 
@@ -350,8 +244,12 @@ class LightGlueSdpaAttention(LightGlueAttention):
     def __init__(self, config):
         super().__init__(config)
 
-    def forward(self, q, k, v):
-        attn_output = torch.nn.functional.scaled_dot_product_attention(q, k, v)
+    def forward(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor
+    ) -> Tuple[torch.Tensor, None]:
+        mask = mask.to(torch.bool)
+        mask = mask.unsqueeze(1).unsqueeze(1)
+        attn_output = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=mask)
         return attn_output, None
 
 
@@ -395,19 +293,20 @@ class LightGlueSelfAttentionBlock(nn.Module):
         self,
         descriptors: torch.Tensor,
         keypoints: torch.Tensor,
+        mask: torch.Tensor,
         output_hidden_states: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
-    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor], torch.Tensor]:
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]], Optional[Tuple[torch.Tensor]]]:
         qkv = self.Wqkv(descriptors)
         qkv = qkv.unflatten(-1, (self.num_heads, -1, 3)).transpose(1, 2)
         q, k, v = qkv[..., 0], qkv[..., 1], qkv[..., 2]
-        q = apply_cached_rotary_emb(keypoints, q)
-        k = apply_cached_rotary_emb(keypoints, k)
+        q = rotary_position_embedding(keypoints, q)
+        k = rotary_position_embedding(keypoints, k)
 
         if output_attentions and isinstance(self.attention, (LightGlueSdpaAttention, LightGlueFlashAttention)):
-            context, attention = eager_attention(q, k, v)
+            context, attention = eager_attention(q, k, v, mask=mask)
         else:
-            context, attention = self.attention(q, k, v)
+            context, attention = self.attention(q, k, v, mask=mask)
         context = context.transpose(1, 2).flatten(start_dim=-2)
         message = self.output_projection(context)
 
@@ -445,14 +344,16 @@ class LightGlueCrossAttentionBlock(nn.Module):
             ]
         )
 
-    def input_projection(self, descriptors):
+    def input_projection(self, descriptors: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         qk = self.to_qk(descriptors)
         v = self.to_v(descriptors)
         qk = qk.unflatten(-1, (self.num_heads, -1)).transpose(1, 2)
         v = v.unflatten(-1, (self.num_heads, -1)).transpose(1, 2)
         return qk, v
 
-    def forward_ffn(self, input, output_hidden_states: Optional[bool] = False):
+    def forward_ffn(
+        self, input, output_hidden_states: Optional[bool] = False
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]]]:
         all_hidden_states = () if output_hidden_states else None
         for layer in self.ffn:
             input = layer(input)
@@ -461,7 +362,9 @@ class LightGlueCrossAttentionBlock(nn.Module):
         output = input
         return output, all_hidden_states
 
-    def forward_message(self, descriptors, context, output_hidden_states: Optional[bool] = False):
+    def forward_message(
+        self, descriptors, context, output_hidden_states: Optional[bool] = False
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]]]:
         context = context.transpose(1, 2).flatten(start_dim=-2)
         message = self.to_out(context)
         input = torch.cat([descriptors, message], -1)
@@ -477,107 +380,103 @@ class LightGlueCrossAttentionBlock(nn.Module):
 
     def forward(
         self,
-        descriptors_0: torch.Tensor,
-        descriptors_1: torch.Tensor,
+        descriptors: torch.Tensor,
+        mask: torch.Tensor,
         output_hidden_states: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]], Optional[Tuple[torch.Tensor]]]:
         all_hidden_states = () if output_hidden_states else None
         all_attentions = () if output_attentions else None
 
         if output_hidden_states:
-            new_hidden_state = concat_inconsistent_pairs((descriptors_0,), (descriptors_1,))
-            all_hidden_states = all_hidden_states + new_hidden_state
+            all_hidden_states = all_hidden_states + (descriptors,)
 
-        qk0, v0 = self.input_projection(descriptors_0)
-        qk1, v1 = self.input_projection(descriptors_1)
-
+        q, v = self.input_projection(descriptors)
+        batch_size, num_head, seq_len, head_dim = q.shape
+        k = q.reshape(-1, 2, num_head, seq_len, head_dim).flip(1).reshape(batch_size, num_head, seq_len, head_dim)
+        v = v.reshape(-1, 2, num_head, seq_len, head_dim).flip(1).reshape(batch_size, num_head, seq_len, head_dim)
+        attention_mask = mask.reshape(-1, 2, seq_len).flip(1).reshape(batch_size, seq_len)
         if output_attentions and isinstance(self.attention, (LightGlueSdpaAttention, LightGlueFlashAttention)):
-            context0, attention0 = eager_attention(qk0, qk1, v1)
-            context1, attention1 = eager_attention(qk1, qk0, v0)
+            context, attention = eager_attention(q, k, v, mask=attention_mask)
         else:
-            context0, attention0 = self.attention(qk0, qk1, v1)
-            context1, attention1 = self.attention(qk1, qk0, v0)
+            context, attention = self.attention(q, k, v, mask=attention_mask)
 
-        message_output_0 = self.forward_message(descriptors_0, context0, output_hidden_states=output_hidden_states)
-        message_output_1 = self.forward_message(descriptors_1, context1, output_hidden_states=output_hidden_states)
+        message_output = self.forward_message(descriptors, context, output_hidden_states=output_hidden_states)
 
-        descriptors_0 = message_output_0[0]
-        descriptors_1 = message_output_1[0]
+        descriptors = message_output[0]
 
         if output_hidden_states:
-            all_hidden_states = all_hidden_states + concat_inconsistent_pairs(message_output_0[1], message_output_1[1])
+            all_hidden_states = all_hidden_states + message_output[1]
         if output_attentions:
-            all_attentions = all_attentions + concat_inconsistent_pairs((attention0,), (attention1,))
+            all_attentions = all_attentions + (attention,)
 
-        return descriptors_0, descriptors_1, all_hidden_states, all_attentions
+        return descriptors, all_hidden_states, all_attentions
 
 
 class LightGlueTransformerLayer(nn.Module):
     def __init__(self, config: LightGlueConfig):
         super().__init__()
-
+        self.descriptor_dim = config.descriptor_dim
         self.self_attention_block = LightGlueSelfAttentionBlock(config)
         self.cross_attention_block = LightGlueCrossAttentionBlock(config)
 
     def forward(
         self,
-        descriptors_0: torch.Tensor,
-        descriptors_1: torch.Tensor,
-        keypoints0: torch.Tensor,
-        keypoints1: torch.Tensor,
+        descriptors: torch.Tensor,
+        keypoints: torch.Tensor,
+        mask: torch.Tensor,
         output_hidden_states: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]], Optional[Tuple[torch.Tensor]]]:
         all_hidden_states = () if output_hidden_states else None
         all_attentions = () if output_attentions else None
         if output_hidden_states:
-            new_hidden_state = concat_inconsistent_pairs((descriptors_0,), (descriptors_1,))
-            all_hidden_states = all_hidden_states + new_hidden_state
-        self_attention_output0 = self.self_attention_block(
-            descriptors_0, keypoints0, output_hidden_states=output_hidden_states, output_attentions=output_attentions
-        )
-        self_attention_output1 = self.self_attention_block(
-            descriptors_1, keypoints1, output_hidden_states=output_hidden_states, output_attentions=output_attentions
-        )
+            batch_size, num_keypoints, _ = descriptors.shape
+            all_hidden_states = all_hidden_states + (
+                descriptors.reshape(batch_size, num_keypoints, self.descriptor_dim),
+            )
 
-        descriptors_0 = self_attention_output0[0]
-        descriptors_1 = self_attention_output1[0]
-
-        output = self.cross_attention_block(
-            descriptors_0,
-            descriptors_1,
+        self_attention_output = self.self_attention_block(
+            descriptors,
+            keypoints,
+            mask=mask,
             output_hidden_states=output_hidden_states,
             output_attentions=output_attentions,
         )
 
-        descriptors_0 = output[0]
-        descriptors_1 = output[1]
+        descriptors = self_attention_output[0]
+
+        output = self.cross_attention_block(
+            descriptors,
+            mask,
+            output_hidden_states=output_hidden_states,
+            output_attentions=output_attentions,
+        )
+
+        descriptors = output[0]
 
         if output_hidden_states:
-            all_hidden_states = all_hidden_states + concat_inconsistent_pairs(
-                self_attention_output0[1], self_attention_output1[1]
-            )
-            all_hidden_states = all_hidden_states + output[2]
+            all_hidden_states = all_hidden_states + self_attention_output[1]
+            all_hidden_states = all_hidden_states + output[1]
         if output_attentions:
-            all_attentions = all_attentions + concat_inconsistent_pairs(
-                self_attention_output0[2], self_attention_output1[2]
-            )
-            all_attentions = all_attentions + output[3]
+            all_attentions = all_attentions + self_attention_output[2]
+            all_attentions = all_attentions + output[2]
 
-        return descriptors_0, descriptors_1, all_hidden_states, all_attentions
+        return descriptors, all_hidden_states, all_attentions
 
 
-def sigmoid_log_double_softmax(sim: torch.Tensor, z0: torch.Tensor, z1: torch.Tensor) -> torch.Tensor:
+def sigmoid_log_double_softmax(
+    similarity: torch.Tensor, matchability_0: torch.Tensor, matchability_1: torch.Tensor, mask: torch.Tensor
+) -> torch.Tensor:
     """create the log assignment matrix from logits and similarity"""
-    b, m, n = sim.shape
-    certainties = nn.functional.logsigmoid(z0) + nn.functional.logsigmoid(z1).transpose(1, 2)
-    scores0 = nn.functional.log_softmax(sim, 2)
-    scores1 = nn.functional.log_softmax(sim.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
-    scores = sim.new_full((b, m + 1, n + 1), 0)
-    scores[:, :m, :n] = scores0 + scores1 + certainties
-    scores[:, :-1, -1] = nn.functional.logsigmoid(-z0.squeeze(-1))
-    scores[:, -1, :-1] = nn.functional.logsigmoid(-z1.squeeze(-1))
+    batch_size, num_keypoints_0, num_keypoints_1 = similarity.shape
+    certainties = nn.functional.logsigmoid(matchability_0) + nn.functional.logsigmoid(matchability_1).transpose(1, 2)
+    scores0 = nn.functional.log_softmax(similarity, 2)
+    scores1 = nn.functional.log_softmax(similarity.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
+    scores = similarity.new_full((batch_size, num_keypoints_0 + 1, num_keypoints_1 + 1), 0)
+    scores[:, :num_keypoints_0, :num_keypoints_1] = scores0 + scores1 + certainties
+    scores[:, :-1, -1] = nn.functional.logsigmoid(-matchability_0.squeeze(-1))
+    scores[:, -1, :-1] = nn.functional.logsigmoid(-matchability_1.squeeze(-1))
     return scores
 
 
@@ -589,20 +488,32 @@ class LightGlueMatchAssignmentLayer(nn.Module):
         self.final_projection = nn.Linear(self.descriptor_dim, self.descriptor_dim, bias=True)
         self.matchability = nn.Linear(self.descriptor_dim, 1, bias=True)
 
-    def forward(self, descriptors0: torch.Tensor, descriptors1: torch.Tensor) -> torch.Tensor:
-        m_descriptors0 = self.final_projection(descriptors0)
-        m_descriptors1 = self.final_projection(descriptors1)
-        _, _, d = m_descriptors0.shape
-        m_descriptors0 = m_descriptors0 / self.descriptor_dim**0.25
-        m_descriptors1 = m_descriptors1 / self.descriptor_dim**0.25
-        sim = torch.einsum("bmd,bnd->bmn", m_descriptors0, m_descriptors1)
-        z0 = self.matchability(descriptors0)
-        z1 = self.matchability(descriptors1)
-        scores = sigmoid_log_double_softmax(sim, z0, z1)
+    def forward(self, descriptors: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        m_descriptors = self.final_projection(descriptors)
+        m_descriptors = m_descriptors / self.descriptor_dim**0.25
+        matchability = self.matchability(descriptors)
+        batch_size, num_keypoints, descriptor_dim = descriptors.shape
+        m_descriptors = m_descriptors.reshape(batch_size // 2, 2, num_keypoints, descriptor_dim)
+        m_descriptors0 = m_descriptors[:, 0]
+        m_descriptors1 = m_descriptors[:, 1]
+        similarity = torch.einsum("bmd,bnd->bmn", m_descriptors0, m_descriptors1)
+        if mask is not None:
+            mask = mask.reshape(batch_size // 2, 2, num_keypoints)
+            mask0 = mask[:, 0].unsqueeze(-1)
+            mask1 = mask[:, 1].unsqueeze(-1).transpose(-1, -2)
+            mask = mask0 * mask1
+            similarity = similarity.masked_fill(mask == 0, torch.finfo(similarity.dtype).min)
+
+        matchability = matchability.reshape(batch_size // 2, 2, num_keypoints, 1)
+        matchability_0 = matchability[:, 0]
+        matchability_1 = matchability[:, 1]
+        scores = sigmoid_log_double_softmax(similarity, matchability_0, matchability_1, mask)
         return scores
 
     def get_matchability(self, descriptors: torch.Tensor) -> torch.Tensor:
-        return nn.functional.sigmoid(self.matchability(descriptors)).squeeze(-1)
+        matchability = self.matchability(descriptors)
+        matchability = nn.functional.sigmoid(matchability).squeeze(-1)
+        return matchability
 
 
 class LightGlueTokenConfidenceLayer(nn.Module):
@@ -617,23 +528,27 @@ class LightGlueTokenConfidenceLayer(nn.Module):
         return token
 
 
-def filter_matches(scores: torch.Tensor, threshold: float):
+def filter_matches(scores: torch.Tensor, threshold: float) -> Tuple[torch.Tensor, torch.Tensor]:
     """obtain matches from a log assignment matrix [Bx M+1 x N+1]"""
-    max_0, max_1 = scores[:, :-1, :-1].max(2), scores[:, :-1, :-1].max(1)
-    matches_0, matches_1 = max_0.indices, max_1.indices
-    indices_0 = torch.arange(matches_0.shape[1], device=matches_0.device)[None]
-    indices_1 = torch.arange(matches_1.shape[1], device=matches_1.device)[None]
-    mutual0 = indices_0 == matches_1.gather(1, matches_0)
-    mutual1 = indices_1 == matches_0.gather(1, matches_1)
-    max_0 = max_0.values.exp()
-    zero = max_0.new_tensor(0)
-    matching_scores_0 = torch.where(mutual0, max_0, zero)
-    matching_scores_1 = torch.where(mutual1, matching_scores_0.gather(1, matches_1), zero)
-    valid_0 = mutual0 & (matching_scores_0 > threshold)
-    valid_1 = mutual1 & valid_0.gather(1, matches_1)
-    matches_0 = torch.where(valid_0, matches_0, -1)
-    matches_1 = torch.where(valid_1, matches_1, -1)
-    return matches_0, matches_1, matching_scores_0, matching_scores_1
+    batch_size, _, _ = scores.shape
+    max0, max1 = scores[:, :-1, :-1].max(2), scores[:, :-1, :-1].max(1)
+    matches0, matches1 = max0.indices, max1.indices
+    indices0 = torch.arange(matches0.shape[1], device=matches0.device)[None]
+    indices1 = torch.arange(matches1.shape[1], device=matches1.device)[None]
+    mutual0 = indices0 == matches1.gather(1, matches0)
+    mutual1 = indices1 == matches0.gather(1, matches1)
+    max0 = max0.values.exp()
+    zero = max0.new_tensor(0)
+    matching_scores0 = torch.where(mutual0, max0, zero)
+    matching_scores1 = torch.where(mutual1, matching_scores0.gather(1, matches1), zero)
+    valid0 = mutual0 & (matching_scores0 > threshold)
+    valid1 = mutual1 & valid0.gather(1, matches1)
+    matches0 = torch.where(valid0, matches0, -1)
+    matches1 = torch.where(valid1, matches1, -1)
+    matches = torch.stack([matches0, matches1]).transpose(0, 1).reshape(batch_size * 2, -1)
+    matching_scores = torch.stack([matching_scores0, matching_scores1]).transpose(0, 1).reshape(batch_size * 2, -1)
+
+    return matches, matching_scores
 
 
 class LightGluePreTrainedModel(PreTrainedModel):
@@ -691,7 +606,19 @@ LIGHTGLUE_INPUTS_DOCSTRING = r"""
     LIGHTGLUE_START_DOCSTRING,
 )
 class LightGlueForKeypointMatching(LightGluePreTrainedModel):
-    """TODO: Add docstring"""
+    """
+    LightGlue is a model matching keypoints in images by leveraging detections from a keypoint detector such as
+    SuperPoint. It is based on the SuperGlue architecture and is designed to be lightweight and efficient.
+    It consists of :
+        1. Keypoint Encoder
+        2. A Graph Neural Network with self and cross attention layers
+        3. Matching Assignment layers
+
+    The correspondence ids use -1 to indicate non-matching points.
+
+    Philipp Lindenberger, Paul-Edouard Sarlin and Marc Pollefeys. LightGlue: Local Feature Matching at Light Speed.
+    In ICCV 2023. https://arxiv.org/pdf/2306.13643.pdf
+    """
 
     def __init__(self, config: LightGlueConfig):
         super().__init__(config)
@@ -742,16 +669,14 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         return projected_descriptors, keypoint_encoding_output
 
     def check_if_stop(
-        self,
-        confidences0: torch.Tensor,
-        confidences1: torch.Tensor,
-        layer_index: int,
-        num_points: int,
+        self, confidences: torch.Tensor, layer_index: int, mask: torch.Tensor, num_points: torch.Tensor
     ) -> torch.Tensor:
         """evaluate stopping condition"""
-        confidences = torch.cat([confidences0, confidences1], -1)
+        batch_size, _ = mask.shape
+        confidences = confidences.masked_fill(mask == 0, 1)
+        confidences = confidences.reshape(batch_size // 2, -1)
         threshold = self.confidence_thresholds[layer_index]
-        ratio_confident = 1.0 - (confidences < threshold).float().sum() / num_points
+        ratio_confident = 1.0 - (confidences < threshold).float().sum(dim=1) / num_points
         return ratio_confident > self.depth_confidence
 
     def get_pruning_mask(self, confidences: torch.Tensor, scores: torch.Tensor, layer_index: int) -> torch.Tensor:
@@ -761,228 +686,194 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             keep |= confidences <= self.confidence_thresholds[layer_index]
         return keep
 
-    def do_final_point_pruning(
-        self, batch_size, device, indices_self, indices_other, matches, matching_scores, num_keypoints
-    ):
-        _matches = torch.full((batch_size, num_keypoints), -1, device=device, dtype=matches.dtype)
-        _matches[:, indices_self] = torch.where(matches == -1, -1, indices_other.gather(1, matches.clamp(min=0)))
-        _matching_scores = torch.zeros((batch_size, num_keypoints), device=device, dtype=matching_scores.dtype)
-        _matching_scores[:, indices_self] = matching_scores
+    def do_final_point_pruning(self, indices, matches, matching_scores, num_keypoints):
+        batch_size, _ = indices.shape
+        indices = indices.reshape(batch_size // 2, 2, -1)
+        indices0, indices1 = indices[:, 0], indices[:, 1]
+        matches = matches.reshape(batch_size // 2, 2, -1)
+        matches0, matches1 = matches[:, 0], matches[:, 1]
+        matching_scores = matching_scores.reshape(batch_size // 2, 2, -1)
+        matching_scores0, matching_scores1 = matching_scores[:, 0], matching_scores[:, 1]
+        _matches = torch.full((batch_size // 2, 2, num_keypoints), -1, device=indices.device, dtype=matches.dtype)
+        _matching_scores = torch.zeros(
+            (batch_size // 2, 2, num_keypoints), device=indices.device, dtype=matching_scores.dtype
+        )
+        for i in range(batch_size // 2):
+            _matches[i, 0, indices0[i]] = torch.where(
+                matches0[i] == -1, -1, indices1[i].gather(0, matches0[i].clamp(min=0))
+            )
+            _matches[i, 1, indices1[i]] = torch.where(
+                matches1[i] == -1, -1, indices0[i].gather(0, matches1[i].clamp(min=0))
+            )
+            _matching_scores[i, 0, indices0[i]] = matching_scores0[i]
+            _matching_scores[i, 1, indices1[i]] = matching_scores1[i]
         return _matches, _matching_scores
 
-    def do_layer_point_pruning(self, descriptors, keypoints, i, indices, prune, token):
+    def do_layer_point_pruning(self, descriptors, keypoints, mask, i, indices, prune_output, token):
         scores = self.match_assignment_layers[i].get_matchability(descriptors)
         prune_mask = self.get_pruning_mask(token, scores, i)
-        keep = torch.where(prune_mask)[1]
-        indices = indices.index_select(1, keep)
-        descriptors = descriptors.index_select(-2, keep)
-        keypoints = keypoints.index_select(-2, keep)
-        prune[:, indices] += 1
-        return descriptors, keypoints, indices
+        prune_mask = prune_mask.masked_fill(mask == 0, 0)
+        _, batch_size, _, _, keypoint_dim = keypoints.shape
 
-    def match_image_pair(
+        list_kept_indices = []
+        for i in range(batch_size):
+            keep = torch.where(prune_mask[i])[0]
+            list_kept_indices.append(keep)
+
+        max_number_kept_keypoints = max(len(x) for x in list_kept_indices)
+        pruned_indices = torch.full((batch_size, max_number_kept_keypoints), -1, device=descriptors.device)
+        pruned_mask = torch.zeros((batch_size, max_number_kept_keypoints), device=descriptors.device)
+        pruned_descriptors = torch.zeros(
+            (batch_size, max_number_kept_keypoints, self.descriptor_dim),
+            device=descriptors.device,
+            dtype=descriptors.dtype,
+        )
+        pruned_keypoints = torch.zeros(
+            (2, batch_size, 1, max_number_kept_keypoints, keypoint_dim), device=keypoints.device, dtype=keypoints.dtype
+        )
+        for i, keep in enumerate(list_kept_indices):
+            num_kept_keypoints = len(keep)
+            pruned_indices[i, :num_kept_keypoints] = indices[i].index_select(-1, keep)
+            pruned_descriptors[i, :num_kept_keypoints] = descriptors[i].index_select(-2, keep)
+            pruned_mask[i, :num_kept_keypoints] = 1
+            pruned_keypoints[:, i, :, :num_kept_keypoints] = keypoints[:, i].index_select(-2, keep)
+            prune_output[i, pruned_indices[i, :num_kept_keypoints]] += 1
+        return pruned_descriptors, pruned_keypoints, pruned_indices, pruned_mask, prune_output
+
+    def _match_image_pair(
         self,
-        keypoints_0: torch.Tensor,
-        descriptors_0: torch.Tensor,
-        keypoints_1: torch.Tensor,
-        descriptors_1: torch.Tensor,
+        keypoints: torch.Tensor,
+        descriptors: torch.Tensor,
         height: int,
         width: int,
+        mask: torch.Tensor = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, Tuple, Tuple]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, Tuple, Tuple]:
         all_hidden_states = () if output_hidden_states else None
         all_attentions = () if output_attentions else None
 
-        if keypoints_0.shape[1] == 0 or keypoints_1.shape[1] == 0:  # no keypoints
-            shape0, shape1 = keypoints_0.shape[:-1], keypoints_1.shape[:-1]
+        if keypoints.shape[2] == 0:  # no keypoints
+            shape = keypoints.shape[:-1]
             return (
-                keypoints_0.new_full(shape0, -1, dtype=torch.int),
-                keypoints_1.new_full(shape1, -1, dtype=torch.int),
-                keypoints_0.new_zeros(shape0),
-                keypoints_1.new_zeros(shape1),
-                None,
-                None,
+                keypoints.new_full(shape, -1, dtype=torch.int),
+                keypoints.new_zeros(shape),
                 all_hidden_states,
                 all_attentions,
             )
 
-        device = keypoints_0.device
-        batch_size, num_keypoints_0 = keypoints_0.shape[:2]
-        num_keypoints_1 = keypoints_1.shape[1]
-
+        device = keypoints.device
+        batch_size, _, initial_num_keypoints, _ = keypoints.shape
+        num_points_per_pair = torch.sum(mask.reshape(batch_size, -1), dim=1)
+        # (batch_size, 2, num_keypoints, 2) -> (batch_size * 2, num_keypoints, 2)
+        keypoints = keypoints.reshape(batch_size * 2, initial_num_keypoints, 2)
+        mask = mask.reshape(batch_size * 2, initial_num_keypoints)
+        descriptors = descriptors.reshape(batch_size * 2, initial_num_keypoints, self.descriptor_dim)
+        pair_indices = torch.arange(batch_size * 2, device=device)
         # Keypoint normalization
-        keypoints_0 = normalize_keypoints(keypoints_0, height, width)
-        keypoints_1 = normalize_keypoints(keypoints_1, height, width)
-        descriptors_0, keypoint_encoding_output_0 = self.keypoint_processing(
-            descriptors_0, keypoints_0, output_hidden_states=output_hidden_states
-        )
-        descriptors_1, keypoint_encoding_output_1 = self.keypoint_processing(
-            descriptors_1, keypoints_1, output_hidden_states=output_hidden_states
+        keypoints = normalize_keypoints(keypoints, height, width)
+
+        descriptors, keypoint_encoding_output = self.keypoint_processing(
+            descriptors, keypoints, output_hidden_states=output_hidden_states
         )
 
-        encoded_keypoints_0 = keypoint_encoding_output_0[0]
-        encoded_keypoints_1 = keypoint_encoding_output_1[0]
+        encoded_keypoints = keypoint_encoding_output[0]
 
         do_early_stop = self.depth_confidence > 0
         do_point_pruning = self.width_confidence > 0
 
         if do_point_pruning:
-            indices_0 = torch.arange(0, num_keypoints_0, device=device)[None]
-            indices_1 = torch.arange(0, num_keypoints_1, device=device)[None]
-            prune_0 = torch.ones_like(indices_0)
-            prune_1 = torch.ones_like(indices_1)
+            prune_indices = torch.arange(0, initial_num_keypoints, device=device).expand(batch_size * 2, -1)
+            prune_output = torch.ones_like(prune_indices)
+        if do_early_stop:
+            matches = torch.full((batch_size * 2, initial_num_keypoints), -1, device=device)
+            matching_scores = torch.zeros(
+                (batch_size * 2, initial_num_keypoints), device=device, dtype=descriptors.dtype
+            )
+            if do_point_pruning:
+                final_prune_indices = torch.full((batch_size * 2, initial_num_keypoints), -1, device=device)
+                final_prune_output = torch.zeros(
+                    (batch_size * 2, initial_num_keypoints), device=device, dtype=prune_output.dtype
+                )
 
-        for i in range(self.num_layers):
-            transformer_output = self.transformer_layers[i](
-                descriptors_0,
-                descriptors_1,
-                encoded_keypoints_0,
-                encoded_keypoints_1,
+        for layer_index in range(self.num_layers):
+            transformer_output = self.transformer_layers[layer_index](
+                descriptors,
+                encoded_keypoints,
+                mask=mask,
                 output_hidden_states=output_hidden_states,
                 output_attentions=output_attentions,
             )
-            descriptors_0, descriptors_1 = transformer_output[:2]
-            hidden_states = transformer_output[2]
-            attention = transformer_output[3]
+            descriptors = transformer_output[0]
+            hidden_states = transformer_output[1]
+            attention = transformer_output[2]
 
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + hidden_states
             if output_attentions:
                 all_attentions = all_attentions + attention
 
-            if do_early_stop and i < self.num_layers - 1:
-                assert batch_size == 1
-                token_0 = self.token_confidence[i](descriptors_0)
-                token_1 = self.token_confidence[i](descriptors_1)
+            if do_early_stop:
+                if layer_index < self.num_layers - 1:
+                    token = self.token_confidence[layer_index](descriptors)
+                    early_stops_pair = self.check_if_stop(token, layer_index, mask, num_points=num_points_per_pair)
+                else:
+                    early_stops_pair = torch.ones(batch_size, dtype=torch.bool)
+                if torch.any(early_stops_pair):
+                    _, layer_num_keypoints = mask.shape
+                    early_stops = early_stops_pair.repeat_interleave(2)
+                    early_stopped_pair_indices = pair_indices[early_stops]
+                    early_stopped_descriptors = descriptors[early_stops]
+                    early_stopped_mask = mask[early_stops]
+                    scores = self.match_assignment_layers[layer_index](early_stopped_descriptors, early_stopped_mask)
+                    early_stopped_matches, early_stopped_matching_scores = filter_matches(
+                        scores, self.filter_threshold
+                    )
+                    matches[early_stopped_pair_indices, :layer_num_keypoints] = early_stopped_matches
+                    matching_scores[early_stopped_pair_indices, :layer_num_keypoints] = early_stopped_matching_scores
+                    if do_point_pruning:
+                        final_prune_indices[early_stopped_pair_indices, :layer_num_keypoints] = prune_indices[
+                            early_stops
+                        ]
+                        final_prune_output[early_stopped_pair_indices] = prune_output[early_stops]
+                    if torch.all(early_stops):
+                        break
+                    num_points_per_pair = num_points_per_pair[~early_stops_pair]
+                    descriptors = descriptors[~early_stops]
+                    encoded_keypoints = encoded_keypoints[:, ~early_stops]
+                    mask = mask[~early_stops]
+                    if do_point_pruning:
+                        prune_indices = prune_indices[~early_stops]
+                        prune_output = prune_output[~early_stops]
+                        token = token[~early_stops]
+                    pair_indices = pair_indices[~early_stops]
 
-                early_stop = self.check_if_stop(
-                    token_0[..., :num_keypoints_0, :],
-                    token_1[..., :num_keypoints_1, :],
-                    layer_index=i,
-                    num_points=num_keypoints_0 + num_keypoints_1,
-                )
-                if early_stop:
-                    break
             if do_point_pruning:
-                assert batch_size == 1
-                descriptors_0, encoded_keypoints_0, indices_0 = self.do_layer_point_pruning(
-                    descriptors_0, encoded_keypoints_0, i, indices_0, prune_0, token_0
-                )
-                descriptors_1, encoded_keypoints_1, indices_1 = self.do_layer_point_pruning(
-                    descriptors_1, encoded_keypoints_1, i, indices_1, prune_1, token_1
+                descriptors, encoded_keypoints, prune_indices, mask, prune_output = self.do_layer_point_pruning(
+                    descriptors, encoded_keypoints, mask, layer_index, prune_indices, prune_output, token
                 )
 
-        descriptors_0 = descriptors_0[..., :num_keypoints_0, :]
-        descriptors_1 = descriptors_1[..., :num_keypoints_1, :]
-
-        scores = self.match_assignment_layers[i](descriptors_0, descriptors_1)
-        matches_0, matches_1, matching_scores_0, matching_scores_1 = filter_matches(scores, self.filter_threshold)
-
-        if do_point_pruning:
-            matches_0, matching_scores_0 = self.do_final_point_pruning(
-                batch_size, device, indices_0, indices_1, matches_0, matching_scores_0, num_keypoints_0
-            )
-
-            matches_1, matching_scores_1 = self.do_final_point_pruning(
-                batch_size, device, indices_1, indices_0, matches_1, matching_scores_1, num_keypoints_1
+        if do_early_stop and do_point_pruning:
+            # Concatenate early stopped outputs with the final outputs
+            prune_indices = final_prune_indices
+            prune_output = final_prune_output
+            matches, matching_scores = self.do_final_point_pruning(
+                prune_indices, matches, matching_scores, initial_num_keypoints
             )
         else:
-            prune_0 = torch.ones_like(matching_scores_0) * self.num_layers
-            prune_1 = torch.ones_like(matching_scores_1) * self.num_layers
+            scores = self.match_assignment_layers[layer_index](descriptors, mask)
+            matches, matching_scores = filter_matches(scores, self.filter_threshold)
+            prune_output = torch.ones_like(matching_scores) * self.num_layers
+
+        prune_output = prune_output.reshape(batch_size, 2, initial_num_keypoints)
 
         return (
-            matches_0,
-            matches_1,
-            matching_scores_0,
-            matching_scores_1,
-            prune_0,
-            prune_1,
+            matches,
+            matching_scores,
+            prune_output,
             all_hidden_states,
             all_attentions,
         )
-
-    def batch_output(
-        self,
-        batch_size,
-        list_attentions,
-        list_hidden_states,
-        list_keypoints_0,
-        list_keypoints_1,
-        list_matches_0,
-        list_matches_1,
-        list_matching_scores_0,
-        list_matching_scores_1,
-        list_prune_0,
-        list_prune_1,
-        pixel_values,
-        output_attentions,
-        output_hidden_states,
-    ):
-        maximum_matches = max(
-            [
-                max([matches_0.shape[1] for matches_0 in list_matches_0]),
-                max([matches_1.shape[1] for matches_1 in list_matches_1]),
-            ]
-        )
-        matches = torch.full(
-            (batch_size, 2, maximum_matches),
-            -1,
-            device=pixel_values.device,
-            dtype=torch.int,
-        )
-        matching_scores = torch.zeros((batch_size, 2, maximum_matches), device=pixel_values.device)
-        prune = torch.zeros((batch_size, 2, maximum_matches), device=pixel_values.device)
-        matches_mask = torch.zeros(
-            (batch_size, 2, maximum_matches),
-            device=pixel_values.device,
-            dtype=torch.int,
-        )
-        keypoints = torch.zeros(
-            (batch_size, 2, maximum_matches, 2),
-            device=pixel_values.device,
-        )
-        for i, (
-            _matches_0,
-            _matches_1,
-            _matching_scores_0,
-            _matching_scores_1,
-            _prune_0,
-            _prune_1,
-            _keypoints_0,
-            _keypoints_1,
-        ) in enumerate(
-            zip(
-                list_matches_0,
-                list_matches_1,
-                list_matching_scores_0,
-                list_matching_scores_1,
-                list_prune_0,
-                list_prune_1,
-                list_keypoints_0,
-                list_keypoints_1,
-            )
-        ):
-            matches[i, 0, : _matches_0.shape[1]] = _matches_0
-            matches[i, 1, : _matches_1.shape[1]] = _matches_1
-            matching_scores[i, 0, : _matching_scores_0.shape[1]] = _matching_scores_0
-            matching_scores[i, 1, : _matching_scores_1.shape[1]] = _matching_scores_1
-            prune[i, 0, : _prune_0.shape[1]] = _prune_0
-            prune[i, 1, : _prune_1.shape[1]] = _prune_1
-            matches_mask[i, 0, : _matches_0.shape[1]] = 1
-            matches_mask[i, 1, : _matches_1.shape[1]] = 1
-            keypoints[i, 0, : _keypoints_0.shape[1], :] = _keypoints_0
-            keypoints[i, 1, : _keypoints_1.shape[1], :] = _keypoints_1
-
-        if output_hidden_states:
-            hidden_states = batch_inconsistent_tensor_list(list_hidden_states)
-        else:
-            hidden_states = None
-        if output_attentions:
-            attentions = batch_inconsistent_tensor_list(list_attentions)
-        else:
-            attentions = None
-        return attentions, hidden_states, keypoints, matches, matches_mask, matching_scores, prune
 
     @add_start_docstrings_to_model_forward(LIGHTGLUE_INPUTS_DOCSTRING)
     def forward(
@@ -992,7 +883,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
-    ) -> Union[Tuple, KeypointMatchingOutput]:
+    ) -> Union[Tuple, LightGlueKeypointMatchingOutput]:
         loss = None
         if labels is not None:
             raise ValueError("LightGlue is not trainable, no labels should be provided.")
@@ -1008,96 +899,48 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
 
         batch_size, _, channels, height, width = pixel_values.shape
 
-        list_matches_0 = []
-        list_matches_1 = []
-        list_matching_scores_0 = []
-        list_matching_scores_1 = []
-        list_keypoints_0 = []
-        list_keypoints_1 = []
-        list_prune_0 = []
-        list_prune_1 = []
-        list_hidden_states = []
-        list_attentions = []
+        list_keypoint_detection = [self.keypoint_detector(image_pair) for image_pair in pixel_values]
 
-        for i in range(pixel_values.size(0)):
-            image_pair = pixel_values[i]
-            keypoint_detection_output = self.keypoint_detector(
-                image_pair,
-                output_hidden_states=output_hidden_states,
-                return_dict=return_dict,
-            )
+        max_keypoints = max([keypoint_detection[0].shape[1] for keypoint_detection in list_keypoint_detection])
+        keypoints = torch.zeros(
+            (batch_size, 2, max_keypoints, 2), device=pixel_values.device, dtype=pixel_values.dtype
+        )
+        descriptors = torch.zeros(
+            (batch_size, 2, max_keypoints, self.config.descriptor_dim),
+            device=pixel_values.device,
+            dtype=pixel_values.dtype,
+        )
+        mask = torch.zeros((batch_size, 2, max_keypoints), device=pixel_values.device, dtype=torch.int)
 
-            keypoints, scores, descriptors, mask = keypoint_detection_output[:4]
+        for i, keypoint_detection_output in enumerate(list_keypoint_detection):
+            _keypoints, _scores, _descriptors, _mask = keypoint_detection_output[:4]
+            keypoints[i, :, : _keypoints.shape[1], :] = _keypoints
+            descriptors[i, :, : _descriptors.shape[1], :] = _descriptors
+            mask[i, :, : _mask.shape[1]] = _mask
 
-            image0_indices = torch.nonzero(mask[0]).squeeze()
-            image0_keypoints = torch.unsqueeze(keypoints[0][image0_indices], dim=0)
-            image0_descriptors = torch.unsqueeze(descriptors[0][image0_indices], dim=0)
-            image1_indices = torch.nonzero(mask[1]).squeeze()
-            image1_keypoints = torch.unsqueeze(keypoints[1][image1_indices], dim=0)
-            image1_descriptors = torch.unsqueeze(descriptors[1][image1_indices], dim=0)
-
-            match_image_output = self.match_image_pair(
-                image0_keypoints,
-                image0_descriptors,
-                image1_keypoints,
-                image1_descriptors,
-                height,
-                width,
-                output_attentions=output_attentions,
-                output_hidden_states=output_hidden_states,
-            )
-
-            (
-                matches_0,
-                matches_1,
-                matching_scores_0,
-                matching_scores_1,
-                prune_0,
-                prune_1,
-                hidden_states,
-                attentions,
-            ) = match_image_output
-            list_matches_0.append(matches_0)
-            list_matches_1.append(matches_1)
-            list_matching_scores_0.append(matching_scores_0)
-            list_matching_scores_1.append(matching_scores_1)
-            list_keypoints_0.append(image0_keypoints)
-            list_keypoints_1.append(image1_keypoints)
-            list_prune_0.append(prune_0)
-            list_prune_1.append(prune_1)
-            list_hidden_states.append(hidden_states)
-            list_attentions.append(attentions)
-
-        attentions, hidden_states, keypoints, matches, matches_mask, matching_scores, prune = self.batch_output(
-            batch_size,
-            list_attentions,
-            list_hidden_states,
-            list_keypoints_0,
-            list_keypoints_1,
-            list_matches_0,
-            list_matches_1,
-            list_matching_scores_0,
-            list_matching_scores_1,
-            list_prune_0,
-            list_prune_1,
-            pixel_values,
+        matches, matching_scores, prune, hidden_states, attentions = self._match_image_pair(
+            keypoints,
+            descriptors,
+            height,
+            width,
+            mask=mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
         )
-
         if not return_dict:
             return tuple(
                 v
-                for v in [matches_mask, matches, matching_scores, keypoints, hidden_states, attentions]
+                for v in [mask, matches, matching_scores, keypoints, prune, hidden_states, attentions]
                 if v is not None
             )
 
-        return KeypointMatchingOutput(
+        return LightGlueKeypointMatchingOutput(
             loss=loss,
-            mask=matches_mask,
+            mask=mask,
             matches=matches,
             matching_scores=matching_scores,
             keypoints=keypoints,
+            prune=prune,
             hidden_states=hidden_states,
             attentions=attentions,
         )

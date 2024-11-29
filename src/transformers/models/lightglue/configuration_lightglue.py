@@ -93,4 +93,8 @@ class LightGlueConfig(PretrainedConfig):
 
         self.keypoint_detector_config = keypoint_detector_config
 
+        self.hidden_size = descriptor_dim
+        self.num_attention_heads = num_heads
+        self.attention_probs_dropout_prob = 0
+        self.rotary_value = True
         super().__init__(**kwargs)

@@ -287,7 +287,8 @@ def prepare_imgs():
     image0 = dataset[0]["image"]
     image1 = dataset[1]["image"]
     image2 = dataset[2]["image"]
-    return [[image2, image0], [image2, image1]]
+    # [image1, image1] on purpose to test the model early stopping
+    return [[image2, image0], [image1, image1]]
 
 
 @require_torch
@@ -317,24 +318,48 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
         expected_matches_shape = torch.Size((len(images), 2, expected_max_number_keypoints))
         expected_matching_scores_shape = torch.Size((len(images), 2, expected_max_number_keypoints))
 
-        # Check output shapes
         self.assertEqual(outputs.matches.shape, expected_matches_shape)
         self.assertEqual(outputs.matching_scores.shape, expected_matching_scores_shape)
 
-        expected_matches_values = torch.tensor([-1, -1, -1, -1, -1, 43, -1, 46, -1, 44], dtype=torch.int32).to(
+        ###### Check matching of first pair
+        expected_first_matches_values = torch.tensor([-1, -1, -1, -1, -1, 43, -1, 46, -1, 44], dtype=torch.int64).to(
             torch_device
         )
-        expected_matching_scores_values = torch.tensor([0, 0, 0, 0, 0, 0.1171, 0.0896, 0.5196, 0, 0.3388]).to(
+        expected_first_matching_scores_values = torch.tensor([0, 0, 0, 0, 0, 0.1171, 0.0896, 0.5196, 0, 0.3388]).to(
             torch_device
         )
 
-        predicted_matches_values = outputs.matches[0, 0, 20:30]
-        predicted_matching_scores_values = outputs.matching_scores[0, 0, 20:30]
+        predicted_first_matches_values = outputs.matches[0, 0, 20:30]
+        predicted_first_matching_scores_values = outputs.matching_scores[0, 0, 20:30]
 
-        self.assertTrue(torch.allclose(predicted_matches_values, expected_matches_values, atol=1e-4))
+        self.assertTrue(torch.allclose(predicted_first_matches_values, expected_first_matches_values, atol=1e-4))
+        self.assertTrue(
+            torch.allclose(predicted_first_matching_scores_values, expected_first_matching_scores_values, atol=1e-4)
+        )
 
-        self.assertTrue(torch.allclose(predicted_matching_scores_values, expected_matching_scores_values, atol=1e-4))
+        expected_first_number_of_matches = 235
+        predicted_first_number_of_matches = torch.sum(outputs.matches[0][0] != -1).item()
+        self.assertEqual(predicted_first_number_of_matches, expected_first_number_of_matches)
 
-        expected_number_of_matches = 235
-        predicted_number_of_matches = torch.sum(outputs.matches[0][0] != -1).item()
-        self.assertEqual(predicted_number_of_matches, expected_number_of_matches)
+        ###### Check matching of second pair
+        expected_second_matches_values = torch.tensor([20, 21, 22, 23, 24, 25, 26, 27, 28, 29], dtype=torch.int64).to(
+            torch_device
+        )
+        expected_second_matching_scores_values = torch.tensor(
+            [0.9929, 0.5083, 0.8715, 0.4840, 0.5910, 0.7002, 0.6597, 0.8990, 0.9530, 0.7407]
+        ).to(torch_device)
+
+        predicted_second_matches_values = outputs.matches[1, 0, 20:30]
+        predicted_second_matching_scores_values = outputs.matching_scores[1, 0, 20:30]
+
+        self.assertTrue(torch.allclose(predicted_second_matches_values, expected_second_matches_values, atol=1e-4))
+        self.assertTrue(
+            torch.allclose(predicted_second_matching_scores_values, expected_second_matching_scores_values, atol=1e-4)
+        )
+
+        expected_early_stopping_layer = 3
+        expected_second_number_of_matches = 1421
+        predicted_early_stopping_layer = torch.max(outputs.prune[1]).item()
+        predicted_second_number_of_matches = torch.sum(outputs.matches[1][0] != -1).item()
+        self.assertEqual(predicted_early_stopping_layer, expected_early_stopping_layer)
+        self.assertEqual(predicted_second_number_of_matches, expected_second_number_of_matches)

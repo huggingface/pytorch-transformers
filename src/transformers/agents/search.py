@@ -42,7 +42,7 @@ class DuckDuckGoSearchTool(Tool):
 
 class VisitWebpageTool(Tool):
     name = "visit_webpage"
-    description = "Visits a wbepage at the given url and returns its content as a markdown string."
+    description = "Visits a webpage at the given url and returns its content as a markdown string."
     inputs = {
         "url": {
             "type": "string",

@@ -247,9 +247,12 @@ def flex_attention_forward(config, query, key, value, mask, output_attentions=Fa
         return_lse=output_attentions,
     )
     if not output_attentions:
-        return attn_output, None
+        attn_weights = None
     else:
-        return attn_output[0], attn_output[1]
+        attn_output, attn_weights = attn_output
+
+    attn_output = attn_output.transpose(1, 2).contiguous()
+    return attn_output, attn_weights
 
 
 def sdpa_attention_forward(config, query, key, value, mask, **_kwargs):
@@ -280,6 +283,7 @@ def sdpa_attention_forward(config, query, key, value, mask, **_kwargs):
         is_causal=is_causal,
         scale=config.scaling,
     )
+    attn_output = attn_output.transpose(1, 2).contiguous()
     return attn_output, None
 
 
@@ -362,7 +366,7 @@ class Gemma2Attention(nn.Module):
 
         if output_attentions and self.config._attn_implementation in ["sdpa", "flash_attention_2"]:
             logger.warning_once("Setting `attention_type` to `flex_attention` because `output_attentions=True`")
-            attention_type = "eager"
+            attention_type = "flex_attention"
         else:
             attention_type = self.config._attn_implementation
 

@@ -72,7 +72,9 @@ if is_torch_available():
         "mamba": MambaCache,
     }
     QUANT_BACKEND_CLASSES_MAPPING = {"quanto": QuantoQuantizedCache, "HQQ": HQQQuantizedCache}
-    ALL_CACHE_IMPLEMENTATIONS = list(NEED_SETUP_CACHE_CLASSES_MAPPING.keys()) + list(NEEDS_CACHE_CONFIG.keys())
+    ALL_CACHE_IMPLEMENTATIONS = (
+        list(NEED_SETUP_CACHE_CLASSES_MAPPING.keys()) + list(NEEDS_CACHE_CONFIG.keys()) + ["offloaded"]
+    )
 
 
 class GenerationMode(ExplicitEnum):
@@ -360,6 +362,14 @@ class GenerationConfig(PushToHubMixin):
         assistant_early_exit(`int`, *optional*):
             If set to a positive integer, early exit of the model will be used as an assistant. Can only be used with
             models that support early exit (i.e. models where logits from intermediate layers can be interpreted by the LM head).
+        assistant_lookbehind(`int`, *optional*, defaults to 10):
+            If set to a positive integer, the re-encodeing process will additionally consider the last `assistant_lookbehind` assistant tokens
+            to correctly align tokens. Can only be used with different tokenizers in speculative decoding.
+            See this [blog](https://huggingface.co/blog/universal_assisted_generation) for more details.
+        target_lookbehind(`int`, *optional*, defaults to 10):
+            If set to a positive integer, the re-encodeing process will additionally consider the last `target_lookbehind` target tokens
+            to correctly align tokens. Can only be used with different tokenizers in speculative decoding.
+            See this [blog](https://huggingface.co/blog/universal_assisted_generation) for more details.
 
         > Wild card
 
@@ -460,6 +470,9 @@ class GenerationConfig(PushToHubMixin):
         self.prompt_lookup_num_tokens = kwargs.pop("prompt_lookup_num_tokens", None)
         self.max_matching_ngram_size = kwargs.pop("max_matching_ngram_size", None)
         self.assistant_early_exit = kwargs.pop("assistant_early_exit", None)
+        ## assistant generation for different tokenizers, the windows size for assistant/target model
+        self.assistant_lookbehind = kwargs.pop("assistant_lookbehind", 10)
+        self.target_lookbehind = kwargs.pop("target_lookbehind", 10)
 
         # Wild card
         self.generation_kwargs = kwargs.pop("generation_kwargs", {})

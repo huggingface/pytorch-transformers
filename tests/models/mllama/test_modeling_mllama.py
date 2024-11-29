@@ -16,7 +16,9 @@
 
 import unittest
 
+import pytest
 import requests
+from parameterized import parameterized
 
 from transformers import (
     AutoProcessor,
@@ -363,6 +365,12 @@ class MllamaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTester
 
     @unittest.skip(reason="AssertionError: Items in the second set but not the first: might be a setting issue")
     def test_model_parallelism(self):
+        pass
+
+    @parameterized.expand([("offloaded",)])
+    @pytest.mark.generate
+    @unittest.skip(reason="Offloaded cache seems to not work with mllama's kv cache type")
+    def test_offloaded_cache_implementation(self, cache_implementation):
         pass
 
     def test_generate_text_only_with_cache(self):

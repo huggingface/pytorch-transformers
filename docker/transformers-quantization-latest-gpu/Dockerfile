@@ -36,11 +36,16 @@ RUN python3 -m pip install --no-cache-dir einops
 # Add bitsandbytes for mixed int8 testing
 RUN python3 -m pip install --no-cache-dir bitsandbytes
 
-# Add auto-gptq for gtpq quantization testing
-RUN python3 -m pip install --no-cache-dir auto-gptq --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu118/
+# Add auto-gptq for gtpq quantization testing, installed from source for pytorch==2.5.1 compatibility
+# TORCH_CUDA_ARCH_LIST="7.5+PTX" is added to make the package compile for Tesla T4 gpus available for the CI.
+RUN pip install gekko
+RUN git clone https://github.com/PanQiWei/AutoGPTQ.git && cd AutoGPTQ && TORCH_CUDA_ARCH_LIST="7.5+PTX" python3 setup.py install
 
 # Add optimum for gptq quantization testing
 RUN python3 -m pip install --no-cache-dir git+https://github.com/huggingface/optimum@main#egg=optimum
+
+# Add PEFT
+RUN python3 -m pip install --no-cache-dir git+https://github.com/huggingface/peft@main#egg=peft
 
 # Add aqlm for quantization testing
 RUN python3 -m pip install --no-cache-dir aqlm[gpu]==1.0.2

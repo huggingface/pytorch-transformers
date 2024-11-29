@@ -88,6 +88,11 @@ output = processor.batch_decode(generate_ids, skip_special_tokens=True, clean_up
 [[autodoc]] PixtralImageProcessor
     - preprocess
 
+## PixtralImageProcessorFast
+
+[[autodoc]] PixtralImageProcessorFast
+    - preprocess
+
 ## PixtralProcessor
 
 [[autodoc]] PixtralProcessor

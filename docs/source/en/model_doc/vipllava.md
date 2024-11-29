@@ -58,7 +58,7 @@ conversation = [
         "content": [
             {"type": "image"},
             {"type": "text", "text": "What’s shown in this image?"},
-         ,
+        ],
     },
     {
         "role": "assistant",

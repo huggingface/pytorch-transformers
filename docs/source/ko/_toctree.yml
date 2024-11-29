@@ -380,8 +380,8 @@
         title: (번역중) DPR
       - local: in_translation
         title: (번역중) ELECTRA
-      - local: in_translation
-        title: (번역중) Encoder Decoder Models
+      - local: model_doc/encoder-decoder
+        title: 인코더 디코더 모델
       - local: in_translation
         title: (번역중) ERNIE
       - local: in_translation

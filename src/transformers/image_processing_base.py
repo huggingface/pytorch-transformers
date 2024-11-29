@@ -19,7 +19,7 @@ import json
 import os
 import warnings
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import requests
@@ -43,6 +43,9 @@ from .utils import (
 
 if is_vision_available():
     from PIL import Image
+
+
+ImageProcessorType = TypeVar("ImageProcessorType", bound="ImageProcessingMixin")
 
 
 logger = logging.get_logger(__name__)
@@ -95,7 +98,7 @@ class ImageProcessingMixin(PushToHubMixin):
 
     @classmethod
     def from_pretrained(
-        cls,
+        cls: Type[ImageProcessorType],
         pretrained_model_name_or_path: Union[str, os.PathLike],
         cache_dir: Optional[Union[str, os.PathLike]] = None,
         force_download: bool = False,
@@ -103,7 +106,7 @@ class ImageProcessingMixin(PushToHubMixin):
         token: Optional[Union[str, bool]] = None,
         revision: str = "main",
         **kwargs,
-    ):
+    ) -> ImageProcessorType:
         r"""
         Instantiate a type of [`~image_processing_utils.ImageProcessingMixin`] from an image processor.
 

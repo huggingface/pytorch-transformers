@@ -16,14 +16,18 @@
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
+import numpy as np
 import torch
 from torch import nn
 
 from transformers import PreTrainedModel, add_start_docstrings
 
-from ...utils import ModelOutput, add_start_docstrings_to_model_forward, logging
+from ...utils import ModelOutput, add_start_docstrings_to_model_forward, logging, is_flash_attn_2_available
 from ..auto import AutoModelForKeypointDetection
 from .configuration_lightglue import LightGlueConfig
+
+if is_flash_attn_2_available():
+    from flash_attn import flash_attn_func, flash_attn_varlen_func
 
 
 logger = logging.get_logger(__name__)
@@ -265,24 +269,69 @@ def apply_cached_rotary_emb(freqs: torch.Tensor, t: torch.Tensor) -> torch.Tenso
     return (t * freqs[0]) + (rotate_half(t) * freqs[1])
 
 
-class LightGluePositionalEncoding(nn.Module):
+def normalize_keypoints(
+        keypoints: torch.Tensor, height: int, width: int
+) -> torch.Tensor:
+    size = torch.tensor([width, height], device=keypoints.device, dtype=keypoints.dtype)[None]
+    shift = size / 2
+    scale = size.max(-1).values / 2
+    keypoints = (keypoints - shift[..., None, :]) / scale[..., None, None]
+    return keypoints
+
+
+class LightGluePositionalEncoder(nn.Module):
     def __init__(self, config: LightGlueConfig):
         super().__init__()
 
         M = 2 + 2 * config.add_scale_ori
         F_dim = M
-        head_dim = config.descriptor_dim // config.num_heads
-        self.Wr = nn.Linear(M, F_dim // 2, bias=False)
+        self.projector = nn.Linear(M, config.descriptor_dim // config.num_heads // 2, bias=False)
         self.gamma = 1.0
-        nn.init.normal_(self.Wr.weight.data, mean=0, std=self.gamma**-2)
+        nn.init.normal_(self.projector.weight.data, mean=0, std=self.gamma ** -2)
 
     def forward(self, keypoints: torch.Tensor) -> torch.Tensor:
-        projected_keypoints = self.Wr(keypoints)
+        projected_keypoints = self.projector(keypoints)
         cosines, sines = torch.cos(projected_keypoints), torch.sin(projected_keypoints)
         embeddings = torch.stack([cosines, sines], 0).unsqueeze(-3)
         embeddings = embeddings.repeat_interleave(2, dim=-1)
         return embeddings
 
+
+class LightGlueAttention(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+
+    def forward(self, q, k, v):
+        s = q.shape[-1] ** -0.5
+        sim = torch.einsum("...id,...jd->...ij", q, k) * s
+        attention = nn.functional.softmax(sim, -1)
+        output = torch.einsum("...ij,...jd->...id", attention, v)
+        return output, attention
+
+
+class LightGlueFlashAttention(LightGlueAttention):
+    def __init__(self, config):
+        super().__init__(config)
+
+    def forward(self, q, k, v):
+        attn_output = flash_attn_func(q, k, v)
+        return attn_output, None
+
+
+class LightGlueSdpaAttention(LightGlueAttention):
+    def __init__(self, config):
+        super().__init__(config)
+
+    def forward(self, q, k, v):
+        attn_output = torch.nn.functional.scaled_dot_product_attention(q, k, v)
+        return attn_output, None
+
+
+LIGHTGLUE_ATTENTION_CLASSES = {
+    "eager": LightGlueAttention,
+    "flash_attention_2": LightGlueFlashAttention,
+    "sdpa": LightGlueSdpaAttention,
+}
 
 class LightGlueSelfAttentionBlock(nn.Module):
     def __init__(self, config: LightGlueConfig):
@@ -291,9 +340,8 @@ class LightGlueSelfAttentionBlock(nn.Module):
         self.num_heads = config.num_heads
         embeddings_dim = config.descriptor_dim
 
-        head_dim = config.descriptor_dim // self.num_heads
-
         self.Wqkv = nn.Linear(embeddings_dim, embeddings_dim * 3, bias=True)
+        self.attention = LIGHTGLUE_ATTENTION_CLASSES[config._attn_implementation](config=config)
         self.output_projection = nn.Linear(embeddings_dim, embeddings_dim, bias=True)
 
         self.ffn = nn.Sequential(
@@ -321,14 +369,6 @@ class LightGlueSelfAttentionBlock(nn.Module):
         output = descriptors + ffn_output
         return output
 
-    def attention(self, q, k, v):
-        # TODO add flash attention
-        s = q.shape[-1] ** -0.5
-        sim = torch.einsum("...id,...jd->...ij", q, k) * s
-        attention = nn.functional.softmax(sim, -1)
-        output = torch.einsum("...ij,...jd->...id", attention, v)
-        return output, attention
-
 
 class LightGlueCrossAttentionBlock(nn.Module):
     def __init__(self, config: LightGlueConfig):
@@ -349,7 +389,8 @@ class LightGlueCrossAttentionBlock(nn.Module):
             nn.Linear(2 * embeddings_dim, embeddings_dim),
         )
 
-    def forward(self, descriptors0: torch.Tensor, descriptors1: torch.Tensor):
+    def forward(self, descriptors0: torch.Tensor, descriptors1: torch.Tensor,
+                output_attentions: Optional[bool] = False) -> Tuple[torch.Tensor, torch.Tensor]:
         qk0 = self.to_qk(descriptors0)
         qk1 = self.to_qk(descriptors1)
         v0 = self.to_v(descriptors0)
@@ -365,6 +406,8 @@ class LightGlueCrossAttentionBlock(nn.Module):
 
         m0 = m0.transpose(1, 2).flatten(start_dim=-2)
         m1 = m1.transpose(1, 2).flatten(start_dim=-2)
+        m0 = self.to_out(m0)
+        m1 = self.to_out(m1)
         descriptors0 = descriptors0 + self.ffn(torch.cat([descriptors0, m0], -1))
         descriptors1 = descriptors1 + self.ffn(torch.cat([descriptors1, m1], -1))
         return descriptors0, descriptors1
@@ -379,10 +422,10 @@ class LightGlueTransformerLayer(nn.Module):
 
     def forward(
         self,
-        keypoints0: torch.Tensor,
-        keypoints1: torch.Tensor,
         descriptors0: torch.Tensor,
         descriptors1: torch.Tensor,
+            keypoints0: torch.Tensor,
+            keypoints1: torch.Tensor,
         output_attentions: Optional[bool] = False,
     ) -> torch.Tensor:
         descriptors0 = self.self_attention_block(descriptors0, keypoints0, output_attentions=output_attentions)
@@ -432,12 +475,12 @@ class LightGlueTokenConfidenceLayer(nn.Module):
     def __init__(self, config: LightGlueConfig):
         super().__init__()
 
-        self.token = nn.Sequential(nn.Linear(config.descriptor_dim, 1), nn.Sigmoid())
+        self.token = nn.Linear(config.descriptor_dim, 1)
 
-    def forward(self, descriptors_0: torch.Tensor, descriptors_1: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        token0 = self.token(descriptors_0.detach()).squeeze(-1)
-        token1 = self.token(descriptors_1.detach()).squeeze(-1)
-        return token0, token1
+    def forward(self, descriptors: torch.Tensor) -> torch.Tensor:
+        token = self.token(descriptors.detach())
+        token = nn.functional.sigmoid(token).squeeze(-1)
+        return token
 
 
 def filter_matches(scores: torch.Tensor, threshold: float):
@@ -469,6 +512,8 @@ class LightGluePreTrainedModel(PreTrainedModel):
     base_model_prefix = "superglue"
     main_input_name = "pixel_values"
     supports_gradient_checkpointing = False
+    _supports_flash_attn_2 = True
+    _supports_sdpa = True
 
     def _init_weights(self, module: Union[nn.Linear, nn.Conv2d, nn.LayerNorm, nn.Conv1d]) -> None:
         """Initialize the weights"""
@@ -520,33 +565,46 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
 
         self.keypoint_detector = AutoModelForKeypointDetection.from_config(config.keypoint_detector_config)
 
-        self.input_dim = config.input_dim
         self.descriptor_dim = config.descriptor_dim
         self.num_layers = config.num_layers
         self.filter_threshold = config.filter_threshold
+        self.depth_confidence = config.depth_confidence
+        self.width_confidence = config.width_confidence
 
-        if self.input_dim != self.descriptor_dim:
-            self.input_projection = nn.Linear(self.input_dim, self.descriptor_dim, bias=True)
+        if self.descriptor_dim != config.keypoint_detector_config.descriptor_decoder_dim:
+            self.input_projection = nn.Linear(config.keypoint_detector_config.descriptor_decoder_dim,
+                                              self.descriptor_dim, bias=True)
         else:
             self.input_projection = nn.Identity()
 
-        self.positional_encoding = LightGluePositionalEncoding(config)
+        self.positional_encoder = LightGluePositionalEncoder(config)
 
         self.transformer_layers = nn.ModuleList([LightGlueTransformerLayer(config) for _ in range(config.num_layers)])
         self.match_assignment_layers = nn.ModuleList(
-            [LightGlueMatchAssignmentLayer(config) for _ in range(config.num_match_assignment_layers)]
+            [LightGlueMatchAssignmentLayer(config) for _ in range(config.num_layers)]
         )
         self.token_confidence = nn.ModuleList(
             [LightGlueTokenConfidenceLayer(config) for _ in range(config.num_layers - 1)]
         )
 
+        self.register_buffer(
+            "confidence_thresholds",
+            torch.Tensor(
+                [self.confidence_threshold(i) for i in range(self.num_layers)]
+            ),
+        )
+
         self.post_init()
 
-    def keypoint_processing(self, height, image_descriptors, image_keypoints, width):
-        keypoints = normalize_keypoints(image_keypoints, height, width)
-        descriptors = image_descriptors.contiguous()
+    def confidence_threshold(self, layer_index: int) -> float:
+        """scaled confidence threshold"""
+        threshold = 0.8 + 0.1 * np.exp(-4.0 * layer_index / self.num_layers)
+        return np.clip(threshold, 0, 1)
+
+    def keypoint_processing(self, descriptors, keypoints):
+        descriptors = descriptors.detach().contiguous()
         descriptors = self.input_projection(descriptors)
-        encoded_keypoints = self.positional_encoding(keypoints)
+        encoded_keypoints = self.positional_encoder(keypoints)
         return descriptors, encoded_keypoints
 
     def check_if_stop(
@@ -572,20 +630,21 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
     def do_final_point_pruning(
         self, batch_size, device, indices_self, indices_other, matches, matching_scores, num_keypoints
     ):
-        _matches = torch.full((batch_size, num_keypoints), device=device, dtype=matches.dtype)
+        _matches = torch.full((batch_size, num_keypoints), -1, device=device, dtype=matches.dtype)
         _matches[:, indices_self] = torch.where(matches == -1, -1, indices_other.gather(1, matches.clamp(min=0)))
-        _matching_scores = torch.zeros((batch_size, num_keypoints), device=device)
+        _matching_scores = torch.zeros((batch_size, num_keypoints), device=device, dtype=matching_scores.dtype)
         _matching_scores[:, indices_self] = matching_scores
         return _matches, _matching_scores
 
-    def do_layer_point_pruning(self, descriptors, i, indices, prune, token):
+    def do_layer_point_pruning(self, descriptors, keypoints, i, indices, prune, token):
         scores = self.match_assignment_layers[i].get_matchability(descriptors)
         prune_mask = self.get_pruning_mask(token, scores, i)
         keep = torch.where(prune_mask)[1]
         indices = indices.index_select(1, keep)
         descriptors = descriptors.index_select(-2, keep)
+        keypoints = keypoints.index_select(-2, keep)
         prune[:, indices] += 1
-        return descriptors, indices
+        return descriptors, keypoints, indices
 
     def match_image_pair(
         self,
@@ -619,9 +678,10 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         num_keypoints_1 = keypoints_1.shape[1]
 
         # Keypoint normalization
-        descriptors_0, encoded_keypoints_0 = self.keypoint_processing(height, descriptors_0, keypoints_0, width)
-
-        descriptors_1, encoded_keypoints_1 = self.keypoint_processing(height, descriptors_1, keypoints_1, width)
+        keypoints_0 = normalize_keypoints(keypoints_0, height, width)
+        keypoints_1 = normalize_keypoints(keypoints_1, height, width)
+        descriptors_0, encoded_keypoints_0 = self.keypoint_processing(descriptors_0, keypoints_0)
+        descriptors_1, encoded_keypoints_1 = self.keypoint_processing(descriptors_1, keypoints_1)
 
         do_early_stop = self.depth_confidence > 0
         do_point_pruning = self.width_confidence > 0
@@ -642,9 +702,11 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             )
             descriptors_0, descriptors_1 = transformer_output[:2]
 
-            if do_early_stop:
+            if do_early_stop and i < self.num_layers - 1:
                 assert batch_size == 1
-                token_0, token_1 = self.token_confidence[i](descriptors_0, descriptors_1)
+                token_0 = self.token_confidence[i](descriptors_0)
+                token_1 = self.token_confidence[i](descriptors_1)
+
                 early_stop = self.check_if_stop(
                     token_0[..., :num_keypoints_0, :],
                     token_1[..., :num_keypoints_1, :],
@@ -655,8 +717,12 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
                     break
             if do_point_pruning:
                 assert batch_size == 1
-                descriptors_0, indices_0 = self.do_layer_point_pruning(descriptors_0, i, indices_0, prune_0, token_0)
-                descriptors_1, indices_1 = self.do_layer_point_pruning(descriptors_1, i, indices_1, prune_1, token_1)
+                descriptors_0, encoded_keypoints_0, indices_0 = self.do_layer_point_pruning(descriptors_0,
+                                                                                            encoded_keypoints_0, i,
+                                                                                            indices_0, prune_0, token_0)
+                descriptors_1, encoded_keypoints_1, indices_1 = self.do_layer_point_pruning(descriptors_1,
+                                                                                            encoded_keypoints_1, i,
+                                                                                            indices_1, prune_1, token_1)
 
         descriptors_0 = descriptors_0[..., :num_keypoints_0, :]
         descriptors_1 = descriptors_1[..., :num_keypoints_1, :]
@@ -808,10 +874,8 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             match_image_output = self.match_image_pair(
                 image0_keypoints,
                 image0_descriptors,
-                image0_scores,
                 image1_keypoints,
                 image1_descriptors,
-                image1_scores,
                 height,
                 width,
                 output_attentions=output_attentions,

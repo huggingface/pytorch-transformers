@@ -41,12 +41,16 @@ logger = logging.get_logger(__name__)
 
 # Copied from transformers.models.superpoint.image_processing_superpoint.is_grayscale
 def is_grayscale(
-    image: ImageInput,
-    input_data_format: Optional[Union[str, ChannelDimension]] = None,
+        image: ImageInput,
+        input_data_format: Optional[Union[str, ChannelDimension]] = None,
 ):
     if input_data_format == ChannelDimension.FIRST:
+        if image.shape[0] == 1:
+            return True
         return np.all(image[0, ...] == image[1, ...]) and np.all(image[1, ...] == image[2, ...])
     elif input_data_format == ChannelDimension.LAST:
+        if image.shape[-1] == 1:
+            return True
         return np.all(image[..., 0] == image[..., 1]) and np.all(image[..., 1] == image[..., 2])
 
 
@@ -87,6 +91,53 @@ def convert_to_grayscale(
     return image
 
 
+def pad_images(images, pad_value=0, data_format: Optional[Union[str, ChannelDimension]] = None):
+    """
+    Given a list of images, pads them to the same height and width by adding `pad_value` around the edges.
+    Args:
+        images (`List[np.ndarray]`):
+            List of images to pad.
+        pad_value (`int`, *optional*, defaults to `0`):
+            Value to use for padding.
+        data_format (`ChannelDimension` or `str`, *optional*):
+            The channel dimension format for the output image. Can be one of:
+            - `"channels_first"` or `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
+            - `"channels_last"` or `ChannelDimension.LAST`: image in (height, width, num_channels) format.
+    Returns:
+        padded_images (`List[np.ndarray]`):
+            List of padded images.
+    """
+    if data_format == ChannelDimension.FIRST:
+        max_height = max(image.shape[1] for image in images)
+        max_width = max(image.shape[2] for image in images)
+    else:  # channels_last
+        max_height = max(image.shape[0] for image in images)
+        max_width = max(image.shape[1] for image in images)
+
+    padded_images = []
+
+    for image in images:
+        if data_format == ChannelDimension.FIRST:
+            channels, height, width = image.shape
+        else:
+            height, width, channels = image.shape
+
+        top_pad = (max_height - height) // 2
+        left_pad = (max_width - width) // 2
+
+        if data_format == ChannelDimension.FIRST:
+            padded_image = np.full((channels, max_height, max_width), pad_value, dtype=image.dtype)
+            padded_image[:, top_pad : top_pad + height, left_pad : left_pad + width] = image
+        else:
+            padded_image = np.full((max_height, max_width, channels), pad_value, dtype=image.dtype)
+            padded_image[top_pad : top_pad + height, left_pad : left_pad + width, :] = image
+
+        padded_images.append(padded_image)
+
+    return padded_images
+
+
+
 class LightGlueImageProcessor(BaseImageProcessor):
     r"""
     Constructs a LightGlue image processor.
@@ -111,13 +162,13 @@ class LightGlueImageProcessor(BaseImageProcessor):
     model_input_names = ["pixel_values"]
 
     def __init__(
-        self,
-        do_resize: bool = True,
-        size: Dict[str, int] = None,
-        resample: PILImageResampling = PILImageResampling.BILINEAR,
-        do_rescale: bool = True,
-        rescale_factor: float = 1 / 255,
-        **kwargs,
+            self,
+            do_resize: bool = True,
+            size: Dict[str, int] = None,
+            resample: PILImageResampling = PILImageResampling.BILINEAR,
+            do_rescale: bool = True,
+            rescale_factor: float = 1 / 255,
+            **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         size = size if size is not None else {"height": 480, "width": 640}
@@ -130,13 +181,13 @@ class LightGlueImageProcessor(BaseImageProcessor):
         self.rescale_factor = rescale_factor
 
     def resize(
-        self,
-        image: np.ndarray,
-        size: Dict[str, int],
-        resample: PILImageResampling = PILImageResampling.BILINEAR,
-        data_format: Optional[Union[str, ChannelDimension]] = None,
-        input_data_format: Optional[Union[str, ChannelDimension]] = None,
-        **kwargs,
+            self,
+            image: np.ndarray,
+            size: Dict[str, int],
+            resample: PILImageResampling = PILImageResampling.BILINEAR,
+            data_format: Optional[Union[str, ChannelDimension]] = None,
+            input_data_format: Optional[Union[str, ChannelDimension]] = None,
+            **kwargs,
     ):
         """
         Resize an image.
@@ -174,24 +225,24 @@ class LightGlueImageProcessor(BaseImageProcessor):
         )
 
     def preprocess(
-        self,
-        image_pairs,
-        do_resize: bool = None,
-        size: Dict[str, int] = None,
-        resample: PILImageResampling = None,
-        do_rescale: bool = None,
-        rescale_factor: float = None,
-        return_tensors: Optional[Union[str, TensorType]] = None,
-        data_format: ChannelDimension = ChannelDimension.FIRST,
-        input_data_format: Optional[Union[str, ChannelDimension]] = None,
-        **kwargs,
+            self,
+            images,
+            do_resize: bool = None,
+            size: Dict[str, int] = None,
+            resample: PILImageResampling = None,
+            do_rescale: bool = None,
+            rescale_factor: float = None,
+            return_tensors: Optional[Union[str, TensorType]] = None,
+            data_format: ChannelDimension = ChannelDimension.FIRST,
+            input_data_format: Optional[Union[str, ChannelDimension]] = None,
+            **kwargs,
     ) -> BatchFeature:
         """
         Preprocess an image or batch of images.
 
         Args:
-            image_pairs (`ImageInput`):
-                Image pairs to preprocess. Expects either a list of 2 images or a list of 2 images list with pixel values ranging from 0 to 255. If
+            images (`ImageInput`):
+                Image pairs to preprocess. Expects either a list of 2 images or a list of list of 2 images list with pixel values ranging from 0 to 255. If
                 passing in images with pixel values between 0 and 1, set `do_rescale=False`.
             do_resize (`bool`, *optional*, defaults to `self.do_resize`):
                 Whether to resize the image.
@@ -200,7 +251,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
                 is resized to `(size["shortest_edge"], size["shortest_edge"])`. Otherwise, the smaller edge of the
                 image will be matched to `int(size["shortest_edge"]/ crop_pct)`, after which the image is cropped to
                 `(size["shortest_edge"], size["shortest_edge"])`. Only has an effect if `do_resize` is set to `True`.
-            resample (`int`, *optional*, defaults to `self.resample`):
+            resample (`PILImageResampling`, *optional*, defaults to `self.resample`):
                 Resampling filter to use if resizing the image. This can be one of `PILImageResampling`, filters. Only
                 has an effect if `do_resize` is set to `True`.
             do_rescale (`bool`, *optional*, defaults to `self.do_rescale`):
@@ -235,20 +286,20 @@ class LightGlueImageProcessor(BaseImageProcessor):
         size = size if size is not None else self.size
         size = get_size_dict(size, default_to_square=False)
 
-        if not isinstance(image_pairs, list) or len(image_pairs) < 2:
+        image_pairs = images
+
+        if not isinstance(image_pairs, list):
             raise ValueError(
-                "Input images must be a list containing at least 2 images because LightGlue takes pairs of images."
+                "Input images must be a list containing at least 2 images because SuperGlue takes pairs of images."
             )
         elif len(image_pairs) == 2 and not isinstance(image_pairs[0], list):
             images = image_pairs
-            batch_size = 1
         else:
             for pair in image_pairs:
                 if not isinstance(pair, (list, tuple)) or len(pair) != 2:
                     raise ValueError(
-                        "Input images must be a list of pairs of images because LightGlue takes pairs of images."
+                        "Input images must be a list of pairs of images because SuperGlue takes pairs of images."
                     )
-            batch_size = len(image_pairs)
             images = [image for pair in image_pairs for image in pair]
 
         images = make_list_of_images(images)
@@ -290,10 +341,6 @@ class LightGlueImageProcessor(BaseImageProcessor):
                 for image in images
             ]
 
-        if input_data_format is None:
-            # We assume that all images have the same channel dimension format.
-            input_data_format = infer_channel_dimension_format(images[0])
-
         # Checking if image is RGB or grayscale
         for i in range(len(images)):
             if not is_grayscale(images[i], input_data_format):
@@ -303,11 +350,10 @@ class LightGlueImageProcessor(BaseImageProcessor):
             to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format) for image in images
         ]
 
-        if data_format == ChannelDimension.FIRST:
-            channels, height, width = images[0].shape
-        else:
-            height, width, channels = images[0].shape
-        image_pairs = np.array(images).reshape(batch_size, 2, channels, height, width)
+        if not do_resize:
+            images = pad_images(images, data_format=data_format)
+
+        image_pairs = [images[i : i + 2] for i in range(0, len(images), 2)]
 
         data = {"pixel_values": image_pairs}
 

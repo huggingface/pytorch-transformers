@@ -65,7 +65,7 @@ class LightGlueConfig(PretrainedConfig):
         num_layers: int = 9,
         num_heads: int = 4,
         depth_confidence: float = 0.95,
-        width_confidence: float = 0.95,
+        width_confidence: float = 0.99,
         filter_threshold: float = 0.1,
         initializer_range=0.02,
         **kwargs,

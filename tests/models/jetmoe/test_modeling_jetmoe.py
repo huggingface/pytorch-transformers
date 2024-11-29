@@ -383,6 +383,15 @@ class JetMoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
     def test_flash_attn_2_inference_equivalence_right_padding(self):
         self.skipTest(reason="JetMoe flash attention does not support right padding")
 
+    # Copied from tests.models.phimoe.test_modeling_phimoe.PhimoeModelTest.test_assisted_decoding_with_num_logits_to_keep with phimoe->jetmoe, Phimoe->JetMoe
+    @parameterized.expand([(None, True), ("static", False)])
+    def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
+        if cache_implementation == "static":
+            self.skipTest(
+                "JetMoe doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
+            )
+            pass
+
 
 @require_torch
 class JetMoeIntegrationTest(unittest.TestCase):

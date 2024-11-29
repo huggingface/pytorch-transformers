@@ -497,7 +497,7 @@ class PhimoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
     def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
         if cache_implementation == "static":
             self.skipTest(
-                "Phimoe doesn't support StaticCache, please check the following issue` -> https://github.com/huggingface/transformers/issues/28981."
+                "Phimoe doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
             )
             pass
 

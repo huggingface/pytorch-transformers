@@ -51,7 +51,6 @@ class LightGlueModelTester:
             "border_removal_distance": 4,
         },
         descriptor_dim: int = 64,
-        add_scale_ori: bool = False,
         num_layers: int = 3,
         num_heads: int = 4,
         depth_confidence: float = 0.95,
@@ -66,7 +65,6 @@ class LightGlueModelTester:
 
         self.keypoint_detector_config = keypoint_detector_config
         self.descriptor_dim = descriptor_dim
-        self.add_scale_ori = add_scale_ori
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.depth_confidence = depth_confidence
@@ -84,7 +82,6 @@ class LightGlueModelTester:
         return LightGlueConfig(
             keypoint_detector_config=self.keypoint_detector_config,
             descriptor_dim=self.descriptor_dim,
-            add_scale_ori=self.add_scale_ori,
             num_layers=self.num_layers,
             num_heads=self.num_heads,
             depth_confidence=self.depth_confidence,

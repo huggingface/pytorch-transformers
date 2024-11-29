@@ -33,14 +33,14 @@ class LightGlueConfig(PretrainedConfig):
     Args:
         keypoint_detector_config (`Union[AutoConfig, dict]`,  *optional*, defaults to `SuperPointConfig`):
             The config object or dictionary of the keypoint detector.
-        descriptor_dim (`int`, *optional*, defaults to 256): <fill_docstring>
-        add_scale_ori (`bool`, *optional*, defaults to `False`): <fill_docstring>
-        num_layers (`int`, *optional*, defaults to 9): <fill_docstring>
-        num_heads (`int`, *optional*, defaults to 4): <fill_docstring>
-        depth_confidence (`float`, *optional*, defaults to 0.95): <fill_docstring>
-        width_confidence (`float`, *optional*, defaults to 0.95): <fill_docstring>
-        filter_threshold (`float`, *optional*, defaults to 0.1): <fill_docstring>
-        initializer_range (`<fill_type>`, *optional*, defaults to 0.02): <fill_docstring>
+        descriptor_dim (`int`, *optional*, defaults to 256): The dimension of the descriptors.
+        num_layers (`int`, *optional*, defaults to 9): The number of self and cross attention layers.
+        num_heads (`int`, *optional*, defaults to 4): The number of heads in the multi-head attention.
+        depth_confidence (`float`, *optional*, defaults to 0.95): The confidence threshold used to perform early stopping
+        width_confidence (`float`, *optional*, defaults to 0.99): The confidence threshold used to prune points
+        filter_threshold (`float`, *optional*, defaults to 0.1):  The confidence theshold used to filter matches
+        initializer_range (`float`, *optional*, defaults to 0.02):
+            The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
 
 
     Examples:
@@ -61,7 +61,6 @@ class LightGlueConfig(PretrainedConfig):
         self,
         keypoint_detector_config=None,
         descriptor_dim: int = 256,
-        add_scale_ori: bool = False,
         num_layers: int = 9,
         num_heads: int = 4,
         depth_confidence: float = 0.95,
@@ -73,8 +72,8 @@ class LightGlueConfig(PretrainedConfig):
         if descriptor_dim % num_heads != 0:
             raise ValueError("descriptor_dim % num_heads is different from zero")
 
+        # TODO Add `add_scale_and_orientation` if keypoint detectors like SIFT or DogHardNet are implemented
         self.descriptor_dim = descriptor_dim
-        self.add_scale_ori = add_scale_ori
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.depth_confidence = depth_confidence

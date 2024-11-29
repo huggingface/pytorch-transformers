@@ -2088,7 +2088,7 @@ class GenerationTesterMixin:
             without_all_logits = model.generate(**inputs_dict, **generation_kwargs)
             self.assertEqual(with_all_logits.tolist(), without_all_logits.tolist())
 
-    @parameterized.expand([[None, True], ["static", False]])
+    @parameterized.expand([(None, True), ("static", False)])
     @pytest.mark.generate
     def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
         for model_class in self.all_generative_model_classes:

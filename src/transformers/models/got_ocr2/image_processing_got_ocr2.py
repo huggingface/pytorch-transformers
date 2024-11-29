@@ -63,8 +63,8 @@ logger = logging.get_logger(__name__)
 def find_best_patches_grid(
     original_image_size: dict,
     target_patch_size: dict,
-    min_patches: int = 1,
-    max_patches: int = 6,
+    min_patches: int,
+    max_patches: int,
 ) -> Tuple[int, int]:
     """
     Given a minimum and maximum number of patches, find the patches grid with the closest aspect ratio to the
@@ -356,12 +356,12 @@ class GotOcr2ImageProcessor(BaseImageProcessor):
     def crop_image_to_patches(
         self,
         image: ImageInput,
-        min_patches=1,
-        max_patches=6,
-        use_thumbnail=True,
-        patch_size=None,
-        return_numpy=False,
-        data_format=None,
+        min_patches: int,
+        max_patches: int,
+        use_thumbnail: bool = True,
+        patch_size: Union[Tuple, int, dict] = None,
+        return_numpy: bool = False,
+        data_format: ChannelDimension = None,
     ):
         """
         Crop the image to patches and return a list of cropped images.
@@ -378,9 +378,7 @@ class GotOcr2ImageProcessor(BaseImageProcessor):
             image = to_pil_image(image, do_rescale=do_rescale)
 
         # find the closest aspect ratio to the target
-        target_patches_grid = find_best_patches_grid(
-            original_size, patch_size, min_patches=min_patches, max_patches=max_patches
-        )
+        target_patches_grid = find_best_patches_grid(original_size, patch_size, min_patches, max_patches)
 
         # calculate the target width and height
         patch_size_width, patch_size_height = patch_size["width"], patch_size["height"]

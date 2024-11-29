@@ -15,7 +15,6 @@
 import argparse
 import gc
 import glob
-import json
 import os
 from typing import List, Optional
 
@@ -25,7 +24,6 @@ from huggingface_hub import snapshot_download
 from safetensors import safe_open
 
 from transformers import (
-    GenerationConfig,
     GotOcr2Config,
     GotOcr2ForConditionalGeneration,
     GotOcr2ImageProcessor,
@@ -53,7 +51,7 @@ ORIGINAL_TO_CONVERTED_KEY_MAPPING = {
     r"model.vision_tower_high.neck.1":                              r"visual.neck.layer_norm1",
     r"model.vision_tower_high.neck.2":                              r"visual.neck.conv2",
     r"model.vision_tower_high.neck.3":                              r"visual.neck.layer_norm2",
-    r"model.vision_tower_high.net_(\d+)":                           lambda m: f"visual_adapter.conv_up{int(m.group(1)) - 1}",
+    r"model.vision_tower_high.net_(\d+)":                           lambda m: f"visual_adapter.conv_upsampler{int(m.group(1)) - 1}",
     r"model.mm_projector_vary" :                                    r"visual_adapter.multimodal_projector",
 }
 # fmt: on
@@ -118,7 +116,6 @@ def get_got_ocr2_config():
 def write_model(
     model_path,
     input_base_path,
-    instruct=False,
     push_to_hub=False,
 ):
     os.makedirs(model_path, exist_ok=True)
@@ -177,16 +174,6 @@ def write_model(
     print("Model reloaded successfully.")
     del model
 
-    # generation config
-    if instruct:
-        print("Saving generation config...")
-        generation_config = GenerationConfig(
-            bos_token_id=151643,
-            eos_token_id=151643,
-            max_new_tokens=2048,
-        )
-        generation_config.save_pretrained(model_path)
-
 
 class GotOcr2Converter(TikTokenConverter):
     def __init__(
@@ -211,7 +198,7 @@ class GotOcr2Converter(TikTokenConverter):
         )
 
 
-def write_tokenizer(tokenizer_path: str, save_dir: str, instruct: bool = False, push_to_hub: bool = False):
+def write_tokenizer(tokenizer_path: str, save_dir: str, push_to_hub: bool = False):
     model_max_length = CONTEXT_LENGTH
     pattern = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"  # noqa: W605
     # Special tokens
@@ -231,30 +218,6 @@ def write_tokenizer(tokenizer_path: str, save_dir: str, instruct: bool = False, 
         ]
     )
 
-    # Chat template
-    chat_template = (
-        "{% for message in messages %}"
-        "{% if loop.index0 == 0 %}"
-        "{{ bos_token }}"
-        "{% endif %}"
-        "{{ '<|start_header_id|>' + message['role'] + '<|end_header_id|>\n\n' }}"
-        "{% if message['content'] is string %}"
-        "{{ message['content'] }}"
-        "{% else %}"
-        "{% for content in message['content'] %}"
-        "{% if content['type'] == 'image' %}"
-        "{{ '<|image|>' }}"
-        "{% elif content['type'] == 'text' %}"
-        "{{ content['text'] }}"
-        "{% endif %}"
-        "{% endfor %}"
-        "{% endif %}"
-        "{{ '<|eot_id|>' }}"
-        "{% endfor %}"
-        "{% if add_generation_prompt %}"
-        "{{ '<|start_header_id|>assistant<|end_header_id|>\n\n' }}"
-        "{% endif %}"
-    )
     pad_token = "<|endoftext|>"
     pad_token = AddedToken(pad_token, lstrip=False, rstrip=False, normalized=False, single_word=False)
 
@@ -263,7 +226,6 @@ def write_tokenizer(tokenizer_path: str, save_dir: str, instruct: bool = False, 
         pattern=pattern,
         special_tokens=special_tokens,
         model_max_length=model_max_length,
-        chat_template=chat_template if instruct else None,
         pad_token=pad_token,
         bos_token="<|endoftext|>",
         eos_token="<|endoftext|>",
@@ -274,12 +236,6 @@ def write_tokenizer(tokenizer_path: str, save_dir: str, instruct: bool = False, 
 
     if push_to_hub:
         tokenizer.push_to_hub("yonigozlan/GOT-OCR-2.0-hf", use_temp_dir=True)
-
-    if instruct:
-        print("Saving chat template...")
-        chat_template_path = os.path.join(save_dir, "chat_template.json")
-        with open(chat_template_path, "w") as f:
-            json.dump({"chat_template": chat_template}, f, indent=2)
 
 
 def write_image_processor(save_dir: str, push_to_hub: bool = False):
@@ -312,18 +268,12 @@ def main():
     )
 
     parser.add_argument(
-        "--instruct",
-        action="store_true",
-        help="Whether the model is an instruct model",
-    )
-    parser.add_argument(
         "--push_to_hub", action="store_true", help="Whether or not to push the converted model to the 🤗 hub."
     )
     args = parser.parse_args()
     write_tokenizer(
         tokenizer_path="qwen.tiktoken",
         save_dir=args.output_dir,
-        instruct=args.instruct,
         push_to_hub=args.push_to_hub,
     )
 
@@ -334,7 +284,6 @@ def main():
     write_model(
         model_path=args.output_dir,
         input_base_path=args.input_dir,
-        instruct=args.instruct,
         push_to_hub=args.push_to_hub,
     )
 

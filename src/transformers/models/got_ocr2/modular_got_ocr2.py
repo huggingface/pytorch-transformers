@@ -185,6 +185,8 @@ class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
         },
         "images_kwargs": {
             "num_image_tokens": 256,
+            "multi_page": False,
+            "crop_to_patches": False,
             "min_patches": 1,
             "max_patches": 6,
         },
@@ -209,8 +211,8 @@ def load_box_annotation(box: Union[List, Tuple], image_size: Tuple[int, int]) ->
 def find_best_patches_grid(
     original_image_size: dict,
     target_patch_size: dict,
-    min_patches: int = 1,
-    max_patches: int = 6,
+    min_patches: int,
+    max_patches: int,
 ) -> Tuple[int, int]:
     """
     Given a minimum and maximum number of patches, find the patches grid with the closest aspect ratio to the
@@ -254,12 +256,12 @@ class GotOcr2ImageProcessor(BlipImageProcessor):
     def crop_image_to_patches(
         self,
         image: ImageInput,
-        min_patches=1,
-        max_patches=6,
-        use_thumbnail=True,
-        patch_size=None,
-        return_numpy=False,
-        data_format=None,
+        min_patches: int,
+        max_patches: int,
+        use_thumbnail: bool = True,
+        patch_size: Union[Tuple, int, dict] = None,
+        return_numpy: bool = False,
+        data_format: ChannelDimension = None,
     ):
         """
         Crop the image to patches and return a list of cropped images.
@@ -276,9 +278,7 @@ class GotOcr2ImageProcessor(BlipImageProcessor):
             image = to_pil_image(image, do_rescale=do_rescale)
 
         # find the closest aspect ratio to the target
-        target_patches_grid = find_best_patches_grid(
-            original_size, patch_size, min_patches=min_patches, max_patches=max_patches
-        )
+        target_patches_grid = find_best_patches_grid(original_size, patch_size, min_patches, max_patches)
 
         # calculate the target width and height
         patch_size_width, patch_size_height = patch_size["width"], patch_size["height"]
@@ -359,6 +359,50 @@ class GotOcr2Processor(ProcessorMixin):
         self.img_pad_token = "<imgpad>"
         self.system_query = "system\nYou should follow the instructions carefully and explain your answers in detail."
 
+    def _check_call_arguments(self, images, box, color, multi_page, crop_to_patches):
+        if images is None:
+            raise ValueError("Images are required to be passed to the processor.")
+
+        if not isinstance(box, (list, tuple)):
+            raise ValueError("Box must be a list or tuple of lists in the form [x1, y1, x2, y2].")
+
+        if multi_page or crop_to_patches:
+            if multi_page and crop_to_patches:
+                raise ValueError("Cannot set both `multi_page` and `crop_to_patches` to `True`.")
+            if box[0] is not None or color is not None:
+                raise ValueError("Cannot pass `box` or `color` with multi-page inference.")
+
+        if box[0] is not None and color is not None:
+            raise ValueError("Both `box` and `color` cannot be set at the same time.")
+
+    def _make_list_of_inputs(self, images, text, box, color, multi_page):
+        if not isinstance(images, (list, tuple)):
+            if multi_page:
+                logger.warning("Multi-page inference is enabled but only one image is passed.")
+            images = [images]
+        elif isinstance(images[0], (list, tuple)) and not multi_page:
+            raise ValueError("Nested images are only supported with `multi_page` set to `True`.")
+        elif not isinstance(images[0], (list, tuple)) and multi_page:
+            images = [images]
+
+        if text is not None:
+            if not isinstance(text, (list, tuple)):
+                text = [text]
+            if len(text) != len(images):
+                raise ValueError("The number of `text` must match the number of images.")
+
+        if not isinstance(box[0], (list, tuple)):
+            # Use the same box for all images
+            box = [box for _ in range(len(images))]
+        if not isinstance(color, (list, tuple)):
+            color = [color for _ in range(len(images))]
+        if len(box) != len(images):
+            raise ValueError("The number of `box` must match the number of images.")
+        if len(color) != len(images):
+            raise ValueError("The number of `color` must match the number of images.")
+
+        return images, text, box, color
+
     def __call__(
         self,
         images: Optional[ImageInput] = None,
@@ -418,8 +462,6 @@ class GotOcr2Processor(ProcessorMixin):
               `None`).
             - **pixel_values** -- Pixel values to be fed to a model. Returned when `images` is not `None`.
         """
-        if images is None:
-            raise ValueError("Images are required to be passed to the processor.")
 
         output_kwargs = self._merge_kwargs(
             GotOcr2ProcessorKwargs,
@@ -432,43 +474,14 @@ class GotOcr2Processor(ProcessorMixin):
         color = output_kwargs["images_kwargs"].pop("color", None)
         multi_page = output_kwargs["images_kwargs"].pop("multi_page", False)
         crop_to_patches = output_kwargs["images_kwargs"].pop("crop_to_patches", False)
-        min_patches = output_kwargs["images_kwargs"].pop("min_patches")
-        max_patches = output_kwargs["images_kwargs"].pop("max_patches")
+        min_patches = output_kwargs["images_kwargs"].pop("min_patches", 1)
+        max_patches = output_kwargs["images_kwargs"].pop("max_patches", 6)
 
-        if not isinstance(box, (list, tuple)):
-            raise ValueError("Box must be a list or tuple of lists in the form [x1, y1, x2, y2].")
-
-        if multi_page or crop_to_patches:
-            if multi_page and crop_to_patches:
-                raise ValueError("Cannot set both `multi_page` and `crop_to_patches` to `True`.")
-            if box[0] is not None or color is not None:
-                raise ValueError("Cannot pass `box` or `color` with multi-page inference.")
-
-        if box[0] is not None and color is not None:
-            raise ValueError("Both `box` and `color` cannot be set at the same time.")
-
-        if not isinstance(images, (list, tuple)):
-            if multi_page:
-                logger.warning("Multi-page inference is enabled but only one image is passed.")
-            images = [images]
-        elif isinstance(images[0], (list, tuple)) and not multi_page:
-            raise ValueError("Nested images are only supported with `multi_page` set to `True`.")
-        elif not isinstance(images[0], (list, tuple)) and multi_page:
-            images = [images]
-
-        if not isinstance(box[0], (list, tuple)):
-            # Use the same box for all images
-            box = [box for _ in range(len(images))]
-        if not isinstance(color, (list, tuple)):
-            color = [color for _ in range(len(images))]
-        if len(box) != len(images):
-            raise ValueError("The number of `box` must match the number of images.")
-        if len(color) != len(images):
-            raise ValueError("The number of `color` must match the number of images.")
+        self._check_call_arguments(images, box, color, multi_page, crop_to_patches)
+        images, text, box, color = self._make_list_of_inputs(images, text, box, color, multi_page)
 
         # Load images as we need to know the image size
         images = load_images(images)
-
         if text is None:
             text = []
             for index, (image_group, box_single, color_single) in enumerate(zip(images, box, color)):
@@ -550,50 +563,20 @@ class GotOcr2MLPBlock(nn.Module):
         return hidden_states
 
 
-class GotOcr2LayerNorm(nn.Module):
-    r"""LayerNorm that supports two data formats: channels_last (default) or channels_first.
-    The ordering of the dimensions in the inputs. channels_last corresponds to inputs with shape (batch_size, height,
-    width, channels) while channels_first corresponds to inputs with shape (batch_size, channels, height, width).
-    """
-
-    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
-        super().__init__()
-        self.weight = nn.Parameter(torch.ones(normalized_shape))
-        self.bias = nn.Parameter(torch.zeros(normalized_shape))
-        self.eps = eps
-        self.data_format = data_format
-        if self.data_format not in ["channels_last", "channels_first"]:
-            raise NotImplementedError(f"Unsupported data format: {self.data_format}")
-        self.normalized_shape = (normalized_shape,)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.data_format == "channels_last":
-            x = torch.nn.functional.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
-        elif self.data_format == "channels_first":
-            input_dtype = x.dtype
-            x = x.float()
-            u = x.mean(1, keepdim=True)
-            s = (x - u).pow(2).mean(1, keepdim=True)
-            x = (x - u) / torch.sqrt(s + self.eps)
-            x = x.to(dtype=input_dtype)
-            x = self.weight[:, None, None] * x + self.bias[:, None, None]
-        return x
-
-
 class GotOcr2VisionAdapter(nn.Module):
     def __init__(self, language_hidden_size: int, vision_output_channels: int):
         super().__init__()
-        self.conv_up1 = nn.Conv2d(
+        self.conv_upsampler1 = nn.Conv2d(
             vision_output_channels, vision_output_channels * 2, kernel_size=3, stride=2, padding=1, bias=False
         )
-        self.conv_up2 = nn.Conv2d(
+        self.conv_upsampler2 = nn.Conv2d(
             vision_output_channels * 2, language_hidden_size, kernel_size=3, stride=2, padding=1, bias=False
         )
         self.multimodal_projector = nn.Linear(language_hidden_size, language_hidden_size)
 
     def forward(self, vision_embeddings):
-        x = self.conv_up1(vision_embeddings)
-        x = self.conv_up2(x)
+        x = self.conv_upsampler1(vision_embeddings)
+        x = self.conv_upsampler2(x)
         x = x.flatten(2).permute(0, 2, 1)
         x = self.multimodal_projector(x)
         return x
@@ -699,7 +682,6 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
         self.model = GotOcr2Model(config)
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
-        self.padding_side = "left"
         self.visual_adapter = GotOcr2VisionAdapter(config.hidden_size, config.vision_config.output_channels)
 
         self.post_init()

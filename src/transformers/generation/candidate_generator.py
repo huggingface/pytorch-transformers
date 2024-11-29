@@ -308,10 +308,9 @@ class AssistedCandidateGeneratorDifferentTokenizers(AssistedCandidateGenerator):
 
         self.target_tokenizer = target_tokenizer
         self.assistant_tokenizer = assistant_tokenizer
-        self.prev_tokens = None
         self.prev_assistant_ids = None
-        self.target_lookbehind = 10
-        self.assistant_lookbehind = 10
+        self.target_lookbehind = assistant_model.generation_config.target_lookbehind
+        self.assistant_lookbehind = assistant_model.generation_config.assistant_lookbehind
 
     @staticmethod
     def _get_longest_diag_dict(input_matrix, nonzero_idx):
@@ -448,9 +447,9 @@ class AssistedCandidateGeneratorDifferentTokenizers(AssistedCandidateGenerator):
         # Since re-encoding the tokens may result in tokenization discrepancies, we use 2 look behind values
         # (one for each conversion) which mark where to start looking for the overlap between the
         # source and target encodings, to ensure the new tokens include the correct prompt suffix.
-        if self.prev_tokens is not None and self.prev_target_ids.shape[1] > self.target_lookbehind:
+        if self.prev_assistant_ids is not None and input_ids.shape[1] > self.target_lookbehind:
             # input_ids contains all target prompt input ids and some new target input ids
-            start_index_in_target_window = self.prev_target_ids.shape[1] - self.target_lookbehind
+            start_index_in_target_window = input_ids.shape[1] - self.target_lookbehind
 
             new_assistant_ids = self.convert_source_tokens_to_target_tokens(
                 input_ids[:, start_index_in_target_window:], **convert_kwargs
@@ -483,7 +482,6 @@ class AssistedCandidateGeneratorDifferentTokenizers(AssistedCandidateGenerator):
 
         else:
             assistant_input_ids = self.convert_source_tokens_to_target_tokens(input_ids, **convert_kwargs)
-            self.prev_target_ids = input_ids
 
         self.prev_assistant_ids = assistant_input_ids
         new_cur_len = assistant_input_ids.shape[-1]
@@ -518,6 +516,8 @@ class AssistedCandidateGeneratorDifferentTokenizers(AssistedCandidateGenerator):
 
         num_prev_assistant = self.prev_assistant_ids.shape[1]
         start_assistant_look_index = num_prev_assistant - self.assistant_lookbehind
+        if start_assistant_look_index < 0:
+            start_assistant_look_index = 0
 
         new_target_ids_from_window = self.convert_source_tokens_to_target_tokens(
             assistant_output.sequences[:, start_assistant_look_index:],
@@ -541,14 +541,11 @@ class AssistedCandidateGeneratorDifferentTokenizers(AssistedCandidateGenerator):
             # edge case: in case of no intersection between prompt and new_target_ids
             new_target_ids = torch.cat([new_target_ids, new_target_ids_from_window], dim=-1)
 
-        self.prev_target_ids = input_ids
-
         if hasattr(self.generation_config, "max_length"):
             new_target_ids = new_target_ids[:, : self.generation_config.max_length]
 
         # 3. Update variables for the next round of candidate generation
         self.assistant_kwargs["past_key_values"] = assistant_output.past_key_values
-        self.prev_tokens = assistant_output.sequences
 
         # 4. Prepare variables for output
         if input_ids.shape[1] >= new_target_ids.shape[1]:

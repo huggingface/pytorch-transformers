@@ -61,6 +61,8 @@
   - sections:
     - local: fsdp
       title: 完全分片数据并行
+    - local: perf_train_special
+      title: 在 Apple silicon 芯片上进行 PyTorch 训练
     - local: perf_hardware
       title: 用于训练的定制硬件
     - local: hpo_train

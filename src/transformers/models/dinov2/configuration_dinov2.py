@@ -60,7 +60,7 @@ class Dinov2Config(BackboneConfigMixin, PretrainedConfig):
             The epsilon used by the layer normalization layers.
         image_size (`int`, *optional*, defaults to 224):
             The size (resolution) of each image.
-        patch_size (`int`, *optional*, defaults to 16):
+        patch_size (`int`, *optional*, defaults to 14):
             The size (resolution) of each patch.
         num_channels (`int`, *optional*, defaults to 3):
             The number of input channels.
@@ -118,7 +118,7 @@ class Dinov2Config(BackboneConfigMixin, PretrainedConfig):
         initializer_range=0.02,
         layer_norm_eps=1e-6,
         image_size=224,
-        patch_size=16,
+        patch_size=14,
         num_channels=3,
         qkv_bias=True,
         layerscale_value=1.0,

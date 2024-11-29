@@ -81,6 +81,7 @@ class PeftAdapterMixin:
         peft_config: Dict[str, Any] = None,
         adapter_state_dict: Optional[Dict[str, "torch.Tensor"]] = None,
         low_cpu_mem_usage: bool = False,
+        is_trainable: bool = False,
         adapter_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
@@ -136,6 +137,9 @@ class PeftAdapterMixin:
             low_cpu_mem_usage (`bool`, *optional*, defaults to `False`):
                 Reduce memory usage while loading the PEFT adapter. This should also speed up the loading process.
                 Requires PEFT version 0.13.0 or higher.
+            is_trainable (`bool`, *optional*, defaults to `False`):
+                Whether the adapter should be trainable or not. If `False`, the adapter will be frozen and can only be
+                used for inference.
             adapter_kwargs (`Dict[str, Any]`, *optional*):
                 Additional keyword arguments passed along to the `from_pretrained` method of the adapter config and
                 `find_adapter_config_file` method.
@@ -209,6 +213,7 @@ class PeftAdapterMixin:
                 token=token,
                 **adapter_kwargs,
             )
+            peft_config.inference_mode = not is_trainable
 
         # Create and add fresh new adapters into the model.
         inject_adapter_in_model(peft_config, self, adapter_name, **peft_load_kwargs)
@@ -257,6 +262,9 @@ class PeftAdapterMixin:
 
             if err_msg:
                 logger.warning(err_msg)
+
+        if peft_config.inference_mode:
+            self.eval()
 
         # Re-dispatch model and hooks in case the model is offloaded to CPU / Disk.
         if (

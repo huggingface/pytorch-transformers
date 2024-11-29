@@ -387,7 +387,7 @@ class Tool:
             commit_message (`str`, *optional*, defaults to `"Upload tool"`):
                 Message to commit while pushing.
             private (`bool`, *optional*):
-                Whether or not the repository created should be private.
+                Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
             token (`bool` or `str`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. If unset, will use the token generated
                 when running `huggingface-cli login` (stored in `~/.huggingface`).

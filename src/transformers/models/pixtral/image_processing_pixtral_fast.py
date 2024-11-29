@@ -14,225 +14,55 @@
 # limitations under the License.
 """Image processor class for Pixtral."""
 
-import math
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
-import numpy as np
-
-from ...image_processing_utils import BaseImageProcessor, BatchFeature, get_size_dict
-from ...image_transforms import (
-    resize,
-    to_channel_dimension_format,
-)
+from ...image_processing_utils import get_size_dict
+from ...image_processing_utils_fast import BaseImageProcessorFast
 from ...image_utils import (
     ChannelDimension,
     ImageInput,
+    ImageType,
     PILImageResampling,
     get_image_size,
+    get_image_type,
     infer_channel_dimension_format,
-    is_scaled_image,
-    is_valid_image,
-    to_numpy_array,
-    valid_images,
+    validate_fast_preprocess_arguments,
     validate_kwargs,
-    validate_preprocess_arguments,
 )
-from ...utils import TensorType, is_torch_device, is_torch_dtype, is_torch_tensor, is_vision_available, logging
-from ...utils.import_utils import requires_backends
+from ...utils import (
+    TensorType,
+    is_torch_available,
+    is_torchvision_available,
+    is_torchvision_v2_available,
+    is_vision_available,
+    logging,
+)
+from .image_processing_pixtral import (
+    BatchMixFeature,
+    convert_to_rgb,
+    get_resize_output_image_size,
+    make_list_of_images,
+)
 
 
 logger = logging.get_logger(__name__)
 
+if is_torch_available():
+    import torch
 
-if is_vision_available():
-    import PIL
+if is_torchvision_available():
+    if is_vision_available():
+        from ...image_utils import pil_torch_interpolation_mapping
 
-
-class BatchMixFeature(BatchFeature):
-    def to(self, *args, **kwargs) -> "BatchMixFeature":
-        """
-        Send all values to device by calling `v.to(*args, **kwargs)` (PyTorch only). This should support casting in
-        different `dtypes` and sending the `BatchFeature` to a different `device`.
-
-        Args:
-            args (`Tuple`):
-                Will be passed to the `to(...)` function of the tensors.
-            kwargs (`Dict`, *optional*):
-                Will be passed to the `to(...)` function of the tensors.
-
-        Returns:
-            [`BatchFeature`]: The same instance after modification.
-        """
-        requires_backends(self, ["torch"])
-        import torch  # noqa
-
-        new_data = {}
-        device = kwargs.get("device")
-        # Check if the args are a device or a dtype
-        if device is None and len(args) > 0:
-            # device should be always the first argument
-            arg = args[0]
-            if is_torch_dtype(arg):
-                # The first argument is a dtype
-                pass
-            elif isinstance(arg, str) or is_torch_device(arg) or isinstance(arg, int):
-                device = arg
-            else:
-                # it's something else
-                raise ValueError(f"Attempting to cast a BatchFeature to type {str(arg)}. This is not supported.")
-        # We cast only floating point tensors to avoid issues with tokenizers casting `LongTensor` to `FloatTensor`
-        for k, v in self.items():
-            # check if v is a floating point
-            if isinstance(v, list):
-                new_data[k] = [
-                    element.to(*args, **kwargs) for sample in v for element in sample if is_torch_tensor(element)
-                ]
-            elif isinstance(v, torch.Tensor) and torch.is_floating_point(v):
-                # cast and send to device
-                new_data[k] = v.to(*args, **kwargs)
-            elif isinstance(v, torch.Tensor) and device is not None:
-                new_data[k] = v.to(device=device)
-            else:
-                new_data[k] = v
-        self.data = new_data
-        return self
-
-
-# Copied from transformers.models.idefics2.image_processing_idefics2.make_list_of_images
-def make_list_of_images(images: ImageInput) -> List[List[np.ndarray]]:
-    """
-    Convert a single image or a list of images to a list of numpy arrays.
-
-    Args:
-        images (`ImageInput`):
-            A single image or a list of images.
-
-    Returns:
-        A list of numpy arrays.
-    """
-    # If it's a single image, convert it to a list of lists
-    if is_valid_image(images):
-        images = [[images]]
-    # If it's a list of images, it's a single batch, so convert it to a list of lists
-    elif isinstance(images, (list, tuple)) and len(images) > 0 and is_valid_image(images[0]):
-        images = [images]
-    # If it's a list of batches, it's already in the right format
-    elif (
-        isinstance(images, (list, tuple))
-        and len(images) > 0
-        and isinstance(images[0], (list, tuple))
-        and len(images[0]) > 0
-        and is_valid_image(images[0][0])
-    ):
-        pass
+    if is_torchvision_v2_available():
+        from torchvision.transforms.v2 import functional as F
     else:
-        raise ValueError(
-            "Invalid input type. Must be a single image, a list of images, or a list of batches of images."
-        )
-    return images
+        from torchvision.transforms import functional as F
 
 
-# Adapted from function in image_transforms.py to ensure any transparent pixels are converted to white.
-def convert_to_rgb(image: ImageInput) -> ImageInput:
-    """
-    Converts an image to RGB format. Only converts if the image is of type PIL.Image.Image, otherwise returns the image
-    as is.
-    Args:
-        image (Image):
-            The image to convert.
-    """
-    requires_backends(convert_to_rgb, ["vision"])
-
-    if not isinstance(image, PIL.Image.Image):
-        return image
-
-    if image.mode == "RGB":
-        return image
-
-    # First we convert to RGBA to set background to white.
-    image = image.convert("RGBA")
-
-    # Create a new image with a white background.
-    new_image = PIL.Image.new("RGBA", image.size, "WHITE")
-    new_image.paste(image, (0, 0), image)
-    new_image = new_image.convert("RGB")
-    return new_image
-
-
-def _num_image_tokens(image_size: Tuple[int, int], patch_size: Tuple[int, int]) -> int:
-    """
-    Calculate the number of image tokens given the image size and patch size.
-
-    Args:
-        image_size (`Tuple[int, int]`):
-            The size of the image as `(height, width)`.
-        patch_size (`Tuple[int, int]`):
-            The patch size as `(height, width)`.
-
-    Returns:
-        `int`: The number of image tokens.
-    """
-    height, width = image_size
-    patch_height, patch_width = patch_size if isinstance(patch_size, (tuple, list)) else (patch_size, patch_size)
-    num_width_tokens = (width - 1) // patch_width + 1
-    num_height_tokens = (height - 1) // patch_height + 1
-    return num_height_tokens, num_width_tokens
-
-
-def get_resize_output_image_size(
-    input_image: ImageInput,
-    size: Union[int, Tuple[int, int], List[int], Tuple[int]],
-    patch_size: Union[int, Tuple[int, int], List[int], Tuple[int]],
-    input_data_format: Optional[Union[str, ChannelDimension]] = None,
-) -> tuple:
-    """
-    Find the target (height, width) dimension of the output image after resizing given the input image and the desired
-    size.
-
-    Args:
-        input_image (`ImageInput`):
-            The image to resize.
-        size (`int` or `Tuple[int, int]`):
-            Max image size an input image can be. Must be a dictionary with the key "longest_edge".
-        patch_size (`int` or `Tuple[int, int]`):
-            The patch_size as `(height, width)` to use for resizing the image. If patch_size is an integer, `(patch_size, patch_size)`
-            will be used
-        input_data_format (`ChannelDimension`, *optional*):
-            The channel dimension format of the input image. If unset, will use the inferred format from the input.
-
-    Returns:
-        `tuple`: The target (height, width) dimension of the output image after resizing.
-    """
-    max_height, max_width = size if isinstance(size, (tuple, list)) else (size, size)
-    patch_height, patch_width = patch_size if isinstance(patch_size, (tuple, list)) else (patch_size, patch_size)
-    height, width = get_image_size(input_image, input_data_format)
-
-    ratio = max(height / max_height, width / max_width)
-
-    if ratio > 1:
-        # Orgiginal implementation uses `round` which utilises bankers rounding, which can lead to surprising results
-        height = int(math.ceil(height / ratio))
-        width = int(math.ceil(width / ratio))
-
-    num_height_tokens, num_width_tokens = _num_image_tokens((height, width), (patch_height, patch_width))
-    return num_height_tokens * patch_height, num_width_tokens * patch_width
-
-
-# Hack to get tensor conversion used in BatchFeature without batching the images
-def _get_is_as_tensor_fns(tensor_type: Union[str, TensorType]) -> Tuple[Callable, Callable]:
-    return BatchFeature()._get_is_as_tensor_fns(tensor_type)
-
-
-def convert_to_tensor(array, tensor_type: Union[str, TensorType]) -> Any:
-    is_tensor, as_tensor = _get_is_as_tensor_fns(tensor_type)
-    if is_tensor(array):
-        return array
-    return as_tensor(array)
-
-
-class PixtralImageProcessor(BaseImageProcessor):
+class PixtralImageProcessorFast(BaseImageProcessorFast):
     r"""
-    Constructs a Pixtral image processor.
+    Constructs a fast Pixtral image processor that leverages torchvision.
 
     Args:
         do_resize (`bool`, *optional*, defaults to `True`):
@@ -271,7 +101,7 @@ class PixtralImageProcessor(BaseImageProcessor):
         do_resize: bool = True,
         size: Dict[str, int] = None,
         patch_size: Dict[str, int] = None,
-        resample: PILImageResampling = PILImageResampling.BICUBIC,
+        resample: Union[PILImageResampling, "F.InterpolationMode"] = PILImageResampling.BICUBIC,
         do_rescale: bool = True,
         rescale_factor: Union[int, float] = 1 / 255,
         do_normalize: bool = True,
@@ -314,32 +144,27 @@ class PixtralImageProcessor(BaseImageProcessor):
 
     def resize(
         self,
-        image: np.ndarray,
+        image: torch.Tensor,
         size: Dict[str, int],
         patch_size: Dict[str, int],
-        resample: PILImageResampling = PILImageResampling.BICUBIC,
-        data_format: Optional[Union[str, ChannelDimension]] = None,
-        input_data_format: Optional[Union[str, ChannelDimension]] = None,
+        interpolation: "F.InterpolationMode" = None,
         **kwargs,
-    ) -> np.ndarray:
+    ) -> torch.Tensor:
         """
         Resize an image. The shortest edge of the image is resized to size["shortest_edge"], with the longest edge
         resized to keep the input aspect ratio.
 
         Args:
-            image (`np.ndarray`):
+            image (`torch.Tensor`):
                 Image to resize.
             size (`Dict[str, int]`):
                 Dict containing the longest possible edge of the image.
             patch_size (`Dict[str, int]`):
                 Patch size used to calculate the size of the output image.
-            resample (`PILImageResampling`, *optional*, defaults to `PILImageResampling.BICUBIC`):
+            interpolation (`InterpolationMode`, *optional*, defaults to `InterpolationMode.BILINEAR`):
                 Resampling filter to use when resiizing the image.
-            data_format (`str` or `ChannelDimension`, *optional*):
-                The channel dimension format of the image. If not provided, it will be the same as the input image.
-            input_data_format (`ChannelDimension` or `str`, *optional*):
-                The channel dimension format of the input image. If not provided, it will be inferred.
         """
+        interpolation = interpolation if interpolation is not None else F.InterpolationMode.BILINEAR
         if "longest_edge" in size:
             size = (size["longest_edge"], size["longest_edge"])
         elif "height" in size and "width" in size:
@@ -356,14 +181,11 @@ class PixtralImageProcessor(BaseImageProcessor):
             image,
             size=size,
             patch_size=patch_size,
-            input_data_format=input_data_format,
         )
-        return resize(
+        return F.resize(
             image,
             size=output_size,
-            resample=resample,
-            data_format=data_format,
-            input_data_format=input_data_format,
+            interpolation=interpolation,
             **kwargs,
         )
 
@@ -373,7 +195,7 @@ class PixtralImageProcessor(BaseImageProcessor):
         do_resize: bool = None,
         size: Dict[str, int] = None,
         patch_size: Dict[str, int] = None,
-        resample: PILImageResampling = None,
+        resample: Optional[Union[PILImageResampling, "F.InterpolationMode"]] = None,
         do_rescale: bool = None,
         rescale_factor: float = None,
         do_normalize: bool = None,
@@ -384,7 +206,7 @@ class PixtralImageProcessor(BaseImageProcessor):
         data_format: Optional[ChannelDimension] = ChannelDimension.FIRST,
         input_data_format: Optional[Union[str, ChannelDimension]] = None,
         **kwargs,
-    ) -> PIL.Image.Image:
+    ) -> BatchMixFeature:
         """
         Preprocess an image or batch of images.
 
@@ -398,7 +220,7 @@ class PixtralImageProcessor(BaseImageProcessor):
                 Describes the maximum input dimensions to the model.
             patch_size (`Dict[str, int]`, *optional*, defaults to `self.patch_size`):
                 Patch size in the model. Used to calculate the image after resizing.
-            resample (`int`, *optional*, defaults to `self.resample`):
+            resample (`PILImageResampling` or `InterpolationMode`, *optional*, defaults to self.resample):
                 Resampling filter to use if resizing the image. This can be one of the enum `PILImageResampling`. Only
                 has an effect if `do_resize` is set to `True`.
             do_rescale (`bool`, *optional*, defaults to `self.do_rescale`):
@@ -445,18 +267,17 @@ class PixtralImageProcessor(BaseImageProcessor):
         image_mean = image_mean if image_mean is not None else self.image_mean
         image_std = image_std if image_std is not None else self.image_std
         do_convert_rgb = do_convert_rgb if do_convert_rgb is not None else self.do_convert_rgb
+        device = kwargs.pop("device", None)
 
         validate_kwargs(captured_kwargs=kwargs.keys(), valid_processor_keys=self._valid_processor_keys)
 
         images_list = make_list_of_images(images)
+        image_type = get_image_type(images_list[0][0])
 
-        if not valid_images(images_list[0]):
-            raise ValueError(
-                "Invalid image type. Must be of type PIL.Image.Image, numpy.ndarray, "
-                "torch.Tensor, tf.Tensor or jax.ndarray."
-            )
+        if image_type not in [ImageType.PIL, ImageType.TORCH, ImageType.NUMPY]:
+            raise ValueError(f"Unsupported input image type {image_type}")
 
-        validate_preprocess_arguments(
+        validate_fast_preprocess_arguments(
             do_rescale=do_rescale,
             rescale_factor=rescale_factor,
             do_normalize=do_normalize,
@@ -465,23 +286,33 @@ class PixtralImageProcessor(BaseImageProcessor):
             do_resize=do_resize,
             size=size,
             resample=resample,
+            return_tensors=return_tensors,
+            data_format=data_format,
         )
 
         if do_convert_rgb:
             images_list = [[convert_to_rgb(image) for image in images] for images in images_list]
 
-        # All transformations expect numpy arrays.
-        images_list = [[to_numpy_array(image) for image in images] for images in images_list]
+        if image_type == ImageType.PIL:
+            images_list = [[F.pil_to_tensor(image) for image in images] for images in images_list]
+        elif image_type == ImageType.NUMPY:
+            # not using F.to_tensor as it doesn't handle (C, H, W) numpy arrays
+            images_list = [[torch.from_numpy(image).contiguous() for image in images] for images in images_list]
 
-        if is_scaled_image(images_list[0][0]) and do_rescale:
-            logger.warning_once(
-                "It looks like you are trying to rescale already rescaled images. If the input"
-                " images have pixel values between 0 and 1, set `do_rescale=False` to avoid rescaling them again."
-            )
+        if device is not None:
+            images_list = [[image.to(device) for image in images] for images in images_list]
 
+        # We assume that all images have the same channel dimension format.
         if input_data_format is None:
-            # We assume that all images have the same channel dimension format.
             input_data_format = infer_channel_dimension_format(images_list[0][0])
+        if input_data_format == ChannelDimension.LAST:
+            images_list = [[image.permute(2, 0, 1).contiguous() for image in images] for images in images_list]
+            input_data_format = ChannelDimension.FIRST
+
+        if do_rescale and do_normalize:
+            # fused rescale and normalize
+            new_mean = torch.tensor(image_mean, device=images_list[0][0].device) * (1.0 / rescale_factor)
+            new_std = torch.tensor(image_std, device=images_list[0][0].device) * (1.0 / rescale_factor)
 
         batch_images = []
         batch_image_sizes = []
@@ -490,32 +321,29 @@ class PixtralImageProcessor(BaseImageProcessor):
             image_sizes = []
             for image in sample_images:
                 if do_resize:
+                    interpolation = (
+                        pil_torch_interpolation_mapping[resample]
+                        if isinstance(resample, (PILImageResampling, int))
+                        else resample
+                    )
                     image = self.resize(
                         image=image,
                         size=size,
                         patch_size=patch_size,
-                        resample=resample,
-                        input_data_format=input_data_format,
+                        interpolation=interpolation,
                     )
 
-                if do_rescale:
-                    image = self.rescale(image=image, scale=rescale_factor, input_data_format=input_data_format)
-
-                if do_normalize:
-                    image = self.normalize(
-                        image=image, mean=image_mean, std=image_std, input_data_format=input_data_format
-                    )
+                if do_rescale and do_normalize:
+                    # fused rescale and normalize
+                    image = F.normalize(image.to(dtype=torch.float32), new_mean, new_std)
+                elif do_rescale:
+                    image = image * rescale_factor
+                elif do_normalize:
+                    image = F.normalize(image, image_mean, image_std)
 
                 images.append(image)
                 image_sizes.append(get_image_size(image, input_data_format))
             batch_images.append(images)
             batch_image_sizes.append(image_sizes)
 
-        images_list = [
-            [to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format) for image in images]
-            for images in batch_images
-        ]
-
-        # Convert to tensor type outside of BatchFeature to avoid batching the images of different sizes
-        images_list = [[convert_to_tensor(image, return_tensors) for image in images] for images in images_list]
-        return BatchMixFeature(data={"pixel_values": images_list, "image_sizes": batch_image_sizes}, tensor_type=None)
+        return BatchMixFeature(data={"pixel_values": batch_images, "image_sizes": batch_image_sizes}, tensor_type=None)

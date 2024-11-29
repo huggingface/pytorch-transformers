@@ -117,7 +117,7 @@ else:
             ("paligemma", ("SiglipImageProcessor",)),
             ("perceiver", ("PerceiverImageProcessor",)),
             ("pix2struct", ("Pix2StructImageProcessor",)),
-            ("pixtral", ("PixtralImageProcessor",)),
+            ("pixtral", ("PixtralImageProcessor", "PixtralImageProcessorFast")),
             ("poolformer", ("PoolFormerImageProcessor",)),
             ("pvt", ("PvtImageProcessor",)),
             ("pvt_v2", ("PvtImageProcessor",)),

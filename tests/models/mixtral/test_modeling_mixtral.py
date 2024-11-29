@@ -17,7 +17,6 @@
 import unittest
 
 import pytest
-
 from parameterized import parameterized
 
 from transformers import MixtralConfig, is_torch_available

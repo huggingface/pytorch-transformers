@@ -13,7 +13,7 @@
 # limitations under the License.
 import argparse
 from pathlib import Path
-from typing import Tuple, Optional, Union, List
+from typing import Tuple
 
 import torch
 from datasets import load_dataset
@@ -181,107 +181,6 @@ def create_rename_keys(config, state_dict):
                 )
             )
 
-    #
-    # # keypoint encoder
-    # n = len([3] + config.keypoint_encoder_sizes + [config.descriptor_dim])
-    # for i in range(n * 2 + 1):
-    #     if ((i + 1) % 3) != 0:
-    #         rename_keys.append(
-    #             (
-    #                 f"kenc.encoder.{i}.weight",
-    #                 f"keypoint_encoder.encoder.layers.{i}.weight",
-    #             )
-    #         )
-    #         rename_keys.append((f"kenc.encoder.{i}.bias", f"keypoint_encoder.encoder.layers.{i}.bias"))
-    #         if ((i % 3) - 1) == 0:
-    #             rename_keys.append(
-    #                 (
-    #                     f"kenc.encoder.{i}.running_mean",
-    #                     f"keypoint_encoder.encoder.layers.{i}.running_mean",
-    #                 )
-    #             )
-    #             rename_keys.append(
-    #                 (
-    #                     f"kenc.encoder.{i}.running_var",
-    #                     f"keypoint_encoder.encoder.layers.{i}.running_var",
-    #                 )
-    #             )
-    #             rename_keys.append(
-    #                 (
-    #                     f"kenc.encoder.{i}.num_batches_tracked",
-    #                     f"keypoint_encoder.encoder.layers.{i}.num_batches_tracked",
-    #                 )
-    #             )
-    #
-    # # gnn
-    # for i in range(len(config.gnn_layers_types)):
-    #     rename_keys.append(
-    #         (
-    #             f"gnn.layers.{i}.attn.merge.weight",
-    #             f"gnn.layers.{i}.attention.merge.weight",
-    #         )
-    #     )
-    #     rename_keys.append((f"gnn.layers.{i}.attn.merge.bias", f"gnn.layers.{i}.attention.merge.bias"))
-    #     for j in range(3):
-    #         rename_keys.append(
-    #             (
-    #                 f"gnn.layers.{i}.attn.proj.{j}.weight",
-    #                 f"gnn.layers.{i}.attention.proj.{j}.weight",
-    #             )
-    #         )
-    #         rename_keys.append(
-    #             (
-    #                 f"gnn.layers.{i}.attn.proj.{j}.bias",
-    #                 f"gnn.layers.{i}.attention.proj.{j}.bias",
-    #             )
-    #         )
-    #     for j in range(
-    #         len(
-    #             [
-    #                 config.descriptor_dim * 2,
-    #                 config.descriptor_dim * 2,
-    #                 config.descriptor_dim,
-    #             ]
-    #         )
-    #         + 1
-    #     ):
-    #         if j != 2:
-    #             rename_keys.append(
-    #                 (
-    #                     f"gnn.layers.{i}.mlp.{j}.weight",
-    #                     f"gnn.layers.{i}.mlp.layers.{j}.weight",
-    #                 )
-    #             )
-    #             rename_keys.append(
-    #                 (
-    #                     f"gnn.layers.{i}.mlp.{j}.bias",
-    #                     f"gnn.layers.{i}.mlp.layers.{j}.bias",
-    #                 )
-    #             )
-    #             if j == 1:
-    #                 rename_keys.append(
-    #                     (
-    #                         f"gnn.layers.{i}.mlp.{j}.running_mean",
-    #                         f"gnn.layers.{i}.mlp.layers.{j}.running_mean",
-    #                     )
-    #                 )
-    #                 rename_keys.append(
-    #                     (
-    #                         f"gnn.layers.{i}.mlp.{j}.running_var",
-    #                         f"gnn.layers.{i}.mlp.layers.{j}.running_var",
-    #                     )
-    #                 )
-    #                 rename_keys.append(
-    #                     (
-    #                         f"gnn.layers.{i}.mlp.{j}.num_batches_tracked",
-    #                         f"gnn.layers.{i}.mlp.layers.{j}.num_batches_tracked",
-    #                     )
-    #                 )
-    #
-    # # final projection
-    # rename_keys.append(("final_proj.weight", "final_projection.final_proj.weight"))
-    # rename_keys.append(("final_proj.bias", "final_projection.final_proj.bias"))
-
     return rename_keys
 
 
@@ -333,7 +232,6 @@ def convert_lightglue_checkpoint(checkpoint_url, pytorch_dump_folder_path, save_
     print("Downloading original model from checkpoint...")
     original_lightglue_state_dict = torch.hub.load_state_dict_from_url(checkpoint_url)
 
-
     print("Converting model parameters...")
     rename_keys = create_rename_keys(lightglue_config, original_lightglue_state_dict)
     new_lightglue_state_dict = original_lightglue_state_dict.copy()
@@ -356,7 +254,7 @@ def convert_lightglue_checkpoint(checkpoint_url, pytorch_dump_folder_path, save_
     preprocessor = LightGlueImageProcessor()
     inputs = preprocessor(images=images, return_tensors="pt")
     inputs.to("cuda")
-    torch.save(inputs['pixel_values'], 'lightglue_input.pth')
+    torch.save(inputs["pixel_values"], "lightglue_input.pth")
 
     output = model(**inputs, return_dict=True)
 
@@ -364,53 +262,6 @@ def convert_lightglue_checkpoint(checkpoint_url, pytorch_dump_folder_path, save_
     print(torch.sum(output.matches[0][0] != -1))
     print(output.matches[0][0][:10])
     assert expected_number_of_matches == torch.sum(output.matches[0][0] != -1)
-
-    # sdpa mode
-    lightglue_config._attn_implementation = "sdpa"
-    model = LightGlueForKeypointMatching(lightglue_config)
-    model.load_state_dict(new_lightglue_state_dict, strict=False, assign=False)
-    model.to("cuda")
-    model.eval()
-    print("Successfully loaded weights in the model")
-
-    ## USE REGULAR IMAGE PROCESSOR FOR INFERENCE
-    images = prepare_imgs_for_image_processor()
-    preprocessor = LightGlueImageProcessor()
-    inputs = preprocessor(images=images, return_tensors="pt")
-    inputs.to("cuda")
-    torch.save(inputs['pixel_values'], 'lightglue_input.pth')
-
-    output = model(**inputs, return_dict=True)
-
-    print("Number of matching keypoints using image processor")
-    print(torch.sum(output.matches[0][0] != -1))
-    print(output.matches[0][0][:10])
-
-    assert expected_number_of_matches == torch.sum(output.matches[0][0] != -1)
-
-    if is_flash_attn_2_available():
-        # flash attention mode
-        # lightglue_config._attn_implementation = "flash_attention_2"
-        model = LightGlueForKeypointMatching(lightglue_config)
-        model.load_state_dict(new_lightglue_state_dict, strict=False, assign=False)
-        model.to("cuda")
-        model.eval()
-        print("Successfully loaded weights in the model")
-
-        ## USE REGULAR IMAGE PROCESSOR FOR INFERENCE
-        images = prepare_imgs_for_image_processor()
-        preprocessor = LightGlueImageProcessor()
-        inputs = preprocessor(images=images, return_tensors="pt")
-        inputs.to("cuda")
-        torch.save(inputs['pixel_values'], 'lightglue_input.pth')
-        with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
-            output = model(**inputs, return_dict=True)
-
-        print("Number of matching keypoints using image processor")
-        print(torch.sum(output.matches[0][0] != -1))
-        print(output.matches[0][0][:10])
-
-        assert expected_number_of_matches == torch.sum(output.matches[0][0] != -1)
 
     if save_model:
         Path(pytorch_dump_folder_path).mkdir(exist_ok=True)
@@ -427,6 +278,54 @@ def convert_lightglue_checkpoint(checkpoint_url, pytorch_dump_folder_path, save_
                 commit_message="Add model",
             )
             preprocessor.push_to_hub(model_name)
+
+    # sdpa mode
+    lightglue_config._attn_implementation = "sdpa"
+    model = LightGlueForKeypointMatching(lightglue_config)
+    model.load_state_dict(new_lightglue_state_dict, strict=False, assign=False)
+    model.to("cuda")
+    model.eval()
+    print("Successfully loaded weights in the model")
+
+    ## USE REGULAR IMAGE PROCESSOR FOR INFERENCE
+    images = prepare_imgs_for_image_processor()
+    preprocessor = LightGlueImageProcessor()
+    inputs = preprocessor(images=images, return_tensors="pt")
+    inputs.to("cuda")
+    torch.save(inputs["pixel_values"], "lightglue_input.pth")
+
+    output = model(**inputs, return_dict=True)
+
+    print("Number of matching keypoints using image processor")
+    print(torch.sum(output.matches[0][0] != -1))
+    print(output.matches[0][0][:10])
+
+    assert expected_number_of_matches == torch.sum(output.matches[0][0] != -1)
+
+    if is_flash_attn_2_available():
+        # flash attention mode
+        lightglue_config._attn_implementation = "flash_attention_2"
+        with torch.autocast(device_type="cuda"):
+            model = LightGlueForKeypointMatching(lightglue_config)
+            model.load_state_dict(new_lightglue_state_dict, strict=False, assign=False)
+            model.to("cuda")
+            model.eval()
+            print("Successfully loaded weights in the model")
+
+            ## USE REGULAR IMAGE PROCESSOR FOR INFERENCE
+            images = prepare_imgs_for_image_processor()
+            preprocessor = LightGlueImageProcessor()
+            inputs = preprocessor(images=images, return_tensors="pt")
+            inputs.to("cuda")
+            torch.save(inputs["pixel_values"], "lightglue_input.pth")
+            with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
+                output = model(**inputs, return_dict=True)
+
+            print("Number of matching keypoints using image processor")
+            print(torch.sum(output.matches[0][0] != -1))
+            print(output.matches[0][0][:10])
+
+            assert expected_number_of_matches == torch.sum(output.matches[0][0] != -1)
 
 
 if __name__ == "__main__":

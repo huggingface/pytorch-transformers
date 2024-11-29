@@ -53,7 +53,7 @@ class LightGlueModelTester:
         descriptor_dim: int = 64,
         add_scale_ori: bool = False,
         num_layers: int = 3,
-        num_heads: int = 2,
+        num_heads: int = 4,
         depth_confidence: float = 0.95,
         width_confidence: float = 0.99,
         filter_threshold: float = 0.1,
@@ -124,7 +124,6 @@ class LightGlueModelTest(ModelTesterMixin, unittest.TestCase):
     all_model_classes = (LightGlueForKeypointMatching,) if is_torch_available() else ()
     all_generative_model_classes = () if is_torch_available() else ()
 
-    fx_compatible = False
     test_pruning = False
     test_resize_embeddings = False
     test_head_masking = False
@@ -204,17 +203,19 @@ class LightGlueModelTest(ModelTesterMixin, unittest.TestCase):
             maximum_num_matches = outputs.mask.shape[-1]
 
             hidden_states_sizes = (
-                self.model_tester.keypoint_encoder_sizes
-                + [self.model_tester.descriptor_dim]
-                + [self.model_tester.descriptor_dim, self.model_tester.descriptor_dim * 2]
-                * len(self.model_tester.gnn_layers_types)
-                + [self.model_tester.descriptor_dim] * 2
+                [
+                    self.model_tester.descriptor_dim,
+                    self.model_tester.descriptor_dim * 2,
+                    self.model_tester.descriptor_dim,
+                ]
+                * self.model_tester.num_layers
+                * 2
             )
 
             for i, hidden_states_size in enumerate(hidden_states_sizes):
                 self.assertListEqual(
                     list(hidden_states[i].shape[-2:]),
-                    [hidden_states_size, maximum_num_matches],
+                    [maximum_num_matches, hidden_states_size],
                 )
 
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
@@ -286,10 +287,10 @@ class LightGlueModelTest(ModelTesterMixin, unittest.TestCase):
 
 def prepare_imgs():
     dataset = load_dataset("stevenbucaille/image_matching_fixtures", split="train")
-    image1 = dataset[0]["image"]
-    image2 = dataset[1]["image"]
-    image3 = dataset[2]["image"]
-    return [[image3, image1], [image3, image2]]
+    image0 = dataset[0]["image"]
+    image1 = dataset[1]["image"]
+    image2 = dataset[2]["image"]
+    return [[image2, image0], [image2, image1]]
 
 
 @require_torch
@@ -297,14 +298,12 @@ def prepare_imgs():
 class LightGlueModelIntegrationTest(unittest.TestCase):
     @cached_property
     def default_image_processor(self):
-        return (
-            AutoImageProcessor.from_pretrained("stevenbucaille/superglue_outdoor") if is_vision_available() else None
-        )
+        return AutoImageProcessor.from_pretrained("stevenbucaille/lightglue") if is_vision_available() else None
 
     @slow
     def test_inference(self):
         model = LightGlueForKeypointMatching.from_pretrained(
-            "stevenbucaille/superglue_outdoor", matching_threshold=0.2
+            "stevenbucaille/lightglue", attn_implementation="eager"
         ).to(torch_device)
         preprocessor = self.default_image_processor
         images = prepare_imgs()
@@ -312,9 +311,9 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
         with torch.no_grad():
             outputs = model(**inputs, output_hidden_states=True, output_attentions=True)
 
-        expected_number_keypoints_image0 = 559
-        expected_number_keypoints_image1 = 592
-        expected_number_keypoints_image2 = 865
+        expected_number_keypoints_image0 = 1116
+        expected_number_keypoints_image1 = 1422
+        expected_number_keypoints_image2 = 948
         expected_max_number_keypoints = max(
             [expected_number_keypoints_image0, expected_number_keypoints_image1, expected_number_keypoints_image2]
         )
@@ -325,18 +324,20 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
         self.assertEqual(outputs.matches.shape, expected_matches_shape)
         self.assertEqual(outputs.matching_scores.shape, expected_matching_scores_shape)
 
-        expected_matches_values = torch.tensor([-1, 0, 2, 4, -1, 3, 6, -1, -1, -1], dtype=torch.int32).to(torch_device)
-        expected_matching_scores_values = torch.tensor(
-            [1.1161e-5, 9.8031e-1, 8.8953e-1, 9.6738e-1, 0, 9.767e-1, 8.1111e-1, 2.1811e-2, 9.7602e-4, 1.0968e-3]
-        ).to(torch_device)
+        expected_matches_values = torch.tensor([-1, -1, -1, -1, -1, 42, -1, 45, -1, 43], dtype=torch.int32).to(
+            torch_device
+        )
+        expected_matching_scores_values = torch.tensor([0, 0, 0, 0, 0, 0.1197, 0.0892, 0.4799, 0, 0.3592]).to(
+            torch_device
+        )
 
-        predicted_matches_values = outputs.matches[0, 0, :10]
-        predicted_matching_scores_values = outputs.matching_scores[0, 0, :10]
+        predicted_matches_values = outputs.matches[0, 0, 20:30]
+        predicted_matching_scores_values = outputs.matching_scores[0, 0, 20:30]
 
         self.assertTrue(torch.allclose(predicted_matches_values, expected_matches_values, atol=1e-4))
 
         self.assertTrue(torch.allclose(predicted_matching_scores_values, expected_matching_scores_values, atol=1e-4))
 
-        expected_number_of_matches = 144
+        expected_number_of_matches = 234
         predicted_number_of_matches = torch.sum(outputs.matches[0][0] != -1).item()
         self.assertEqual(predicted_number_of_matches, expected_number_of_matches)

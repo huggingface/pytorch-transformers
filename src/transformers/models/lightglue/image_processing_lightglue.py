@@ -41,8 +41,8 @@ logger = logging.get_logger(__name__)
 
 # Copied from transformers.models.superpoint.image_processing_superpoint.is_grayscale
 def is_grayscale(
-        image: ImageInput,
-        input_data_format: Optional[Union[str, ChannelDimension]] = None,
+    image: ImageInput,
+    input_data_format: Optional[Union[str, ChannelDimension]] = None,
 ):
     if input_data_format == ChannelDimension.FIRST:
         if image.shape[0] == 1:
@@ -137,7 +137,6 @@ def pad_images(images, pad_value=0, data_format: Optional[Union[str, ChannelDime
     return padded_images
 
 
-
 class LightGlueImageProcessor(BaseImageProcessor):
     r"""
     Constructs a LightGlue image processor.
@@ -162,13 +161,13 @@ class LightGlueImageProcessor(BaseImageProcessor):
     model_input_names = ["pixel_values"]
 
     def __init__(
-            self,
-            do_resize: bool = True,
-            size: Dict[str, int] = None,
-            resample: PILImageResampling = PILImageResampling.BILINEAR,
-            do_rescale: bool = True,
-            rescale_factor: float = 1 / 255,
-            **kwargs,
+        self,
+        do_resize: bool = True,
+        size: Dict[str, int] = None,
+        resample: PILImageResampling = PILImageResampling.BILINEAR,
+        do_rescale: bool = True,
+        rescale_factor: float = 1 / 255,
+        **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         size = size if size is not None else {"height": 480, "width": 640}
@@ -181,13 +180,13 @@ class LightGlueImageProcessor(BaseImageProcessor):
         self.rescale_factor = rescale_factor
 
     def resize(
-            self,
-            image: np.ndarray,
-            size: Dict[str, int],
-            resample: PILImageResampling = PILImageResampling.BILINEAR,
-            data_format: Optional[Union[str, ChannelDimension]] = None,
-            input_data_format: Optional[Union[str, ChannelDimension]] = None,
-            **kwargs,
+        self,
+        image: np.ndarray,
+        size: Dict[str, int],
+        resample: PILImageResampling = PILImageResampling.BILINEAR,
+        data_format: Optional[Union[str, ChannelDimension]] = None,
+        input_data_format: Optional[Union[str, ChannelDimension]] = None,
+        **kwargs,
     ):
         """
         Resize an image.
@@ -225,17 +224,17 @@ class LightGlueImageProcessor(BaseImageProcessor):
         )
 
     def preprocess(
-            self,
-            images,
-            do_resize: bool = None,
-            size: Dict[str, int] = None,
-            resample: PILImageResampling = None,
-            do_rescale: bool = None,
-            rescale_factor: float = None,
-            return_tensors: Optional[Union[str, TensorType]] = None,
-            data_format: ChannelDimension = ChannelDimension.FIRST,
-            input_data_format: Optional[Union[str, ChannelDimension]] = None,
-            **kwargs,
+        self,
+        images,
+        do_resize: bool = None,
+        size: Dict[str, int] = None,
+        resample: PILImageResampling = None,
+        do_rescale: bool = None,
+        rescale_factor: float = None,
+        return_tensors: Optional[Union[str, TensorType]] = None,
+        data_format: ChannelDimension = ChannelDimension.FIRST,
+        input_data_format: Optional[Union[str, ChannelDimension]] = None,
+        **kwargs,
     ) -> BatchFeature:
         """
         Preprocess an image or batch of images.

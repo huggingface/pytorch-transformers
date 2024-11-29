@@ -197,6 +197,7 @@ Flax), PyTorch, and/or TensorFlow.
 |                     [LayoutXLM](model_doc/layoutxlm)                     |       ✅        |         ❌         |      ❌      |
 |                           [LED](model_doc/led)                           |       ✅        |         ✅         |      ❌      |
 |                         [LeViT](model_doc/levit)                         |       ✅        |         ❌         |      ❌      |
+|                     [LightGlue](model_doc/lightglue)                     |       ✅        |         ❌         |      ❌      |
 |                          [LiLT](model_doc/lilt)                          |       ✅        |         ❌         |      ❌      |
 |                         [LLaMA](model_doc/llama)                         |       ✅        |         ❌         |      ✅      |
 |                        [Llama2](model_doc/llama2)                        |       ✅        |         ❌         |      ✅      |

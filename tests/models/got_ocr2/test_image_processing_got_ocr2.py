@@ -110,6 +110,6 @@ class GotOcr2ProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
     def test_crop_to_patches(self):
         image_processor = self.image_processing_class(**self.image_processor_dict)
         image = self.image_processor_tester.prepare_image_inputs(equal_resolution=True)[0]
-        processed_images = image_processor.crop_image_to_patches(image)
+        processed_images = image_processor.crop_image_to_patches(image, 1, 6, use_thumbnail=True)
         self.assertEqual(len(processed_images), 5)
         self.assertEqual(processed_images[0].size, (20, 20))

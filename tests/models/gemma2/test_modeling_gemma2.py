@@ -113,6 +113,7 @@ class Gemma2ModelTest(GemmaModelTest, unittest.TestCase):
     def test_assisted_decoding_sample(self):
         pass
 
+    # Ignore copy
     @parameterized.expand([(None, True), ("static", False)])
     def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
         if cache_implementation == "static":

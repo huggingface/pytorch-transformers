@@ -458,6 +458,7 @@ class MixtralModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
         # This is to mimic torch.testing.assert_not_close
         self.assertNotAlmostEqual(include_padding_result.aux_loss.item(), result.aux_loss.item())
 
+    # Ignore copy
     @parameterized.expand([(None, True), ("static", False)])
     def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
         if cache_implementation == "static":

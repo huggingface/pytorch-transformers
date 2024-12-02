@@ -493,6 +493,7 @@ class PhimoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
         # Last token generated using long factor
         self.assertTrue(torch.allclose(last_token_logits, regenerated_last_token_logits, atol=1e-2, rtol=1e-2))
 
+    # Ignore copy
     @parameterized.expand([(None, True), ("static", False)])
     def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
         if cache_implementation == "static":

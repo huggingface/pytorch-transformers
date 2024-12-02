@@ -18,6 +18,7 @@ import gc
 import unittest
 
 import pytest
+from parameterized import parameterized
 
 from transformers import AutoTokenizer, Qwen2MoeConfig, is_torch_available, set_seed
 from transformers.testing_utils import (
@@ -495,6 +496,15 @@ class Qwen2MoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterM
 
         # This is to mimic torch.testing.assert_not_close
         self.assertNotAlmostEqual(include_padding_result.aux_loss.item(), result.aux_loss.item())
+
+    # Ignore copy
+    @parameterized.expand([(None, True), ("static", False)])
+    def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
+        if cache_implementation == "static":
+            self.skipTest(
+                "Qwen2Moe doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
+            )
+            pass
 
 
 @require_torch

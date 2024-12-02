@@ -2096,6 +2096,8 @@ class GenerationTesterMixin:
                 self.skipTest(reason="This model does not support `num_logits_to_keep` argument.")
             if model_class._is_stateful:
                 self.skipTest(reason="Stateful models don't support assisted generation")
+            if cache_implementation == "static" and not model_class._supports_static_cache:
+                self.skipTest(reason="This model does not support `cache_implementation=static`.")
 
             config, inputs_dict = self.prepare_config_and_inputs_for_generate(batch_size=1)
             # NOTE: assisted generation only works with cache on at the moment.

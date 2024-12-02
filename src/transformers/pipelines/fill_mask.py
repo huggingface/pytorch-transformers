@@ -245,12 +245,12 @@ class FillMaskPipeline(Pipeline):
             )
         return preprocess_params, {}, postprocess_params
 
-    def __call__(self, inputs, *args, **kwargs):
+    def __call__(self, inputs, **kwargs):
         """
         Fill the masked token in the text(s) given as inputs.
 
         Args:
-            args (`str` or `List[str]`):
+            inputs (`str` or `List[str]`):
                 One or several texts (or one list of prompts) with masked tokens.
             targets (`str` or `List[str]`, *optional*):
                 When passed, the model will limit the scores to the passed targets instead of looking up in the whole

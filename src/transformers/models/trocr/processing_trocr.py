@@ -18,8 +18,16 @@ Processor class for TrOCR.
 
 import warnings
 from contextlib import contextmanager
+from typing import List, Union
 
-from ...processing_utils import ProcessorMixin
+from ...image_processing_utils import BatchFeature
+from ...image_utils import ImageInput
+from ...processing_utils import ProcessingKwargs, ProcessorMixin, Unpack
+from ...tokenization_utils_base import PreTokenizedInput, TextInput
+
+
+class TrOCRProcessorKwargs(ProcessingKwargs, total=False):
+    _defaults = {}
 
 
 class TrOCRProcessor(ProcessorMixin):
@@ -61,7 +69,14 @@ class TrOCRProcessor(ProcessorMixin):
         self.current_processor = self.image_processor
         self._in_target_context_manager = False
 
-    def __call__(self, *args, **kwargs):
+    def __call__(
+        self,
+        images: ImageInput = None,
+        text: Union[TextInput, PreTokenizedInput, List[TextInput], List[PreTokenizedInput]] = None,
+        audio=None,
+        videos=None,
+        **kwargs: Unpack[TrOCRProcessorKwargs],
+    ) -> BatchFeature:
         """
         When used in normal mode, this method forwards all its arguments to AutoImageProcessor's
         [`~AutoImageProcessor.__call__`] and returns its output. If used in the context
@@ -70,21 +85,21 @@ class TrOCRProcessor(ProcessorMixin):
         """
         # For backward compatibility
         if self._in_target_context_manager:
-            return self.current_processor(*args, **kwargs)
-
-        images = kwargs.pop("images", None)
-        text = kwargs.pop("text", None)
-        if len(args) > 0:
-            images = args[0]
-            args = args[1:]
+            return self.current_processor(images, **kwargs)
 
         if images is None and text is None:
             raise ValueError("You need to specify either an `images` or `text` input to process.")
 
+        output_kwargs = self._merge_kwargs(
+            TrOCRProcessorKwargs,
+            tokenizer_init_kwargs=self.tokenizer.init_kwargs,
+            **kwargs,
+        )
+
         if images is not None:
-            inputs = self.image_processor(images, *args, **kwargs)
+            inputs = self.image_processor(images, **output_kwargs["images_kwargs"])
         if text is not None:
-            encodings = self.tokenizer(text, **kwargs)
+            encodings = self.tokenizer(text, **output_kwargs["text_kwargs"])
 
         if text is None:
             return inputs

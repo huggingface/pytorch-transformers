@@ -64,12 +64,16 @@ def verify_model_outputs(model):
 ORIGINAL_TO_CONVERTED_KEY_MAPPING = {
     r"posenc.Wr": r"positional_encoder.projector",
     r"self_attn.(\d+).Wqkv": r"transformer_layers.\1.self_attention_block.Wqkv",
-    r"self_attn.(\d+).out_proj": r"transformer_layers.\1.self_attention_block.output_projection",
-    r"self_attn.(\d+).ffn.(\d+)": r"transformer_layers.\1.self_attention_block.ffn.\2",
+    r"self_attn.(\d+).out_proj": r"transformer_layers.\1.self_attention_block.output.dense",
+    r"self_attn.(\d+).ffn.0": r"transformer_layers.\1.self_attention_block.output.mlp.dense",
+    r"self_attn.(\d+).ffn.1": r"transformer_layers.\1.self_attention_block.output.mlp.layer_norm",
+    r"self_attn.(\d+).ffn.3": r"transformer_layers.\1.self_attention_block.output.mlp.output",
     r"cross_attn.(\d+).to_qk": r"transformer_layers.\1.cross_attention_block.to_qk",
-    r"cross_attn.(\d+).to_v": r"transformer_layers.\1.cross_attention_block.to_v",
-    r"cross_attn.(\d+).to_out": r"transformer_layers.\1.cross_attention_block.to_out",
-    r"cross_attn.(\d+).ffn.(\d+)": r"transformer_layers.\1.cross_attention_block.ffn.\2",
+    r"cross_attn.(\d+).to_v": r"transformer_layers.\1.cross_attention_block.self.value",
+    r"cross_attn.(\d+).to_out": r"transformer_layers.\1.cross_attention_block.output.dense",
+    r"cross_attn.(\d+).ffn.0": r"transformer_layers.\1.cross_attention_block.output.mlp.dense",
+    r"cross_attn.(\d+).ffn.1": r"transformer_layers.\1.cross_attention_block.output.mlp.layer_norm",
+    r"cross_attn.(\d+).ffn.3": r"transformer_layers.\1.cross_attention_block.output.mlp.output",
     r"log_assignment.(\d+).matchability": r"match_assignment_layers.\1.matchability",
     r"log_assignment.(\d+).final_proj": r"match_assignment_layers.\1.final_projection",
     r"token_confidence.(\d+).token.0": r"token_confidence.\1.token",
@@ -100,6 +104,31 @@ def add_keypoint_detector_state_dict(lightglue_state_dict):
     for k, v in keypoint_detector_state_dict.items():
         lightglue_state_dict[f"keypoint_detector.{k}"] = v
     return lightglue_state_dict
+
+
+def split_weights(state_dict):
+    for i in range(9):
+        Wqkv_weight = state_dict.pop(f"transformer_layers.{i}.self_attention_block.Wqkv.weight")
+        Wqkv_bias = state_dict.pop(f"transformer_layers.{i}.self_attention_block.Wqkv.bias")
+        Wqkv_weight = Wqkv_weight.reshape(256, 3, 256)
+        Wqkv_bias = Wqkv_bias.reshape(256, 3)
+        query_weight, key_weight, value_weight = Wqkv_weight[:, 0], Wqkv_weight[:, 1], Wqkv_weight[:, 2]
+        query_bias, key_bias, value_bias = Wqkv_bias[:, 0], Wqkv_bias[:, 1], Wqkv_bias[:, 2]
+        state_dict[f"transformer_layers.{i}.self_attention_block.self.query.weight"] = query_weight
+        state_dict[f"transformer_layers.{i}.self_attention_block.self.key.weight"] = key_weight
+        state_dict[f"transformer_layers.{i}.self_attention_block.self.value.weight"] = value_weight
+        state_dict[f"transformer_layers.{i}.self_attention_block.self.query.bias"] = query_bias
+        state_dict[f"transformer_layers.{i}.self_attention_block.self.key.bias"] = key_bias
+        state_dict[f"transformer_layers.{i}.self_attention_block.self.value.bias"] = value_bias
+
+        to_qk_weight = state_dict.pop(f"transformer_layers.{i}.cross_attention_block.to_qk.weight")
+        to_qk_bias = state_dict.pop(f"transformer_layers.{i}.cross_attention_block.to_qk.bias")
+        state_dict[f"transformer_layers.{i}.cross_attention_block.self.query.weight"] = to_qk_weight
+        state_dict[f"transformer_layers.{i}.cross_attention_block.self.query.bias"] = to_qk_bias
+        state_dict[f"transformer_layers.{i}.cross_attention_block.self.key.weight"] = to_qk_weight
+        state_dict[f"transformer_layers.{i}.cross_attention_block.self.key.bias"] = to_qk_bias
+
+    return state_dict
 
 
 @torch.no_grad()
@@ -142,6 +171,7 @@ def write_model(
 
     del original_state_dict
     gc.collect()
+    state_dict = split_weights(state_dict)
     state_dict = add_keypoint_detector_state_dict(state_dict)
 
     print("Loading the checkpoint in a SuperGlue model...")

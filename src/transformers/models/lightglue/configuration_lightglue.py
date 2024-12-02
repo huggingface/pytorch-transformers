@@ -96,5 +96,5 @@ class LightGlueConfig(PretrainedConfig):
         self.hidden_size = descriptor_dim
         self.num_attention_heads = num_heads
         self.attention_probs_dropout_prob = 0
-        self.rotary_value = True
+        self.rotary_value = False
         super().__init__(**kwargs)

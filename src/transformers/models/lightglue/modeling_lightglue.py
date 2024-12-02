@@ -13,22 +13,31 @@
 # limitations under the License.
 """PyTorch LightGlue model."""
 
+import math
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
+from packaging import version
 from torch import nn
 
 from transformers import PreTrainedModel, add_start_docstrings
 
-from ...utils import ModelOutput, add_start_docstrings_to_model_forward, is_flash_attn_2_available, logging
+from ...activations import ACT2FN
+from ...utils import (
+    ModelOutput,
+    add_start_docstrings_to_model_forward,
+    get_torch_version,
+    is_flash_attn_2_available,
+    logging,
+)
 from ..auto import AutoModelForKeypointDetection
 from .configuration_lightglue import LightGlueConfig
 
 
 if is_flash_attn_2_available():
-    from flash_attn import flash_attn_func
+    from ...modeling_flash_attention_utils import _flash_attention_forward
 
 logger = logging.get_logger(__name__)
 
@@ -212,176 +221,435 @@ class LightGluePositionalEncoder(nn.Module):
     ) -> Union[Tuple[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
         projected_keypoints = self.projector(keypoints)
         cosines, sines = torch.cos(projected_keypoints), torch.sin(projected_keypoints)
-        embeddings = torch.stack([cosines, sines], 0).unsqueeze(-3)
-        embeddings = embeddings.repeat_interleave(2, dim=-1)
+        embeddings = torch.cat([sines, cosines], -1).unsqueeze(-3)
+        # embeddings = embeddings.repeat_interleave(2, dim=-1)
         output = (embeddings, projected_keypoints) if output_hidden_states else (embeddings,)
         return output
+
+
+# Copied from transformers.models.roformer.modeling_roformer.RoFormerSelfAttention with RoFormer->LightGlue
+class LightGlueSelfAttention(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        if config.hidden_size % config.num_attention_heads != 0 and not hasattr(config, "embedding_size"):
+            raise ValueError(
+                f"The hidden size ({config.hidden_size}) is not a multiple of the number of attention "
+                f"heads ({config.num_attention_heads})"
+            )
+
+        self.num_attention_heads = config.num_attention_heads
+        self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
+        self.all_head_size = self.num_attention_heads * self.attention_head_size
+
+        self.query = nn.Linear(config.hidden_size, self.all_head_size)
+        self.key = nn.Linear(config.hidden_size, self.all_head_size)
+        self.value = nn.Linear(config.hidden_size, self.all_head_size)
+
+        self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
+
+        self.is_decoder = config.is_decoder
+        self.rotary_value = config.rotary_value
+
+    def transpose_for_scores(self, x):
+        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
+        x = x.view(*new_x_shape)
+        return x.permute(0, 2, 1, 3)
+
+    def forward(
+        self,
+        hidden_states,
+        attention_mask=None,
+        sinusoidal_pos=None,
+        head_mask=None,
+        encoder_hidden_states=None,
+        encoder_attention_mask=None,
+        past_key_value=None,
+        output_attentions=False,
+    ):
+        mixed_query_layer = self.query(hidden_states)
+        query_layer = self.transpose_for_scores(mixed_query_layer)
+        # If this is instantiated as a cross-attention module, the keys
+        # and values come from an encoder; the attention mask needs to be
+        # such that the encoder's padding tokens are not attended to.
+        is_cross_attention = encoder_hidden_states is not None
+
+        if is_cross_attention and past_key_value is not None:
+            # reuse k,v, cross_attentions
+            key_layer = past_key_value[0]
+            value_layer = past_key_value[1]
+            attention_mask = encoder_attention_mask
+        elif is_cross_attention:
+            key_layer = self.transpose_for_scores(self.key(encoder_hidden_states))
+            value_layer = self.transpose_for_scores(self.value(encoder_hidden_states))
+            attention_mask = encoder_attention_mask
+        else:
+            key_layer = self.transpose_for_scores(self.key(hidden_states))
+            value_layer = self.transpose_for_scores(self.value(hidden_states))
+            if sinusoidal_pos is not None:
+                if self.rotary_value:
+                    query_layer, key_layer, value_layer = self.apply_rotary_position_embeddings(
+                        sinusoidal_pos, query_layer, key_layer, value_layer
+                    )
+                else:
+                    query_layer, key_layer = self.apply_rotary_position_embeddings(
+                        sinusoidal_pos, query_layer, key_layer
+                    )
+            if past_key_value is not None:
+                key_layer = torch.cat([past_key_value[0], key_layer], dim=2)
+                value_layer = torch.cat([past_key_value[1], value_layer], dim=2)
+        if self.is_decoder:
+            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
+            # Further calls to cross_attention layer can then reuse all cross-attention
+            # key/value_states (first "if" case)
+            # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of
+            # all previous decoder key/value_states. Further calls to uni-directional self-attention
+            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
+            # if encoder bi-directional self-attention `past_key_value` is always `None`
+            past_key_value = (key_layer, value_layer)
+
+        # Take the dot product between "query" and "key" to get the raw attention scores.
+        attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
+
+        attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+        if attention_mask is not None:
+            # Apply the attention mask is (precomputed for all layers in LightGlueModel forward() function)
+            attention_scores = attention_scores + attention_mask
+
+        # Normalize the attention scores to probabilities.
+        attention_probs = nn.functional.softmax(attention_scores, dim=-1)
+
+        # This is actually dropping out entire tokens to attend to, which might
+        # seem a bit unusual, but is taken from the original Transformer paper.
+        attention_probs = self.dropout(attention_probs)
+
+        # Mask heads if we want to
+        if head_mask is not None:
+            attention_probs = attention_probs * head_mask
+
+        context_layer = torch.matmul(attention_probs, value_layer)
+
+        context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
+        new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
+        context_layer = context_layer.view(*new_context_layer_shape)
+
+        outputs = (context_layer, attention_probs) if output_attentions else (context_layer,)
+
+        if self.is_decoder:
+            outputs = outputs + (past_key_value,)
+        return outputs
+
+    @staticmethod
+    def apply_rotary_position_embeddings(sinusoidal_pos, query_layer, key_layer, value_layer=None):
+        # https://kexue.fm/archives/8265
+        # sin [batch_size, num_heads, sequence_length, embed_size_per_head//2]
+        # cos [batch_size, num_heads, sequence_length, embed_size_per_head//2]
+        sin, cos = sinusoidal_pos.chunk(2, dim=-1)
+        # sin [θ0,θ1,θ2......θd/2-1] -> sin_pos [θ0,θ0,θ1,θ1,θ2,θ2......θd/2-1,θd/2-1]
+        sin_pos = torch.stack([sin, sin], dim=-1).reshape_as(sinusoidal_pos)
+        # cos [θ0,θ1,θ2......θd/2-1] -> cos_pos [θ0,θ0,θ1,θ1,θ2,θ2......θd/2-1,θd/2-1]
+        cos_pos = torch.stack([cos, cos], dim=-1).reshape_as(sinusoidal_pos)
+        # rotate_half_query_layer [-q1,q0,-q3,q2......,-qd-1,qd-2]
+        rotate_half_query_layer = torch.stack([-query_layer[..., 1::2], query_layer[..., ::2]], dim=-1).reshape_as(
+            query_layer
+        )
+        query_layer = query_layer * cos_pos + rotate_half_query_layer * sin_pos
+        # rotate_half_key_layer [-k1,k0,-k3,k2......,-kd-1,kd-2]
+        rotate_half_key_layer = torch.stack([-key_layer[..., 1::2], key_layer[..., ::2]], dim=-1).reshape_as(key_layer)
+        key_layer = key_layer * cos_pos + rotate_half_key_layer * sin_pos
+        if value_layer is not None:
+            # rotate_half_value_layer [-v1,v0,-v3,v2......,-vd-1,vd-2]
+            rotate_half_value_layer = torch.stack([-value_layer[..., 1::2], value_layer[..., ::2]], dim=-1).reshape_as(
+                value_layer
+            )
+            value_layer = value_layer * cos_pos + rotate_half_value_layer * sin_pos
+            return query_layer, key_layer, value_layer
+        return query_layer, key_layer
+
+
+# Adapted from BertSdpaSelfAttention and RoFormerSelfAttention
+class LightGlueSdpaSelfAttention(LightGlueSelfAttention):
+    def __init__(self, config):
+        super().__init__(config)
+        self.dropout_prob = config.attention_probs_dropout_prob
+        self.require_contiguous_qkv = version.parse(get_torch_version()) < version.parse("2.2.0")
+
+    # Adapted from BertSelfAttention
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        sinusoidal_pos: Optional[torch.Tensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        encoder_attention_mask: Optional[torch.FloatTensor] = None,
+        past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+        output_attentions: Optional[bool] = False,
+    ) -> Tuple[torch.Tensor]:
+        bsz, tgt_len, _ = hidden_states.size()
+
+        query_layer = self.transpose_for_scores(self.query(hidden_states))
+
+        # If this is instantiated as a cross-attention module, the keys and values come from an encoder; the attention
+        # mask needs to be such that the encoder's padding tokens are not attended to.
+        is_cross_attention = encoder_hidden_states is not None
+
+        current_states = encoder_hidden_states if is_cross_attention else hidden_states
+        attention_mask = encoder_attention_mask if is_cross_attention else attention_mask
+
+        # Check `seq_length` of `past_key_value` == `len(current_states)` to support prefix tuning
+        if is_cross_attention and past_key_value and past_key_value[0].shape[2] == current_states.shape[1]:
+            key_layer, value_layer = past_key_value
+        else:
+            key_layer = self.transpose_for_scores(self.key(current_states))
+            value_layer = self.transpose_for_scores(self.value(current_states))
+            if sinusoidal_pos is not None:
+                if self.rotary_value:
+                    query_layer, key_layer, value_layer = self.apply_rotary_position_embeddings(
+                        sinusoidal_pos, query_layer, key_layer, value_layer
+                    )
+                else:
+                    query_layer, key_layer = self.apply_rotary_position_embeddings(
+                        sinusoidal_pos, query_layer, key_layer
+                    )
+            if past_key_value is not None and not is_cross_attention:
+                key_layer = torch.cat([past_key_value[0], key_layer], dim=2)
+                value_layer = torch.cat([past_key_value[1], value_layer], dim=2)
+
+        if self.is_decoder:
+            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
+            # Further calls to cross_attention layer can then reuse all cross-attention
+            # key/value_states (first "if" case)
+            # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of
+            # all previous decoder key/value_states. Further calls to uni-directional self-attention
+            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
+            # if encoder bi-directional self-attention `past_key_value` is always `None`
+            past_key_value = (key_layer, value_layer)
+
+        # SDPA with memory-efficient backend is broken in torch==2.1.2 when using non-contiguous inputs and a custom
+        # attn_mask, so we need to call `.contiguous()` here. This was fixed in torch==2.2.0.
+        # Reference: https://github.com/pytorch/pytorch/issues/112577
+        if self.require_contiguous_qkv and query_layer.device.type == "cuda" and attention_mask is not None:
+            query_layer = query_layer.contiguous()
+            key_layer = key_layer.contiguous()
+            value_layer = value_layer.contiguous()
+
+        # We dispatch to SDPA's Flash Attention or Efficient kernels via this `is_causal` if statement instead of an inline conditional assignment
+        # in SDPA to support both torch.compile's dynamic shapes and full graph options. An inline conditional prevents dynamic shapes from compiling.
+        # The tgt_len > 1 is necessary to match with AttentionMaskConverter.to_causal_4d that does not create
+        # a causal mask in case tgt_len == 1.
+        is_causal = (
+            True if self.is_decoder and not is_cross_attention and attention_mask is None and tgt_len > 1 else False
+        )
+
+        attn_output = torch.nn.functional.scaled_dot_product_attention(
+            query_layer,
+            key_layer,
+            value_layer,
+            attn_mask=attention_mask,
+            dropout_p=self.dropout_prob if self.training else 0.0,
+            is_causal=is_causal,
+        )
+
+        attn_output = attn_output.transpose(1, 2)
+        attn_output = attn_output.reshape(bsz, tgt_len, self.all_head_size)
+
+        outputs = (attn_output,)
+        if self.is_decoder:
+            outputs = outputs + (past_key_value,)
+        return outputs
+
+
+class LightGlueFlashAttentionSelfAttention(LightGlueSelfAttention):
+    def __init__(self, config):
+        super().__init__(config)
+        self.dropout_prob = config.attention_probs_dropout_prob
+        self.require_contiguous_qkv = version.parse(get_torch_version()) < version.parse("2.2.0")
+
+    # Adapted from BertSelfAttention
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        sinusoidal_pos: Optional[torch.Tensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        encoder_hidden_states: Optional[torch.FloatTensor] = None,
+        encoder_attention_mask: Optional[torch.FloatTensor] = None,
+        past_key_value: Optional[Tuple[Tuple[torch.FloatTensor]]] = None,
+        output_attentions: Optional[bool] = False,
+    ) -> Tuple[torch.Tensor]:
+        batch_size, q_len, _ = hidden_states.size()
+
+        query_layer = self.transpose_for_scores(self.query(hidden_states)).contiguous()
+
+        # If this is instantiated as a cross-attention module, the keys and values come from an encoder; the attention
+        # mask needs to be such that the encoder's padding tokens are not attended to.
+        is_cross_attention = encoder_hidden_states is not None
+
+        current_states = encoder_hidden_states if is_cross_attention else hidden_states
+        attention_mask = encoder_attention_mask if is_cross_attention else attention_mask
+        if attention_mask is not None:
+            attention_mask = attention_mask.squeeze()
+            attention_mask = torch.where(attention_mask == -0., 1, 0)
+
+        # Check `seq_length` of `past_key_value` == `len(current_states)` to support prefix tuning
+        if is_cross_attention and past_key_value and past_key_value[0].shape[2] == current_states.shape[1]:
+            key_layer, value_layer = past_key_value
+        else:
+            key_layer = self.transpose_for_scores(self.key(current_states))
+            value_layer = self.transpose_for_scores(self.value(current_states))
+            if sinusoidal_pos is not None:
+                if self.rotary_value:
+                    query_layer, key_layer, value_layer = self.apply_rotary_position_embeddings(
+                        sinusoidal_pos, query_layer, key_layer, value_layer
+                    )
+                else:
+                    query_layer, key_layer = self.apply_rotary_position_embeddings(
+                        sinusoidal_pos, query_layer, key_layer
+                    )
+            if past_key_value is not None and not is_cross_attention:
+                key_layer = torch.cat([past_key_value[0], key_layer], dim=2)
+                value_layer = torch.cat([past_key_value[1], value_layer], dim=2)
+
+        query_layer = query_layer.reshape(batch_size, q_len, self.num_attention_heads, self.attention_head_size)
+        key_layer = key_layer.reshape(batch_size, q_len, self.num_attention_heads, self.attention_head_size)
+        value_layer = value_layer.reshape(batch_size, q_len, self.num_attention_heads, self.attention_head_size)
+
+        input_dtype = query_layer.dtype
+        if input_dtype == torch.float32:
+            if torch.is_autocast_enabled():
+                target_dtype = torch.get_autocast_gpu_dtype()
+            # Handle the case where the model is quantized
+            elif hasattr(self.config, "_pre_quantization_dtype"):
+                target_dtype = self.config._pre_quantization_dtype
+            else:
+                target_dtype = self.query.weight.dtype
+
+            logger.warning_once(
+                f"The input hidden states seems to be silently casted in float32, this might be related to"
+                f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
+                f" {target_dtype}."
+            )
+
+            query_layer = query_layer.to(target_dtype)
+            key_layer = key_layer.to(target_dtype)
+            value_layer = value_layer.to(target_dtype)
+
+        attn_output = _flash_attention_forward(
+            query_layer,
+            key_layer,
+            value_layer,
+            attention_mask,
+            q_len,
+            is_causal=False,
+        )
+
+        attn_output = attn_output.reshape(batch_size, q_len, self.all_head_size).contiguous()
+        outputs = (attn_output,)
+        if self.is_decoder:
+            outputs = outputs + (past_key_value,)
+        return outputs
+
+
+class LightGlueMLP(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        embeddings_dim = config.descriptor_dim
+        self.dense = nn.Linear(2 * embeddings_dim, 2 * embeddings_dim)
+        self.layer_norm = nn.LayerNorm(2 * embeddings_dim, elementwise_affine=True)
+        self.activation = ACT2FN["gelu"]
+        self.output = nn.Linear(2 * embeddings_dim, embeddings_dim)
+
+    def forward(self, hidden_states: torch.Tensor):
+        hidden_states = self.dense(hidden_states)
+        hidden_states = self.layer_norm(hidden_states)
+        hidden_states = self.activation(hidden_states)
+        hidden_states = self.output(hidden_states)
+        return hidden_states
+
+
+class LightGlueSelfOutput(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        embeddings_dim = config.descriptor_dim
+        self.dense = nn.Linear(embeddings_dim, embeddings_dim)
+        self.mlp = LightGlueMLP(config)
+
+    def forward(self, context: torch.Tensor, descriptors: torch.Tensor, output_hidden_states: Optional[bool] = False):
+        all_hidden_states = () if output_hidden_states else None
+        message = self.dense(context)
+        hidden_states = torch.cat([descriptors, message], dim=-1)
+        output_state = self.mlp(hidden_states)
+        if output_hidden_states:
+            all_hidden_states = all_hidden_states + (hidden_states, output_state)
+        return output_state + descriptors, all_hidden_states
+
+
+LIGHTGLUE_SELF_ATTENTION_CLASSES = {
+    "eager": LightGlueSelfAttention,
+    "sdpa": LightGlueSdpaSelfAttention,
+    "flash_attention_2": LightGlueFlashAttentionSelfAttention,
+}
 
 
 class LightGlueAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.self = LIGHTGLUE_SELF_ATTENTION_CLASSES[config._attn_implementation](config)
+        self.output = LightGlueSelfOutput(config)
 
     def forward(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        output, attention = eager_attention(q, k, v, mask=mask)
-        return output, attention
+        self,
+        hidden_states,
+        attention_mask=None,
+        sinusoidal_pos=None,
+        head_mask=None,
+        encoder_hidden_states=None,
+        encoder_attention_mask=None,
+        past_key_value=None,
+        output_hidden_states=False,
+        output_attentions=False,
+    ):
+        self_outputs = self.self(
+            hidden_states,
+            attention_mask,
+            sinusoidal_pos,
+            head_mask,
+            encoder_hidden_states,
+            encoder_attention_mask,
+            past_key_value,
+            output_attentions,
+        )
+        self_output = self_outputs[0]
+        attention_probs = self_outputs[1:] if output_attentions else None
+        outputs = self.output(self_output, hidden_states, output_hidden_states=output_hidden_states)
+        output = outputs[0]
+        hidden_states = outputs[1] if output_hidden_states else None
+        outputs = (output, hidden_states, attention_probs)
+        return outputs
 
 
-class LightGlueFlashAttention(LightGlueAttention):
-    def __init__(self, config):
-        super().__init__(config)
-
-    def forward(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor
-    ) -> Tuple[torch.Tensor, None]:
-        attn_output = flash_attn_func(q, k, v)
-        return attn_output, None
-
-
-class LightGlueSdpaAttention(LightGlueAttention):
-    def __init__(self, config):
-        super().__init__(config)
-
-    def forward(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor
-    ) -> Tuple[torch.Tensor, None]:
-        mask = mask.to(torch.bool)
-        mask = mask.unsqueeze(1).unsqueeze(1)
-        attn_output = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=mask)
-        return attn_output, None
+# class LightGlueFlashAttention(LightGlueAttention):
+#     def __init__(self, config):
+#         super().__init__(config)
+#
+#     def forward(
+#         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor
+#     ) -> Tuple[torch.Tensor, None]:
+#         attn_output = flash_attn_func(q, k, v)
+#         return attn_output, None
 
 
-LIGHTGLUE_ATTENTION_CLASSES = {
-    "eager": LightGlueAttention,
-    "flash_attention_2": LightGlueFlashAttention,
-    "sdpa": LightGlueSdpaAttention,
-}
-
-
-class LightGlueSelfAttentionBlock(nn.Module):
+class LightGlueTransformerLayer(nn.Module):
     def __init__(self, config: LightGlueConfig):
         super().__init__()
-
-        self.num_heads = config.num_heads
-        embeddings_dim = config.descriptor_dim
-
-        self.Wqkv = nn.Linear(embeddings_dim, embeddings_dim * 3, bias=True)
-        self.attention = LIGHTGLUE_ATTENTION_CLASSES[config._attn_implementation](config=config)
-        self.output_projection = nn.Linear(embeddings_dim, embeddings_dim, bias=True)
-
-        self.ffn = nn.ModuleList(
-            [
-                nn.Linear(2 * embeddings_dim, 2 * embeddings_dim),
-                nn.LayerNorm(2 * embeddings_dim, elementwise_affine=True),
-                nn.GELU(),
-                nn.Linear(2 * embeddings_dim, embeddings_dim),
-            ]
-        )
-
-    def forward_ffn(self, input, output_hidden_states: Optional[bool] = False):
-        all_hidden_states = () if output_hidden_states else None
-        for layer in self.ffn:
-            input = layer(input)
-            if output_hidden_states and isinstance(layer, nn.Linear):
-                all_hidden_states = all_hidden_states + (input,)
-        output = input
-        return output, all_hidden_states
+        self.self_attention_block = LightGlueAttention(config)
+        self.cross_attention_block = LightGlueAttention(config)
 
     def forward(
         self,
         descriptors: torch.Tensor,
         keypoints: torch.Tensor,
-        mask: torch.Tensor,
-        output_hidden_states: Optional[bool] = False,
-        output_attentions: Optional[bool] = False,
-    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]], Optional[Tuple[torch.Tensor]]]:
-        qkv = self.Wqkv(descriptors)
-        qkv = qkv.unflatten(-1, (self.num_heads, -1, 3)).transpose(1, 2)
-        q, k, v = qkv[..., 0], qkv[..., 1], qkv[..., 2]
-        q = rotary_position_embedding(keypoints, q)
-        k = rotary_position_embedding(keypoints, k)
-
-        if output_attentions and isinstance(self.attention, (LightGlueSdpaAttention, LightGlueFlashAttention)):
-            context, attention = eager_attention(q, k, v, mask=mask)
-        else:
-            context, attention = self.attention(q, k, v, mask=mask)
-        context = context.transpose(1, 2).flatten(start_dim=-2)
-        message = self.output_projection(context)
-
-        input = torch.cat([descriptors, message], -1)
-        ffn_output = self.forward_ffn(input, output_hidden_states=output_hidden_states)
-
-        last_hidden_state = ffn_output[0]
-        hidden_states = ffn_output[1]
-        descriptors = descriptors + last_hidden_state
-
-        output = (descriptors, hidden_states, (attention,)) if output_attentions else (descriptors, hidden_states)
-
-        return output
-
-
-class LightGlueCrossAttentionBlock(nn.Module):
-    def __init__(self, config: LightGlueConfig):
-        super().__init__()
-
-        self.num_heads = config.num_heads
-        self.embeddings_dim = config.descriptor_dim
-        head_dim = config.descriptor_dim // self.num_heads
-        self.scale = head_dim**-0.5
-        inner_dim = head_dim * self.num_heads
-        self.to_qk = nn.Linear(self.embeddings_dim, inner_dim, bias=True)
-        self.to_v = nn.Linear(self.embeddings_dim, inner_dim, bias=True)
-        self.attention = LIGHTGLUE_ATTENTION_CLASSES[config._attn_implementation](config=config)
-        self.to_out = nn.Linear(inner_dim, self.embeddings_dim, bias=True)
-        self.ffn = nn.ModuleList(
-            [
-                nn.Linear(2 * self.embeddings_dim, 2 * self.embeddings_dim),
-                nn.LayerNorm(2 * self.embeddings_dim, elementwise_affine=True),
-                nn.GELU(),
-                nn.Linear(2 * self.embeddings_dim, self.embeddings_dim),
-            ]
-        )
-
-    def input_projection(self, descriptors: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        qk = self.to_qk(descriptors)
-        v = self.to_v(descriptors)
-        qk = qk.unflatten(-1, (self.num_heads, -1)).transpose(1, 2)
-        v = v.unflatten(-1, (self.num_heads, -1)).transpose(1, 2)
-        return qk, v
-
-    def forward_ffn(
-        self, input, output_hidden_states: Optional[bool] = False
-    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]]]:
-        all_hidden_states = () if output_hidden_states else None
-        for layer in self.ffn:
-            input = layer(input)
-            if output_hidden_states and isinstance(layer, nn.Linear):
-                all_hidden_states = all_hidden_states + (input,)
-        output = input
-        return output, all_hidden_states
-
-    def forward_message(
-        self, descriptors, context, output_hidden_states: Optional[bool] = False
-    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]]]:
-        context = context.transpose(1, 2).flatten(start_dim=-2)
-        message = self.to_out(context)
-        input = torch.cat([descriptors, message], -1)
-        ffn_output = self.forward_ffn(input, output_hidden_states=output_hidden_states)
-
-        last_hidden_state = ffn_output[0]
-        hidden_states = ffn_output[1]
-
-        descriptors = descriptors + last_hidden_state
-
-        output = (descriptors, hidden_states) if output_hidden_states else (descriptors,)
-        return output
-
-    def forward(
-        self,
-        descriptors: torch.Tensor,
-        mask: torch.Tensor,
+        attention_mask: torch.Tensor,
         output_hidden_states: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]], Optional[Tuple[torch.Tensor]]]:
@@ -391,76 +659,51 @@ class LightGlueCrossAttentionBlock(nn.Module):
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (descriptors,)
 
-        q, v = self.input_projection(descriptors)
-        batch_size, num_head, seq_len, head_dim = q.shape
-        k = q.reshape(-1, 2, num_head, seq_len, head_dim).flip(1).reshape(batch_size, num_head, seq_len, head_dim)
-        v = v.reshape(-1, 2, num_head, seq_len, head_dim).flip(1).reshape(batch_size, num_head, seq_len, head_dim)
-        attention_mask = mask.reshape(-1, 2, seq_len).flip(1).reshape(batch_size, seq_len)
-        if output_attentions and isinstance(self.attention, (LightGlueSdpaAttention, LightGlueFlashAttention)):
-            context, attention = eager_attention(q, k, v, mask=attention_mask)
-        else:
-            context, attention = self.attention(q, k, v, mask=attention_mask)
-
-        message_output = self.forward_message(descriptors, context, output_hidden_states=output_hidden_states)
-
-        descriptors = message_output[0]
-
-        if output_hidden_states:
-            all_hidden_states = all_hidden_states + message_output[1]
-        if output_attentions:
-            all_attentions = all_attentions + (attention,)
-
-        return descriptors, all_hidden_states, all_attentions
-
-
-class LightGlueTransformerLayer(nn.Module):
-    def __init__(self, config: LightGlueConfig):
-        super().__init__()
-        self.descriptor_dim = config.descriptor_dim
-        self.self_attention_block = LightGlueSelfAttentionBlock(config)
-        self.cross_attention_block = LightGlueCrossAttentionBlock(config)
-
-    def forward(
-        self,
-        descriptors: torch.Tensor,
-        keypoints: torch.Tensor,
-        mask: torch.Tensor,
-        output_hidden_states: Optional[bool] = False,
-        output_attentions: Optional[bool] = False,
-    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]], Optional[Tuple[torch.Tensor]]]:
-        all_hidden_states = () if output_hidden_states else None
-        all_attentions = () if output_attentions else None
-        if output_hidden_states:
-            batch_size, num_keypoints, _ = descriptors.shape
-            all_hidden_states = all_hidden_states + (
-                descriptors.reshape(batch_size, num_keypoints, self.descriptor_dim),
-            )
+        batch_size, num_keypoints, descriptor_dim = descriptors.shape
 
         self_attention_output = self.self_attention_block(
             descriptors,
-            keypoints,
-            mask=mask,
+            sinusoidal_pos=keypoints,
+            attention_mask=attention_mask,
             output_hidden_states=output_hidden_states,
             output_attentions=output_attentions,
         )
 
         descriptors = self_attention_output[0]
 
-        output = self.cross_attention_block(
+        encoder_hidden_states = (
+            descriptors.reshape(-1, 2, num_keypoints, descriptor_dim)
+            .flip(1)
+            .reshape(batch_size, num_keypoints, descriptor_dim)
+        )
+        encoder_attention_mask = (
+            attention_mask.reshape(-1, 2, 1, 1, num_keypoints).flip(1).reshape(batch_size, 1, 1, num_keypoints)
+            if attention_mask is not None
+            else None
+        )
+
+        cross_attention_output = self.cross_attention_block(
             descriptors,
-            mask,
+            encoder_hidden_states=encoder_hidden_states,
+            encoder_attention_mask=encoder_attention_mask,
             output_hidden_states=output_hidden_states,
             output_attentions=output_attentions,
         )
 
-        descriptors = output[0]
-
+        descriptors = cross_attention_output[0]
         if output_hidden_states:
-            all_hidden_states = all_hidden_states + self_attention_output[1]
-            all_hidden_states = all_hidden_states + output[1]
+            all_hidden_states = (
+                all_hidden_states
+                + (self_attention_output[0].reshape(batch_size, num_keypoints, descriptor_dim),)
+                + self_attention_output[1]
+                + (cross_attention_output[0].reshape(batch_size, num_keypoints, descriptor_dim),)
+                + cross_attention_output[1]
+            )
+
+        # all_hidden_states = all_hidden_states + self_attention_output[1] + cross_attention_output[1]
+
         if output_attentions:
-            all_attentions = all_attentions + self_attention_output[2]
-            all_attentions = all_attentions + output[2]
+            all_attentions = all_attentions + self_attention_output[2] + cross_attention_output[2]
 
         return descriptors, all_hidden_states, all_attentions
 
@@ -562,6 +805,7 @@ class LightGluePreTrainedModel(PreTrainedModel):
     main_input_name = "pixel_values"
     supports_gradient_checkpointing = False
     _supports_flash_attn_2 = True
+    _supports_sdpa = False
 
     def _init_weights(self, module: Union[nn.Linear, nn.Conv2d, nn.LayerNorm, nn.Conv1d]) -> None:
         """Initialize the weights"""
@@ -623,7 +867,9 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
     def __init__(self, config: LightGlueConfig):
         super().__init__(config)
 
-        self.keypoint_detector = AutoModelForKeypointDetection.from_config(config.keypoint_detector_config)
+        self.keypoint_detector = AutoModelForKeypointDetection.from_config(
+            config.keypoint_detector_config, attn_implementation="eager"
+        )
 
         self.descriptor_dim = config.descriptor_dim
         self.num_layers = config.num_layers
@@ -713,7 +959,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         scores = self.match_assignment_layers[i].get_matchability(descriptors)
         prune_mask = self.get_pruning_mask(token, scores, i)
         prune_mask = prune_mask.masked_fill(mask == 0, 0)
-        _, batch_size, _, _, keypoint_dim = keypoints.shape
+        batch_size, _, _, keypoint_dim = keypoints.shape
 
         list_kept_indices = []
         for i in range(batch_size):
@@ -729,14 +975,14 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             dtype=descriptors.dtype,
         )
         pruned_keypoints = torch.zeros(
-            (2, batch_size, 1, max_number_kept_keypoints, keypoint_dim), device=keypoints.device, dtype=keypoints.dtype
+            (batch_size, 1, max_number_kept_keypoints, keypoint_dim), device=keypoints.device, dtype=keypoints.dtype
         )
         for i, keep in enumerate(list_kept_indices):
             num_kept_keypoints = len(keep)
             pruned_indices[i, :num_kept_keypoints] = indices[i].index_select(-1, keep)
             pruned_descriptors[i, :num_kept_keypoints] = descriptors[i].index_select(-2, keep)
             pruned_mask[i, :num_kept_keypoints] = 1
-            pruned_keypoints[:, i, :, :num_kept_keypoints] = keypoints[:, i].index_select(-2, keep)
+            pruned_keypoints[i, :, :num_kept_keypoints] = keypoints[i].index_select(-2, keep)
             prune_output[i, pruned_indices[i, :num_kept_keypoints]] += 1
         return pruned_descriptors, pruned_keypoints, pruned_indices, pruned_mask, prune_output
 
@@ -767,7 +1013,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         num_points_per_pair = torch.sum(mask.reshape(batch_size, -1), dim=1)
         # (batch_size, 2, num_keypoints, 2) -> (batch_size * 2, num_keypoints, 2)
         keypoints = keypoints.reshape(batch_size * 2, initial_num_keypoints, 2)
-        mask = mask.reshape(batch_size * 2, initial_num_keypoints)
+        mask = mask.reshape(batch_size * 2, initial_num_keypoints) if mask is not None else None
         descriptors = descriptors.reshape(batch_size * 2, initial_num_keypoints, self.descriptor_dim)
         pair_indices = torch.arange(batch_size * 2, device=device)
         # Keypoint normalization
@@ -797,17 +1043,19 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
                 )
 
         for layer_index in range(self.num_layers):
+            input_shape = descriptors.size()
+            if mask is not None:
+                extended_attention_mask = self.get_extended_attention_mask(mask, input_shape)
+            else:
+                extended_attention_mask = torch.ones((batch_size, input_shape[-2]), device=keypoints.device)
             transformer_output = self.transformer_layers[layer_index](
                 descriptors,
                 encoded_keypoints,
-                mask=mask,
+                attention_mask=extended_attention_mask,
                 output_hidden_states=output_hidden_states,
                 output_attentions=output_attentions,
             )
-            descriptors = transformer_output[0]
-            hidden_states = transformer_output[1]
-            attention = transformer_output[2]
-
+            descriptors, hidden_states, attention = transformer_output
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + hidden_states
             if output_attentions:
@@ -840,7 +1088,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
                         break
                     num_points_per_pair = num_points_per_pair[~early_stops_pair]
                     descriptors = descriptors[~early_stops]
-                    encoded_keypoints = encoded_keypoints[:, ~early_stops]
+                    encoded_keypoints = encoded_keypoints[~early_stops]
                     mask = mask[~early_stops]
                     if do_point_pruning:
                         prune_indices = prune_indices[~early_stops]

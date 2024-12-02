@@ -202,11 +202,14 @@ class LightGlueModelTest(ModelTesterMixin, unittest.TestCase):
             hidden_states_sizes = (
                 [
                     self.model_tester.descriptor_dim,
+                    self.model_tester.descriptor_dim,
+                    self.model_tester.descriptor_dim * 2,
+                    self.model_tester.descriptor_dim,
+                    self.model_tester.descriptor_dim,
                     self.model_tester.descriptor_dim * 2,
                     self.model_tester.descriptor_dim,
                 ]
                 * self.model_tester.num_layers
-                * 2
             )
 
             for i, hidden_states_size in enumerate(hidden_states_sizes):

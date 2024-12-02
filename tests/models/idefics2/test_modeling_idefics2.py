@@ -372,7 +372,6 @@ class Idefics2ModelTest(ModelTesterMixin, unittest.TestCase):
                 if not has_sdpa and model_sdpa.config.model_type != "falcon":
                     raise ValueError("The SDPA model should have SDPA attention layers")
 
-    # Copied from tests.models.phimoe.test_modeling_phimoe.PhimoeModelTest.test_assisted_decoding_with_num_logits_to_keep
     @parameterized.expand([(None, True), ("static", False)])
     def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
         if cache_implementation == "static":

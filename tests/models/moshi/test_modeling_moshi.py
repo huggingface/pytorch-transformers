@@ -362,12 +362,11 @@ class MoshiDecoderTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def test_save_load(self):
         super().test_save_load()
 
-    # Copied from tests.models.phimoe.test_modeling_phimoe.PhimoeModelTest.test_assisted_decoding_with_num_logits_to_keep
     @parameterized.expand([(None, True), ("static", False)])
     def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
         if cache_implementation == "static":
             self.skipTest(
-                "Moshi decoder doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
+                "MoshiDecoder doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
             )
             pass
 

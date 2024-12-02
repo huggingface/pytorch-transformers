@@ -422,15 +422,6 @@ class MixtralModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def test_flash_attn_2_inference_equivalence_right_padding(self):
         self.skipTest(reason="Mixtral flash attention does not support right padding")
 
-    # Copied from tests.models.phimoe.test_modeling_phimoe.PhimoeModelTest.test_assisted_decoding_with_num_logits_to_keep
-    @parameterized.expand([(None, True), ("static", False)])
-    def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
-        if cache_implementation == "static":
-            self.skipTest(
-                "Mixtral doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
-            )
-            pass
-
     # Ignore copy
     def test_load_balancing_loss(self):
         r"""
@@ -466,6 +457,15 @@ class MixtralModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
 
         # This is to mimic torch.testing.assert_not_close
         self.assertNotAlmostEqual(include_padding_result.aux_loss.item(), result.aux_loss.item())
+
+
+    @parameterized.expand([(None, True), ("static", False)])
+    def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
+        if cache_implementation == "static":
+            self.skipTest(
+                "Mixtral doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
+            )
+            pass
 
 
 @require_torch

@@ -199,18 +199,15 @@ class LightGlueModelTest(ModelTesterMixin, unittest.TestCase):
             hidden_states = outputs.hidden_states
             maximum_num_matches = outputs.mask.shape[-1]
 
-            hidden_states_sizes = (
-                [
-                    self.model_tester.descriptor_dim,
-                    self.model_tester.descriptor_dim,
-                    self.model_tester.descriptor_dim * 2,
-                    self.model_tester.descriptor_dim,
-                    self.model_tester.descriptor_dim,
-                    self.model_tester.descriptor_dim * 2,
-                    self.model_tester.descriptor_dim,
-                ]
-                * self.model_tester.num_layers
-            )
+            hidden_states_sizes = [
+                self.model_tester.descriptor_dim,
+                self.model_tester.descriptor_dim,
+                self.model_tester.descriptor_dim * 2,
+                self.model_tester.descriptor_dim,
+                self.model_tester.descriptor_dim,
+                self.model_tester.descriptor_dim * 2,
+                self.model_tester.descriptor_dim,
+            ] * self.model_tester.num_layers
 
             for i, hidden_states_size in enumerate(hidden_states_sizes):
                 self.assertListEqual(

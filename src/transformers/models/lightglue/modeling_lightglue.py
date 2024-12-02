@@ -489,7 +489,7 @@ class LightGlueFlashAttentionSelfAttention(LightGlueSelfAttention):
         attention_mask = encoder_attention_mask if is_cross_attention else attention_mask
         if attention_mask is not None:
             attention_mask = attention_mask.squeeze()
-            attention_mask = torch.where(attention_mask == -0., 1, 0)
+            attention_mask = torch.where(attention_mask == -0.0, 1, 0)
 
         # Check `seq_length` of `past_key_value` == `len(current_states)` to support prefix tuning
         if is_cross_attention and past_key_value and past_key_value[0].shape[2] == current_states.shape[1]:

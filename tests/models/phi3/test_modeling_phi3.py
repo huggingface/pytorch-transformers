@@ -499,6 +499,7 @@ class Phi3ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin
             )
             pass
 
+
 @slow
 @require_torch
 class Phi3IntegrationTest(unittest.TestCase):

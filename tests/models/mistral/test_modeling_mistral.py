@@ -19,6 +19,7 @@ import unittest
 
 import pytest
 from packaging import version
+from parameterized import parameterized
 
 from transformers import AutoTokenizer, MistralConfig, is_torch_available, set_seed
 from transformers.testing_utils import (
@@ -423,6 +424,13 @@ class MistralModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def test_flash_attn_2_inference_equivalence_right_padding(self):
         self.skipTest(reason="Mistral flash attention does not support right padding")
 
+    @parameterized.expand([(None, True), ("static", False)])
+    def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
+        if cache_implementation == "static":
+            self.skipTest(
+                "Mistral doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
+            )
+            pass
 
 @require_torch_gpu
 class MistralIntegrationTest(unittest.TestCase):

@@ -17,6 +17,7 @@
 import copy
 import tempfile
 import unittest
+from parameterized import parameterized
 from io import BytesIO
 
 import requests
@@ -379,6 +380,7 @@ class Idefics2ModelTest(ModelTesterMixin, unittest.TestCase):
                 "Idefics2 doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
             )
             pass
+
 
 @require_torch
 class Idefics2ForConditionalGenerationModelTest(GenerationTesterMixin, ModelTesterMixin, unittest.TestCase):

@@ -17,10 +17,10 @@
 import copy
 import tempfile
 import unittest
-from parameterized import parameterized
 from io import BytesIO
 
 import requests
+from parameterized import parameterized
 
 from transformers import (
     AutoProcessor,

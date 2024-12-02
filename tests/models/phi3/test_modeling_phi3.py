@@ -490,7 +490,7 @@ class Phi3ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin
         # Last token generated using long factor
         self.assertTrue(torch.allclose(last_token_logits, regenerated_last_token_logits, atol=1e-2, rtol=1e-2))
 
-    # Copied from tests.models.phimoe.test_modeling_phimoe.PhimoeModelTest.test_assisted_decoding_with_num_logits_to_keep with phimoe->phi3, Phimoe->Phi3
+    # Copied from tests.models.phimoe.test_modeling_phimoe.PhimoeModelTest.test_assisted_decoding_with_num_logits_to_keep
     @parameterized.expand([(None, True), ("static", False)])
     def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
         if cache_implementation == "static":
@@ -498,7 +498,6 @@ class Phi3ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin
                 "Phi3 doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
             )
             pass
-
 
 @slow
 @require_torch

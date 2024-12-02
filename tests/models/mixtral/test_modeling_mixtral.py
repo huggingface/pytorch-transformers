@@ -422,7 +422,7 @@ class MixtralModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
     def test_flash_attn_2_inference_equivalence_right_padding(self):
         self.skipTest(reason="Mixtral flash attention does not support right padding")
 
-    # Copied from tests.models.phimoe.test_modeling_phimoe.PhimoeModelTest.test_assisted_decoding_with_num_logits_to_keep with phimoe->mixtral, Phimoe->Mixtral
+    # Copied from tests.models.phimoe.test_modeling_phimoe.PhimoeModelTest.test_assisted_decoding_with_num_logits_to_keep
     @parameterized.expand([(None, True), ("static", False)])
     def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
         if cache_implementation == "static":

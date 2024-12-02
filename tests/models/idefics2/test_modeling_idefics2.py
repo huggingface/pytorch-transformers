@@ -20,7 +20,6 @@ import unittest
 from io import BytesIO
 
 import requests
-from parameterized import parameterized
 
 from transformers import (
     AutoProcessor,

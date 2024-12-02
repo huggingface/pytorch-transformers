@@ -18,7 +18,6 @@ import gc
 import unittest
 
 import pytest
-from parameterized import parameterized
 
 from transformers import AutoTokenizer, Qwen2MoeConfig, is_torch_available, set_seed
 from transformers.testing_utils import (

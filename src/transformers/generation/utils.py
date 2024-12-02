@@ -2173,7 +2173,7 @@ class GenerationMixin:
             if not model_kwargs["use_cache"]:
                 raise ValueError("assisted generate requires `use_cache=True`")
             if generation_config.cache_implementation in ["hybrid", "sliding_window"]:
-                raise ValueError("assisted generate is not supported with Static cache classes`")
+                raise ValueError("assisted generate is not supported with hybrid & sliding_window cache classes`")
             if self._is_stateful:
                 # In assisted generation we need the ability to confirm whether the model would pick certain tokens,
                 # which is not possible with stateful models (they can't reset to a previous subset of generated text)

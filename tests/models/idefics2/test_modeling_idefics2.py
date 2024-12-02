@@ -574,6 +574,14 @@ class Idefics2ForConditionalGenerationModelTest(GenerationTesterMixin, ModelTest
 
             self.assertTrue(torch.allclose(out_embeds, out_ids))
 
+    @parameterized.expand([(None, True), ("static", False)])
+    def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
+        if cache_implementation == "static":
+            self.skipTest(
+                "Idefics2 doesn't support StaticCache, please check the following issue -> https://github.com/huggingface/transformers/issues/28981."
+            )
+            pass
+
 
 @require_torch
 class Idefics2ForConditionalGenerationIntegrationTest(unittest.TestCase):

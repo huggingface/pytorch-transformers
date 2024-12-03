@@ -516,8 +516,11 @@ class LightGlueImageProcessor(BaseImageProcessor):
         return BatchFeature(data=data, tensor_type=return_tensors)
 
     def post_process_keypoint_matching(
-        self, outputs: "LightGlueKeypointMatchingOutput", target_sizes: Union[TensorType, List[Tuple]]
-    ):
+            self,
+            outputs: "KeypointMatchingOutput",
+            target_sizes: Union[TensorType, List[Tuple]],
+            threshold: float = 0.0,
+    ) -> List[Dict[str, torch.Tensor]]:
         """
         Converts the raw output of [`SuperPointForKeypointDetection`] into lists of keypoints, scores and descriptors
         with coordinates absolute to the original image sizes.
@@ -528,6 +531,8 @@ class LightGlueImageProcessor(BaseImageProcessor):
                 Tensor of shape `(batch_size, 2, 2)` or list of tuples of tuples (`Tuple[int, int]`) containing the
                 target size `(height, width)` of each image in the batch. This must be the original image size (before
                 any processing).
+            threshold (`float`, *optional*, defaults to 0.0):
+                Threshold to filter out the matches with low scores.
         Returns:
             `List[Dict]`: A list of dictionaries, each dictionary containing the keypoints in the first and second image
             of the pair, the matching scores and the matching indices.
@@ -538,7 +543,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
             raise ValueError("Each element of target_sizes must contain the size (h, w) of each image of the batch")
 
         if isinstance(target_sizes, List):
-            image_pair_sizes = torch.tensor(target_sizes)
+            image_pair_sizes = torch.tensor(target_sizes, device=outputs.mask.device)
         else:
             if target_sizes.shape[1] != 2 or target_sizes.shape[2] != 2:
                 raise ValueError(
@@ -552,7 +557,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
 
         results = []
         for mask_pair, keypoints_pair, matches, scores in zip(
-            outputs.mask, keypoints, outputs.matches[:, 0], outputs.matching_scores[:, 0]
+                outputs.mask, keypoints, outputs.matches[:, 0], outputs.matching_scores[:, 0]
         ):
             mask0 = mask_pair[0] > 0
             mask1 = mask_pair[1] > 0
@@ -561,9 +566,12 @@ class LightGlueImageProcessor(BaseImageProcessor):
             matches0 = matches[mask0]
             scores0 = scores[mask0]
 
-            matched_keypoints0 = keypoints0[matches0 > -1]
-            matched_keypoints1 = keypoints1[matches0[matches0 > -1]]
-            matching_scores = scores0[matches0 > -1]
+            # Filter out matches with low scores
+            valid_matches = scores0 > threshold
+
+            matched_keypoints0 = keypoints0[valid_matches]
+            matched_keypoints1 = keypoints1[matches0[valid_matches]]
+            matching_scores = scores0[valid_matches]
 
             results.append(
                 {

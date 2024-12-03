@@ -29,6 +29,7 @@ from parameterized import parameterized
 from transformers import AutoConfig, is_torch_available, pipeline, set_seed
 from transformers.testing_utils import (
     is_flaky,
+    parse_flag_from_env,
     require_accelerate,
     require_flash_attn,
     require_optimum_quanto,
@@ -1997,22 +1998,26 @@ class GenerationTesterMixin:
 
     @parameterized.expand(
         [
-            ("forward_only", False),  # TODO (@joao): a few models failing. After fixed, this should not be "@slow"
+            ("forward_only", False),
             ("end_to_end", True),  # TODO (@joao): end-to-end compilation is broken with torch 2.5+, explore and fix
         ]
     )
     @pytest.mark.generate
     @require_torch_gpu
-    @slow
     def test_generate_compile(self, _, end_to_end):
         """
         Tests that `.generate` is compatible with torch.compile without graph breaks, keeping the same results. Tests
         end-to-end compilation and forward pass compilation only.
         ⚠️ Runs two sequential generations to ensure the cache doesn't get stuck after the first compiled run! ⚠️
         """
+        # Equivalent to `@slow` when `end_to_end=True`;
+        # To be removed when end-to-end compilation is fixed and not super slow
+        if end_to_end and not parse_flag_from_env("RUN_SLOW", default=False):
+            self.skipTest("test is slow")
+
         for model_class in self.all_generative_model_classes:
             if not model_class._supports_static_cache:
-                self.skipTest("This model doesn't support static cache")
+                self.skipTest("This model doesn't support static cache (= no expectations of compilation support)")
 
             # TODO (joao) -- fix and enable me :)
             if end_to_end and any(model_name in model_class.__name__.lower() for model_name in ["whisper"]):
@@ -2026,11 +2031,11 @@ class GenerationTesterMixin:
             model = model_class(config).to(torch_device)
             model.eval()  # otherwise `self.training` is `True` -- this flag is used at attn mask creation time
 
-            input_ids = inputs_dict["input_ids"].to(torch_device)
+            main_input = inputs_dict[model.main_input_name].to(torch_device)
             # creates two sets of *different* inputs with the same shape
-            half_batch_size = input_ids.shape[0] // 2
-            input_ids_sets = [input_ids[:half_batch_size, :], input_ids[half_batch_size : half_batch_size * 2, :]]
-            self.assertTrue(input_ids_sets[0].shape == input_ids_sets[1].shape)
+            half_batch_size = main_input.shape[0] // 2
+            main_input_sets = [main_input[:half_batch_size, :], main_input[half_batch_size : half_batch_size * 2, :]]
+            self.assertTrue(main_input_sets[0].shape == main_input_sets[1].shape)
 
             generation_kwargs = {
                 "do_sample": False,
@@ -2040,11 +2045,14 @@ class GenerationTesterMixin:
             }
             # end-to-end works best with dynamic cache, forward compilation works best with static cache
             if not end_to_end:
-                generation_kwargs["cache_implementation"] = "static"
+                if "gemma2" in model_class.__name__.lower():
+                    generation_kwargs["cache_implementation"] = "hybrid"
+                else:
+                    generation_kwargs["cache_implementation"] = "static"
 
             # get eager + dynamic cache results for future comparison
             dynamic_outputs = []
-            for model_inputs in input_ids_sets:
+            for model_inputs in main_input_sets:
                 dynamic_outputs.append(model.generate(model_inputs, **generation_kwargs))
 
             # get compiled results
@@ -2057,7 +2065,7 @@ class GenerationTesterMixin:
                 model.forward = torch.compile(model.forward, fullgraph=True, mode="reduce-overhead")
 
             compiled_outputs = []
-            for model_inputs in input_ids_sets:
+            for model_inputs in main_input_sets:
                 compiled_outputs.append(model.generate(model_inputs, generation_config=generation_config))
 
             for dynamic_result, compiled_result in zip(dynamic_outputs, compiled_outputs):

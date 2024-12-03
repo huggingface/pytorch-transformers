@@ -785,10 +785,6 @@ class IdeficsForVisionText2TextTest(IdeficsModelTest, GenerationTesterMixin, uni
     def test_custom_4d_attention_mask(self):
         pass
 
-    @unittest.skip(reason="IDEFICS cannot compile due to dynamic control flow when checking inputs")
-    def test_generate_compile_fullgraph(self):
-        pass
-
     @unittest.skip(reason="We only test the model that takes in multiple images")
     def test_model(self):
         pass

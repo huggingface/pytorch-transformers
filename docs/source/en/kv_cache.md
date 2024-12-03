@@ -346,7 +346,7 @@ In case you are using Sink Cache, you have to crop your inputs to that maximum l
 >>> user_prompts = ["Hello, what's your name?", "Btw, yesterday I was on a rock concert."]
 
 >>> past_key_values = DynamicCache()
->>> max_cache_length = past_key_values.get_max_length()
+>>> max_cache_length = past_key_values.get_max_cache_shape()
 
 >>> messages = []
 >>> for prompt in user_prompts:

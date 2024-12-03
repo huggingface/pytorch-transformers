@@ -362,7 +362,7 @@ class CacheIntegrationTest(unittest.TestCase):
             input_ids = gen_out
 
         # We went well beyond the cache length
-        self.assertTrue(input_ids.shape[1] > cache.get_max_length() * 1.5)
+        self.assertTrue(input_ids.shape[1] > cache.get_max_cache_shape() * 1.5)
 
         # And it still produces a coherent english
         decoded = tokenizer.batch_decode(input_ids, skip_special_tokens=True)

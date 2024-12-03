@@ -52,7 +52,7 @@ class GPTNeoXJapanesePreTrainedModel(PreTrainedModel):
     _skip_keys_device_placement = "past_key_values"
     _supports_cache_class = True
     _supports_quantized_cache = True
-    _supports_static_cache = True
+    _supports_static_cache = False  # TODO (fix me): compilation fails due to a stide error?
 
     def _init_weights(self, module):
         """Initialize the weights"""

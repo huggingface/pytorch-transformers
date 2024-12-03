@@ -368,10 +368,6 @@ class DbrxModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin
     def test_disk_offload_bin(self):
         pass
 
-    @unittest.skip("Dbrx does not support `torch.compile` with `fullgraph=True`.")
-    def test_generate_compile_fullgraph(self):
-        pass
-
 
 @require_torch
 class DbrxModelIntegrationTest(unittest.TestCase):

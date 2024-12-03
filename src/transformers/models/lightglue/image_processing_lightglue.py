@@ -516,10 +516,10 @@ class LightGlueImageProcessor(BaseImageProcessor):
         return BatchFeature(data=data, tensor_type=return_tensors)
 
     def post_process_keypoint_matching(
-            self,
-            outputs: "LightGlueKeypointMatchingOutput",
-            target_sizes: Union[TensorType, List[Tuple]],
-            threshold: float = 0.0,
+        self,
+        outputs: "LightGlueKeypointMatchingOutput",
+        target_sizes: Union[TensorType, List[Tuple]],
+        threshold: float = 0.0,
     ) -> List[Dict[str, torch.Tensor]]:
         """
         Converts the raw output of [`LightGlueKeypointMatchingOutput`] into lists of keypoints, matches and scores with
@@ -557,7 +557,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
 
         results = []
         for mask_pair, keypoints_pair, matches, scores in zip(
-                outputs.mask, keypoints, outputs.matches[:, 0], outputs.matching_scores[:, 0]
+            outputs.mask, keypoints, outputs.matches[:, 0], outputs.matching_scores[:, 0]
         ):
             mask0 = mask_pair[0] > 0
             mask1 = mask_pair[1] > 0

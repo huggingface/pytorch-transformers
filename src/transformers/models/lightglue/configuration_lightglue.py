@@ -98,4 +98,5 @@ class LightGlueConfig(PretrainedConfig):
         self.rotary_value = False
         super().__init__(**kwargs)
 
+
 __all__ = ["LightGlueConfig"]

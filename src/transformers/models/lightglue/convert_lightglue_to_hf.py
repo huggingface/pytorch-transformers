@@ -19,7 +19,6 @@ from typing import List
 
 import torch
 
-from tests.models.lightglue.test_modeling_lightglue import prepare_imgs
 from transformers import (
     AutoModelForKeypointDetection,
     LightGlueForKeypointMatching,
@@ -29,6 +28,8 @@ from transformers.models.lightglue.configuration_lightglue import LightGlueConfi
 
 
 def verify_model_outputs(model):
+    from tests.models.lightglue.test_modeling_lightglue import prepare_imgs
+
     images = prepare_imgs()
     preprocessor = LightGlueImageProcessor()
     inputs = preprocessor(images=images, return_tensors="pt").to("cuda")
@@ -141,7 +142,7 @@ def write_model(
     os.makedirs(model_path, exist_ok=True)
 
     # ------------------------------------------------------------
-    # SuperGlue config
+    # LightGlue config
     # ------------------------------------------------------------
 
     config = LightGlueConfig(
@@ -180,6 +181,16 @@ def write_model(
     model.load_state_dict(state_dict, strict=False)
     print("Checkpoint loaded successfully...")
     del model.config._name_or_path
+
+    print("Saving the model...")
+    model.save_pretrained(model_path, safe_serialization=safe_serialization)
+    del state_dict, model
+
+    # Safety check: reload the converted model
+    gc.collect()
+    print("Reloading the model to check if it's saved correctly.")
+    model = LightGlueForKeypointMatching.from_pretrained(model_path)
+    print("Model reloaded successfully.")
 
     model_name = "lightglue"
     print("Checking the model outputs...")

@@ -517,16 +517,16 @@ class LightGlueImageProcessor(BaseImageProcessor):
 
     def post_process_keypoint_matching(
             self,
-            outputs: "KeypointMatchingOutput",
+            outputs: "LightGlueKeypointMatchingOutput",
             target_sizes: Union[TensorType, List[Tuple]],
             threshold: float = 0.0,
     ) -> List[Dict[str, torch.Tensor]]:
         """
-        Converts the raw output of [`SuperPointForKeypointDetection`] into lists of keypoints, scores and descriptors
-        with coordinates absolute to the original image sizes.
+        Converts the raw output of [`LightGlueKeypointMatchingOutput`] into lists of keypoints, matches and scores with
+        coordinates absolute to the original image sizes.
         Args:
-            outputs ([`SuperPointKeypointDescriptionOutput`]):
-                Raw outputs of the model.q
+            outputs ([`LightGlueKeypointMatchingOutput`]):
+                Raw outputs of the model.
             target_sizes (`torch.Tensor` or `List[Tuple[Tuple[int, int]]]`, *optional*):
                 Tensor of shape `(batch_size, 2, 2)` or list of tuples of tuples (`Tuple[int, int]`) containing the
                 target size `(height, width)` of each image in the batch. This must be the original image size (before

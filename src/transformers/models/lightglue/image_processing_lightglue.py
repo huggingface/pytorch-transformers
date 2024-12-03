@@ -567,7 +567,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
             scores0 = scores[mask0]
 
             # Filter out matches with low scores
-            valid_matches = scores0 > threshold
+            valid_matches = torch.logical_and(scores0 > threshold, matches0 != -1)
 
             matched_keypoints0 = keypoints0[valid_matches]
             matched_keypoints1 = keypoints1[matches0[valid_matches]]

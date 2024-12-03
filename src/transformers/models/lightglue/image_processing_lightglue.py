@@ -39,6 +39,7 @@ from ...utils import TensorType, logging, requires_backends
 
 if is_torch_available():
     import torch
+
 if TYPE_CHECKING:
     from .modeling_lightglue import LightGlueKeypointMatchingOutput
 
@@ -582,3 +583,6 @@ class LightGlueImageProcessor(BaseImageProcessor):
             )
 
         return results
+
+
+__all__ = ["LightGlueImageProcessor"]

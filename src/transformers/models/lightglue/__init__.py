@@ -13,58 +13,16 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ... import is_vision_available
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
-# rely on isort to merge the imports
-from ...utils import OptionalDependencyNotAvailable, _LazyModule, is_torch_available
-
-
-_import_structure = {"configuration_lightglue": ["LightGlueConfig"]}
-
-try:
-    if not is_vision_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["image_processing_lightglue"] = ["LightGlueImageProcessor"]
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_lightglue"] = [
-        "LightGlueForKeypointMatching",
-        "LightGluePreTrainedModel",
-    ]
 
 if TYPE_CHECKING:
-    from .configuration_lightglue import (
-        LightGlueConfig,
-    )
-
-    try:
-        if not is_vision_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .image_processing_lightglue import LightGlueImageProcessor
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_lightglue import (
-            LightGlueForKeypointMatching,
-            LightGluePreTrainedModel,
-        )
-
+    from .configuration_lightglue import *
+    from .image_processing_lightglue import *
+    from .modeling_lightglue import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

@@ -46,13 +46,16 @@ _CONFIG_FOR_DOC_ = "LightGlueConfig"
 _CHECKPOINT_FOR_DOC_ = "stevenbucaille/lightglue"
 
 
+# Copied from transformers.models.superglue.modeling_superglue.concat_pairs
 def concat_pairs(tensor_tuple0: Tuple[torch.Tensor], tensor_tuple1: Tuple[torch.Tensor]) -> Tuple[torch.Tensor]:
     """
     Concatenate two tuples of tensors pairwise
 
     Args:
-        tensor_tuple0 (`Tuple[torch.Tensor]`): Tuple of tensors.
-        tensor_tuple1 (`Tuple[torch.Tensor]`): Tuple of tensors.
+        tensor_tuple0 (`Tuple[torch.Tensor]`):
+            Tuple of tensors.
+        tensor_tuple1 (`Tuple[torch.Tensor]`):
+            Tuple of tensors.
 
     Returns:
         (`Tuple[torch.Tensor]`): Tuple of concatenated tensors.
@@ -61,6 +64,20 @@ def concat_pairs(tensor_tuple0: Tuple[torch.Tensor], tensor_tuple1: Tuple[torch.
 
 
 def normalize_keypoints(keypoints: torch.Tensor, height: int, width: int) -> torch.Tensor:
+    """
+    Normalize keypoints locations based on image image_shape
+
+    Args:
+        keypoints (`torch.Tensor` of shape `(batch_size, num_keypoints, 2)`):
+            Keypoints locations in (x, y) format.
+        height (`int`):
+            Image height.
+        width (`int`):
+            Image width.
+
+    Returns:
+        Normalized keypoints locations of shape (`torch.Tensor` of shape `(batch_size, num_keypoints, 2)`).
+    """
     size = torch.tensor([width, height], device=keypoints.device, dtype=keypoints.dtype)[None]
     shift = size / 2
     scale = size.max(-1).values / 2
@@ -68,6 +85,7 @@ def normalize_keypoints(keypoints: torch.Tensor, height: int, width: int) -> tor
     return keypoints
 
 
+# Copied from transformers.models.superglue.modeling_superglue.log_sinkhorn_iterations
 def log_sinkhorn_iterations(
     log_cost_matrix: torch.Tensor,
     log_source_distribution: torch.Tensor,
@@ -78,11 +96,12 @@ def log_sinkhorn_iterations(
     Perform Sinkhorn Normalization in Log-space for stability
 
     Args:
-        log_cost_matrix (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`): Logarithm of the cost matrix.
-        log_source_distribution (`torch.Tensor` of shape `(batch_size, num_rows)`): Logarithm of the source
-        distribution.
-        log_target_distribution (`torch.Tensor` of shape `(batch_size, num_columns)`): Logarithm of the target
-        distribution.
+        log_cost_matrix (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`):
+            Logarithm of the cost matrix.
+        log_source_distribution (`torch.Tensor` of shape `(batch_size, num_rows)`):
+            Logarithm of the source distribution.
+        log_target_distribution (`torch.Tensor` of shape `(batch_size, num_columns)`):
+            Logarithm of the target distribution.
 
     Returns:
         log_cost_matrix (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`): Logarithm of the optimal
@@ -96,14 +115,18 @@ def log_sinkhorn_iterations(
     return log_cost_matrix + log_u_scaling.unsqueeze(2) + log_v_scaling.unsqueeze(1)
 
 
+# Copied from transformers.models.superglue.modeling_superglue.log_optimal_transport
 def log_optimal_transport(scores: torch.Tensor, reg_param: torch.Tensor, iterations: int) -> torch.Tensor:
     """
     Perform Differentiable Optimal Transport in Log-space for stability
 
     Args:
-        scores: (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`): Cost matrix.
-        reg_param: (`torch.Tensor` of shape `(batch_size, 1, 1)`): Regularization parameter.
-        iterations: (`int`): Number of Sinkhorn iterations.
+        scores: (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`):
+            Cost matrix.
+        reg_param: (`torch.Tensor` of shape `(batch_size, 1, 1)`):
+            Regularization parameter.
+        iterations: (`int`):
+            Number of Sinkhorn iterations.
 
     Returns:
         log_optimal_transport_matrix: (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`): Logarithm of the
@@ -138,7 +161,8 @@ def log_optimal_transport(scores: torch.Tensor, reg_param: torch.Tensor, iterati
     return log_optimal_transport_matrix
 
 
-def arange_like(x, dim: int):
+# Copied from transformers.models.superglue.modeling_superglue.arange_like
+def arange_like(x, dim: int) -> torch.Tensor:
     return x.new_ones(x.shape[dim]).cumsum(0) - 1
 
 
@@ -184,37 +208,10 @@ class LightGlueKeypointMatchingOutput(ModelOutput):
     attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 
-def rotate_half(x: torch.Tensor) -> torch.Tensor:
-    x = x.unflatten(-1, (-1, 2))
-    x1, x2 = x.unbind(dim=-1)
-    return torch.stack((-x2, x1), dim=-1).flatten(start_dim=-2)
-
-
-def rotary_position_embedding(encoded_keypoints: torch.Tensor, state: torch.Tensor) -> torch.Tensor:
-    first = state * encoded_keypoints[0]
-    rotated = rotate_half(state)
-    second = rotated * encoded_keypoints[1]
-    return first + second
-
-
-def eager_attention(q, k, v, mask=None):
-    s = q.shape[-1] ** 0.5
-    scores = torch.einsum("...id,...jd->...ij", q, k) / s
-    if mask is not None:
-        mask = mask.unsqueeze(1).unsqueeze(1)
-        scores = scores.masked_fill(mask == 0, torch.finfo(scores.dtype).min)
-    attention = nn.functional.softmax(scores, -1, dtype=scores.dtype)
-    output = torch.einsum("...ij,...jd->...id", attention, v)
-    return output, attention
-
-
 class LightGluePositionalEncoder(nn.Module):
     def __init__(self, config: LightGlueConfig):
         super().__init__()
-
         self.projector = nn.Linear(2, config.descriptor_dim // config.num_heads // 2, bias=False)
-        self.gamma = 1.0
-        nn.init.normal_(self.projector.weight.data, mean=0, std=self.gamma**-2)
 
     def forward(
         self, keypoints: torch.Tensor, output_hidden_states: Optional[bool] = False
@@ -222,7 +219,6 @@ class LightGluePositionalEncoder(nn.Module):
         projected_keypoints = self.projector(keypoints)
         cosines, sines = torch.cos(projected_keypoints), torch.sin(projected_keypoints)
         embeddings = torch.cat([sines, cosines], -1).unsqueeze(-3)
-        # embeddings = embeddings.repeat_interleave(2, dim=-1)
         output = (embeddings, projected_keypoints) if output_hidden_states else (embeddings,)
         return output
 
@@ -389,41 +385,20 @@ class LightGlueSdpaSelfAttention(LightGlueSelfAttention):
 
         query_layer = self.transpose_for_scores(self.query(hidden_states))
 
-        # If this is instantiated as a cross-attention module, the keys and values come from an encoder; the attention
-        # mask needs to be such that the encoder's padding tokens are not attended to.
         is_cross_attention = encoder_hidden_states is not None
 
         current_states = encoder_hidden_states if is_cross_attention else hidden_states
         attention_mask = encoder_attention_mask if is_cross_attention else attention_mask
 
-        # Check `seq_length` of `past_key_value` == `len(current_states)` to support prefix tuning
-        if is_cross_attention and past_key_value and past_key_value[0].shape[2] == current_states.shape[1]:
-            key_layer, value_layer = past_key_value
-        else:
-            key_layer = self.transpose_for_scores(self.key(current_states))
-            value_layer = self.transpose_for_scores(self.value(current_states))
-            if sinusoidal_pos is not None:
-                if self.rotary_value:
-                    query_layer, key_layer, value_layer = self.apply_rotary_position_embeddings(
-                        sinusoidal_pos, query_layer, key_layer, value_layer
-                    )
-                else:
-                    query_layer, key_layer = self.apply_rotary_position_embeddings(
-                        sinusoidal_pos, query_layer, key_layer
-                    )
-            if past_key_value is not None and not is_cross_attention:
-                key_layer = torch.cat([past_key_value[0], key_layer], dim=2)
-                value_layer = torch.cat([past_key_value[1], value_layer], dim=2)
-
-        if self.is_decoder:
-            # if cross_attention save Tuple(torch.Tensor, torch.Tensor) of all cross attention key/value_states.
-            # Further calls to cross_attention layer can then reuse all cross-attention
-            # key/value_states (first "if" case)
-            # if uni-directional self-attention (decoder) save Tuple(torch.Tensor, torch.Tensor) of
-            # all previous decoder key/value_states. Further calls to uni-directional self-attention
-            # can concat previous decoder key/value_states to current projected key/value_states (third "elif" case)
-            # if encoder bi-directional self-attention `past_key_value` is always `None`
-            past_key_value = (key_layer, value_layer)
+        key_layer = self.transpose_for_scores(self.key(current_states))
+        value_layer = self.transpose_for_scores(self.value(current_states))
+        if sinusoidal_pos is not None:
+            if self.rotary_value:
+                query_layer, key_layer, value_layer = self.apply_rotary_position_embeddings(
+                    sinusoidal_pos, query_layer, key_layer, value_layer
+                )
+            else:
+                query_layer, key_layer = self.apply_rotary_position_embeddings(sinusoidal_pos, query_layer, key_layer)
 
         # SDPA with memory-efficient backend is broken in torch==2.1.2 when using non-contiguous inputs and a custom
         # attn_mask, so we need to call `.contiguous()` here. This was fixed in torch==2.2.0.
@@ -433,29 +408,18 @@ class LightGlueSdpaSelfAttention(LightGlueSelfAttention):
             key_layer = key_layer.contiguous()
             value_layer = value_layer.contiguous()
 
-        # We dispatch to SDPA's Flash Attention or Efficient kernels via this `is_causal` if statement instead of an inline conditional assignment
-        # in SDPA to support both torch.compile's dynamic shapes and full graph options. An inline conditional prevents dynamic shapes from compiling.
-        # The tgt_len > 1 is necessary to match with AttentionMaskConverter.to_causal_4d that does not create
-        # a causal mask in case tgt_len == 1.
-        is_causal = (
-            True if self.is_decoder and not is_cross_attention and attention_mask is None and tgt_len > 1 else False
-        )
-
         attn_output = torch.nn.functional.scaled_dot_product_attention(
             query_layer,
             key_layer,
             value_layer,
             attn_mask=attention_mask,
             dropout_p=self.dropout_prob if self.training else 0.0,
-            is_causal=is_causal,
         )
 
         attn_output = attn_output.transpose(1, 2)
         attn_output = attn_output.reshape(bsz, tgt_len, self.all_head_size)
 
         outputs = (attn_output,)
-        if self.is_decoder:
-            outputs = outputs + (past_key_value,)
         return outputs
 
 
@@ -481,8 +445,6 @@ class LightGlueFlashAttentionSelfAttention(LightGlueSelfAttention):
 
         query_layer = self.transpose_for_scores(self.query(hidden_states)).contiguous()
 
-        # If this is instantiated as a cross-attention module, the keys and values come from an encoder; the attention
-        # mask needs to be such that the encoder's padding tokens are not attended to.
         is_cross_attention = encoder_hidden_states is not None
 
         current_states = encoder_hidden_states if is_cross_attention else hidden_states
@@ -491,24 +453,15 @@ class LightGlueFlashAttentionSelfAttention(LightGlueSelfAttention):
             attention_mask = attention_mask.squeeze()
             attention_mask = torch.where(attention_mask == -0.0, 1, 0)
 
-        # Check `seq_length` of `past_key_value` == `len(current_states)` to support prefix tuning
-        if is_cross_attention and past_key_value and past_key_value[0].shape[2] == current_states.shape[1]:
-            key_layer, value_layer = past_key_value
-        else:
-            key_layer = self.transpose_for_scores(self.key(current_states))
-            value_layer = self.transpose_for_scores(self.value(current_states))
-            if sinusoidal_pos is not None:
-                if self.rotary_value:
-                    query_layer, key_layer, value_layer = self.apply_rotary_position_embeddings(
-                        sinusoidal_pos, query_layer, key_layer, value_layer
-                    )
-                else:
-                    query_layer, key_layer = self.apply_rotary_position_embeddings(
-                        sinusoidal_pos, query_layer, key_layer
-                    )
-            if past_key_value is not None and not is_cross_attention:
-                key_layer = torch.cat([past_key_value[0], key_layer], dim=2)
-                value_layer = torch.cat([past_key_value[1], value_layer], dim=2)
+        key_layer = self.transpose_for_scores(self.key(current_states))
+        value_layer = self.transpose_for_scores(self.value(current_states))
+        if sinusoidal_pos is not None:
+            if self.rotary_value:
+                query_layer, key_layer, value_layer = self.apply_rotary_position_embeddings(
+                    sinusoidal_pos, query_layer, key_layer, value_layer
+                )
+            else:
+                query_layer, key_layer = self.apply_rotary_position_embeddings(sinusoidal_pos, query_layer, key_layer)
 
         query_layer = query_layer.reshape(batch_size, q_len, self.num_attention_heads, self.attention_head_size)
         key_layer = key_layer.reshape(batch_size, q_len, self.num_attention_heads, self.attention_head_size)
@@ -545,8 +498,6 @@ class LightGlueFlashAttentionSelfAttention(LightGlueSelfAttention):
 
         attn_output = attn_output.reshape(batch_size, q_len, self.all_head_size).contiguous()
         outputs = (attn_output,)
-        if self.is_decoder:
-            outputs = outputs + (past_key_value,)
         return outputs
 
 
@@ -559,7 +510,7 @@ class LightGlueMLP(nn.Module):
         self.activation = ACT2FN["gelu"]
         self.output = nn.Linear(2 * embeddings_dim, embeddings_dim)
 
-    def forward(self, hidden_states: torch.Tensor):
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         hidden_states = self.dense(hidden_states)
         hidden_states = self.layer_norm(hidden_states)
         hidden_states = self.activation(hidden_states)
@@ -574,14 +525,17 @@ class LightGlueSelfOutput(nn.Module):
         self.dense = nn.Linear(embeddings_dim, embeddings_dim)
         self.mlp = LightGlueMLP(config)
 
-    def forward(self, context: torch.Tensor, descriptors: torch.Tensor, output_hidden_states: Optional[bool] = False):
+    def forward(
+        self, context: torch.Tensor, descriptors: torch.Tensor, output_hidden_states: Optional[bool] = False
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         all_hidden_states = () if output_hidden_states else None
         message = self.dense(context)
         hidden_states = torch.cat([descriptors, message], dim=-1)
         output_state = self.mlp(hidden_states)
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states, output_state)
-        return output_state + descriptors, all_hidden_states
+        descriptors = descriptors + output_state
+        return descriptors, all_hidden_states
 
 
 LIGHTGLUE_SELF_ATTENTION_CLASSES = {
@@ -608,7 +562,7 @@ class LightGlueAttention(nn.Module):
         past_key_value=None,
         output_hidden_states=False,
         output_attentions=False,
-    ):
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor]], Optional[Tuple[torch.Tensor]]]:
         self_outputs = self.self(
             hidden_states,
             attention_mask,
@@ -626,17 +580,6 @@ class LightGlueAttention(nn.Module):
         hidden_states = outputs[1] if output_hidden_states else None
         outputs = (output, hidden_states, attention_probs)
         return outputs
-
-
-# class LightGlueFlashAttention(LightGlueAttention):
-#     def __init__(self, config):
-#         super().__init__(config)
-#
-#     def forward(
-#         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor
-#     ) -> Tuple[torch.Tensor, None]:
-#         attn_output = flash_attn_func(q, k, v)
-#         return attn_output, None
 
 
 class LightGlueTransformerLayer(nn.Module):
@@ -700,8 +643,6 @@ class LightGlueTransformerLayer(nn.Module):
                 + cross_attention_output[1]
             )
 
-        # all_hidden_states = all_hidden_states + self_attention_output[1] + cross_attention_output[1]
-
         if output_attentions:
             all_attentions = all_attentions + self_attention_output[2] + cross_attention_output[2]
 
@@ -709,7 +650,7 @@ class LightGlueTransformerLayer(nn.Module):
 
 
 def sigmoid_log_double_softmax(
-    similarity: torch.Tensor, matchability_0: torch.Tensor, matchability_1: torch.Tensor, mask: torch.Tensor
+    similarity: torch.Tensor, matchability_0: torch.Tensor, matchability_1: torch.Tensor
 ) -> torch.Tensor:
     """create the log assignment matrix from logits and similarity"""
     batch_size, num_keypoints_0, num_keypoints_1 = similarity.shape
@@ -750,7 +691,7 @@ class LightGlueMatchAssignmentLayer(nn.Module):
         matchability = matchability.reshape(batch_size // 2, 2, num_keypoints, 1)
         matchability_0 = matchability[:, 0]
         matchability_1 = matchability[:, 1]
-        scores = sigmoid_log_double_softmax(similarity, matchability_0, matchability_1, mask)
+        scores = sigmoid_log_double_softmax(similarity, matchability_0, matchability_1)
         return scores
 
     def get_matchability(self, descriptors: torch.Tensor) -> torch.Tensor:
@@ -807,7 +748,7 @@ class LightGluePreTrainedModel(PreTrainedModel):
     _supports_flash_attn_2 = True
     _supports_sdpa = False
 
-    def _init_weights(self, module: Union[nn.Linear, nn.Conv2d, nn.LayerNorm, nn.Conv1d]) -> None:
+    def _init_weights(self, module: nn.Module) -> None:
         """Initialize the weights"""
         if isinstance(module, (nn.Linear, nn.Conv2d, nn.Conv1d)):
             # Slightly different from the TF version which uses truncated_normal for initialization
@@ -834,7 +775,7 @@ LIGHTGLUE_START_DOCSTRING = r"""
 LIGHTGLUE_INPUTS_DOCSTRING = r"""
     Args:
         pixel_values (`torch.FloatTensor` of shape `(batch_size, num_channels, height, width)`):
-            Pixel values. Pixel values can be obtained using [`SuperPointImageProcessor`]. See
+            Pixel values. Pixel values can be obtained using [`LightPointImageProcessor`]. See
             [`LightPointImageProcessor.__call__`] for details.
 
         output_hidden_states (`bool`, *optional*):
@@ -902,12 +843,12 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         self.post_init()
 
     def confidence_threshold(self, layer_index: int) -> float:
-        """scaled confidence threshold"""
+        """scaled confidence threshold for a given layer"""
         threshold = 0.8 + 0.1 * np.exp(-4.0 * layer_index / self.num_layers)
         return np.clip(threshold, 0, 1)
 
     def keypoint_processing(
-        self, descriptors, keypoints, output_hidden_states: Optional[bool] = False
+        self, descriptors: torch.Tensor, keypoints: torch.Tensor, output_hidden_states: Optional[bool] = False
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         descriptors = descriptors.detach().contiguous()
         projected_descriptors = self.input_projection(descriptors)
@@ -917,7 +858,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
     def check_if_stop(
         self, confidences: torch.Tensor, layer_index: int, mask: torch.Tensor, num_points: torch.Tensor
     ) -> torch.Tensor:
-        """evaluate stopping condition"""
+        """evaluate whether we should stop forwarding through transformer layers for a given layer"""
         batch_size, _ = mask.shape
         confidences = confidences.masked_fill(mask == 0, 1)
         confidences = confidences.reshape(batch_size // 2, -1)
@@ -932,7 +873,9 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             keep |= confidences <= self.confidence_thresholds[layer_index]
         return keep
 
-    def do_final_point_pruning(self, indices, matches, matching_scores, num_keypoints):
+    def do_final_point_pruning(
+        self, indices: torch.Tensor, matches: torch.Tensor, matching_scores: torch.Tensor, num_keypoints: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         batch_size, _ = indices.shape
         indices = indices.reshape(batch_size // 2, 2, -1)
         indices0, indices1 = indices[:, 0], indices[:, 1]
@@ -955,9 +898,18 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             _matching_scores[i, 1, indices1[i]] = matching_scores1[i]
         return _matches, _matching_scores
 
-    def do_layer_point_pruning(self, descriptors, keypoints, mask, i, indices, prune_output, token):
-        scores = self.match_assignment_layers[i].get_matchability(descriptors)
-        prune_mask = self.get_pruning_mask(token, scores, i)
+    def do_layer_keypoint_pruning(
+        self,
+        descriptors: torch.Tensor,
+        keypoints: torch.Tensor,
+        mask: torch.Tensor,
+        layer_index: int,
+        indices: torch.Tensor,
+        prune_output: torch.Tensor,
+        token: torch.Tensor,
+    ):
+        scores = self.match_assignment_layers[layer_index].get_matchability(descriptors)
+        prune_mask = self.get_pruning_mask(token, scores, layer_index)
         prune_mask = prune_mask.masked_fill(mask == 0, 0)
         batch_size, _, _, keypoint_dim = keypoints.shape
 
@@ -1025,10 +977,14 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
 
         encoded_keypoints = keypoint_encoding_output[0]
 
+        # Early stop consists of stopping the forward pass through the transformer layers when the confidence of the
+        # keypoints is above a certain threshold.
         do_early_stop = self.depth_confidence > 0
-        do_point_pruning = self.width_confidence > 0
+        # Keypoint pruning consists of removing keypoints from the input of the transformer layers when the confidence of
+        # the keypoints is below a certain threshold.
+        do_keypoint_pruning = self.width_confidence > 0
 
-        if do_point_pruning:
+        if do_keypoint_pruning:
             prune_indices = torch.arange(0, initial_num_keypoints, device=device).expand(batch_size * 2, -1)
             prune_output = torch.ones_like(prune_indices)
         if do_early_stop:
@@ -1036,7 +992,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             matching_scores = torch.zeros(
                 (batch_size * 2, initial_num_keypoints), device=device, dtype=descriptors.dtype
             )
-            if do_point_pruning:
+            if do_keypoint_pruning:
                 final_prune_indices = torch.full((batch_size * 2, initial_num_keypoints), -1, device=device)
                 final_prune_output = torch.zeros(
                     (batch_size * 2, initial_num_keypoints), device=device, dtype=prune_output.dtype
@@ -1048,14 +1004,14 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
                 extended_attention_mask = self.get_extended_attention_mask(mask, input_shape)
             else:
                 extended_attention_mask = torch.ones((batch_size, input_shape[-2]), device=keypoints.device)
-            transformer_output = self.transformer_layers[layer_index](
+            layer_output = self.transformer_layers[layer_index](
                 descriptors,
                 encoded_keypoints,
                 attention_mask=extended_attention_mask,
                 output_hidden_states=output_hidden_states,
                 output_attentions=output_attentions,
             )
-            descriptors, hidden_states, attention = transformer_output
+            descriptors, hidden_states, attention = layer_output
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + hidden_states
             if output_attentions:
@@ -1063,11 +1019,16 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
 
             if do_early_stop:
                 if layer_index < self.num_layers - 1:
+                    # Token confidence is only computed for the first num_layers - 1 layers
                     token = self.token_confidence[layer_index](descriptors)
                     early_stops_pair = self.check_if_stop(token, layer_index, mask, num_points=num_points_per_pair)
                 else:
+                    # Early stopping always occurs at the last layer
                     early_stops_pair = torch.ones(batch_size, dtype=torch.bool)
                 if torch.any(early_stops_pair):
+                    # If a pair of images is considered early stopped, we compute the matches for the keypoints that
+                    # have not been pruned yet and stop the forward pass through the transformer layers for this pair
+                    # of images.
                     _, layer_num_keypoints = mask.shape
                     early_stops = early_stops_pair.repeat_interleave(2)
                     early_stopped_pair_indices = pair_indices[early_stops]
@@ -1079,29 +1040,34 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
                     )
                     matches[early_stopped_pair_indices, :layer_num_keypoints] = early_stopped_matches
                     matching_scores[early_stopped_pair_indices, :layer_num_keypoints] = early_stopped_matching_scores
-                    if do_point_pruning:
+                    if do_keypoint_pruning:
                         final_prune_indices[early_stopped_pair_indices, :layer_num_keypoints] = prune_indices[
                             early_stops
                         ]
                         final_prune_output[early_stopped_pair_indices] = prune_output[early_stops]
                     if torch.all(early_stops):
+                        # If all pairs of images are early stopped, we stop the forward pass through the transformer
+                        # layers for all pairs of images.
                         break
+                    # Remove keypoints from early stopped pairs of images for the next iterations
                     num_points_per_pair = num_points_per_pair[~early_stops_pair]
                     descriptors = descriptors[~early_stops]
                     encoded_keypoints = encoded_keypoints[~early_stops]
                     mask = mask[~early_stops]
-                    if do_point_pruning:
+                    if do_keypoint_pruning:
                         prune_indices = prune_indices[~early_stops]
                         prune_output = prune_output[~early_stops]
                         token = token[~early_stops]
                     pair_indices = pair_indices[~early_stops]
 
-            if do_point_pruning:
-                descriptors, encoded_keypoints, prune_indices, mask, prune_output = self.do_layer_point_pruning(
+            if do_keypoint_pruning:
+                # Prune keypoints from the input of the transformer layers for the next iterations if the confidence of
+                # the keypoints is below a certain threshold.
+                descriptors, encoded_keypoints, prune_indices, mask, prune_output = self.do_layer_keypoint_pruning(
                     descriptors, encoded_keypoints, mask, layer_index, prune_indices, prune_output, token
                 )
 
-        if do_early_stop and do_point_pruning:
+        if do_early_stop and do_keypoint_pruning:
             # Concatenate early stopped outputs with the final outputs
             prune_indices = final_prune_indices
             prune_output = final_prune_output

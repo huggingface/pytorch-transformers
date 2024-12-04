@@ -229,7 +229,7 @@ Now let's call the `model_inference` function we created and stream the values.
 ```python
 generator = model_inference(
     user_prompt="And what is in this image?",
-    chat_history=messages,
+    chat_history=messages[:2],
     max_new_tokens=100,
     images=images
 )

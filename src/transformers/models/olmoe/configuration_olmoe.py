@@ -19,7 +19,7 @@ class OlmoeConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a [`OlmoeModel`]. It is used to instantiate an OLMoE
     model according to the specified arguments, defining the model architecture. Instantiating a configuration with the
-    defaults will yield a similar configuration to that of the [allenai/OLMoE-1B-7B-0824](https://huggingface.co/allenai/OLMoE-1B-7B-0824).
+    defaults will yield a similar configuration to that of the [allenai/OLMoE-1B-7B-0924](https://huggingface.co/allenai/OLMoE-1B-7B-0924).
 
     Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
     documentation from [`PretrainedConfig`] for more information.

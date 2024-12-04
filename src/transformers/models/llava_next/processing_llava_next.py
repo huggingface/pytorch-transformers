@@ -165,7 +165,8 @@ class LlavaNextProcessor(ProcessorMixin):
                         image_size = next(image_sizes)
                         if not isinstance(image_size, (list, tuple)):
                             # cast to list to avoid numerical precision errors when calculating unpadding
-                            orig_height, orig_width = image_size.tolist()
+                            image_size = image_size.tolist()
+                        orig_height, orig_width = image_size
                         num_image_tokens = self._get_number_of_features(orig_height, orig_width, height, width)
                         if self.vision_feature_select_strategy == "default":
                             num_image_tokens -= self.num_additional_image_tokens

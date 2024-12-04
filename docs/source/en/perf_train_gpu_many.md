@@ -553,7 +553,7 @@ It performs a sort of 4D Parallelism over Sample-Operator-Attribute-Parameter.
 Examples:
 * Sample
 
-Let's take 10 batches of sequence length 512. If we parallelize them by sample dimension into 2 devices, we get 10 x 512 which becomes be 5 x 2 x 512.
+Let's take 10 batches of sequence length 512. If we parallelize them by sample dimension into 2 devices, we get 10 x 512 which becomes 5 x 2 x 512.
 
 * Operator
 

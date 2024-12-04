@@ -63,7 +63,7 @@ model.generation_config.cache_implementation = "static"
 
 model.forward = torch.compile(model.forward, mode="reduce-overhead", fullgraph=True)
 input_text = "The theory of special relativity states "
-input_ids = tokenizer(input_text, return_tensors="pt").to("cuda")
+input_ids = tokenizer(input_text, return_tensors="pt").to(model.device.type)
 
 outputs = model.generate(**input_ids)
 print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
@@ -93,7 +93,7 @@ model = AutoModelForCausalLM.from_pretrained("google/gemma-2b", device_map="auto
 
 model.forward = torch.compile(model.forward, mode="reduce-overhead", fullgraph=True)
 input_text = "The theory of special relativity states "
-input_ids = tokenizer(input_text, return_tensors="pt").to("cuda")
+input_ids = tokenizer(input_text, return_tensors="pt").to(model.device.type)
 prompt_length = input_ids.input_ids.shape[1]
 model.generation_config.max_new_tokens = 16
 
@@ -126,6 +126,7 @@ If you want to go further down a level, the [`StaticCache`] object can also be p
 from transformers import LlamaTokenizer, LlamaForCausalLM, StaticCache, logging
 from transformers.testing_utils import CaptureLogger
 import torch
+from accelerate.test_utils.testing import get_backend
 
 prompts = [
     "Simply put, the theory of relativity states that ",
@@ -133,7 +134,7 @@ prompts = [
 ]
 
 NUM_TOKENS_TO_GENERATE = 40
-torch_device = "cuda"
+torch_device, _, _ = get_backend() # automatically detects the underlying device type (CUDA, CPU, XPU, MPS, etc.)
 
 tokenizer = LlamaTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf", pad_token="</s>", padding_side="right")
 model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", device_map="sequential")
@@ -205,7 +206,7 @@ model = AutoModelForCausalLM.from_pretrained("google/gemma-2b", device_map="auto
 
 model.generate = torch.compile(model.generate, mode="reduce-overhead", fullgraph=True)
 input_text = "The theory of special relativity states "
-input_ids = tokenizer(input_text, return_tensors="pt").to("cuda")
+input_ids = tokenizer(input_text, return_tensors="pt").to(model.device.type)
 
 outputs = model.generate(**input_ids)
 print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
@@ -241,8 +242,9 @@ Enable speculative decoding by loading an assistant model and passing it to the 
 ```py
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+from accelerate.test_utils.testing import get_backend
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device, _, _ = get_backend() # automatically detects the underlying device type (CUDA, CPU, XPU, MPS, etc.)
 
 tokenizer = AutoTokenizer.from_pretrained("facebook/opt-1.3b")
 inputs = tokenizer("Einstein's theory of relativity states", return_tensors="pt").to(device)
@@ -262,8 +264,9 @@ For speculative sampling decoding, add the `do_sample` and `temperature` paramet
 ```py
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+from accelerate.test_utils.testing import get_backend
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device, _, _ = get_backend() # automatically detects the underlying device type (CUDA, CPU, XPU, MPS, etc.)
 
 tokenizer = AutoTokenizer.from_pretrained("facebook/opt-1.3b")
 inputs = tokenizer("Einstein's theory of relativity states", return_tensors="pt").to(device)
@@ -290,8 +293,9 @@ To enable prompt lookup decoding, specify the number of tokens that should be ov
 ```py
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+from accelerate.test_utils.testing import get_backend
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device, _, _ = get_backend() # automatically detects the underlying device type (CUDA, CPU, XPU, MPS, etc.)
 
 tokenizer = AutoTokenizer.from_pretrained("facebook/opt-1.3b")
 inputs = tokenizer("The second law of thermodynamics states", return_tensors="pt").to(device)
@@ -311,8 +315,9 @@ For prompt lookup decoding with sampling, add the `do_sample` and `temperature` 
 ```py
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+from accelerate.test_utils.testing import get_backend
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device, _, _ = get_backend() # automatically detects the underlying device type (CUDA, CPU, XPU, MPS, etc.)
 
 tokenizer = AutoTokenizer.from_pretrained("facebook/opt-1.3b")
 inputs = tokenizer("The second law of thermodynamics states", return_tensors="pt").to(device)

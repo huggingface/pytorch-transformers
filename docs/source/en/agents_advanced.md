@@ -211,7 +211,7 @@ agent.run("How many more blocks (also denoted as layers) are in BERT base encode
 
 ## Display your agent run in a cool Gradio interface
 
-You can leverage `gradio.Chatbot`to display your agent's thoughts using `stream_to_gradio`, here is an example:
+You can leverage `gradio.Chatbot` to display your agent's thoughts using `stream_to_gradio`, here is an example:
 
 ```py
 import gradio as gr

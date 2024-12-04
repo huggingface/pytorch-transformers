@@ -14,8 +14,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from ..utils import logging
 from .agent_types import AgentAudio, AgentImage, AgentText
-from .agents import ReactAgent
+
+
+logger = logging.get_logger(__name__)
 
 
 def pull_message(step_log: dict, test_mode: bool = True):
@@ -54,7 +57,7 @@ def pull_message(step_log: dict, test_mode: bool = True):
         )
 
 
-def stream_to_gradio(agent: ReactAgent, task: str, test_mode: bool = False, **kwargs):
+def stream_to_gradio(agent, task: str, test_mode: bool = False, **kwargs):
     """Runs an agent with the given task and streams the messages from the agent as gradio ChatMessages."""
 
     try:
@@ -91,3 +94,24 @@ def stream_to_gradio(agent: ReactAgent, task: str, test_mode: bool = False, **kw
         )
     else:
         yield ChatMessage(role="assistant", content=str(final_answer))
+
+
+class Monitor:
+    def __init__(self, tracked_llm_engine):
+        self.step_durations = []
+        self.tracked_llm_engine = tracked_llm_engine
+        if getattr(self.tracked_llm_engine, "last_input_token_count", "Not found") != "Not found":
+            self.total_input_token_count = 0
+            self.total_output_token_count = 0
+
+    def update_metrics(self, step_log):
+        step_duration = step_log["step_duration"]
+        self.step_durations.append(step_duration)
+        logger.info(f"Step {len(self.step_durations)}:")
+        logger.info(f"- Time taken: {step_duration:.2f} seconds (valid only if step succeeded)")
+
+        if getattr(self.tracked_llm_engine, "last_input_token_count", None) is not None:
+            self.total_input_token_count += self.tracked_llm_engine.last_input_token_count
+            self.total_output_token_count += self.tracked_llm_engine.last_output_token_count
+            logger.info(f"- Input tokens: {self.total_input_token_count}")
+            logger.info(f"- Output tokens: {self.total_output_token_count}")

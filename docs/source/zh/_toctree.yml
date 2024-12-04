@@ -54,6 +54,8 @@
     title: 与 GGUF 格式的互操作性
   - local: tiktoken
     title: 与 Tiktoken 文件的互操作性
+  - local: community
+    title: 社区资源
   title: 开发者指南
 - sections:
   - local: performance
@@ -92,6 +94,8 @@
     title: 分词器的摘要
   - local: attention
     title: 注意力机制
+  - local: bertology
+    title: 基于BERT进行的相关研究
   title: 概念指南
 - sections:
   - sections:

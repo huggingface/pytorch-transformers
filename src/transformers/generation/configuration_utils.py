@@ -20,7 +20,7 @@ import os
 import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, is_dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 from .. import __version__
 from ..configuration_utils import PretrainedConfig
@@ -371,6 +371,12 @@ class GenerationConfig(PushToHubMixin):
             to correctly align tokens. Can only be used with different tokenizers in speculative decoding.
             See this [blog](https://huggingface.co/blog/universal_assisted_generation) for more details.
 
+        > Parameters related to performances and compilation
+
+        compile_config (CompileConfig, *optional*):
+            If using a static cache, this controls how `generate` will `compile` the forward pass for performance
+            gains.
+
         > Wild card
 
         generation_kwargs:
@@ -473,6 +479,9 @@ class GenerationConfig(PushToHubMixin):
         ## assistant generation for different tokenizers, the windows size for assistant/target model
         self.assistant_lookbehind = kwargs.pop("assistant_lookbehind", 10)
         self.target_lookbehind = kwargs.pop("target_lookbehind", 10)
+
+        # Performances
+        self.compile_config = kwargs.pop("compile_config", CompileConfig())
 
         # Wild card
         self.generation_kwargs = kwargs.pop("generation_kwargs", {})
@@ -794,7 +803,13 @@ class GenerationConfig(PushToHubMixin):
                 self.watermarking_config = WatermarkingConfig.from_dict(self.watermarking_config)
             self.watermarking_config.validate()
 
-        # 7. other incorrect combinations
+        # 7. performances arguments
+        if not isinstance(self.compile_config, CompileConfig):
+            raise ValueError(
+                f"You provided `compile_config` as an instance of {type(self.compile_config)}, but it must be an instance of `CompileConfig`."
+            )
+
+        # 8. other incorrect combinations
         if self.return_dict_in_generate is not True:
             for extra_output_flag in self.extra_output_flags:
                 if getattr(self, extra_output_flag) is True:
@@ -1175,6 +1190,8 @@ class GenerationConfig(PushToHubMixin):
             del output["_commit_hash"]
         if "_original_object_hash" in output:
             del output["_original_object_hash"]
+        if "compile_config" in output:
+            del output["compile_config"]
 
         # Transformers version when serializing this file
         output["transformers_version"] = __version__
@@ -1559,3 +1576,51 @@ class SynthIDTextWatermarkingConfig(BaseWatermarkingConfig):
             skip_first_ngram_calls=self.skip_first_ngram_calls,
             debug_mode=self.debug_mode,
         )
+
+
+@dataclass
+class CompileConfig(object):
+    """
+    Class that holds arguments relative to `torch.compile` behavior, when using automatic compilation in `generate`.
+    See [`torch.compile`](https://pytorch.org/docs/stable/generated/torch.compile.html) for more details on the arguments.
+
+    Args:
+        fullgraph (`bool`, *optional*, defaults to `True`):
+            If `True`, requires that the whole forward be capturable in a single graph.
+        dynamic (`bool` or `None`, *optional*):
+            Whether to try to use dynamic shape graphs.
+        backend (`str` or `Callable`, *optional*, defaults to `"inductor"`):
+            Backend to be used.
+        mode (`str`, *optional*, defaults to `"reduce-overhead"`):
+            Controls balance between performance and overhead.
+        options (`dict`, *optional*):
+            A dictionary of options to pass to the backend.
+
+    Examples:
+    ```python
+    >>> from transformers import AutoModelForCausalLM, AutoTokenizer, CompileConfig
+
+    >>> tokenizer = AutoTokenizer.from_pretrained('google/gemma-2-2b')
+    >>> model = AutoModelForCausalLM.from_pretrained('google/gemma-2-2b').cuda()
+
+    >>> # Automatic compile configuration, used with static cache
+    >>> compile_config = CompileConfig(dynamic=True)
+
+    >>> # Generation with static cache and compile config
+    >>> input = tokenizer.encode("Hello there, how", return_tensors="pt").cuda()
+    >>> output = model.generate(
+    ...     input, do_sample=False, max_new_tokens=300, cache_implementation="static", compile_config=compile_config
+    ... )
+    >>> output_text = tokenizer.batch_decode(output, skip_special_tokens=True)[0]
+    ```
+    """
+
+    fullgraph: bool = True
+    dynamic: Optional[bool] = None
+    backend: Union[str, Callable] = "inductor"
+    mode: str = "reduce-overhead"
+    options: Optional[dict] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializes this instance to a Python dictionary."""
+        return copy.deepcopy(self.__dict__)

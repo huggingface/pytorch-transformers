@@ -93,7 +93,7 @@ class QuantoHfQuantizer(HfQuantizer):
             from optimum.quanto import QModuleMixin
         elif is_quanto_available():
             logger.warning_once(
-                "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instrad `pip install optimum-quanto`"
+                "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
             )
             from quanto import QModuleMixin
 
@@ -124,7 +124,7 @@ class QuantoHfQuantizer(HfQuantizer):
             from optimum.quanto import QModuleMixin
         elif is_quanto_available():
             logger.warning_once(
-                "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instrad `pip install optimum-quanto`"
+                "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
             )
             from quanto import QModuleMixin
 

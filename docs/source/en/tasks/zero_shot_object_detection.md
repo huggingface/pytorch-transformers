@@ -288,7 +288,7 @@ as before except now there are no labels.
 >>> scores = results["scores"].tolist()
 >>> boxes = results["boxes"].tolist()
 
->>> for box, score, label in zip(boxes, scores, labels):
+>>> for box, score in zip(boxes, scores):
 ...     xmin, ymin, xmax, ymax = box
 ...     draw.rectangle((xmin, ymin, xmax, ymax), outline="white", width=4)
 

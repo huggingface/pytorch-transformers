@@ -325,6 +325,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
         resample: PILImageResampling = PILImageResampling.BILINEAR,
         do_rescale: bool = True,
         rescale_factor: float = 1 / 255,
+        do_grayscale: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -336,6 +337,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
         self.resample = resample
         self.do_rescale = do_rescale
         self.rescale_factor = rescale_factor
+        self.do_grayscale = do_grayscale
 
     def resize(
         self,
@@ -389,6 +391,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
         resample: PILImageResampling = None,
         do_rescale: bool = None,
         rescale_factor: float = None,
+        do_grayscale: bool = None,
         return_tensors: Optional[Union[str, TensorType]] = None,
         data_format: ChannelDimension = ChannelDimension.FIRST,
         input_data_format: Optional[Union[str, ChannelDimension]] = None,
@@ -415,6 +418,8 @@ class LightGlueImageProcessor(BaseImageProcessor):
                 Whether to rescale the image values between [0 - 1].
             rescale_factor (`float`, *optional*, defaults to `self.rescale_factor`):
                 Rescale factor to rescale the image by if `do_rescale` is set to `True`.
+            do_grayscale (`bool`, *optional*, defaults to `self.do_grayscale`):
+                Whether to convert the image to grayscale.
             return_tensors (`str` or `TensorType`, *optional*):
                 The type of tensors to return. Can be one of:
                     - Unset: Return a list of `np.ndarray`.
@@ -439,6 +444,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
         resample = resample if resample is not None else self.resample
         do_rescale = do_rescale if do_rescale is not None else self.do_rescale
         rescale_factor = rescale_factor if rescale_factor is not None else self.rescale_factor
+        do_grayscale = do_grayscale if do_grayscale is not None else self.do_grayscale
 
         size = size if size is not None else self.size
         size = get_size_dict(size, default_to_square=False)
@@ -498,10 +504,8 @@ class LightGlueImageProcessor(BaseImageProcessor):
                 for image in images
             ]
 
-        # Checking if image is RGB or grayscale
-        for i in range(len(images)):
-            if not is_grayscale(images[i], input_data_format):
-                images[i] = convert_to_grayscale(images[i], input_data_format=input_data_format)
+        if do_grayscale:
+            images = [convert_to_grayscale(image, input_data_format=input_data_format) for image in images]
 
         images = [
             to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format) for image in images

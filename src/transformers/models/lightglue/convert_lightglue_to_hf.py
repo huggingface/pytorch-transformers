@@ -194,6 +194,8 @@ def write_model(
     print("Model reloaded successfully.")
 
     model_name = "lightglue"
+    if "superpoint" in checkpoint_url:
+        model_name += "superpoint"
     print("Checking the model outputs...")
     verify_model_outputs(model)
     print("Model outputs verified successfully.")
@@ -211,7 +213,10 @@ def write_model(
 
 
 def write_image_processor(save_dir, model_name, organization, push_to_hub=False):
-    image_processor = LightGlueImageProcessor()
+    if "superpoint" in model_name:
+        image_processor = LightGlueImageProcessor(do_grayscale=True)
+    else:
+        image_processor = LightGlueImageProcessor()
     image_processor.save_pretrained(save_dir)
 
     if push_to_hub:

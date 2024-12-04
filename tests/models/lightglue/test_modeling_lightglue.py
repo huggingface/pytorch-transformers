@@ -125,7 +125,7 @@ class LightGlueModelTest(ModelTesterMixin, unittest.TestCase):
     test_resize_embeddings = False
     test_head_masking = False
     has_attentions = True
-    from_pretrained_ids = ["stevenbucaille/lightglue"]
+    from_pretrained_ids = ["stevenbucaille/lightglue_superpoint"]
 
     def setUp(self):
         self.model_tester = LightGlueModelTester(self)
@@ -296,12 +296,16 @@ def prepare_imgs():
 class LightGlueModelIntegrationTest(unittest.TestCase):
     @cached_property
     def default_image_processor(self):
-        return AutoImageProcessor.from_pretrained("stevenbucaille/lightglue") if is_vision_available() else None
+        return (
+            AutoImageProcessor.from_pretrained("stevenbucaille/lightglue_superpoint")
+            if is_vision_available()
+            else None
+        )
 
     @slow
     def test_inference(self):
         model = LightGlueForKeypointMatching.from_pretrained(
-            "stevenbucaille/lightglue", attn_implementation="eager"
+            "stevenbucaille/lightglue_superpoint", attn_implementation="eager"
         ).to(torch_device)
         preprocessor = self.default_image_processor
         images = prepare_imgs()

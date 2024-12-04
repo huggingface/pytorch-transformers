@@ -42,7 +42,7 @@ if is_flash_attn_2_available():
 logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC_ = "LightGlueConfig"
-_CHECKPOINT_FOR_DOC_ = "stevenbucaille/lightglue"
+_CHECKPOINT_FOR_DOC_ = "stevenbucaille/lightglue_superpoint"
 
 
 # Copied from transformers.models.superglue.modeling_superglue.concat_pairs

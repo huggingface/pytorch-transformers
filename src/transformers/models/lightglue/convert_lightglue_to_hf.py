@@ -43,16 +43,14 @@ def verify_model_outputs(model):
 
     predicted_number_of_matches = torch.sum(outputs.matches[0][0] != -1).item()
 
-    expected_max_number_keypoints = 866
+    expected_max_number_keypoints = 918
     expected_matches_shape = torch.Size((len(images), 2, expected_max_number_keypoints))
     expected_matching_scores_shape = torch.Size((len(images), 2, expected_max_number_keypoints))
 
-    expected_matches_values = torch.tensor([-1, -1, -1, -1, -1, -1, -1, -1, 540, -1], dtype=torch.int64).to(device)
-    expected_matching_scores_values = torch.tensor([0, 0, 0.0167, 0.0304, 0.0328, 0, 0, 0.0095, 0.2964, 0.0352]).to(
-        device
-    )
+    expected_matches_values = torch.tensor([-1, 25, -1, -1, -1, -1, -1, -1, -1, -1], dtype=torch.int64).to(device)
+    expected_matching_scores_values = torch.tensor([0, 0.1502, 0, 0, 0.0031, 0, 0, 0, 0, 0]).to(device)
 
-    expected_number_of_matches = 127
+    expected_number_of_matches = 147
 
     assert outputs.matches.shape == expected_matches_shape
     assert outputs.matching_scores.shape == expected_matching_scores_shape
@@ -195,7 +193,7 @@ def write_model(
 
     model_name = "lightglue"
     if "superpoint" in checkpoint_url:
-        model_name += "superpoint"
+        model_name += "_superpoint"
     print("Checking the model outputs...")
     verify_model_outputs(model)
     print("Model outputs verified successfully.")

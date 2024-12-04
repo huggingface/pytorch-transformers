@@ -43,6 +43,7 @@ class LightGlueImageProcessingTester(unittest.TestCase):
         max_resolution=400,
         do_resize=True,
         size=None,
+        do_grayscale=True,
     ):
         size = size if size is not None else {"height": 480, "width": 640}
         self.parent = parent
@@ -53,11 +54,13 @@ class LightGlueImageProcessingTester(unittest.TestCase):
         self.max_resolution = max_resolution
         self.do_resize = do_resize
         self.size = size
+        self.do_grayscale = do_grayscale
 
     def prepare_image_processor_dict(self):
         return {
             "do_resize": self.do_resize,
             "size": self.size,
+            "do_grayscale": self.do_grayscale,
         }
 
     def expected_output_image_shape(self, images):

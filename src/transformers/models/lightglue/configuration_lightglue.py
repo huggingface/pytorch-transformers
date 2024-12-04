@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from ... import SuperPointConfig
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 from ..auto import CONFIG_MAPPING
@@ -64,7 +65,7 @@ class LightGlueConfig(PretrainedConfig):
 
     def __init__(
         self,
-        keypoint_detector_config=None,
+        keypoint_detector_config: SuperPointConfig = None,
         descriptor_dim: int = 256,
         num_layers: int = 9,
         num_heads: int = 4,
@@ -77,7 +78,6 @@ class LightGlueConfig(PretrainedConfig):
         if descriptor_dim % num_heads != 0:
             raise ValueError("descriptor_dim % num_heads is different from zero")
 
-        # TODO Add `add_scale_and_orientation` if keypoint detectors like SIFT or DogHardNet are implemented
         self.descriptor_dim = descriptor_dim
         self.num_layers = num_layers
         self.num_heads = num_heads

@@ -177,8 +177,6 @@ class LightGlueKeypointMatchingOutput(ModelOutput):
     Args:
         loss (`torch.FloatTensor` of shape `(1,)`, *optional*):
             Loss computed during training.
-        mask (`torch.BoolTensor` of shape `(batch_size, num_keypoints)`):
-            Mask indicating which values in matches and matching_scores are keypoint matching information.
         matches (`torch.FloatTensor` of shape `(batch_size, 2, num_matches)`):
             Index of keypoint matched in the other image.
         matching_scores (`torch.FloatTensor` of shape `(batch_size, 2, num_matches)`):
@@ -187,22 +185,24 @@ class LightGlueKeypointMatchingOutput(ModelOutput):
             Absolute (x, y) coordinates of predicted keypoints in a given image.
         prune (`torch.IntTensor` of shape `(batch_size, num_keypoints)`):
             Pruning mask indicating which keypoints are removed and at which layer.
-        hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or
-        when `config.output_hidden_states=True`):
+        mask (`torch.BoolTensor` of shape `(batch_size, num_keypoints)`):
+            Mask indicating which values in matches and matching_scores are keypoint matching information.
+        hidden_states (`tuple(torch.FloatTensor)`, *optional*):
             Tuple of `torch.FloatTensor` (one for the output of each stage) of shape `(batch_size, 2, num_channels,
-            num_keypoints)`.
-        attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or when
-        `config.output_attentions=True`):
+            num_keypoints)` returned when `output_hidden_states=True` is passed or when
+            `config.output_hidden_states=True`
+        attentions (`tuple(torch.FloatTensor)`, *optional*):
             Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, 2, num_heads, num_keypoints,
-            num_keypoints)`.
+            num_keypoints)` returned when `output_attentions=True` is passed or when
+            `config.output_attentions=True`
     """
 
     loss: Optional[torch.FloatTensor] = None
-    mask: torch.FloatTensor = None
     matches: torch.FloatTensor = None
     matching_scores: torch.FloatTensor = None
     keypoints: torch.FloatTensor = None
     prune: torch.IntTensor = None
+    mask: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
 
@@ -808,9 +808,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
     def __init__(self, config: LightGlueConfig):
         super().__init__(config)
 
-        self.keypoint_detector = AutoModelForKeypointDetection.from_config(
-            config.keypoint_detector_config, attn_implementation="eager"
-        )
+        self.keypoint_detector = AutoModelForKeypointDetection.from_config(config.keypoint_detector_config)
 
         self.descriptor_dim = config.descriptor_dim
         self.num_layers = config.num_layers
@@ -837,12 +835,12 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
 
         self.register_buffer(
             "confidence_thresholds",
-            torch.Tensor([self.confidence_threshold(i) for i in range(self.num_layers)]),
+            torch.Tensor([self.get_confidence_threshold(i) for i in range(self.num_layers)]),
         )
 
         self.post_init()
 
-    def confidence_threshold(self, layer_index: int) -> float:
+    def get_confidence_threshold(self, layer_index: int) -> float:
         """scaled confidence threshold for a given layer"""
         threshold = 0.8 + 0.1 * np.exp(-4.0 * layer_index / self.num_layers)
         return np.clip(threshold, 0, 1)
@@ -1148,17 +1146,17 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         if not return_dict:
             return tuple(
                 v
-                for v in [mask, matches, matching_scores, keypoints, prune, hidden_states, attentions]
+                for v in [matches, matching_scores, keypoints, prune, mask, hidden_states, attentions]
                 if v is not None
             )
 
         return LightGlueKeypointMatchingOutput(
             loss=loss,
-            mask=mask,
             matches=matches,
             matching_scores=matching_scores,
             keypoints=keypoints,
             prune=prune,
+            mask=mask,
             hidden_states=hidden_states,
             attentions=attentions,
         )

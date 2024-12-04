@@ -30,10 +30,11 @@ from transformers.models.lightglue.configuration_lightglue import LightGlueConfi
 def verify_model_outputs(model):
     from tests.models.lightglue.test_modeling_lightglue import prepare_imgs
 
+    device = "cuda"
     images = prepare_imgs()
     preprocessor = LightGlueImageProcessor()
-    inputs = preprocessor(images=images, return_tensors="pt").to("cuda")
-    model.to("cuda")
+    inputs = preprocessor(images=images, return_tensors="pt").to(device)
+    model.to(device)
     with torch.no_grad():
         outputs = model(**inputs, output_hidden_states=True, output_attentions=True)
 
@@ -46,9 +47,9 @@ def verify_model_outputs(model):
     expected_matches_shape = torch.Size((len(images), 2, expected_max_number_keypoints))
     expected_matching_scores_shape = torch.Size((len(images), 2, expected_max_number_keypoints))
 
-    expected_matches_values = torch.tensor([-1, -1, -1, -1, -1, -1, -1, -1, 540, -1], dtype=torch.int64).to("cuda")
+    expected_matches_values = torch.tensor([-1, -1, -1, -1, -1, -1, -1, -1, 540, -1], dtype=torch.int64).to(device)
     expected_matching_scores_values = torch.tensor([0, 0, 0.0167, 0.0304, 0.0328, 0, 0, 0.0095, 0.2964, 0.0352]).to(
-        "cuda"
+        device
     )
 
     expected_number_of_matches = 127

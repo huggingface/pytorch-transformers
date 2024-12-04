@@ -42,7 +42,6 @@ if is_flash_attn_2_available():
 logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC_ = "LightGlueConfig"
-
 _CHECKPOINT_FOR_DOC_ = "stevenbucaille/lightglue"
 
 
@@ -217,7 +216,8 @@ class LightGluePositionalEncoder(nn.Module):
         self, keypoints: torch.Tensor, output_hidden_states: Optional[bool] = False
     ) -> Union[Tuple[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
         projected_keypoints = self.projector(keypoints)
-        cosines, sines = torch.cos(projected_keypoints), torch.sin(projected_keypoints)
+        cosines = torch.cos(projected_keypoints)
+        sines = torch.sin(projected_keypoints)
         embeddings = torch.cat([sines, cosines], -1).unsqueeze(-3)
         output = (embeddings, projected_keypoints) if output_hidden_states else (embeddings,)
         return output

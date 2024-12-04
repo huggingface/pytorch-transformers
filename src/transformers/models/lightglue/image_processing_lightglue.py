@@ -525,6 +525,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
         """
         Converts the raw output of [`LightGlueKeypointMatchingOutput`] into lists of keypoints, matches and scores with
         coordinates absolute to the original image sizes.
+        
         Args:
             outputs ([`LightGlueKeypointMatchingOutput`]):
                 Raw outputs of the model.
@@ -534,6 +535,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
                 any processing).
             threshold (`float`, *optional*, defaults to 0.0):
                 Threshold to filter out the matches with low scores.
+        
         Returns:
             `List[Dict]`: A list of dictionaries, each dictionary containing the keypoints in the first and second image
             of the pair, the matching scores and the matching indices.

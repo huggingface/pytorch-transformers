@@ -468,14 +468,14 @@ class GotOcr2Processor(ProcessorMixin):
             tokenizer_init_kwargs=self.tokenizer.init_kwargs,
             **kwargs,
         )
-        format = output_kwargs["text_kwargs"].pop("format", False)
-        num_image_tokens = output_kwargs["images_kwargs"].pop("num_image_tokens", 256)
+        format = output_kwargs["text_kwargs"].pop("format")
+        num_image_tokens = output_kwargs["images_kwargs"].pop("num_image_tokens")
         box = output_kwargs["images_kwargs"].pop("box", [None])
         color = output_kwargs["images_kwargs"].pop("color", None)
-        multi_page = output_kwargs["images_kwargs"].pop("multi_page", False)
-        crop_to_patches = output_kwargs["images_kwargs"].pop("crop_to_patches", False)
-        min_patches = output_kwargs["images_kwargs"].pop("min_patches", 1)
-        max_patches = output_kwargs["images_kwargs"].pop("max_patches", 6)
+        multi_page = output_kwargs["images_kwargs"].pop("multi_page")
+        crop_to_patches = output_kwargs["images_kwargs"].pop("crop_to_patches")
+        min_patches = output_kwargs["images_kwargs"].pop("min_patches")
+        max_patches = output_kwargs["images_kwargs"].pop("max_patches")
 
         self._check_call_arguments(images, box, color, multi_page, crop_to_patches)
         images, text, box, color = self._make_list_of_inputs(images, text, box, color, multi_page)

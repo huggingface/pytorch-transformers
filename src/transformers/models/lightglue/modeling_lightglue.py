@@ -907,34 +907,30 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         prune_output: torch.Tensor,
         token: torch.Tensor,
     ):
+        """
+        For a given layer, prune keypoints based on the confidence of the keypoints and the matchability of the
+        descriptors.
+        """
+        batch_size, _, _ = descriptors.shape
         scores = self.match_assignment_layers[layer_index].get_matchability(descriptors)
-        prune_mask = self.get_pruning_mask(token, scores, layer_index)
-        prune_mask = prune_mask.masked_fill(mask == 0, 0)
-        batch_size, _, _, keypoint_dim = keypoints.shape
+        pruned_keypoints_mask = self.get_pruning_mask(token, scores, layer_index)
+        pruned_keypoints_mask = pruned_keypoints_mask.masked_fill(mask == 0, False)
 
-        list_kept_indices = []
+        # For each image, we extract the pruned indices and the corresponding descriptors and keypoints.
+        pruned_descriptors, pruned_keypoints, pruned_mask, pruned_indices = (
+            [t[mask] for t, mask in zip(tensor, pruned_keypoints_mask)]
+            for tensor in [descriptors, keypoints, pruned_keypoints_mask, indices]
+        )
         for i in range(batch_size):
-            keep = torch.where(prune_mask[i])[0]
-            list_kept_indices.append(keep)
+            prune_output[i, pruned_indices[i]] += 1
 
-        max_number_kept_keypoints = max(len(x) for x in list_kept_indices)
-        pruned_indices = torch.full((batch_size, max_number_kept_keypoints), -1, device=descriptors.device)
-        pruned_mask = torch.zeros((batch_size, max_number_kept_keypoints), device=descriptors.device)
-        pruned_descriptors = torch.zeros(
-            (batch_size, max_number_kept_keypoints, self.descriptor_dim),
-            device=descriptors.device,
-            dtype=descriptors.dtype,
+        # Pad the pruned descriptors, keypoints, indices and mask to have the same shape across the batch.
+        pruned_descriptors, pruned_keypoints, pruned_mask = (
+            torch.nn.utils.rnn.pad_sequence(pruned_tensor, batch_first=True)
+            for pruned_tensor in [pruned_descriptors, pruned_keypoints, pruned_mask]
         )
-        pruned_keypoints = torch.zeros(
-            (batch_size, 1, max_number_kept_keypoints, keypoint_dim), device=keypoints.device, dtype=keypoints.dtype
-        )
-        for i, keep in enumerate(list_kept_indices):
-            num_kept_keypoints = len(keep)
-            pruned_indices[i, :num_kept_keypoints] = indices[i].index_select(-1, keep)
-            pruned_descriptors[i, :num_kept_keypoints] = descriptors[i].index_select(-2, keep)
-            pruned_mask[i, :num_kept_keypoints] = 1
-            pruned_keypoints[i, :, :num_kept_keypoints] = keypoints[i].index_select(-2, keep)
-            prune_output[i, pruned_indices[i, :num_kept_keypoints]] += 1
+        pruned_indices = torch.nn.utils.rnn.pad_sequence(pruned_indices, batch_first=True, padding_value=-1)
+
         return pruned_descriptors, pruned_keypoints, pruned_indices, pruned_mask, prune_output
 
     def _match_image_pair(

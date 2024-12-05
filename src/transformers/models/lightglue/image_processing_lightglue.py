@@ -30,9 +30,9 @@ from ...image_utils import (
     is_pil_image,
     is_scaled_image,
     is_valid_image,
-    make_list_of_images,
     to_numpy_array,
     valid_images,
+    validate_preprocess_arguments,
 )
 from ...utils import TensorType, logging, requires_backends
 
@@ -314,6 +314,8 @@ class LightGlueImageProcessor(BaseImageProcessor):
         rescale_factor (`int` or `float`, *optional*, defaults to `1/255`):
             Scale factor to use if rescaling the image. Can be overriden by `rescale_factor` in the `preprocess`
             method.
+        do_grayscale (`bool`, *optional*, defaults to `False`):
+            Whether to convert the image to grayscale. Can be overriden by `do_grayscale` in the `preprocess` method.
     """
 
     model_input_names = ["pixel_values"]
@@ -383,6 +385,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
             **kwargs,
         )
 
+    # Copied from transformers.models.superglue.image_processing_superglue.SuperGlueImageProcessor.preprocess with SuperGlue->LightGlue
     def preprocess(
         self,
         images,
@@ -402,8 +405,9 @@ class LightGlueImageProcessor(BaseImageProcessor):
 
         Args:
             images (`ImageInput`):
-                Image pairs to preprocess. Expects either a list of 2 images or a list of list of 2 images list with pixel values ranging from 0 to 255. If
-                passing in images with pixel values between 0 and 1, set `do_rescale=False`.
+                Image pairs to preprocess. Expects either a list of 2 images or a list of list of 2 images list with
+                pixel values ranging from 0 to 255. If passing in images with pixel values between 0 and 1, set
+                `do_rescale=False`.
             do_resize (`bool`, *optional*, defaults to `self.do_resize`):
                 Whether to resize the image.
             size (`Dict[str, int]`, *optional*, defaults to `self.size`):
@@ -449,23 +453,8 @@ class LightGlueImageProcessor(BaseImageProcessor):
         size = size if size is not None else self.size
         size = get_size_dict(size, default_to_square=False)
 
-        image_pairs = images
-
-        if not isinstance(image_pairs, list):
-            raise ValueError(
-                "Input images must be a list containing at least 2 images because SuperGlue takes pairs of images."
-            )
-        elif len(image_pairs) == 2 and not isinstance(image_pairs[0], list):
-            images = image_pairs
-        else:
-            for pair in image_pairs:
-                if not isinstance(pair, (list, tuple)) or len(pair) != 2:
-                    raise ValueError(
-                        "Input images must be a list of pairs of images because SuperGlue takes pairs of images."
-                    )
-            images = [image for pair in image_pairs for image in pair]
-
-        images = make_list_of_images(images)
+        # Validate and convert the input images into a flattened list of images for all subsequent processing steps.
+        images = validate_and_format_image_pairs(images)
 
         if not valid_images(images):
             raise ValueError(
@@ -473,11 +462,13 @@ class LightGlueImageProcessor(BaseImageProcessor):
                 "torch.Tensor, tf.Tensor or jax.ndarray."
             )
 
-        if do_resize and size is None:
-            raise ValueError("Size must be specified if do_resize is True.")
-
-        if do_rescale and rescale_factor is None:
-            raise ValueError("Rescale factor must be specified if do_rescale is True.")
+        validate_preprocess_arguments(
+            do_resize=do_resize,
+            size=size,
+            resample=resample,
+            do_rescale=do_rescale,
+            rescale_factor=rescale_factor,
+        )
 
         # All transformations expect numpy arrays.
         images = [to_numpy_array(image) for image in images]
@@ -511,9 +502,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
             to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format) for image in images
         ]
 
-        if not do_resize:
-            images = pad_images(images, data_format=data_format)
-
+        # Convert back the flattened list of images into a list of pairs of images.
         image_pairs = [images[i : i + 2] for i in range(0, len(images), 2)]
 
         data = {"pixel_values": image_pairs}

@@ -33,6 +33,7 @@ if is_vision_available():
 
 
 class LightGlueImageProcessingTester(unittest.TestCase):
+    # Copied from tests.models.superglue.test_image_processing_superglue.SuperGlueImageProcessingTester.__init__
     def __init__(
         self,
         parent,
@@ -56,6 +57,7 @@ class LightGlueImageProcessingTester(unittest.TestCase):
         self.size = size
         self.do_grayscale = do_grayscale
 
+    # Copied from tests.models.superglue.test_image_processing_superglue.SuperGlueImageProcessingTester.prepare_image_processor_dict
     def prepare_image_processor_dict(self):
         return {
             "do_resize": self.do_resize,
@@ -63,9 +65,11 @@ class LightGlueImageProcessingTester(unittest.TestCase):
             "do_grayscale": self.do_grayscale,
         }
 
+    # Copied from tests.models.superglue.test_image_processing_superglue.SuperGlueImageProcessingTester.expected_output_image_shape
     def expected_output_image_shape(self, images):
         return 2, self.num_channels, self.size["height"], self.size["width"]
 
+    # Copied from tests.models.superglue.test_image_processing_superglue.SuperGlueImageProcessingTester.prepare_image_inputs
     def prepare_image_inputs(self, equal_resolution=False, numpify=False, torchify=False, pairs=True, batch_size=None):
         batch_size = batch_size if batch_size is not None else self.batch_size
         image_inputs = prepare_image_inputs(
@@ -110,6 +114,7 @@ class LightGlueImageProcessingTester(unittest.TestCase):
 
 @require_torch
 @require_vision
+# Copied from tests.models.superglue.test_image_processing_superglue.SuperGlueImageProcessingTest with SuperGlue->LightGlue
 class LightGlueImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
     image_processing_class = LightGlueImageProcessor if is_vision_available() else None
 
@@ -127,6 +132,7 @@ class LightGlueImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         self.assertTrue(hasattr(image_processing, "size"))
         self.assertTrue(hasattr(image_processing, "do_rescale"))
         self.assertTrue(hasattr(image_processing, "rescale_factor"))
+        self.assertTrue(hasattr(image_processing, "do_grayscale"))
 
     def test_image_processor_from_dict_with_kwargs(self):
         image_processor = self.image_processing_class.from_dict(self.image_processor_dict)
@@ -140,6 +146,165 @@ class LightGlueImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
     @unittest.skip(reason="SuperPointImageProcessor is always supposed to return a grayscaled image")
     def test_call_numpy_4_channels(self):
         pass
+
+    def test_number_and_format_of_images_in_input(self):
+        image_processor = self.image_processing_class.from_dict(self.image_processor_dict)
+
+        # Cases where the number of images and the format of lists in the input is correct
+        image_input = self.image_processor_tester.prepare_image_inputs(pairs=False, batch_size=2)
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((1, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        image_input = self.image_processor_tester.prepare_image_inputs(pairs=True, batch_size=2)
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((1, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        image_input = self.image_processor_tester.prepare_image_inputs(pairs=True, batch_size=4)
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((2, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        image_input = self.image_processor_tester.prepare_image_inputs(pairs=True, batch_size=6)
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((3, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        # Cases where the number of images or the format of lists in the input is incorrect
+        ## List of 4 images
+        image_input = self.image_processor_tester.prepare_image_inputs(pairs=False, batch_size=4)
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+        ## List of 3 images
+        image_input = self.image_processor_tester.prepare_image_inputs(pairs=False, batch_size=3)
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+        ## List of 2 pairs and 1 image
+        image_input = self.image_processor_tester.prepare_image_inputs(pairs=True, batch_size=3)
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+    def test_image_shape_in_input(self):
+        def random_array(size):
+            return np.random.randint(255, size=size)
+
+        def random_tensor(size):
+            return torch.rand(size)
+
+        image_processor = self.image_processing_class.from_dict(self.image_processor_dict)
+
+        # Cases where the shape of the images in the input is correct
+        ## 2 images with shape (3, 100, 200)
+        image_input = [random_array((3, 100, 200)), random_array((3, 100, 200))]
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((1, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        ## 1 array with shape (2, 3, 100, 200)
+        image_input = random_array((2, 3, 100, 200))
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((1, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        ## 1 list of 2 images with shape (3, 100, 200)
+        image_input = [[random_array((3, 100, 200)), random_array((3, 100, 200))]]
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((1, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        ## 1 list of 1 array with shape (2, 3, 100, 200)
+        image_input = [random_array((2, 3, 100, 200))]
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((1, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        ## 1 list of 3 array with shape (2, 3, 100, 200)
+        image_input = [random_array((2, 3, 100, 200)), random_array((2, 3, 100, 200)), random_array((2, 3, 100, 200))]
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((3, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        ## 1 array with shape (1, 2, 3, 100, 200)
+        image_input = random_array((1, 2, 3, 100, 200))
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((1, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        ## 1 array with shape (3, 2, 3, 100, 200)
+        image_input = random_array((3, 2, 3, 100, 200))
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((3, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        ## 1 list of 2 tensors with shape (3, 100, 200)
+        image_input = [random_tensor((3, 100, 200)), random_tensor((3, 100, 200))]
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((1, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        ## 1 tensor with shape (2, 3, 100, 200)
+        image_input = random_tensor((2, 3, 100, 200))
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((1, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        ## 1 tensor with shape (1, 2, 3, 100, 200)
+        image_input = random_tensor((1, 2, 3, 100, 200))
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((1, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        ## 1 tensor with shape (2, 2, 3, 100, 200)
+        image_input = random_tensor((2, 2, 3, 100, 200))
+        image_processed = image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual((2, 2, 3, 480, 640), tuple(image_processed["pixel_values"].shape))
+
+        # Cases where the shape of the images in the input is incorrect
+        ## 1 image with shape (3, 100, 200)
+        image_input = random_array((3, 100, 200))
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+        ## 1 list of 1 image with shape (3, 100, 200)
+        image_input = [random_array((3, 100, 200))]
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+        ## 1 array with shape (1, 3, 100, 200)
+        image_input = random_array((1, 3, 100, 200))
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+        ## 1 list of a list of 1 image (3, 100, 200)
+        image_input = [[random_array((3, 100, 200))]]
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+        ## 1 list of 2 lists of 1 image (3, 100, 200)
+        image_input = [[random_array((3, 100, 200))], [random_array((3, 100, 200))]]
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+        ## 1 list of 2 arrays with shape (1, 3, 100, 200)
+        image_input = [random_array((1, 3, 100, 200)), random_array((1, 3, 100, 200))]
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+        ## 1 array with shape (1, 1, 3, 100, 200)
+        image_input = random_array((1, 1, 3, 100, 200))
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+        ## 1 tensor with shape (3, 100, 200)
+        image_input = random_tensor((3, 100, 200))
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
+
+        ## 1 tensor with shape (1, 3, 100, 200)
+        image_input = random_tensor((1, 3, 100, 200))
+        with self.assertRaises(ValueError) as cm:
+            image_processor.preprocess(image_input, return_tensors="pt")
+        self.assertEqual(ValueError, cm.exception.__class__)
 
     def test_input_images_properly_paired(self):
         image_processor = self.image_processing_class.from_dict(self.image_processor_dict)
@@ -262,21 +427,8 @@ class LightGlueImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         expected_output_image_shape = self.image_processor_tester.expected_output_image_shape(image_pairs[0])
         self.assertEqual(tuple(encoded_images.shape), (expected_batch_size, *expected_output_image_shape))
 
-    def test_image_processor_padding(self):
-        custom_image_processor_dict = self.image_processor_dict
-        custom_image_processor_dict["do_resize"] = False
-        image_processing = self.image_processing_class(**custom_image_processor_dict)
-        image_pairs = self.image_processor_tester.prepare_image_inputs(
-            equal_resolution=False, numpify=True, batch_size=2, pairs=False
-        )
-        encoded_images = image_processing(image_pairs, return_tensors="pt").pixel_values
-        max_height = max(image.shape[0] for image in image_pairs)
-        max_width = max(image.shape[1] for image in image_pairs)
-        expected_output_image_shape = (2, 3, max_height, max_width)
-        self.assertEqual(tuple(encoded_images.shape), (1, *expected_output_image_shape))
-
     @require_torch
-    def test_post_processing_keypoint_detection(self):
+    def test_post_processing_keypoint_matching(self):
         image_processor = self.image_processing_class.from_dict(self.image_processor_dict)
         image_inputs = self.image_processor_tester.prepare_image_inputs()
         pre_processed_images = image_processor.preprocess(image_inputs, return_tensors="pt")

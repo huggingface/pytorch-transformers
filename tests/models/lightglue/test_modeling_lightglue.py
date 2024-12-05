@@ -108,6 +108,10 @@ class LightGlueModelTester:
             result.matching_scores.shape,
             (self.batch_size, 2, maximum_num_matches),
         )
+        self.parent.assertEqual(
+            result.prune.shape,
+            (self.batch_size, 2, maximum_num_matches),
+        )
 
     def prepare_config_and_inputs_for_common(self):
         config_and_inputs = self.prepare_config_and_inputs()
@@ -125,7 +129,6 @@ class LightGlueModelTest(ModelTesterMixin, unittest.TestCase):
     test_resize_embeddings = False
     test_head_masking = False
     has_attentions = True
-    from_pretrained_ids = ["stevenbucaille/lightglue_superpoint"]
 
     def setUp(self):
         self.model_tester = LightGlueModelTester(self)
@@ -261,10 +264,12 @@ class LightGlueModelTest(ModelTesterMixin, unittest.TestCase):
 
     @slow
     def test_model_from_pretrained(self):
-        for model_name in self.from_pretrained_ids:
+        from_pretrained_ids = ["stevenbucaille/lightglue_superpoint"]
+        for model_name in from_pretrained_ids:
             model = LightGlueForKeypointMatching.from_pretrained(model_name)
             self.assertIsNotNone(model)
 
+    # Copied from tests.models.superglue.test_modeling_superglue.SuperGlueModelTest.test_forward_labels_should_be_none
     def test_forward_labels_should_be_none(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
         for model_class in self.all_model_classes:

@@ -841,6 +841,34 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
 
         return pruned_descriptors, pruned_keypoints, pruned_indices, pruned_mask, prune_output
 
+    def _concat_early_stopped_outputs(
+        self,
+        early_stops_indices,
+        final_pruned_keypoints_indices,
+        final_pruned_keypoints_iterations,
+        matches,
+        matching_scores,
+    ):
+        early_stops_indices = torch.stack(early_stops_indices)
+        matches, final_pruned_keypoints_indices = (
+            pad_sequence(tensor, batch_first=True, padding_value=-1)
+            for tensor in [matches, final_pruned_keypoints_indices]
+        )
+        matching_scores, final_pruned_keypoints_iterations = (
+            pad_sequence(tensor, batch_first=True, padding_value=0)
+            for tensor in [matching_scores, final_pruned_keypoints_iterations]
+        )
+        matches, matching_scores, final_pruned_keypoints_indices, final_pruned_keypoints_iterations = (
+            tensor[early_stops_indices]
+            for tensor in [
+                matches,
+                matching_scores,
+                final_pruned_keypoints_indices,
+                final_pruned_keypoints_iterations,
+            ]
+        )
+        return final_pruned_keypoints_indices, final_pruned_keypoints_iterations, matches, matching_scores
+
     def _do_final_keypoint_pruning(
         self,
         indices: torch.Tensor,
@@ -1051,34 +1079,6 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             all_hidden_states,
             all_attentions,
         )
-
-    def _concat_early_stopped_outputs(
-        self,
-        early_stops_indices,
-        final_pruned_keypoints_indices,
-        final_pruned_keypoints_iterations,
-        matches,
-        matching_scores,
-    ):
-        early_stops_indices = torch.stack(early_stops_indices)
-        matches, final_pruned_keypoints_indices = (
-            pad_sequence(tensor, batch_first=True, padding_value=-1)
-            for tensor in [matches, final_pruned_keypoints_indices]
-        )
-        matching_scores, final_pruned_keypoints_iterations = (
-            pad_sequence(tensor, batch_first=True, padding_value=0)
-            for tensor in [matching_scores, final_pruned_keypoints_iterations]
-        )
-        matches, matching_scores, final_pruned_keypoints_indices, final_pruned_keypoints_iterations = (
-            tensor[early_stops_indices]
-            for tensor in [
-                matches,
-                matching_scores,
-                final_pruned_keypoints_indices,
-                final_pruned_keypoints_iterations,
-            ]
-        )
-        return final_pruned_keypoints_indices, final_pruned_keypoints_iterations, matches, matching_scores
 
     @add_start_docstrings_to_model_forward(LIGHTGLUE_INPUTS_DOCSTRING)
     def forward(

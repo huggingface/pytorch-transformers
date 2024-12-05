@@ -390,3 +390,205 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
         )
         self.assertTrue(torch.sum(predicted_matches_values0 != expected_matches_values0) < 4)
         self.assertTrue(torch.sum(predicted_matches_values1 != expected_matches_values1) < 4)
+
+    @slow
+    def test_inference_without_early_stop(self):
+        model = LightGlueForKeypointMatching.from_pretrained(
+            "stevenbucaille/lightglue_superpoint", attn_implementation="eager", depth_confidence=1.0
+        ).to(torch_device)
+        preprocessor = self.default_image_processor
+        images = prepare_imgs()
+        inputs = preprocessor(images=images, return_tensors="pt").to(torch_device)
+        with torch.no_grad():
+            outputs = model(**inputs, output_hidden_states=True, output_attentions=True)
+
+        predicted_number_of_matches0 = torch.sum(outputs.matches[0][0] != -1).item()
+        predicted_matches_values0 = outputs.matches[0, 0, 10:30]
+        predicted_matching_scores_values0 = outputs.matching_scores[0, 0, 10:30]
+
+        predicted_number_of_matches1 = torch.sum(outputs.matches[1][0] != -1).item()
+        predicted_matches_values1 = outputs.matches[1, 0, 10:30]
+        predicted_matching_scores_values1 = outputs.matching_scores[1, 0, 10:30]
+
+        expected_number_of_matches0 = 134
+        expected_matches_values0 = torch.tensor(
+            [-1, -1, 17, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 19, -1, 10, -1, 11], dtype=torch.int64
+        ).to(torch_device)
+        expected_matching_scores_values0 = torch.tensor(
+            [0.0083, 0, 0.2022, 0.0621, 0, 0.0828, 0, 0, 0.0003, 0, 0, 0, 0.0960, 0, 0, 0.6940, 0, 0.7167, 0, 0.1512]
+        ).to(torch_device)
+
+        expected_number_of_matches1 = 862
+        expected_matches_values1 = torch.tensor(
+            [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], dtype=torch.int64
+        ).to(torch_device)
+        expected_matching_scores_values1 = torch.tensor(
+            [
+                0.4772,
+                0.3781,
+                0.0631,
+                0.9559,
+                0.8746,
+                0.9271,
+                0.4882,
+                0.5406,
+                0.9439,
+                0.1526,
+                0.5028,
+                0.4107,
+                0.5591,
+                0.9130,
+                0.7572,
+                0.0302,
+                0.4532,
+                0.0893,
+                0.9490,
+                0.4880,
+            ]
+        ).to(torch_device)
+
+        # expected_early_stopping_layer = 2
+        # predicted_early_stopping_layer = torch.max(outputs.prune[1]).item()
+        # self.assertEqual(predicted_early_stopping_layer, expected_early_stopping_layer)
+        # self.assertEqual(predicted_number_of_matches, expected_second_number_of_matches)
+
+        """
+        Because of inconsistencies introduced between CUDA versions, the checks here are less strict. SuperGlue relies
+        on SuperPoint, which may, depending on CUDA version, return different number of keypoints (866 or 867 in this
+        specific test example). The consequence of having different number of keypoints is that the number of matches
+        will also be different. In the 20 first matches being checked, having one keypoint less will result in 1 less
+        match. The matching scores will also be different, as the keypoints are different. The checks here are less
+        strict to account for these inconsistencies.
+        Therefore, the test checks that the predicted number of matches, matches and matching scores are close to the
+        expected values, individually. Here, the tolerance of the number of values changing is set to 2.
+
+        This was discussed [here](https://github.com/huggingface/transformers/pull/29886#issuecomment-2482752787)
+        Such CUDA inconsistencies can be found
+        [here](https://github.com/huggingface/transformers/pull/33200/files#r1785980300)
+        """
+
+        self.assertTrue(abs(predicted_number_of_matches0 - expected_number_of_matches0) < 4)
+        self.assertTrue(abs(predicted_number_of_matches1 - expected_number_of_matches1) < 4)
+        self.assertTrue(
+            torch.sum(~torch.isclose(predicted_matching_scores_values0, expected_matching_scores_values0, atol=1e-2))
+            < 4
+        )
+        self.assertTrue(
+            torch.sum(~torch.isclose(predicted_matching_scores_values1, expected_matching_scores_values1, atol=1e-2))
+            < 4
+        )
+        self.assertTrue(torch.sum(predicted_matches_values0 != expected_matches_values0) < 4)
+        self.assertTrue(torch.sum(predicted_matches_values1 != expected_matches_values1) < 4)
+
+    @slow
+    def test_inference_without_early_stop_and_keypoint_pruning(self):
+        model = LightGlueForKeypointMatching.from_pretrained(
+            "stevenbucaille/lightglue_superpoint",
+            attn_implementation="eager",
+            depth_confidence=1.0,
+            width_confidence=1.0,
+        ).to(torch_device)
+        preprocessor = self.default_image_processor
+        images = prepare_imgs()
+        inputs = preprocessor(images=images, return_tensors="pt").to(torch_device)
+        with torch.no_grad():
+            outputs = model(**inputs, output_hidden_states=True, output_attentions=True)
+
+        predicted_number_of_matches0 = torch.sum(outputs.matches[0][0] != -1).item()
+        predicted_matches_values0 = outputs.matches[0, 0, 10:30]
+        predicted_matching_scores_values0 = outputs.matching_scores[0, 0, 10:30]
+
+        predicted_number_of_matches1 = torch.sum(outputs.matches[1][0] != -1).item()
+        predicted_matches_values1 = outputs.matches[1, 0, 10:30]
+        predicted_matching_scores_values1 = outputs.matching_scores[1, 0, 10:30]
+
+        expected_number_of_matches0 = 144
+        expected_matches_values0 = torch.tensor(
+            [-1, -1, 17, -1, -1, 13, -1, -1, -1, -1, -1, -1, 5, -1, -1, 19, -1, 10, -1, 11], dtype=torch.int64
+        ).to(torch_device)
+        expected_matching_scores_values0 = torch.tensor(
+            [
+                0.0699,
+                0.0302,
+                0.3356,
+                0.0820,
+                0,
+                0.2266,
+                0,
+                0,
+                0.0241,
+                0,
+                0,
+                0,
+                0.1674,
+                0,
+                0,
+                0.8114,
+                0,
+                0.8120,
+                0,
+                0.2936,
+            ]
+        ).to(torch_device)
+
+        expected_number_of_matches1 = 862
+        expected_matches_values1 = torch.tensor(
+            [10, 11, -1, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, -1, 26, -1, 28, 29], dtype=torch.int64
+        ).to(torch_device)
+        expected_matching_scores_values1 = torch.tensor(
+            [
+                0.4772,
+                0.3781,
+                0.0631,
+                0.9559,
+                0.8746,
+                0.9271,
+                0.4882,
+                0.5406,
+                0.9439,
+                0.1526,
+                0.5028,
+                0.4107,
+                0.5591,
+                0.9130,
+                0.7572,
+                0.0302,
+                0.4532,
+                0.0893,
+                0.9490,
+                0.4880,
+            ]
+        ).to(torch_device)
+
+        # expected_early_stopping_layer = 2
+        # predicted_early_stopping_layer = torch.max(outputs.prune[1]).item()
+        # self.assertEqual(predicted_early_stopping_layer, expected_early_stopping_layer)
+        # self.assertEqual(predicted_number_of_matches, expected_second_number_of_matches)
+
+        """
+        Because of inconsistencies introduced between CUDA versions, the checks here are less strict. SuperGlue relies
+        on SuperPoint, which may, depending on CUDA version, return different number of keypoints (866 or 867 in this
+        specific test example). The consequence of having different number of keypoints is that the number of matches
+        will also be different. In the 20 first matches being checked, having one keypoint less will result in 1 less
+        match. The matching scores will also be different, as the keypoints are different. The checks here are less
+        strict to account for these inconsistencies.
+        Therefore, the test checks that the predicted number of matches, matches and matching scores are close to the
+        expected values, individually. Here, the tolerance of the number of values changing is set to 2.
+
+        This was discussed [here](https://github.com/huggingface/transformers/pull/29886#issuecomment-2482752787)
+        Such CUDA inconsistencies can be found
+        [here](https://github.com/huggingface/transformers/pull/33200/files#r1785980300)
+        """
+
+        self.assertTrue(abs(predicted_number_of_matches0 - expected_number_of_matches0) < 4)
+        self.assertTrue(abs(predicted_number_of_matches1 - expected_number_of_matches1) < 4)
+        self.assertTrue(
+            torch.sum(~torch.isclose(predicted_matching_scores_values0, expected_matching_scores_values0, atol=1e-2))
+            < 4
+        )
+        self.assertTrue(
+            torch.sum(~torch.isclose(predicted_matching_scores_values1, expected_matching_scores_values1, atol=1e-2))
+            < 4
+        )
+        self.assertTrue(torch.sum(predicted_matches_values0 != expected_matches_values0) < 4)
+        self.assertTrue(torch.sum(predicted_matches_values1 != expected_matches_values1) < 4)

@@ -21,6 +21,7 @@ import numpy as np
 import torch
 from packaging import version
 from torch import nn
+from torch.nn.utils.rnn import pad_sequence
 
 from transformers import PreTrainedModel, add_start_docstrings
 
@@ -45,23 +46,6 @@ _CONFIG_FOR_DOC_ = "LightGlueConfig"
 _CHECKPOINT_FOR_DOC_ = "stevenbucaille/lightglue_superpoint"
 
 
-# Copied from transformers.models.superglue.modeling_superglue.concat_pairs
-def concat_pairs(tensor_tuple0: Tuple[torch.Tensor], tensor_tuple1: Tuple[torch.Tensor]) -> Tuple[torch.Tensor]:
-    """
-    Concatenate two tuples of tensors pairwise
-
-    Args:
-        tensor_tuple0 (`Tuple[torch.Tensor]`):
-            Tuple of tensors.
-        tensor_tuple1 (`Tuple[torch.Tensor]`):
-            Tuple of tensors.
-
-    Returns:
-        (`Tuple[torch.Tensor]`): Tuple of concatenated tensors.
-    """
-    return tuple([torch.cat([tensor0, tensor1]) for tensor0, tensor1 in zip(tensor_tuple0, tensor_tuple1)])
-
-
 def normalize_keypoints(keypoints: torch.Tensor, height: int, width: int) -> torch.Tensor:
     """
     Normalize keypoints locations based on image image_shape
@@ -82,87 +66,6 @@ def normalize_keypoints(keypoints: torch.Tensor, height: int, width: int) -> tor
     scale = size.max(-1).values / 2
     keypoints = (keypoints - shift[..., None, :]) / scale[..., None, None]
     return keypoints
-
-
-# Copied from transformers.models.superglue.modeling_superglue.log_sinkhorn_iterations
-def log_sinkhorn_iterations(
-    log_cost_matrix: torch.Tensor,
-    log_source_distribution: torch.Tensor,
-    log_target_distribution: torch.Tensor,
-    num_iterations: int,
-) -> torch.Tensor:
-    """
-    Perform Sinkhorn Normalization in Log-space for stability
-
-    Args:
-        log_cost_matrix (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`):
-            Logarithm of the cost matrix.
-        log_source_distribution (`torch.Tensor` of shape `(batch_size, num_rows)`):
-            Logarithm of the source distribution.
-        log_target_distribution (`torch.Tensor` of shape `(batch_size, num_columns)`):
-            Logarithm of the target distribution.
-
-    Returns:
-        log_cost_matrix (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`): Logarithm of the optimal
-        transport matrix.
-    """
-    log_u_scaling = torch.zeros_like(log_source_distribution)
-    log_v_scaling = torch.zeros_like(log_target_distribution)
-    for _ in range(num_iterations):
-        log_u_scaling = log_source_distribution - torch.logsumexp(log_cost_matrix + log_v_scaling.unsqueeze(1), dim=2)
-        log_v_scaling = log_target_distribution - torch.logsumexp(log_cost_matrix + log_u_scaling.unsqueeze(2), dim=1)
-    return log_cost_matrix + log_u_scaling.unsqueeze(2) + log_v_scaling.unsqueeze(1)
-
-
-# Copied from transformers.models.superglue.modeling_superglue.log_optimal_transport
-def log_optimal_transport(scores: torch.Tensor, reg_param: torch.Tensor, iterations: int) -> torch.Tensor:
-    """
-    Perform Differentiable Optimal Transport in Log-space for stability
-
-    Args:
-        scores: (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`):
-            Cost matrix.
-        reg_param: (`torch.Tensor` of shape `(batch_size, 1, 1)`):
-            Regularization parameter.
-        iterations: (`int`):
-            Number of Sinkhorn iterations.
-
-    Returns:
-        log_optimal_transport_matrix: (`torch.Tensor` of shape `(batch_size, num_rows, num_columns)`): Logarithm of the
-        optimal transport matrix.
-    """
-    batch_size, num_rows, num_columns = scores.shape
-    one_tensor = scores.new_tensor(1)
-    num_rows_tensor, num_columns_tensor = (num_rows * one_tensor).to(scores), (num_columns * one_tensor).to(scores)
-
-    source_reg_param = reg_param.expand(batch_size, num_rows, 1)
-    target_reg_param = reg_param.expand(batch_size, 1, num_columns)
-    reg_param = reg_param.expand(batch_size, 1, 1)
-
-    couplings = torch.cat([torch.cat([scores, source_reg_param], -1), torch.cat([target_reg_param, reg_param], -1)], 1)
-
-    log_normalization = -(num_rows_tensor + num_columns_tensor).log()
-    log_source_distribution = torch.cat(
-        [log_normalization.expand(num_rows), num_columns_tensor.log()[None] + log_normalization]
-    )
-    log_target_distribution = torch.cat(
-        [log_normalization.expand(num_columns), num_rows_tensor.log()[None] + log_normalization]
-    )
-    log_source_distribution, log_target_distribution = (
-        log_source_distribution[None].expand(batch_size, -1),
-        log_target_distribution[None].expand(batch_size, -1),
-    )
-
-    log_optimal_transport_matrix = log_sinkhorn_iterations(
-        couplings, log_source_distribution, log_target_distribution, num_iterations=iterations
-    )
-    log_optimal_transport_matrix = log_optimal_transport_matrix - log_normalization  # multiply probabilities by M+N
-    return log_optimal_transport_matrix
-
-
-# Copied from transformers.models.superglue.modeling_superglue.arange_like
-def arange_like(x, dim: int) -> torch.Tensor:
-    return x.new_ones(x.shape[dim]).cumsum(0) - 1
 
 
 @dataclass
@@ -651,17 +554,17 @@ class LightGlueTransformerLayer(nn.Module):
 
 
 def sigmoid_log_double_softmax(
-    similarity: torch.Tensor, matchability_0: torch.Tensor, matchability_1: torch.Tensor
+    similarity: torch.Tensor, matchability0: torch.Tensor, matchability1: torch.Tensor
 ) -> torch.Tensor:
     """create the log assignment matrix from logits and similarity"""
     batch_size, num_keypoints_0, num_keypoints_1 = similarity.shape
-    certainties = nn.functional.logsigmoid(matchability_0) + nn.functional.logsigmoid(matchability_1).transpose(1, 2)
+    certainties = nn.functional.logsigmoid(matchability0) + nn.functional.logsigmoid(matchability1).transpose(1, 2)
     scores0 = nn.functional.log_softmax(similarity, 2)
     scores1 = nn.functional.log_softmax(similarity.transpose(-1, -2).contiguous(), 2).transpose(-1, -2)
     scores = similarity.new_full((batch_size, num_keypoints_0 + 1, num_keypoints_1 + 1), 0)
     scores[:, :num_keypoints_0, :num_keypoints_1] = scores0 + scores1 + certainties
-    scores[:, :-1, -1] = nn.functional.logsigmoid(-matchability_0.squeeze(-1))
-    scores[:, -1, :-1] = nn.functional.logsigmoid(-matchability_1.squeeze(-1))
+    scores[:, :-1, -1] = nn.functional.logsigmoid(-matchability0.squeeze(-1))
+    scores[:, -1, :-1] = nn.functional.logsigmoid(-matchability1.squeeze(-1))
     return scores
 
 
@@ -674,10 +577,10 @@ class LightGlueMatchAssignmentLayer(nn.Module):
         self.matchability = nn.Linear(self.descriptor_dim, 1, bias=True)
 
     def forward(self, descriptors: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        batch_size, num_keypoints, descriptor_dim = descriptors.shape
+        # Final projection and similarity computation
         m_descriptors = self.final_projection(descriptors)
         m_descriptors = m_descriptors / self.descriptor_dim**0.25
-        matchability = self.matchability(descriptors)
-        batch_size, num_keypoints, descriptor_dim = descriptors.shape
         m_descriptors = m_descriptors.reshape(batch_size // 2, 2, num_keypoints, descriptor_dim)
         m_descriptors0 = m_descriptors[:, 0]
         m_descriptors1 = m_descriptors[:, 1]
@@ -689,13 +592,18 @@ class LightGlueMatchAssignmentLayer(nn.Module):
             mask = mask0 * mask1
             similarity = similarity.masked_fill(mask == 0, torch.finfo(similarity.dtype).min)
 
+        # Compute matchability of descriptors
+        matchability = self.matchability(descriptors)
         matchability = matchability.reshape(batch_size // 2, 2, num_keypoints, 1)
         matchability_0 = matchability[:, 0]
         matchability_1 = matchability[:, 1]
+
+        # Compute scores from similarity and matchability
         scores = sigmoid_log_double_softmax(similarity, matchability_0, matchability_1)
         return scores
 
     def get_matchability(self, descriptors: torch.Tensor) -> torch.Tensor:
+        """Get matchability of descriptors as a probability"""
         matchability = self.matchability(descriptors)
         matchability = nn.functional.sigmoid(matchability).squeeze(-1)
         return matchability
@@ -836,17 +744,17 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
 
         self.register_buffer(
             "confidence_thresholds",
-            torch.Tensor([self.get_confidence_threshold(i) for i in range(self.num_layers)]),
+            torch.Tensor([self._get_confidence_threshold(i) for i in range(self.num_layers)]),
         )
 
         self.post_init()
 
-    def get_confidence_threshold(self, layer_index: int) -> float:
+    def _get_confidence_threshold(self, layer_index: int) -> float:
         """scaled confidence threshold for a given layer"""
         threshold = 0.8 + 0.1 * np.exp(-4.0 * layer_index / self.num_layers)
         return np.clip(threshold, 0, 1)
 
-    def keypoint_processing(
+    def _keypoint_processing(
         self, descriptors: torch.Tensor, keypoints: torch.Tensor, output_hidden_states: Optional[bool] = False
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         descriptors = descriptors.detach().contiguous()
@@ -854,67 +762,58 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         keypoint_encoding_output = self.positional_encoder(keypoints, output_hidden_states=output_hidden_states)
         return projected_descriptors, keypoint_encoding_output
 
-    def check_if_stop(
-        self, confidences: torch.Tensor, layer_index: int, mask: torch.Tensor, num_points: torch.Tensor
+    def _get_early_stopped_image_pairs(
+        self, keypoint_confidences: torch.Tensor, layer_index: int, mask: torch.Tensor, num_points: torch.Tensor
     ) -> torch.Tensor:
-        """evaluate whether we should stop forwarding through transformer layers for a given layer"""
+        """evaluate whether we should stop inference based on the confidence of the keypoints"""
         batch_size, _ = mask.shape
-        confidences = confidences.masked_fill(mask == 0, 1)
-        confidences = confidences.reshape(batch_size // 2, -1)
-        threshold = self.confidence_thresholds[layer_index]
-        ratio_confident = 1.0 - (confidences < threshold).float().sum(dim=1) / num_points
-        return ratio_confident > self.depth_confidence
+        if layer_index < self.num_layers - 1:
+            # If the current layer is not the last layer, we compute the confidence of the keypoints and check
+            # if we should stop the forward pass through the transformer layers for each pair of images.
+            keypoint_confidences = keypoint_confidences.masked_fill(mask == 0, 1)
+            keypoint_confidences = keypoint_confidences.reshape(batch_size // 2, -1)
+            threshold = self.confidence_thresholds[layer_index]
+            ratio_confident = 1.0 - (keypoint_confidences < threshold).float().sum(dim=1) / num_points
+            early_stopped_pairs = ratio_confident > self.depth_confidence
+        else:
+            # If the current layer is the last layer, we stop the forward pass through the transformer layers for
+            # all pairs of images.
+            early_stopped_pairs = torch.ones(batch_size, dtype=torch.bool)
+        return early_stopped_pairs
 
-    def get_pruning_mask(self, confidences: torch.Tensor, scores: torch.Tensor, layer_index: int) -> torch.Tensor:
+    def _get_keypoint_matching(self, descriptors, mask, layer_index, early_stops=None):
+        if early_stops is not None:
+            descriptors = descriptors[early_stops]
+            mask = mask[early_stops]
+        scores = self.match_assignment_layers[layer_index](descriptors, mask)
+        matches, matching_scores = filter_matches(scores, self.filter_threshold)
+        return matches, matching_scores
+
+    def _get_pruning_mask(self, confidences: torch.Tensor, scores: torch.Tensor, layer_index: int) -> torch.Tensor:
         """mask points which should be removed"""
         keep = scores > (1 - self.width_confidence)
         if confidences is not None:  # Low-confidence points are never pruned.
             keep |= confidences <= self.confidence_thresholds[layer_index]
         return keep
 
-    def do_final_point_pruning(
-        self, indices: torch.Tensor, matches: torch.Tensor, matching_scores: torch.Tensor, num_keypoints: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        batch_size, _ = indices.shape
-        indices = indices.reshape(batch_size // 2, 2, -1)
-        indices0, indices1 = indices[:, 0], indices[:, 1]
-        matches = matches.reshape(batch_size // 2, 2, -1)
-        matches0, matches1 = matches[:, 0], matches[:, 1]
-        matching_scores = matching_scores.reshape(batch_size // 2, 2, -1)
-        matching_scores0, matching_scores1 = matching_scores[:, 0], matching_scores[:, 1]
-        _matches = torch.full((batch_size // 2, 2, num_keypoints), -1, device=indices.device, dtype=matches.dtype)
-        _matching_scores = torch.zeros(
-            (batch_size // 2, 2, num_keypoints), device=indices.device, dtype=matching_scores.dtype
-        )
-        for i in range(batch_size // 2):
-            _matches[i, 0, indices0[i]] = torch.where(
-                matches0[i] == -1, -1, indices1[i].gather(0, matches0[i].clamp(min=0))
-            )
-            _matches[i, 1, indices1[i]] = torch.where(
-                matches1[i] == -1, -1, indices0[i].gather(0, matches1[i].clamp(min=0))
-            )
-            _matching_scores[i, 0, indices0[i]] = matching_scores0[i]
-            _matching_scores[i, 1, indices1[i]] = matching_scores1[i]
-        return _matches, _matching_scores
-
-    def do_layer_keypoint_pruning(
+    def _do_layer_keypoint_pruning(
         self,
         descriptors: torch.Tensor,
         keypoints: torch.Tensor,
         mask: torch.Tensor,
-        layer_index: int,
         indices: torch.Tensor,
         prune_output: torch.Tensor,
-        token: torch.Tensor,
+        keypoint_confidences: torch.Tensor,
+        layer_index: int,
     ):
         """
         For a given layer, prune keypoints based on the confidence of the keypoints and the matchability of the
         descriptors.
         """
         batch_size, _, _ = descriptors.shape
-        scores = self.match_assignment_layers[layer_index].get_matchability(descriptors)
-        pruned_keypoints_mask = self.get_pruning_mask(token, scores, layer_index)
-        pruned_keypoints_mask = pruned_keypoints_mask.masked_fill(mask == 0, False)
+        descriptors_matchability = self.match_assignment_layers[layer_index].get_matchability(descriptors)
+        pruned_keypoints_mask = self._get_pruning_mask(keypoint_confidences, descriptors_matchability, layer_index)
+        pruned_keypoints_mask = pruned_keypoints_mask.masked_fill(mask == 0, torch.tensor(False))
 
         # For each image, we extract the pruned indices and the corresponding descriptors and keypoints.
         pruned_descriptors, pruned_keypoints, pruned_mask, pruned_indices = (
@@ -926,12 +825,49 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
 
         # Pad the pruned descriptors, keypoints, indices and mask to have the same shape across the batch.
         pruned_descriptors, pruned_keypoints, pruned_mask = (
-            torch.nn.utils.rnn.pad_sequence(pruned_tensor, batch_first=True)
+            pad_sequence(pruned_tensor, batch_first=True)
             for pruned_tensor in [pruned_descriptors, pruned_keypoints, pruned_mask]
         )
-        pruned_indices = torch.nn.utils.rnn.pad_sequence(pruned_indices, batch_first=True, padding_value=-1)
+        pruned_indices = pad_sequence(pruned_indices, batch_first=True, padding_value=-1)
 
         return pruned_descriptors, pruned_keypoints, pruned_indices, pruned_mask, prune_output
+
+    def _do_final_keypoint_pruning(
+        self,
+        indices: torch.Tensor,
+        matches: torch.Tensor,
+        matching_scores: torch.Tensor,
+        num_keypoints: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        # (batch_size, num_keypoints) -> (batch_size // 2, 2, num_keypoints) -> 2 * (batch_size // 2, num_keypoints) to
+        # have tensors from
+        batch_size, _ = indices.shape
+        indices, matches, matching_scores = (
+            tensor.reshape(batch_size // 2, 2, -1) for tensor in [indices, matches, matching_scores]
+        )
+        indices0 = indices[:, 0]
+        indices1 = indices[:, 1]
+        matches0 = matches[:, 0]
+        matches1 = matches[:, 1]
+        matching_scores0 = matching_scores[:, 0]
+        matching_scores1 = matching_scores[:, 1]
+
+        # Prepare final matches and matching scores
+        _matches = torch.full((batch_size // 2, 2, num_keypoints), -1, device=indices.device, dtype=matches.dtype)
+        _matching_scores = torch.zeros(
+            (batch_size // 2, 2, num_keypoints), device=indices.device, dtype=matching_scores.dtype
+        )
+        # Fill the matches and matching scores for each image pair
+        for i in range(batch_size // 2):
+            _matches[i, 0, indices0[i]] = torch.where(
+                matches0[i] == -1, -1, indices1[i].gather(0, matches0[i].clamp(min=0))
+            )
+            _matches[i, 1, indices1[i]] = torch.where(
+                matches1[i] == -1, -1, indices0[i].gather(0, matches1[i].clamp(min=0))
+            )
+            _matching_scores[i, 0, indices0[i]] = matching_scores0[i]
+            _matching_scores[i, 1, indices1[i]] = matching_scores1[i]
+        return _matches, _matching_scores
 
     def _match_image_pair(
         self,
@@ -951,6 +887,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             return (
                 keypoints.new_full(shape, -1, dtype=torch.int),
                 keypoints.new_zeros(shape),
+                keypoints.new_zeros(shape),
                 all_hidden_states,
                 all_attentions,
             )
@@ -962,15 +899,15 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         keypoints = keypoints.reshape(batch_size * 2, initial_num_keypoints, 2)
         mask = mask.reshape(batch_size * 2, initial_num_keypoints) if mask is not None else None
         descriptors = descriptors.reshape(batch_size * 2, initial_num_keypoints, self.descriptor_dim)
-        pair_indices = torch.arange(batch_size * 2, device=device)
+        image_indices = torch.arange(batch_size * 2, device=device)
         # Keypoint normalization
         keypoints = normalize_keypoints(keypoints, height, width)
 
-        descriptors, keypoint_encoding_output = self.keypoint_processing(
+        descriptors, keypoint_encoding_output = self._keypoint_processing(
             descriptors, keypoints, output_hidden_states=output_hidden_states
         )
 
-        encoded_keypoints = keypoint_encoding_output[0]
+        keypoints = keypoint_encoding_output[0]
 
         # Early stop consists of stopping the forward pass through the transformer layers when the confidence of the
         # keypoints is above a certain threshold.
@@ -979,19 +916,14 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         # the keypoints is below a certain threshold.
         do_keypoint_pruning = self.width_confidence > 0
 
-        if do_keypoint_pruning:
-            prune_indices = torch.arange(0, initial_num_keypoints, device=device).expand(batch_size * 2, -1)
-            prune_output = torch.ones_like(prune_indices)
-        if do_early_stop:
-            matches = torch.full((batch_size * 2, initial_num_keypoints), -1, device=device)
-            matching_scores = torch.zeros(
-                (batch_size * 2, initial_num_keypoints), device=device, dtype=descriptors.dtype
-            )
-            if do_keypoint_pruning:
-                final_prune_indices = torch.full((batch_size * 2, initial_num_keypoints), -1, device=device)
-                final_prune_output = torch.zeros(
-                    (batch_size * 2, initial_num_keypoints), device=device, dtype=prune_output.dtype
-                )
+        early_stops_indices = []
+        matches = []
+        matching_scores = []
+        final_pruned_keypoints_indices = []
+        final_pruned_keypoints_iterations = []
+
+        pruned_keypoints_indices = torch.arange(0, initial_num_keypoints, device=device).expand(batch_size * 2, -1)
+        pruned_keypoints_iterations = torch.ones_like(pruned_keypoints_indices)
 
         for layer_index in range(self.num_layers):
             input_shape = descriptors.size()
@@ -1001,7 +933,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
                 extended_attention_mask = torch.ones((batch_size, input_shape[-2]), device=keypoints.device)
             layer_output = self.transformer_layers[layer_index](
                 descriptors,
-                encoded_keypoints,
+                keypoints,
                 attention_mask=extended_attention_mask,
                 output_hidden_states=output_hidden_states,
                 output_attentions=output_attentions,
@@ -1014,75 +946,130 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
 
             if do_early_stop:
                 if layer_index < self.num_layers - 1:
-                    # Token confidence is only computed for the first num_layers - 1 layers
-                    token = self.token_confidence[layer_index](descriptors)
-                    early_stops_pair = self.check_if_stop(token, layer_index, mask, num_points=num_points_per_pair)
+                    # Get the confidence of the keypoints for the current layer
+                    keypoint_confidences = self.token_confidence[layer_index](descriptors)
+
+                    # Determine which pairs of images should be early stopped based on the confidence of the keypoints for
+                    # the current layer.
+                    early_stopped_pairs = self._get_early_stopped_image_pairs(
+                        keypoint_confidences, layer_index, mask, num_points=num_points_per_pair
+                    )
                 else:
                     # Early stopping always occurs at the last layer
-                    early_stops_pair = torch.ones(batch_size, dtype=torch.bool)
-                if torch.any(early_stops_pair):
-                    # If a pair of images is considered early stopped, we compute the matches for the keypoints that
-                    # have not been pruned yet and stop the forward pass through the transformer layers for this pair
-                    # of images.
+                    early_stopped_pairs = torch.ones(batch_size, dtype=torch.bool)
+
+                if torch.any(early_stopped_pairs):
+                    # If a pair of images is considered early stopped, we compute the matches for the remaining
+                    # keypoints and stop the forward pass through the transformer layers for this pair of images.
+                    early_stops = early_stopped_pairs.repeat_interleave(2)
                     _, layer_num_keypoints = mask.shape
-                    early_stops = early_stops_pair.repeat_interleave(2)
-                    early_stopped_pair_indices = pair_indices[early_stops]
-                    early_stopped_descriptors = descriptors[early_stops]
-                    early_stopped_mask = mask[early_stops]
-                    scores = self.match_assignment_layers[layer_index](early_stopped_descriptors, early_stopped_mask)
-                    early_stopped_matches, early_stopped_matching_scores = filter_matches(
-                        scores, self.filter_threshold
+                    early_stopped_image_indices = image_indices[early_stops]
+                    early_stopped_matches, early_stopped_matching_scores = self._get_keypoint_matching(
+                        descriptors, mask, layer_index, early_stops=early_stops
                     )
-                    matches[early_stopped_pair_indices, :layer_num_keypoints] = early_stopped_matches
-                    matching_scores[early_stopped_pair_indices, :layer_num_keypoints] = early_stopped_matching_scores
+                    early_stops_indices.extend(list(early_stopped_image_indices))
+                    matches.extend(list(early_stopped_matches))
+                    matching_scores.extend(list(early_stopped_matching_scores))
                     if do_keypoint_pruning:
-                        final_prune_indices[early_stopped_pair_indices, :layer_num_keypoints] = prune_indices[
-                            early_stops
-                        ]
-                        final_prune_output[early_stopped_pair_indices] = prune_output[early_stops]
-                    if torch.all(early_stops):
-                        # If all pairs of images are early stopped, we stop the forward pass through the transformer
-                        # layers for all pairs of images.
-                        break
-                    # Remove keypoints from early stopped pairs of images for the next iterations
-                    num_points_per_pair = num_points_per_pair[~early_stops_pair]
-                    descriptors = descriptors[~early_stops]
-                    encoded_keypoints = encoded_keypoints[~early_stops]
-                    mask = mask[~early_stops]
+                        final_pruned_keypoints_indices.extend(list(pruned_keypoints_indices[early_stops]))
+                        final_pruned_keypoints_iterations.extend(list(pruned_keypoints_iterations[early_stops]))
+
+                    # Remove image pairs that have been early stopped from the forward pass
+                    num_points_per_pair = num_points_per_pair[~early_stopped_pairs]
+                    descriptors, keypoints, mask, image_indices = tuple(
+                        (tensor[~early_stops] for tensor in [descriptors, keypoints, mask, image_indices])
+                    )
                     if do_keypoint_pruning:
-                        prune_indices = prune_indices[~early_stops]
-                        prune_output = prune_output[~early_stops]
-                        token = token[~early_stops]
-                    pair_indices = pair_indices[~early_stops]
+                        pruned_keypoints_indices, pruned_keypoints_iterations, keypoint_confidences = tuple(
+                            (
+                                tensor[~early_stops]
+                                for tensor in [
+                                    pruned_keypoints_indices,
+                                    pruned_keypoints_iterations,
+                                    keypoint_confidences,
+                                ]
+                            )
+                        )
+                # If all pairs of images are early stopped, we stop the forward pass through the transformer
+                # layers for all pairs of images.
+                if torch.all(early_stopped_pairs):
+                    break
 
             if do_keypoint_pruning:
                 # Prune keypoints from the input of the transformer layers for the next iterations if the confidence of
                 # the keypoints is below a certain threshold.
-                descriptors, encoded_keypoints, prune_indices, mask, prune_output = self.do_layer_keypoint_pruning(
-                    descriptors, encoded_keypoints, mask, layer_index, prune_indices, prune_output, token
+                descriptors, keypoints, pruned_keypoints_indices, mask, pruned_keypoints_iterations = (
+                    self._do_layer_keypoint_pruning(
+                        descriptors,
+                        keypoints,
+                        mask,
+                        pruned_keypoints_indices,
+                        pruned_keypoints_iterations,
+                        keypoint_confidences,
+                        layer_index,
+                    )
                 )
 
         if do_early_stop and do_keypoint_pruning:
-            # Concatenate early stopped outputs with the final outputs
-            prune_indices = final_prune_indices
-            prune_output = final_prune_output
-            matches, matching_scores = self.do_final_point_pruning(
-                prune_indices, matches, matching_scores, initial_num_keypoints
+            # Concatenate early stopped outputs together and perform final keypoint pruning
+            final_pruned_keypoints_indices, final_pruned_keypoints_iterations, matches, matching_scores = (
+                self._concat_early_stopped_outputs(
+                    early_stops_indices,
+                    final_pruned_keypoints_indices,
+                    final_pruned_keypoints_iterations,
+                    matches,
+                    matching_scores,
+                )
+            )
+            matches, matching_scores = self._do_final_keypoint_pruning(
+                final_pruned_keypoints_indices,
+                matches,
+                matching_scores,
+                initial_num_keypoints,
             )
         else:
-            scores = self.match_assignment_layers[layer_index](descriptors, mask)
-            matches, matching_scores = filter_matches(scores, self.filter_threshold)
-            prune_output = torch.ones_like(matching_scores) * self.num_layers
+            matches, matching_scores = self._get_keypoint_matching(descriptors, mask, self.num_layers - 1)
+            final_pruned_keypoints_iterations = torch.ones_like(matching_scores) * self.num_layers
 
-        prune_output = prune_output.reshape(batch_size, 2, initial_num_keypoints)
+        final_pruned_keypoints_iterations = final_pruned_keypoints_iterations.reshape(
+            batch_size, 2, initial_num_keypoints
+        )
 
         return (
             matches,
             matching_scores,
-            prune_output,
+            final_pruned_keypoints_iterations,
             all_hidden_states,
             all_attentions,
         )
+
+    def _concat_early_stopped_outputs(
+        self,
+        early_stops_indices,
+        final_pruned_keypoints_indices,
+        final_pruned_keypoints_iterations,
+        matches,
+        matching_scores,
+    ):
+        early_stops_indices = torch.stack(early_stops_indices)
+        matches, final_pruned_keypoints_indices = (
+            pad_sequence(tensor, batch_first=True, padding_value=-1)
+            for tensor in [matches, final_pruned_keypoints_indices]
+        )
+        matching_scores, final_pruned_keypoints_iterations = (
+            pad_sequence(tensor, batch_first=True, padding_value=0)
+            for tensor in [matching_scores, final_pruned_keypoints_iterations]
+        )
+        matches, matching_scores, final_pruned_keypoints_indices, final_pruned_keypoints_iterations = (
+            tensor[early_stops_indices]
+            for tensor in [
+                matches,
+                matching_scores,
+                final_pruned_keypoints_indices,
+                final_pruned_keypoints_iterations,
+            ]
+        )
+        return final_pruned_keypoints_indices, final_pruned_keypoints_iterations, matches, matching_scores
 
     @add_start_docstrings_to_model_forward(LIGHTGLUE_INPUTS_DOCSTRING)
     def forward(

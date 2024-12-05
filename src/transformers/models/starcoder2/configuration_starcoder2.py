@@ -134,6 +134,15 @@ class Starcoder2Config(PretrainedConfig):
 
     model_type = "starcoder2"
     keys_to_ignore_at_inference = ["past_key_values"]
+    # Default tensor parallel plan for base model `Starcoder2`
+    base_model_tp_plan = {
+        "layers.*.self_attn.q_proj": "colwise",
+        "layers.*.self_attn.k_proj": "colwise",
+        "layers.*.self_attn.v_proj": "colwise",
+        "layers.*.self_attn.o_proj": "rowwise",
+        "layers.*.mlp.c_fc": "colwise",
+        "layers.*.mlp.c_proj": "colwise",
+    }
 
     def __init__(
         self,

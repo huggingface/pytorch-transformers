@@ -36,7 +36,7 @@ logger = logging.get_logger(__name__)
 
 class ImgprocModelImageProcessor(BaseImageProcessor):
     r"""
-    Constructs a NEW_IMGPROC_MODEL image processor.
+    Constructs a IMGPROC_MODEL image processor.
 
     Args:
         do_resize (`bool`, *optional*, defaults to `True`):

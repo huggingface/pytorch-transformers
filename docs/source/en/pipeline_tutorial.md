@@ -59,10 +59,10 @@ Let's try the [Whisper large-v2](https://huggingface.co/openai/whisper-large-v2)
 benchmarks. It also has the added benefit of predicting punctuation and casing, neither of which are possible with  
 Wav2Vec2.
 
-Let's give it a try here to see how it performs:
+Let's give it a try here to see how it performs. Set `torch_dtype="auto"` to automatically load the most memory-efficient data type the weights are stored in.
 
 ```py
->>> transcriber = pipeline(model="openai/whisper-large-v2")
+>>> transcriber = pipeline(model="openai/whisper-large-v2", torch_dtype="auto")
 >>> transcriber("https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/mlk.flac")
 {'text': ' I have a dream that one day this nation will rise up and live out the true meaning of its creed.'}
 ```

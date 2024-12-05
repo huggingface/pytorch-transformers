@@ -180,7 +180,7 @@ Fun fact: The shortest war in history was between Britain and Zanzibar on August
 
 <Tip warning={true}>
 
-Cache offloading requires a GPU and can be slower than dynamic KV cache. Use it if you are getting CUDA out of memory errors.
+Cache offloading requires a CUDA GPU and can be slower than dynamic KV cache. Use it if you are getting CUDA out of memory errors.
 
 </Tip>
 
@@ -261,6 +261,7 @@ This will use the [`~OffloadedStaticCache`] implementation instead.
 >>> tokenizer.batch_decode(out, skip_special_tokens=True)[0]
 "Hello, my name is [Your Name], and I am a [Your Profession] with [Number of Years] of"
 ```
+Cache offloading requires a CUDA GPU.
 
 
 ### Sliding Window Cache

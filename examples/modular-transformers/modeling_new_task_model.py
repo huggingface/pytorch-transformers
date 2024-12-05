@@ -265,7 +265,7 @@ class NewTaskModelForNewTask(NewTaskModelPreTrainedModel, GenerationMixin):
         min_dtype = torch.finfo(dtype).min
         sequence_length = inputs_embeds.shape[1]
         if using_static_cache:
-            target_length = past_key_values.get_max_length()
+            target_length = past_key_values.get_max_cache_shape()
         else:
             target_length = (
                 attention_mask.shape[-1]
@@ -358,9 +358,9 @@ class NewTaskModelForNewTask(NewTaskModelPreTrainedModel, GenerationMixin):
         ```python
         >>> from PIL import Image
         >>> import requests
-        >>> from transformers import AutoProcessor, NewTaskModelForConditionalGeneration
+        >>> from transformers import AutoProcessor, NewTaskModelForNewTask
 
-        >>> model = NewTaskModelForConditionalGeneration.from_pretrained("google/NewTaskModel-test-224px-hf")
+        >>> model = NewTaskModelForNewTask.from_pretrained("google/NewTaskModel-test-224px-hf")
         >>> processor = AutoProcessor.from_pretrained("google/NewTaskModel-test-224px-hf")
 
         >>> prompt = "answer en Where is the cow standing?"

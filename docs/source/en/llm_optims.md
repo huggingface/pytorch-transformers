@@ -57,7 +57,7 @@ import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # To prevent long warnings :)
 
 tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b")
-model = AutoModelForCausalLM.from_pretrained("google/gemma-2b", device_map="auto")
+model = AutoModelForCausalLM.from_pretrained("google/gemma-2b", torch_dtype="auto", device_map="auto")
 
 model.generation_config.cache_implementation = "static"
 
@@ -89,7 +89,7 @@ import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # To prevent long warnings :)
 
 tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b")
-model = AutoModelForCausalLM.from_pretrained("google/gemma-2b", device_map="auto")
+model = AutoModelForCausalLM.from_pretrained("google/gemma-2b", torch_dtype="auto", device_map="auto")
 
 model.forward = torch.compile(model.forward, mode="reduce-overhead", fullgraph=True)
 input_text = "The theory of special relativity states "
@@ -202,7 +202,7 @@ import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # To prevent long warnings :)
 
 tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b")
-model = AutoModelForCausalLM.from_pretrained("google/gemma-2b", device_map="auto")
+model = AutoModelForCausalLM.from_pretrained("google/gemma-2b", torch_dtype="auto", device_map="auto")
 
 model.generate = torch.compile(model.generate, mode="reduce-overhead", fullgraph=True)
 input_text = "The theory of special relativity states "
@@ -249,7 +249,7 @@ device, _, _ = get_backend() # automatically detects the underlying device type 
 tokenizer = AutoTokenizer.from_pretrained("facebook/opt-1.3b")
 inputs = tokenizer("Einstein's theory of relativity states", return_tensors="pt").to(device)
 
-model = AutoModelForCausalLM.from_pretrained("facebook/opt-1.3b").to(device)
+model = AutoModelForCausalLM.from_pretrained("facebook/opt-1.3b", torch_dtype="auto").to(device)
 assistant_model = AutoModelForCausalLM.from_pretrained("facebook/opt-125m").to(device)
 outputs = model.generate(**inputs, assistant_model=assistant_model)
 tokenizer.batch_decode(outputs, skip_special_tokens=True)
@@ -271,7 +271,7 @@ device, _, _ = get_backend() # automatically detects the underlying device type 
 tokenizer = AutoTokenizer.from_pretrained("facebook/opt-1.3b")
 inputs = tokenizer("Einstein's theory of relativity states", return_tensors="pt").to(device)
 
-model = AutoModelForCausalLM.from_pretrained("facebook/opt-1.3b").to(device)
+model = AutoModelForCausalLM.from_pretrained("facebook/opt-1.3b", torch_dtype="auto").to(device)
 assistant_model = AutoModelForCausalLM.from_pretrained("facebook/opt-125m").to(device)
 outputs = model.generate(**inputs, assistant_model=assistant_model, do_sample=True, temperature=0.7)
 print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
@@ -300,7 +300,7 @@ device, _, _ = get_backend() # automatically detects the underlying device type 
 tokenizer = AutoTokenizer.from_pretrained("facebook/opt-1.3b")
 inputs = tokenizer("The second law of thermodynamics states", return_tensors="pt").to(device)
 
-model = AutoModelForCausalLM.from_pretrained("facebook/opt-1.3b").to(device)
+model = AutoModelForCausalLM.from_pretrained("facebook/opt-1.3b", torch_dtype="auto").to(device)
 assistant_model = AutoModelForCausalLM.from_pretrained("facebook/opt-125m").to(device)
 outputs = model.generate(**inputs, prompt_lookup_num_tokens=3)
 print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
@@ -322,7 +322,7 @@ device, _, _ = get_backend() # automatically detects the underlying device type 
 tokenizer = AutoTokenizer.from_pretrained("facebook/opt-1.3b")
 inputs = tokenizer("The second law of thermodynamics states", return_tensors="pt").to(device)
 
-model = AutoModelForCausalLM.from_pretrained("facebook/opt-1.3b").to(device)
+model = AutoModelForCausalLM.from_pretrained("facebook/opt-1.3b", torch_dtype="auto").to(device)
 outputs = model.generate(**inputs, prompt_lookup_num_tokens=3, do_sample=True, temperature=0.7)
 print(tokenizer.batch_decode(outputs, skip_special_tokens=True))
 ["The second law of thermodynamics states that energy cannot be created nor destroyed. It's not a"]

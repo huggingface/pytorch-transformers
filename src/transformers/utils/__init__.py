@@ -206,6 +206,7 @@ from .import_utils import (
     is_torch_compile_available,
     is_torch_cuda_available,
     is_torch_deterministic,
+    is_torch_flex_attn_available,
     is_torch_fp16_available_on_device,
     is_torch_fx_available,
     is_torch_fx_proxy,

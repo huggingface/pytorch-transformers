@@ -41,7 +41,7 @@ Enable BetterTransformer with the [`PreTrainedModel.to_bettertransformer`] metho
 ```py
 from transformers import AutoModelForCausalLM
 
-model = AutoModelForCausalLM.from_pretrained("bigcode/starcoder")
+model = AutoModelForCausalLM.from_pretrained("bigcode/starcoder", torch_dtype="auto")
 ```
 
 ## TorchScript

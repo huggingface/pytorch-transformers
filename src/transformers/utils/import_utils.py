@@ -358,6 +358,17 @@ def is_torch_sdpa_available():
     return version.parse(_torch_version) >= version.parse("2.1.1")
 
 
+def is_torch_flex_attn_available():
+    if not is_torch_available():
+        return False
+    elif _torch_version == "N/A":
+        return False
+
+    # TODO check if some bugs cause push backs on the exact version
+    # NOTE: We require torch>=2.5.0 as it is the first release
+    return version.parse(_torch_version) >= version.parse("2.5.0")
+
+
 def is_torchvision_available():
     return _torchvision_available
 
@@ -916,6 +927,7 @@ def is_flash_attn_2_available():
         return False
 
 
+@lru_cache()
 def is_flash_attn_greater_or_equal_2_10():
     if not _is_package_available("flash_attn"):
         return False

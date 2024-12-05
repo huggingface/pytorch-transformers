@@ -459,6 +459,31 @@ class GPTNeoXLanguageGenerationTest(unittest.TestCase):
 
             self.assertEqual(output_str, expected_output)
 
+    @slow
+    def test_lm_generate_flex_attn_gptneox(self):
+        tokenizer = AutoTokenizer.from_pretrained("EleutherAI/pythia-410m-deduped")
+        for checkpointing in [True, False]:
+            model = GPTNeoXForCausalLM.from_pretrained(
+                "EleutherAI/pythia-410m-deduped", attn_implementation="flex_attention"
+            )
+            self.assertTrue(model.config._attn_implementation == "flex_attention")
+
+            if checkpointing:
+                model.gradient_checkpointing_enable()
+            else:
+                model.gradient_checkpointing_disable()
+            model.to(torch_device)
+
+            inputs = tokenizer("My favorite food is", return_tensors="pt").to(torch_device)
+            # The hub repo. is updated on 2023-04-04, resulting in poor outputs.
+            # See: https://github.com/huggingface/transformers/pull/24193
+            expected_output = "My favorite food is a good old-fashioned, old-fashioned, old-fashioned.\n\nI'm not sure"
+
+            output_ids = model.generate(**inputs, do_sample=False, max_new_tokens=20)
+            output_str = tokenizer.batch_decode(output_ids)[0]
+
+            self.assertEqual(output_str, expected_output)
+
     def pythia_integration_test(self):
         model_name_or_path = "EleutherAI/pythia-70m"
         model = GPTNeoXForCausalLM.from_pretrained(model_name_or_path, torch_dtype=torch.float16).to(torch_device)

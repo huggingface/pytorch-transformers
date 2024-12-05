@@ -42,7 +42,9 @@ pip install optimum-quanto accelerate transformers
 
 Now you can quantize a model by passing [`QuantoConfig`] object in the [`~PreTrainedModel.from_pretrained`] method. This works for any model in any modality, as long as it contains `torch.nn.Linear` layers. 
 
-The integration with transformers only supports weights quantization. For the more complex use case such as activation quantization, calibration and quantization aware training, you should use [optimum-quanto](https://github.com/huggingface/optimum-quanto) library instead. 
+The integration with transformers only supports weights quantization. For the more complex use case such as activation quantization, calibration and quantization aware training, you should use [optimum-quanto](https://github.com/huggingface/optimum-quanto) library instead.
+
+By default, the weights are loaded in full precision (torch.float32) regardless of the actual data type the weights are stored in such as torch.float16. Set `torch_dtype="auto"` to load the weights in the data type defined in a model's `config.json` file to automatically load the most memory-optimal data type.
 
 ```py
 from transformers import AutoModelForCausalLM, AutoTokenizer, QuantoConfig
@@ -50,7 +52,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, QuantoConfig
 model_id = "facebook/opt-125m"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 quantization_config = QuantoConfig(weights="int8")
-quantized_model = AutoModelForCausalLM.from_pretrained(model_id, device_map="cuda:0", quantization_config=quantization_config)
+quantized_model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="cuda:0", quantization_config=quantization_config)
 ```
 
 Note that serialization is not supported yet with transformers but it is coming soon! If you want to save the model, you can use quanto library instead.

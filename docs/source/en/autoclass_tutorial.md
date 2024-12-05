@@ -138,12 +138,15 @@ Load a processor with [`AutoProcessor.from_pretrained`]:
 
 <frameworkcontent>
 <pt>
-The `AutoModelFor` classes let you load a pretrained model for a given task (see [here](model_doc/auto) for a complete list of available tasks). For example, load a model for sequence classification with [`AutoModelForSequenceClassification.from_pretrained`]:
+The `AutoModelFor` classes let you load a pretrained model for a given task (see [here](model_doc/auto) for a complete list of available tasks). For example, load a model for sequence classification with [`AutoModelForSequenceClassification.from_pretrained`].
+
+> [!WARNING]
+> By default, the weights are loaded in full precision (torch.float32) regardless of the actual data type the weights are stored in such as torch.float16. Set `torch_dtype="auto"` to load the weights in the data type defined in a model's `config.json` file to automatically load the most memory-optimal data type.
 
 ```py
 >>> from transformers import AutoModelForSequenceClassification
 
->>> model = AutoModelForSequenceClassification.from_pretrained("distilbert/distilbert-base-uncased")
+>>> model = AutoModelForSequenceClassification.from_pretrained("distilbert/distilbert-base-uncased", torch_dtype="auto")
 ```
 
 Easily reuse the same checkpoint to load an architecture for a different task:
@@ -151,7 +154,7 @@ Easily reuse the same checkpoint to load an architecture for a different task:
 ```py
 >>> from transformers import AutoModelForTokenClassification
 
->>> model = AutoModelForTokenClassification.from_pretrained("distilbert/distilbert-base-uncased")
+>>> model = AutoModelForTokenClassification.from_pretrained("distilbert/distilbert-base-uncased", torch_dtype="auto")
 ```
 
 <Tip warning={true}>

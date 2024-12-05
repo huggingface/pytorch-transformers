@@ -20,7 +20,10 @@ from typing import Optional, Tuple, TypedDict
 import torch
 import torch.nn.functional as F
 
-from .utils import is_flash_attn_2_available, is_flash_attn_greater_or_equal
+from .utils import is_flash_attn_2_available, is_flash_attn_greater_or_equal, logging
+
+
+logger = logging.get_logger(__name__)
 
 
 if is_flash_attn_2_available():
@@ -180,6 +183,47 @@ def prepare_fa2_from_position_ids(query, key, value, position_ids):
     return (query, key, value, indices_q, (cu_seq_lens, cu_seq_lens), (max_length, max_length))
 
 
+def fa_peft_integration_check(
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    target_dtype: Optional[torch.dtype] = None,
+):
+    """
+    PEFT usually casts the layer norms in float32 for training stability reasons
+    therefore the input hidden states gets silently casted in float32. Hence, we need
+    cast them back in float16 / bfloat16 just to be sure everything works as expected.
+    This might slowdown training & inference so it is recommended to not cast the LayerNorms!
+
+    Args:
+        query (`torch.Tensor`):
+            Input query states to be passed to Flash Attention API
+        key (`torch.Tensor`):
+            Input key states to be passed to Flash Attention API
+        value (`torch.Tensor`):
+            Input value states to be passed to Flash Attention API
+        target_dtype (`torch.dtype`, *optional*):
+            The dtype to convert the attention tensors to. Conversion can be ignored by
+            not providing the target dtype.
+    """
+    if target_dtype is None:
+        return query, key, value
+
+    input_dtype = value.dtype
+    if input_dtype == torch.float32:
+        logger.warning_once(
+            f"The input hidden states seems to be silently casted in float32, this might be related to"
+            f" the fact you have upcasted embedding or layer norm layers in float32. We will cast back the input in"
+            f" {target_dtype}."
+        )
+
+        query = query.to(target_dtype)
+        key = key.to(target_dtype)
+        value = value.to(target_dtype)
+
+    return query, key, value
+
+
 flash_241 = is_flash_attn_greater_or_equal("2.4.1")
 deterministic_g = os.environ.get("FLASH_ATTENTION_DETERMINISTIC", "0") == "1"
 
@@ -202,6 +246,7 @@ def _flash_attention_forward(
     cu_seq_lens_k: Optional[torch.LongTensor] = None,
     max_length_q: Optional[int] = None,
     max_length_k: Optional[int] = None,
+    target_dtype: Optional[torch.dtype] = None,
 ):
     """
     Calls the forward method of Flash Attention - if the input hidden states contain at least one padding token
@@ -247,6 +292,11 @@ def _flash_attention_forward(
 
     if softcap is not None:
         flash_kwargs["softcap"] = softcap
+
+    # PEFT possibly silently casts tensors to fp32, this potentially reconverts to correct dtype or is a no op
+    query_states, key_states, value_states = fa_peft_integration_check(
+        query_states, key_states, value_states, target_dtype
+    )
 
     # Contains at least one padding token in the sequence
     if attention_mask is not None:

@@ -33,13 +33,14 @@ pip install --upgrade accelerate fbgemm-gpu torch
 
 If you are having issues with fbgemm-gpu and torch library, you might need to install the nightly release. You can follow the instruction [here](https://pytorch.org/FBGEMM/fbgemm_gpu-development/InstallationInstructions.html#fbgemm-gpu-install-libraries:~:text=found%20here.-,Install%20the%20FBGEMM_GPU%20Package,-Install%20through%20PyTorch)
 
+By default, the weights are loaded in full precision (torch.float32) regardless of the actual data type the weights are stored in such as torch.float16. Set `torch_dtype="auto"` to load the weights in the data type defined in a model's `config.json` file to automatically load the most memory-optimal data type.
 
 ```py
 from transformers import FbgemmFp8Config, AutoModelForCausalLM, AutoTokenizer
 
 model_name = "meta-llama/Meta-Llama-3-8B"
 quantization_config = FbgemmFp8Config()
-quantized_model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", quantization_config=quantization_config)
+quantized_model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", device_map="auto", quantization_config=quantization_config)
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 input_text = "What are we having for dinner?"

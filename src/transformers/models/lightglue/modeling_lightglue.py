@@ -218,7 +218,7 @@ class LightGluePositionalEncoder(nn.Module):
         projected_keypoints = self.projector(keypoints)
         cosines = torch.cos(projected_keypoints)
         sines = torch.sin(projected_keypoints)
-        embeddings = torch.cat([sines, cosines], -1).unsqueeze(-3)
+        embeddings = torch.cat([sines, cosines], -1)
         output = (embeddings, projected_keypoints) if output_hidden_states else (embeddings,)
         return output
 
@@ -603,7 +603,8 @@ class LightGlueTransformerLayer(nn.Module):
             all_hidden_states = all_hidden_states + (descriptors,)
 
         batch_size, num_keypoints, descriptor_dim = descriptors.shape
-
+        # (batch_size, num_keypoints, descriptor_dim) -> (batch_size, 1, num_keypoints, descriptor_dim)
+        keypoints = keypoints.unsqueeze(-3)
         self_attention_output = self.self_attention_block(
             descriptors,
             sinusoidal_pos=keypoints,

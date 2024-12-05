@@ -86,6 +86,7 @@ class LightGlueImageProcessingTester(unittest.TestCase):
         return image_inputs
 
     def prepare_keypoint_matching_output(self, pixel_values):
+        """Prepare a fake output for the keypoint matching model with random matches between 50 keypoints per image."""
         max_number_keypoints = 50
         batch_size = len(pixel_values)
         mask = torch.zeros((batch_size, 2, max_number_keypoints), dtype=torch.int)

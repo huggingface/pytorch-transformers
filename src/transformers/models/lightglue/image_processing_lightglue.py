@@ -103,52 +103,6 @@ def convert_to_grayscale(
     return image
 
 
-def pad_images(images, pad_value=0, data_format: Optional[Union[str, ChannelDimension]] = None):
-    """
-    Given a list of images, pads them to the same height and width by adding `pad_value` around the edges.
-    Args:
-        images (`List[np.ndarray]`):
-            List of images to pad.
-        pad_value (`int`, *optional*, defaults to `0`):
-            Value to use for padding.
-        data_format (`ChannelDimension` or `str`, *optional*):
-            The channel dimension format for the output image. Can be one of:
-            - `"channels_first"` or `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
-            - `"channels_last"` or `ChannelDimension.LAST`: image in (height, width, num_channels) format.
-    Returns:
-        padded_images (`List[np.ndarray]`):
-            List of padded images.
-    """
-    if data_format == ChannelDimension.FIRST:
-        max_height = max(image.shape[1] for image in images)
-        max_width = max(image.shape[2] for image in images)
-    else:  # channels_last
-        max_height = max(image.shape[0] for image in images)
-        max_width = max(image.shape[1] for image in images)
-
-    padded_images = []
-
-    for image in images:
-        if data_format == ChannelDimension.FIRST:
-            channels, height, width = image.shape
-        else:
-            height, width, channels = image.shape
-
-        top_pad = (max_height - height) // 2
-        left_pad = (max_width - width) // 2
-
-        if data_format == ChannelDimension.FIRST:
-            padded_image = np.full((channels, max_height, max_width), pad_value, dtype=image.dtype)
-            padded_image[:, top_pad : top_pad + height, left_pad : left_pad + width] = image
-        else:
-            padded_image = np.full((max_height, max_width, channels), pad_value, dtype=image.dtype)
-            padded_image[top_pad : top_pad + height, left_pad : left_pad + width, :] = image
-
-        padded_images.append(padded_image)
-
-    return padded_images
-
-
 # Copied from transformers.models.superglue.image_processing_superglue.validate_and_format_image_pairs
 def validate_and_format_image_pairs(images: ImageInput):
     error_message = (

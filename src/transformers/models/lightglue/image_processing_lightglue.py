@@ -281,7 +281,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
         resample: PILImageResampling = PILImageResampling.BILINEAR,
         do_rescale: bool = True,
         rescale_factor: float = 1 / 255,
-        do_grayscale: bool = False,
+        do_grayscale: bool = True,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)

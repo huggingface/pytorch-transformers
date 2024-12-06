@@ -133,11 +133,11 @@ class LightGlueKeypointMatchingOutput(ModelOutput):
     """
 
     loss: Optional[torch.FloatTensor] = None
-    matches: torch.FloatTensor = None
-    matching_scores: torch.FloatTensor = None
-    keypoints: torch.FloatTensor = None
-    prune: torch.IntTensor = None
-    mask: torch.FloatTensor = None
+    matches: Optional[torch.FloatTensor] = None
+    matching_scores: Optional[torch.FloatTensor] = None
+    keypoints: Optional[torch.FloatTensor] = None
+    prune: Optional[torch.IntTensor] = None
+    mask: Optional[torch.FloatTensor] = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
 

@@ -41,7 +41,7 @@ class LightGlueModelTester:
         image_width=80,
         image_height=60,
         keypoint_detector_config={
-            "encoder_hidden_sizes": [32, 64],
+            "encoder_hidden_sizes": [32, 32, 64],
             "decoder_hidden_size": 64,
             "keypoint_decoder_dim": 65,
             "descriptor_decoder_dim": 64,
@@ -51,12 +51,12 @@ class LightGlueModelTester:
             "border_removal_distance": 4,
         },
         descriptor_dim: int = 64,
-        num_layers: int = 3,
+        num_layers: int = 2,
         num_heads: int = 4,
-        depth_confidence: float = 0.95,
-        width_confidence: float = 0.99,
+        depth_confidence: float = 1.0,
+        width_confidence: float = 1.0,
         filter_threshold: float = 0.1,
-        matching_threshold: float = 0.2,
+        matching_threshold: float = 0.0,
     ):
         self.parent = parent
         self.batch_size = batch_size

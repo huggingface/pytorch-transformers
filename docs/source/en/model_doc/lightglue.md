@@ -140,6 +140,7 @@ The original code can be found [here](https://github.com/cvg/LightGlue).
 [[autodoc]] LightGlueImageProcessor
 
 - preprocess
+- post_process_keypoint_matching
 
 ## LightGlueForKeypointMatching
 

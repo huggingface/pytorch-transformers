@@ -27,10 +27,9 @@ from transformers import (
 from transformers.models.lightglue.configuration_lightglue import LightGlueConfig
 
 
-def verify_model_outputs(model):
+def verify_model_outputs(model, device):
     from tests.models.lightglue.test_modeling_lightglue import prepare_imgs
 
-    device = "cuda"
     images = prepare_imgs()
     preprocessor = LightGlueImageProcessor()
     inputs = preprocessor(images=images, return_tensors="pt").to(device)
@@ -176,7 +175,8 @@ def write_model(
     state_dict = add_keypoint_detector_state_dict(state_dict)
 
     print("Loading the checkpoint in a SuperGlue model...")
-    with torch.device("cuda"):
+    device = "cuda"
+    with torch.device(device):
         model = LightGlueForKeypointMatching(config)
     model.load_state_dict(state_dict, strict=False)
     print("Checkpoint loaded successfully...")
@@ -196,7 +196,7 @@ def write_model(
     if "superpoint" in checkpoint_url:
         model_name += "_superpoint"
     print("Checking the model outputs...")
-    verify_model_outputs(model)
+    verify_model_outputs(model, device)
     print("Model outputs verified successfully.")
 
     if push_to_hub:

@@ -59,21 +59,9 @@ model = AutoModel.from_pretrained("stevenbucaille/lightglue_superpoint")
 inputs = processor(images, return_tensors="pt")
 with torch.no_grad():
     outputs = model(**inputs)
-
-# Get the respective image masks 
-image0_mask, image1_mask = outputs.mask[0] > 0
-
-image0_indices = torch.nonzero(image0_mask).squeeze()
-image1_indices = torch.nonzero(image1_mask).squeeze()
-
-image0_matches = outputs.matches[0, 0][image0_indices]
-image1_matches = outputs.matches[0, 1][image1_indices]
-
-image0_matching_scores = outputs.matching_scores[0, 0][image0_indices]
-image1_matching_scores = outputs.matching_scores[0, 1][image1_indices]
 ```
 
-You can use the `post_process_keypoint_matching` method from the `LightGlueImageProcessor` to get the keypoints and matches in a more readable format:
+You can use the `post_process_keypoint_matching` method from the `LightGlueImageProcessor` to get the keypoints and matches in a readable format:
 ```python
 image_sizes = [[(image.height, image.width) for image in images]]
 outputs = processor.post_process_keypoint_matching(outputs, image_sizes, threshold=0.2)

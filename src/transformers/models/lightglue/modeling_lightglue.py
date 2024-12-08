@@ -619,7 +619,7 @@ class LightGlueMatchAssignmentLayer(nn.Module):
         batch_size, num_keypoints, descriptor_dim = descriptors.shape
         # Final projection and similarity computation
         m_descriptors = self.final_projection(descriptors)
-        m_descriptors = m_descriptors / self.descriptor_dim**0.25
+        m_descriptors = m_descriptors / torch.tensor(self.descriptor_dim) ** 0.25
         m_descriptors = m_descriptors.reshape(batch_size // 2, 2, num_keypoints, descriptor_dim)
         m_descriptors0 = m_descriptors[:, 0]
         m_descriptors1 = m_descriptors[:, 1]
@@ -671,7 +671,7 @@ class LightGluePreTrainedModel(PreTrainedModel):
     main_input_name = "pixel_values"
     supports_gradient_checkpointing = False
     _supports_flash_attn_2 = True
-    _supports_sdpa = False
+    _supports_sdpa = True
 
     def _init_weights(self, module: nn.Module) -> None:
         """Initialize the weights"""

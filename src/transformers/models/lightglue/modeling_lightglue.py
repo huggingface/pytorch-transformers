@@ -299,7 +299,7 @@ class LightGlueSelfAttention(nn.Module):
 
 # Adapted from BertSdpaSelfAttention and RoFormerSelfAttention
 class LightGlueSdpaSelfAttention(LightGlueSelfAttention):
-    def __init__(self, config):
+    def __init__(self, config: LightGlueConfig):
         super().__init__(config)
         self.dropout_prob = config.attention_probs_dropout_prob
         self.require_contiguous_qkv = version.parse(get_torch_version()) < version.parse("2.2.0")
@@ -359,7 +359,7 @@ class LightGlueSdpaSelfAttention(LightGlueSelfAttention):
 
 
 class LightGlueFlashAttentionSelfAttention(LightGlueSelfAttention):
-    def __init__(self, config):
+    def __init__(self, config: LightGlueConfig):
         super().__init__(config)
         self.dropout_prob = config.attention_probs_dropout_prob
         self.require_contiguous_qkv = version.parse(get_torch_version()) < version.parse("2.2.0")
@@ -481,7 +481,7 @@ LIGHTGLUE_SELF_ATTENTION_CLASSES = {
 
 
 class LightGlueAttention(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config: LightGlueConfig):
         super().__init__()
         self.self = LIGHTGLUE_SELF_ATTENTION_CLASSES[config._attn_implementation](config)
         self.output = LightGlueSelfOutput(config)

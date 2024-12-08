@@ -145,7 +145,7 @@ class LightGlueKeypointMatchingOutput(ModelOutput):
 class LightGluePositionalEncoder(nn.Module):
     def __init__(self, config: LightGlueConfig):
         super().__init__()
-        self.projector = nn.Linear(2, config.descriptor_dim // config.num_heads // 2, bias=False)
+        self.projector = nn.Linear(2, config.descriptor_dim // config.num_attention_heads // 2, bias=False)
 
     def forward(
         self, keypoints: torch.Tensor, output_hidden_states: Optional[bool] = False
@@ -729,7 +729,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         self.keypoint_detector = AutoModelForKeypointDetection.from_config(config.keypoint_detector_config)
 
         self.descriptor_dim = config.descriptor_dim
-        self.num_layers = config.num_layers
+        self.num_layers = config.num_hidden_layers
         self.filter_threshold = config.filter_threshold
         self.depth_confidence = config.depth_confidence
         self.width_confidence = config.width_confidence
@@ -743,12 +743,14 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
 
         self.positional_encoder = LightGluePositionalEncoder(config)
 
-        self.transformer_layers = nn.ModuleList([LightGlueTransformerLayer(config) for _ in range(config.num_layers)])
+        self.transformer_layers = nn.ModuleList(
+            [LightGlueTransformerLayer(config) for _ in range(config.num_hidden_layers)]
+        )
         self.match_assignment_layers = nn.ModuleList(
-            [LightGlueMatchAssignmentLayer(config) for _ in range(config.num_layers)]
+            [LightGlueMatchAssignmentLayer(config) for _ in range(config.num_hidden_layers)]
         )
         self.token_confidence = nn.ModuleList(
-            [LightGlueTokenConfidenceLayer(config) for _ in range(config.num_layers - 1)]
+            [LightGlueTokenConfidenceLayer(config) for _ in range(config.num_hidden_layers - 1)]
         )
 
         self.register_buffer(

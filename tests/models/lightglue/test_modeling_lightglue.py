@@ -82,8 +82,8 @@ class LightGlueModelTester:
         return LightGlueConfig(
             keypoint_detector_config=self.keypoint_detector_config,
             descriptor_dim=self.descriptor_dim,
-            num_layers=self.num_layers,
-            num_heads=self.num_heads,
+            num_hidden_layers=self.num_layers,
+            num_attention_heads=self.num_heads,
             depth_confidence=self.depth_confidence,
             width_confidence=self.width_confidence,
             filter_threshold=self.filter_threshold,

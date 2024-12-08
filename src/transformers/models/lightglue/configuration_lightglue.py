@@ -39,9 +39,9 @@ class LightGlueConfig(PretrainedConfig):
             The config object or dictionary of the keypoint detector.
         descriptor_dim (`int`, *optional*, defaults to 256):
             The dimension of the descriptors.
-        num_layers (`int`, *optional*, defaults to 9):
+        num_hidden_layers (`int`, *optional*, defaults to 9):
             The number of self and cross attention layers.
-        num_heads (`int`, *optional*, defaults to 4):
+        num_attention_heads (`int`, *optional*, defaults to 4):
             The number of heads in the multi-head attention.
         depth_confidence (`float`, *optional*, defaults to 0.95):
             The confidence threshold used to perform early stopping
@@ -74,20 +74,20 @@ class LightGlueConfig(PretrainedConfig):
         self,
         keypoint_detector_config: "SuperPointConfig" = None,
         descriptor_dim: int = 256,
-        num_layers: int = 9,
-        num_heads: int = 4,
+        num_hidden_layers: int = 9,
+        num_attention_heads: int = 4,
         depth_confidence: float = 0.95,
         width_confidence: float = 0.99,
         filter_threshold: float = 0.1,
         initializer_range=0.02,
         **kwargs,
     ):
-        if descriptor_dim % num_heads != 0:
+        if descriptor_dim % num_attention_heads != 0:
             raise ValueError("descriptor_dim % num_heads is different from zero")
 
         self.descriptor_dim = descriptor_dim
-        self.num_layers = num_layers
-        self.num_heads = num_heads
+        self.num_hidden_layers = num_hidden_layers
+        self.num_attention_heads = num_attention_heads
         self.depth_confidence = depth_confidence
         self.width_confidence = width_confidence
         self.filter_threshold = filter_threshold
@@ -106,7 +106,6 @@ class LightGlueConfig(PretrainedConfig):
         self.keypoint_detector_config = keypoint_detector_config
 
         self.hidden_size = descriptor_dim
-        self.num_attention_heads = num_heads
         self.attention_probs_dropout_prob = 0
         self.rotary_value = False
         super().__init__(**kwargs)

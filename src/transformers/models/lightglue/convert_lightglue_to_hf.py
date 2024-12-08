@@ -146,8 +146,8 @@ def write_model(
 
     config = LightGlueConfig(
         descriptor_dim=256,
-        num_layers=9,
-        num_heads=4,
+        num_hidden_layers=9,
+        num_attention_heads=4,
     )
     config.architectures = ["LightGlueForKeypointMatching"]
     config.save_pretrained(model_path)
@@ -198,7 +198,6 @@ def write_model(
     verify_model_outputs(model)
     print("Model outputs verified successfully.")
 
-    organization = "stevenbucaille"
     if push_to_hub:
         print("Pushing model to the hub...")
         model.push_to_hub(

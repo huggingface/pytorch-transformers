@@ -108,6 +108,7 @@ class LightGlueConfig(PretrainedConfig):
         self.hidden_size = descriptor_dim
         self.attention_probs_dropout_prob = 0
         self.rotary_value = False
+        self.hidden_act = "gelu"
         super().__init__(**kwargs)
 
 

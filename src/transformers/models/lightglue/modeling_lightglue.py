@@ -442,7 +442,7 @@ class LightGlueMLP(nn.Module):
         embeddings_dim = config.descriptor_dim
         self.dense = nn.Linear(2 * embeddings_dim, 2 * embeddings_dim)
         self.layer_norm = nn.LayerNorm(2 * embeddings_dim, elementwise_affine=True)
-        self.activation = ACT2FN["gelu"]
+        self.activation = ACT2FN[config.hidden_act]
         self.output = nn.Linear(2 * embeddings_dim, embeddings_dim)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:

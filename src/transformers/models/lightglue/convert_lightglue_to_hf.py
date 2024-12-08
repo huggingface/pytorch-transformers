@@ -135,6 +135,7 @@ def split_weights(state_dict):
 def write_model(
     model_path,
     checkpoint_url,
+    organization,
     safe_serialization=True,
     push_to_hub=False,
 ):
@@ -246,8 +247,18 @@ if __name__ == "__main__":
         action="store_true",
         help="Push model and image preprocessor to the hub",
     )
+    parser.add_argument(
+        "--organization",
+        default="stevenbucaille",
+        type=str,
+        help="Hub organization in which you want the model to be uploaded.",
+    )
 
     args = parser.parse_args()
     write_model(
-        args.pytorch_dump_folder_path, args.checkpoint_url, safe_serialization=True, push_to_hub=args.push_to_hub
+        args.pytorch_dump_folder_path,
+        args.checkpoint_url,
+        args.organization,
+        safe_serialization=True,
+        push_to_hub=args.push_to_hub,
     )

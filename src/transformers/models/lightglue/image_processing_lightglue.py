@@ -268,7 +268,7 @@ class LightGlueImageProcessor(BaseImageProcessor):
         rescale_factor (`int` or `float`, *optional*, defaults to `1/255`):
             Scale factor to use if rescaling the image. Can be overriden by `rescale_factor` in the `preprocess`
             method.
-        do_grayscale (`bool`, *optional*, defaults to `False`):
+        do_grayscale (`bool`, *optional*, defaults to `True`):
             Whether to convert the image to grayscale. Can be overriden by `do_grayscale` in the `preprocess` method.
     """
 

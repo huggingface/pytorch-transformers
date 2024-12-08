@@ -550,11 +550,18 @@ class LightGlueTransformerLayer(nn.Module):
 
         descriptors = self_attention_output[0]
 
+        # Reshape hidden_states to group by image_pairs :
+        #   (batch_size, num_keypoints, descriptor_dim) -> (batch_size, 2, num_keypoints, descriptor_dim)
+        # Flip dimension 1 to perform cross attention :
+        #   (image0, image1) -> (image1, image0)
+        # Reshape back to original shape :
+        #   (batch_size, 2, num_keypoints, descriptor_dim) -> (batch_size, num_keypoints, descriptor_dim)
         encoder_hidden_states = (
             descriptors.reshape(-1, 2, num_keypoints, descriptor_dim)
             .flip(1)
             .reshape(batch_size, num_keypoints, descriptor_dim)
         )
+        # Same for mask
         encoder_attention_mask = (
             attention_mask.reshape(-1, 2, 1, 1, num_keypoints).flip(1).reshape(batch_size, 1, 1, num_keypoints)
             if attention_mask is not None

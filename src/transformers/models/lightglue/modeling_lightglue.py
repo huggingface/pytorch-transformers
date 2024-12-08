@@ -122,11 +122,11 @@ class LightGlueKeypointMatchingOutput(ModelOutput):
             Pruning mask indicating which keypoints are removed and at which layer.
         mask (`torch.BoolTensor` of shape `(batch_size, num_keypoints)`):
             Mask indicating which values in matches and matching_scores are keypoint matching information.
-        hidden_states (`tuple(torch.FloatTensor)`, *optional*):
+        hidden_states (`Tuple[torch.FloatTensor, ...]`, *optional*):
             Tuple of `torch.FloatTensor` (one for the output of each stage) of shape `(batch_size, 2, num_channels,
             num_keypoints)` returned when `output_hidden_states=True` is passed or when
             `config.output_hidden_states=True`
-        attentions (`tuple(torch.FloatTensor)`, *optional*):
+        attentions (`Tuple[torch.FloatTensor, ...]`, *optional*):
             Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, 2, num_heads, num_keypoints,
             num_keypoints)` returned when `output_attentions=True` is passed or when
             `config.output_attentions=True`
@@ -1083,7 +1083,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
     @add_start_docstrings_to_model_forward(LIGHTGLUE_INPUTS_DOCSTRING)
     def forward(
         self,
-        pixel_values: torch.FloatTensor = None,
+        pixel_values: torch.FloatTensor,
         labels: Optional[torch.LongTensor] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
@@ -1099,7 +1099,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        if len(pixel_values.size()) != 5 or pixel_values.size(1) != 2:
+        if pixel_values.ndim != 5 or pixel_values.size(1) != 2:
             raise ValueError("Input must be a 5D tensor of shape (batch_size, 2, num_channels, height, width)")
 
         batch_size, _, channels, height, width = pixel_values.shape

@@ -437,7 +437,7 @@ class LightGlueFlashAttentionSelfAttention(LightGlueSelfAttention):
 
 
 class LightGlueMLP(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config: LightGlueConfig):
         super().__init__()
         embeddings_dim = config.descriptor_dim
         self.dense = nn.Linear(2 * embeddings_dim, 2 * embeddings_dim)
@@ -454,7 +454,7 @@ class LightGlueMLP(nn.Module):
 
 
 class LightGlueSelfOutput(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config: LightGlueConfig):
         super().__init__()
         embeddings_dim = config.descriptor_dim
         self.dense = nn.Linear(embeddings_dim, embeddings_dim)

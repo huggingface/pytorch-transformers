@@ -1008,7 +1008,6 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
                     # If a pair of images is considered early stopped, we compute the matches for the remaining
                     # keypoints and stop the forward pass through the transformer layers for this pair of images.
                     early_stops = early_stopped_pairs.repeat_interleave(2)
-                    _, layer_num_keypoints = mask.shape
                     early_stopped_image_indices = image_indices[early_stops]
                     early_stopped_matches, early_stopped_matching_scores = self._get_keypoint_matching(
                         descriptors, mask, layer_index, early_stops=early_stops

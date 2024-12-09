@@ -51,6 +51,12 @@ class LightGlueConfig(PretrainedConfig):
             The confidence threshold used to filter matches
         initializer_range (`float`, *optional*, defaults to 0.02):
             The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
+        attention_probs_dropout_prob (`float`, *optional*, defaults to 0.0):
+            The dropout ratio for the attention probabilities.
+        rotary_value (`bool`, *optional*, defaults to `False`):
+            Whether to apply rotary encoding to value in attention.
+        hidden_act (`str`, *optional*, defaults to `"gelu"`):
+            The activation function to be used in the hidden layers.
 
 
     Examples:
@@ -79,7 +85,10 @@ class LightGlueConfig(PretrainedConfig):
         depth_confidence: float = 0.95,
         width_confidence: float = 0.99,
         filter_threshold: float = 0.1,
-        initializer_range=0.02,
+        initializer_range: float = 0.02,
+        attention_probs_dropout_prob: float = 0.0,
+        rotary_value: bool = False,
+        hidden_act: str = "gelu",
         **kwargs,
     ):
         if descriptor_dim % num_attention_heads != 0:
@@ -106,9 +115,9 @@ class LightGlueConfig(PretrainedConfig):
         self.keypoint_detector_config = keypoint_detector_config
 
         self.hidden_size = descriptor_dim
-        self.attention_probs_dropout_prob = 0
-        self.rotary_value = False
-        self.hidden_act = "gelu"
+        self.attention_probs_dropout_prob = attention_probs_dropout_prob
+        self.rotary_value = rotary_value
+        self.hidden_act = hidden_act
         super().__init__(**kwargs)
 
 

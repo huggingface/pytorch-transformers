@@ -142,15 +142,13 @@
     - local: perf_train_cpu
       title: CPU
     - local: perf_train_tpu_tf
-      title: TPU wih TensorFlow
+      title: TPU
     - local: perf_train_special
       title: Apple Silicon
     - local: perf_hardware
       title: Build your own machine
   - local: peft
-    title: Load and train adapters with 🤗 PEFT
-  - local: sagemaker
-    title: Run training on Amazon SageMaker
+    title: PEFT
   - local: debugging
     title: Debugging
   - local: model_memory_anatomy
@@ -317,6 +315,8 @@
       title: Optimization
     - local: main_classes/output
       title: Model outputs
+    - local: main_classes/peft
+      title: PEFT
     - local: main_classes/pipelines
       title: Pipelines
     - local: main_classes/processors

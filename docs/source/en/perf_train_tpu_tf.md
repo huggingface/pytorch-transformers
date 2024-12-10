@@ -13,7 +13,7 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# TPU wih TensorFlow
+# TPU
 
 <Tip>
 

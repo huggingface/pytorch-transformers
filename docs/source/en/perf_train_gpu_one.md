@@ -154,7 +154,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 ```
 
-Configure [`~TrainingArguments.tf32`] in [`TrainingArguments`] to enable mixed precision training with tf32 mode.
+Configure [tf32()](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments.tf32) in [`TrainingArguments`] to enable mixed precision training with tf32 mode.
 
 ```py
 from transformers import TrainingArguments
@@ -185,7 +185,7 @@ args = TrainingArguments(
     gradient_accumulation_steps=16,
     gradient_checkpointing=True,
     bf16=True,
-    optim="adamw_bnb_8bit
+    optim="adamw_bnb_8bit"
 )
 ```
 
@@ -210,7 +210,7 @@ args = TrainingArguments(
     gradient_accumulation_steps=16,
     gradient_checkpointing=True,
     bf16=True,
-    optim="adamw_bnb_8bit,
+    optim="adamw_bnb_8bit",
     dataloader_pin_memory=True,
     dataloader_num_workers=4,
 )
@@ -224,7 +224,7 @@ PyTorch provides several features for reducing memory requirements and increasin
 
 The [torch.cuda.empty_cache](https://pytorch.org/docs/stable/generated/torch.cuda.empty_cache.html#torch.cuda.empty_cache) function releases unused cached memory, which can help avoid out-of-memory (OOM) errors at the cost of ~10% slower training.
 
-Configure [`~TrainingArguments.torch_empty_cache_steps`] in [`TrainingArguments`] to enable torch.empty_cache after a certain number of training steps.
+Configure [torch_empty_cache_steps()](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments.torch_empty_cache_steps) in [`TrainingArguments`] to enable torch.empty_cache after a certain number of training steps.
 
 ```py
 from transformers import TrainingArguments
@@ -245,7 +245,7 @@ args = TrainingArguments(
 
 [torch.compile](https://pytorch.org/tutorials/intermediate/torch_compile_tutorial.html) compiles PyTorch code into optimized kernels that significantly speed up training. This feature relies on TorchDynamo to capture PyTorch graphs with the Frame Evaluation API. The graph can be further compiled into optimized kernels for different backends.
 
-Configure [`~TrainingArguments.torch_compile`] in [`TrainingArguments`] to enable it, and configure [`~TrainingArguments.torch_compile_backend`] to select a backend to use.
+Configure [`~TrainingArguments.torch_compile`] in [`TrainingArguments`] to enable it, and configure [torch_compile_backend()](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments.torch_compile_backend) to select a backend to use.
 
 ```py
 from transformers import TrainingArguments
@@ -255,7 +255,7 @@ args = TrainingArguments(
     gradient_accumulation_steps=16,
     gradient_checkpointing=True,
     bf16=True,
-    optim="adamw_bnb_8bit,
+    optim="adamw_bnb_8bit",
     dataloader_pin_memory=True,
     dataloader_num_workers=4,
     torch_empty_cache_steps=4,
@@ -279,9 +279,9 @@ Refer to the table below to help you choose the right backend for your training 
 | onnxrt | uses [ONNX-RT](https://onnxruntime.ai/) for CPU and GPU inference | inference |
 | ipex | uses [IPEX](https://github.com/intel/intel-extension-for-pytorch) for CPU inference | inference |
 
-### PyTorch scaled dot production attention
+### Scaled dot production attention
 
-PyTorch's [torch.nn.functional.scaled_dot_product_attention](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html) (SDPA) is a native implementation of the scaled dot product attention mechanism. SDPA is more efficient and optimized than the original attention mechanism in transformer models. It supports three types of scaled dot product attention.
+[torch.nn.functional.scaled_dot_product_attention](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html) (SDPA) is a native PyTorch implementation of the scaled dot product attention mechanism. SDPA is more efficient and optimized than the original attention mechanism in transformer models. It supports three types of scaled dot product attention.
 
 - [FlashAttention2](https://github.com/Dao-AILab/flash-attention) is automatically enabled for models with the fp16 or bf16 torch type. Make sure to cast your model to the appropriate type first.
 - [xFormers](https://github.com/facebookresearch/xformers) or Memory-Efficient Attention supports models with the fp32 torch type.
@@ -294,31 +294,3 @@ from transformers import AutoModelForCausalLM
 
 model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B", device_map="auto", attn_implementation="sdpa")
 ```
-
-## PEFT
-
-[PEFT](https://huggingface.co/docs/peft/index), a library of parameter-efficient finetuning methods, enable training and storing large models often on consumer GPUs by only finetuning a small number of extra model parameters on top of the pretrained model. A significant amount of memory is saved because the GPU doesn't need to store the optimizer states and gradients for the pretrained base model.
-
-[Low-Rank Adaptation (LoRA)](https://huggingface.co/docs/peft/conceptual_guides/adapter#low-rank-adaptation-lora) is a very common PEFT method that decomposes the weight matrix into two smaller trainable matrices. Refer to the PEFT [Quicktour](https://huggingface.co/docs/peft/quicktour) for more details, but the example below demonstrates how to create a LoRA adapter for training.
-
-```py
-from peft import LoraConfig, TaskType, get_peft_model
-from transformers import AutoModelForCausalLM
-
-# create LoRA configuration object
-peft_config = LoraConfig(
-    task_type=TaskType.CAUSAL_LM, # type of task to train on
-    inference_mode=False, # set to False for training
-    r=8, # dimension of the smaller matrices
-    lora_alpha=32, # scaling factor
-    lora_dropout=0.1 # dropout of LoRA layers
-)
-
-# create a LoRA adapter
-model = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b")
-model = get_peft_model(model, peft_config)
-# print the number of parameters you're actually training
-model.print_trainable_parameters
-```
-
-The model is ready to be passed to [`Trainer`] for training.

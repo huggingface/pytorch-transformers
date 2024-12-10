@@ -1,4 +1,4 @@
-# Copyright 2020 The HuggingFace Team. All rights reserved.
+# Copyright 2024 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,134 +13,20 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import (
-    OptionalDependencyNotAvailable,
-    _LazyModule,
-    is_flax_available,
-    is_tf_available,
-    is_tokenizers_available,
-    is_torch_available,
-)
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
-
-_import_structure = {
-    "configuration_bart": ["BartConfig", "BartOnnxConfig"],
-    "tokenization_bart": ["BartTokenizer"],
-}
-
-try:
-    if not is_tokenizers_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["tokenization_bart_fast"] = ["BartTokenizerFast"]
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_bart"] = [
-        "BartForCausalLM",
-        "BartForConditionalGeneration",
-        "BartForQuestionAnswering",
-        "BartForSequenceClassification",
-        "BartModel",
-        "BartPreTrainedModel",
-        "BartPretrainedModel",
-        "PretrainedBartModel",
-    ]
-
-try:
-    if not is_tf_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_tf_bart"] = [
-        "TFBartForConditionalGeneration",
-        "TFBartForSequenceClassification",
-        "TFBartModel",
-        "TFBartPretrainedModel",
-    ]
-
-try:
-    if not is_flax_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_flax_bart"] = [
-        "FlaxBartDecoderPreTrainedModel",
-        "FlaxBartForCausalLM",
-        "FlaxBartForConditionalGeneration",
-        "FlaxBartForQuestionAnswering",
-        "FlaxBartForSequenceClassification",
-        "FlaxBartModel",
-        "FlaxBartPreTrainedModel",
-    ]
 
 if TYPE_CHECKING:
-    from .configuration_bart import BartConfig, BartOnnxConfig
-    from .tokenization_bart import BartTokenizer
-
-    try:
-        if not is_tokenizers_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .tokenization_bart_fast import BartTokenizerFast
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_bart import (
-            BartForCausalLM,
-            BartForConditionalGeneration,
-            BartForQuestionAnswering,
-            BartForSequenceClassification,
-            BartModel,
-            BartPreTrainedModel,
-            BartPretrainedModel,
-            PretrainedBartModel,
-        )
-
-    try:
-        if not is_tf_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_tf_bart import (
-            TFBartForConditionalGeneration,
-            TFBartForSequenceClassification,
-            TFBartModel,
-            TFBartPretrainedModel,
-        )
-
-    try:
-        if not is_flax_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_flax_bart import (
-            FlaxBartDecoderPreTrainedModel,
-            FlaxBartForCausalLM,
-            FlaxBartForConditionalGeneration,
-            FlaxBartForQuestionAnswering,
-            FlaxBartForSequenceClassification,
-            FlaxBartModel,
-            FlaxBartPreTrainedModel,
-        )
-
+    from .configuration_bart import *
+    from .convert_bart_original_pytorch_checkpoint_to_pytorch import *
+    from .modeling_bart import *
+    from .modeling_flax_bart import *
+    from .modeling_tf_bart import *
+    from .tokenization_bart import *
+    from .tokenization_bart_fast import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

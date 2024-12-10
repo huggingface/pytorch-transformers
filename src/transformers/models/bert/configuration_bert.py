@@ -149,3 +149,6 @@ class BertOnnxConfig(OnnxConfig):
                 ("token_type_ids", dynamic_axis),
             ]
         )
+
+
+__all__ = ["BertConfig", "BertOnnxConfig"]

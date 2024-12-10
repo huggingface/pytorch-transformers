@@ -126,3 +126,6 @@ class ASTConfig(PretrainedConfig):
     # generative parameters deprecation cycle, overwriting this function prevents this from happening.
     def _get_non_default_generation_parameters(self) -> Dict[str, Any]:
         return {}
+
+
+__all__ = ["ASTConfig"]

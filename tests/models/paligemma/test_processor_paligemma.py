@@ -63,8 +63,8 @@ class PaliGemmaProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         tokenizer = self.get_component("tokenizer")
 
         processor = self.processor_class(tokenizer=tokenizer, image_processor=image_processor)
-        text_multi_images = "<image><image><bos>Dummy text!"
-        text_single_image = "<image><bos>Dummy text!"
+        text_multi_images = "<image><image>Dummy text!"
+        text_single_image = "<image>Dummy text!"
         text_no_image = "Dummy text!"
 
         image = self.prepare_image_inputs()
@@ -85,7 +85,7 @@ class PaliGemmaProcessorTest(ProcessorTesterMixin, unittest.TestCase):
             self.assertTrue(out_noimage[k].tolist() == out_multiimages[k].tolist())
 
         text_batched = ["Dummy text!", "Dummy text!"]
-        text_batched_with_image = ["<image><bos>Dummy text!", "<image><bos>Dummy text!"]
+        text_batched_with_image = ["<image>Dummy text!", "<image>Dummy text!"]
         out_images = processor(text=text_batched_with_image, images=[image, image], return_tensors="np")
         out_noimage_nested = processor(text=text_batched, images=[[image], [image]], return_tensors="np")
         out_noimage = processor(text=text_batched, images=[image, image], return_tensors="np")

@@ -252,3 +252,6 @@ class TFBertTokenizer(keras.layers.Layer):
             "sep_token_id": self.sep_token_id,
             "pad_token_id": self.pad_token_id,
         }
+
+
+__all__ = ["TFBertTokenizer"]

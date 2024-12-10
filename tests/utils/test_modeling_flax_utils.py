@@ -14,16 +14,15 @@
 
 import tempfile
 import unittest
-from pathlib import Path
 
 import numpy as np
-from huggingface_hub import HfFolder, delete_repo, snapshot_download
+from huggingface_hub import HfFolder, snapshot_download
 
 from transformers import BertConfig, BertModel, is_flax_available, is_torch_available
 from transformers.testing_utils import (
     TOKEN,
-    USER,
     CaptureLogger,
+    TemporaryHubRepo,
     is_pt_flax_cross_test,
     is_staging_test,
     require_flax,
@@ -55,103 +54,77 @@ class FlaxModelPushToHubTester(unittest.TestCase):
         cls._token = TOKEN
         HfFolder.save_token(TOKEN)
 
-    @staticmethod
-    def _try_delete_repo(repo_id, token):
-        try:
-            # Reset repo
-            delete_repo(repo_id=repo_id, token=token)
-        except:  # noqa E722
-            pass
-
     def test_push_to_hub(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-model-flax-{Path(tmp_dir).name}"
-                config = BertConfig(
-                    vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
-                )
-                model = FlaxBertModel(config)
-                model.push_to_hub(tmp_repo, token=self._token)
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            config = BertConfig(
+                vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
+            )
+            model = FlaxBertModel(config)
+            model.push_to_hub(tmp_repo.repo_id, token=self._token)
 
-                new_model = FlaxBertModel.from_pretrained(tmp_repo)
+            new_model = FlaxBertModel.from_pretrained(tmp_repo.repo_id)
 
-                base_params = flatten_dict(unfreeze(model.params))
-                new_params = flatten_dict(unfreeze(new_model.params))
+            base_params = flatten_dict(unfreeze(model.params))
+            new_params = flatten_dict(unfreeze(new_model.params))
 
-                for key in base_params.keys():
-                    max_diff = (base_params[key] - new_params[key]).sum().item()
-                    self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            for key in base_params.keys():
+                max_diff = (base_params[key] - new_params[key]).sum().item()
+                self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
 
     def test_push_to_hub_via_save_pretrained(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-model-flax-{Path(tmp_dir).name}"
-                config = BertConfig(
-                    vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
-                )
-                model = FlaxBertModel(config)
-                # Push to hub via save_pretrained
-                model.save_pretrained(tmp_dir, repo_id=tmp_repo, push_to_hub=True, token=self._token)
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            config = BertConfig(
+                vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
+            )
+            model = FlaxBertModel(config)
+            # Push to hub via save_pretrained
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                model.save_pretrained(tmp_dir, repo_id=tmp_repo.repo_id, push_to_hub=True, token=self._token)
 
-                new_model = FlaxBertModel.from_pretrained(tmp_repo)
+            new_model = FlaxBertModel.from_pretrained(tmp_repo.repo_id)
 
-                base_params = flatten_dict(unfreeze(model.params))
-                new_params = flatten_dict(unfreeze(new_model.params))
+            base_params = flatten_dict(unfreeze(model.params))
+            new_params = flatten_dict(unfreeze(new_model.params))
 
-                for key in base_params.keys():
-                    max_diff = (base_params[key] - new_params[key]).sum().item()
-                    self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            for key in base_params.keys():
+                max_diff = (base_params[key] - new_params[key]).sum().item()
+                self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
 
     def test_push_to_hub_in_organization(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"valid_org/test-model-flax-org-{Path(tmp_dir).name}"
-                config = BertConfig(
-                    vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
-                )
-                model = FlaxBertModel(config)
-                model.push_to_hub(tmp_repo, token=self._token)
+        with TemporaryHubRepo(namespace="valid_org", token=self._token) as tmp_repo:
+            config = BertConfig(
+                vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
+            )
+            model = FlaxBertModel(config)
+            model.push_to_hub(tmp_repo.repo_id, token=self._token)
 
-                new_model = FlaxBertModel.from_pretrained(tmp_repo)
+            new_model = FlaxBertModel.from_pretrained(tmp_repo.repo_id)
 
-                base_params = flatten_dict(unfreeze(model.params))
-                new_params = flatten_dict(unfreeze(new_model.params))
+            base_params = flatten_dict(unfreeze(model.params))
+            new_params = flatten_dict(unfreeze(new_model.params))
 
-                for key in base_params.keys():
-                    max_diff = (base_params[key] - new_params[key]).sum().item()
-                    self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            for key in base_params.keys():
+                max_diff = (base_params[key] - new_params[key]).sum().item()
+                self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
 
     def test_push_to_hub_in_organization_via_save_pretrained(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"valid_org/test-model-flax-org-{Path(tmp_dir).name}"
-                config = BertConfig(
-                    vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
-                )
-                model = FlaxBertModel(config)
-                # Push to hub via save_pretrained
-                model.save_pretrained(tmp_dir, repo_id=tmp_repo, push_to_hub=True, token=self._token)
+        with TemporaryHubRepo(namespace="valid_org", token=self._token) as tmp_repo:
+            config = BertConfig(
+                vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
+            )
+            model = FlaxBertModel(config)
+            # Push to hub via save_pretrained
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                model.save_pretrained(tmp_dir, repo_id=tmp_repo.repo_id, push_to_hub=True, token=self._token)
 
-                new_model = FlaxBertModel.from_pretrained(tmp_repo)
+            new_model = FlaxBertModel.from_pretrained(tmp_repo.repo_id)
 
-                base_params = flatten_dict(unfreeze(model.params))
-                new_params = flatten_dict(unfreeze(new_model.params))
+            base_params = flatten_dict(unfreeze(model.params))
+            new_params = flatten_dict(unfreeze(new_model.params))
 
-                for key in base_params.keys():
-                    max_diff = (base_params[key] - new_params[key]).sum().item()
-                    self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            for key in base_params.keys():
+                max_diff = (base_params[key] - new_params[key]).sum().item()
+                self.assertLessEqual(max_diff, 1e-3, msg=f"{key} not identical")
 
 
 def check_models_equal(model1, model2):

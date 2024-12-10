@@ -21,7 +21,7 @@ import unittest
 from pathlib import Path
 from shutil import copyfile
 
-from huggingface_hub import HfFolder, Repository, create_repo, delete_repo
+from huggingface_hub import HfFolder, Repository
 
 import transformers
 from transformers import (
@@ -39,7 +39,7 @@ from transformers import (
     Wav2Vec2FeatureExtractor,
     Wav2Vec2Processor,
 )
-from transformers.testing_utils import TOKEN, USER, get_tests_dir, is_staging_test
+from transformers.testing_utils import TOKEN, TemporaryHubRepo, get_tests_dir, is_staging_test
 from transformers.tokenization_utils import TOKENIZER_CONFIG_FILE
 from transformers.utils import FEATURE_EXTRACTOR_NAME, PROCESSOR_NAME, is_tokenizers_available
 
@@ -372,72 +372,52 @@ class ProcessorPushToHubTester(unittest.TestCase):
         cls._token = TOKEN
         HfFolder.save_token(TOKEN)
 
-    @staticmethod
-    def _try_delete_repo(repo_id, token):
-        try:
-            # Reset repo
-            delete_repo(repo_id=repo_id, token=token)
-        except:  # noqa E722
-            pass
-
     def test_push_to_hub_via_save_pretrained(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-processor-{Path(tmp_dir).name}"
-                processor = Wav2Vec2Processor.from_pretrained(SAMPLE_PROCESSOR_CONFIG_DIR)
-                # Push to hub via save_pretrained
-                processor.save_pretrained(tmp_repo, repo_id=tmp_repo, push_to_hub=True, token=self._token)
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            processor = Wav2Vec2Processor.from_pretrained(SAMPLE_PROCESSOR_CONFIG_DIR)
+            # Push to hub via save_pretrained
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                processor.save_pretrained(tmp_dir, repo_id=tmp_repo.repo_id, push_to_hub=True, token=self._token)
 
-                new_processor = Wav2Vec2Processor.from_pretrained(tmp_repo)
-                for k, v in processor.feature_extractor.__dict__.items():
-                    self.assertEqual(v, getattr(new_processor.feature_extractor, k))
-                self.assertDictEqual(new_processor.tokenizer.get_vocab(), processor.tokenizer.get_vocab())
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            new_processor = Wav2Vec2Processor.from_pretrained(tmp_repo.repo_id)
+            for k, v in processor.feature_extractor.__dict__.items():
+                self.assertEqual(v, getattr(new_processor.feature_extractor, k))
+            self.assertDictEqual(new_processor.tokenizer.get_vocab(), processor.tokenizer.get_vocab())
 
     def test_push_to_hub_in_organization_via_save_pretrained(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"valid_org/test-processor-org-{Path(tmp_dir).name}"
-                processor = Wav2Vec2Processor.from_pretrained(SAMPLE_PROCESSOR_CONFIG_DIR)
-
-                # Push to hub via save_pretrained
+        with TemporaryHubRepo(namespace="valid_org", token=self._token) as tmp_repo:
+            processor = Wav2Vec2Processor.from_pretrained(SAMPLE_PROCESSOR_CONFIG_DIR)
+            # Push to hub via save_pretrained
+            with tempfile.TemporaryDirectory() as tmp_dir:
                 processor.save_pretrained(
                     tmp_dir,
-                    repo_id=tmp_repo,
+                    repo_id=tmp_repo.repo_id,
                     push_to_hub=True,
                     token=self._token,
                 )
 
-                new_processor = Wav2Vec2Processor.from_pretrained(tmp_repo)
-                for k, v in processor.feature_extractor.__dict__.items():
-                    self.assertEqual(v, getattr(new_processor.feature_extractor, k))
-                self.assertDictEqual(new_processor.tokenizer.get_vocab(), processor.tokenizer.get_vocab())
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            new_processor = Wav2Vec2Processor.from_pretrained(tmp_repo.repo_id)
+            for k, v in processor.feature_extractor.__dict__.items():
+                self.assertEqual(v, getattr(new_processor.feature_extractor, k))
+            self.assertDictEqual(new_processor.tokenizer.get_vocab(), processor.tokenizer.get_vocab())
 
     def test_push_to_hub_dynamic_processor(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-dynamic-processor-{Path(tmp_dir).name}"
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            CustomFeatureExtractor.register_for_auto_class()
+            CustomTokenizer.register_for_auto_class()
+            CustomProcessor.register_for_auto_class()
 
-                CustomFeatureExtractor.register_for_auto_class()
-                CustomTokenizer.register_for_auto_class()
-                CustomProcessor.register_for_auto_class()
+            feature_extractor = CustomFeatureExtractor.from_pretrained(SAMPLE_PROCESSOR_CONFIG_DIR)
 
-                feature_extractor = CustomFeatureExtractor.from_pretrained(SAMPLE_PROCESSOR_CONFIG_DIR)
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                vocab_file = os.path.join(tmp_dir, "vocab.txt")
+                with open(vocab_file, "w", encoding="utf-8") as vocab_writer:
+                    vocab_writer.write("".join([x + "\n" for x in self.vocab_tokens]))
+                tokenizer = CustomTokenizer(vocab_file)
 
-                with tempfile.TemporaryDirectory() as tmp_dir:
-                    vocab_file = os.path.join(tmp_dir, "vocab.txt")
-                    with open(vocab_file, "w", encoding="utf-8") as vocab_writer:
-                        vocab_writer.write("".join([x + "\n" for x in self.vocab_tokens]))
-                    tokenizer = CustomTokenizer(vocab_file)
+            processor = CustomProcessor(feature_extractor, tokenizer)
 
-                processor = CustomProcessor(feature_extractor, tokenizer)
-
-                create_repo(tmp_repo, token=self._token)
+            with tempfile.TemporaryDirectory() as tmp_dir:
                 repo = Repository(tmp_dir, clone_from=tmp_repo, token=self._token)
                 processor.save_pretrained(tmp_dir)
 
@@ -468,10 +448,6 @@ class ProcessorPushToHubTester(unittest.TestCase):
 
                 repo.push_to_hub()
 
-                new_processor = AutoProcessor.from_pretrained(tmp_repo, trust_remote_code=True)
+                new_processor = AutoProcessor.from_pretrained(tmp_repo.repo_id, trust_remote_code=True)
                 # Can't make an isinstance check because the new_processor is from the CustomProcessor class of a dynamic module
                 self.assertEqual(new_processor.__class__.__name__, "CustomProcessor")
-
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)

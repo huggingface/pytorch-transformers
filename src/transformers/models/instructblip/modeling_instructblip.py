@@ -1593,7 +1593,7 @@ class InstructBlipForConditionalGeneration(InstructBlipPreTrainedModel, Generati
         if input_ids is None:
             start_tokens = [self.config.text_config.bos_token_id]
             if getattr(self.config, "image_token_index", None) is not None:
-                start_tokens += [self.config.image_token_index] * self.config.num_query_tokens
+                start_tokens = [self.config.image_token_index] * self.config.num_query_tokens + start_tokens
             input_ids = torch.tensor([start_tokens], dtype=torch.long, device=image_embeds.device)
             input_ids = input_ids.repeat(batch_size, 1)
 

@@ -308,6 +308,7 @@ class WhisperGenerationMixin(GenerationMixin):
         num_segment_frames: Optional[int] = None,
         attention_mask: Optional[torch.Tensor] = None,
         time_precision: float = 0.02,
+        time_precision_features: float = 0.01,
         return_token_timestamps: Optional[bool] = None,
         return_segments: bool = False,
         return_dict_in_generate: Optional[bool] = None,
@@ -417,6 +418,8 @@ class WhisperGenerationMixin(GenerationMixin):
             time_precision (`int`, *optional*, defaults to 0.02):
                 The duration of output token in seconds. *E.g.* 0.02 means that a generated token on average accounts
                 for 20 ms.
+            time_precision_features (`int`, *optional*, defaults to 0.01):
+                The duration represented by a feature frame in seconds.
             return_token_timestamps (`bool`, *optional*):
                 Whether to return token-level timestamps with the text. This can be used with or without the
                 `return_timestamps` option. To get word-level timestamps, use the tokenizer to group the tokens into
@@ -629,7 +632,7 @@ class WhisperGenerationMixin(GenerationMixin):
                 cur_bsz=cur_bsz,
                 batch_idx_map=batch_idx_map,
             )
-            time_offset = seek * time_precision / input_stride
+            time_offset = seek.to(torch.float64) * time_precision / input_stride
             seek_num_frames = (max_frames - seek).clamp(max=num_segment_frames)
 
             # 6.2 cut out next 30s segment from input features
@@ -658,6 +661,7 @@ class WhisperGenerationMixin(GenerationMixin):
                 config=self.config,
                 device=init_tokens.device,
                 suppress_tokens=suppress_tokens,
+                timestamp_begin=timestamp_begin,
                 kwargs=kwargs,
             )
 
@@ -718,6 +722,7 @@ class WhisperGenerationMixin(GenerationMixin):
                     timestamp_begin=timestamp_begin,
                     seek_num_frames=seek_num_frames,
                     time_precision=time_precision,
+                    time_precision_features=time_precision_features,
                     input_stride=input_stride,
                     prev_idx=prev_i,
                     idx=i,
@@ -1665,6 +1670,7 @@ class WhisperGenerationMixin(GenerationMixin):
         config,
         device,
         suppress_tokens,
+        timestamp_begin,
         kwargs,
     ):
         if "decoder_input_ids" in kwargs:
@@ -1683,6 +1689,14 @@ class WhisperGenerationMixin(GenerationMixin):
         if any(do_condition_on_prev_tokens) and len(current_segments[0]) > 0:
             # according to https://github.com/openai/whisper/blob/e58f28804528831904c3b6f2c0e473f346223433/whisper/decoding.py#L609
             active_segments = [current_segments[i] if do_condition_on_prev_tokens[i] else None for i in batch_idx_map]
+
+            for segments in active_segments:
+                for seg in segments:
+                    if len(seg["tokens"]) > 2 and seg["tokens"][-2] >= timestamp_begin:
+                        # the segment finishes with two timestamp tokens
+                        # we need to ignore the last timestamp token
+                        # see https://github.com/huggingface/transformers/pull/34537
+                        seg["tokens"] = seg["tokens"][:-1]
 
             if prompt_ids is not None and generation_config.prompt_condition_type == "all-segments":
                 prev_ids = prompt_ids
@@ -1778,6 +1792,7 @@ class WhisperGenerationMixin(GenerationMixin):
         timestamp_begin,
         seek_num_frames,
         time_precision,
+        time_precision_features,
         input_stride,
         prev_idx,
         idx,
@@ -1799,17 +1814,22 @@ class WhisperGenerationMixin(GenerationMixin):
             segments = []
             if single_timestamp_ending:
                 slices.append(len(seek_sequence))
+            else:
+                # we want to include the last timestamp token in the last segment to know it was no single ending
+                slices[-1] += 1
 
             last_slice = 0
             # Add each segment to list of all segments
-            for current_slice in slices:
+            for i, current_slice in enumerate(slices):
+                is_last_slice = i == len(slices) - 1
                 sliced_tokens = seek_sequence[last_slice:current_slice]
-                start_timestamp_pos = sliced_tokens[0].item() - timestamp_begin
-                end_timestamp_pos = sliced_tokens[-1].item() - timestamp_begin
+                start_timestamp_pos = sliced_tokens[0] - timestamp_begin
+                idx_sliced_tokens = -1 if not is_last_slice or single_timestamp_ending else -2
+                end_timestamp_pos = sliced_tokens[idx_sliced_tokens] - timestamp_begin
                 segments.append(
                     {
-                        "start": time_offset[prev_idx] + start_timestamp_pos * time_precision,
-                        "end": time_offset[prev_idx] + end_timestamp_pos * time_precision,
+                        "start": time_offset[prev_idx] + start_timestamp_pos.to(torch.float64) * time_precision,
+                        "end": time_offset[prev_idx] + end_timestamp_pos.to(torch.float64) * time_precision,
                         "tokens": sliced_tokens,
                         "result": seek_outputs[idx],
                     }
@@ -1827,16 +1847,16 @@ class WhisperGenerationMixin(GenerationMixin):
                 # otherwise, ignore the unfinished segment and seek to the last timestamp
                 # here we throw away all predictions after the last predicted "end of segment"
                 # since we are cutting right in the middle of an audio
-                last_timestamp_pos = seek_sequence[last_slice - 1].item() - timestamp_begin
+                last_timestamp_pos = seek_sequence[last_slice - 2].item() - timestamp_begin
                 segment_offset = last_timestamp_pos * input_stride
         else:
             # If whisper does not predict any "end of segment" token, then
             # the whole decoding is considered a segment and we add it to the list of segments
             timestamps = seek_sequence[timestamp_tokens.nonzero().flatten()]
-            last_timestamp_pos = seek_num_frames[prev_idx]
-            if timestamps.numel() > 0 and timestamps[-1].item() != timestamp_begin:
+            last_timestamp_pos = int(seek_num_frames[prev_idx] * time_precision_features / time_precision)
+            if timestamps.numel() > 0 and timestamps[-1] != timestamp_begin:
                 # no consecutive timestamps but it has a timestamp; use the last one.
-                last_timestamp_pos = timestamps[-1].item() - timestamp_begin
+                last_timestamp_pos = (timestamps[-1] - timestamp_begin).to(torch.float64)
             segments = [
                 {
                     "start": time_offset[prev_idx],

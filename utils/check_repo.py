@@ -85,6 +85,8 @@ PRIVATE_MODELS = [
     "Idefics2PerceiverResampler",
     "Idefics2VisionTransformer",
     "Idefics3VisionTransformer",
+    "AriaTextForCausalLM",
+    "AriaTextModel",
 ]
 
 # Update this list for models that are not tested with a comment explaining the reason it should not be.

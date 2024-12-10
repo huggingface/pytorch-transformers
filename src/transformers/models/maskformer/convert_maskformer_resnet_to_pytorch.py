@@ -374,7 +374,8 @@ if __name__ == "__main__":
         "--checkpoint_path",
         type=str,
         required=True,
-        help=("Path to the original pickle file (.pkl) of the original checkpoint.",),
+        help="Path to the original pickle file (.pkl) of the original checkpoint.\n"
+        "Given the files are in the pickle format, please be wary of passing it files you trust.",
     )
     parser.add_argument(
         "--pytorch_dump_folder_path", default=None, type=str, help="Path to the output PyTorch model directory."

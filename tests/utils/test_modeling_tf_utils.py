@@ -23,9 +23,8 @@ import random
 import tempfile
 import unittest
 import unittest.mock as mock
-from pathlib import Path
 
-from huggingface_hub import HfFolder, Repository, delete_repo, snapshot_download
+from huggingface_hub import HfFolder, Repository, snapshot_download
 from requests.exceptions import HTTPError
 
 from transformers import is_tf_available, is_torch_available
@@ -34,6 +33,7 @@ from transformers.testing_utils import (  # noqa: F401
     TOKEN,
     USER,
     CaptureLogger,
+    TemporaryHubRepo,
     _tf_gpu_memory_limit,
     is_pt_tf_cross_test,
     is_staging_test,
@@ -683,149 +683,119 @@ class TFModelPushToHubTester(unittest.TestCase):
         cls._token = TOKEN
         HfFolder.save_token(TOKEN)
 
-    @staticmethod
-    def _try_delete_repo(repo_id, token):
-        try:
-            # Reset repo
-            delete_repo(repo_id=repo_id, token=token)
-        except:  # noqa E722
-            pass
-
     def test_push_to_hub(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-model-tf-{Path(tmp_dir).name}"
-                config = BertConfig(
-                    vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
-                )
-                model = TFBertModel(config)
-                # Make sure model is properly initialized
-                model.build_in_name_scope()
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            config = BertConfig(
+                vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
+            )
+            model = TFBertModel(config)
+            # Make sure model is properly initialized
+            model.build_in_name_scope()
 
-                logging.set_verbosity_info()
-                logger = logging.get_logger("transformers.utils.hub")
-                with CaptureLogger(logger) as cl:
-                    model.push_to_hub(tmp_repo, token=self._token)
-                logging.set_verbosity_warning()
-                # Check the model card was created and uploaded.
-                self.assertIn("Uploading the following files to __DUMMY_TRANSFORMERS_USER__/test-model-tf", cl.out)
+            logging.set_verbosity_info()
+            logger = logging.get_logger("transformers.utils.hub")
+            with CaptureLogger(logger) as cl:
+                model.push_to_hub(tmp_repo.repo_id, token=self._token)
+            logging.set_verbosity_warning()
+            # Check the model card was created and uploaded.
+            self.assertIn("Uploading the following files to __DUMMY_TRANSFORMERS_USER__/test-model-tf", cl.out)
 
-                new_model = TFBertModel.from_pretrained(tmp_repo)
-                models_equal = True
-                for p1, p2 in zip(model.weights, new_model.weights):
-                    if not tf.math.reduce_all(p1 == p2):
-                        models_equal = False
-                        break
-                self.assertTrue(models_equal)
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            new_model = TFBertModel.from_pretrained(tmp_repo.repo_id)
+            models_equal = True
+            for p1, p2 in zip(model.weights, new_model.weights):
+                if not tf.math.reduce_all(p1 == p2):
+                    models_equal = False
+                    break
+            self.assertTrue(models_equal)
 
     def test_push_to_hub_via_save_pretrained(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-model-tf-{Path(tmp_dir).name}"
-                config = BertConfig(
-                    vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
-                )
-                model = TFBertModel(config)
-                # Make sure model is properly initialized
-                model.build_in_name_scope()
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            config = BertConfig(
+                vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
+            )
+            model = TFBertModel(config)
+            # Make sure model is properly initialized
+            model.build_in_name_scope()
 
-                # Push to hub via save_pretrained
-                model.save_pretrained(tmp_dir, repo_id=tmp_repo, push_to_hub=True, token=self._token)
+            # Push to hub via save_pretrained
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                model.save_pretrained(tmp_dir, repo_id=tmp_repo.repo_id, push_to_hub=True, token=self._token)
 
-                new_model = TFBertModel.from_pretrained(tmp_repo)
-                models_equal = True
-                for p1, p2 in zip(model.weights, new_model.weights):
-                    if not tf.math.reduce_all(p1 == p2):
-                        models_equal = False
-                        break
-                self.assertTrue(models_equal)
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            new_model = TFBertModel.from_pretrained(tmp_repo.repo_id)
+            models_equal = True
+            for p1, p2 in zip(model.weights, new_model.weights):
+                if not tf.math.reduce_all(p1 == p2):
+                    models_equal = False
+                    break
+            self.assertTrue(models_equal)
 
     @is_pt_tf_cross_test
     def test_push_to_hub_callback(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-model-tf-callback-{Path(tmp_dir).name}"
-                config = BertConfig(
-                    vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
-                )
-                model = TFBertForMaskedLM(config)
-                model.compile()
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            config = BertConfig(
+                vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
+            )
+            model = TFBertForMaskedLM(config)
+            model.compile()
 
+            with tempfile.TemporaryDirectory() as tmp_dir:
                 push_to_hub_callback = PushToHubCallback(
                     output_dir=tmp_dir,
-                    hub_model_id=tmp_repo,
+                    hub_model_id=tmp_repo.repo_id,
                     hub_token=self._token,
                 )
                 model.fit(model.dummy_inputs, model.dummy_inputs, epochs=1, callbacks=[push_to_hub_callback])
 
-                new_model = TFBertForMaskedLM.from_pretrained(tmp_repo)
-                models_equal = True
-                for p1, p2 in zip(model.weights, new_model.weights):
-                    if not tf.math.reduce_all(p1 == p2):
-                        models_equal = False
-                        break
-                self.assertTrue(models_equal)
+            new_model = TFBertForMaskedLM.from_pretrained(tmp_repo.repo_id)
+            models_equal = True
+            for p1, p2 in zip(model.weights, new_model.weights):
+                if not tf.math.reduce_all(p1 == p2):
+                    models_equal = False
+                    break
+            self.assertTrue(models_equal)
 
-                tf_push_to_hub_params = dict(inspect.signature(TFPreTrainedModel.push_to_hub).parameters)
-                tf_push_to_hub_params.pop("base_model_card_args")
-                pt_push_to_hub_params = dict(inspect.signature(PreTrainedModel.push_to_hub).parameters)
-                pt_push_to_hub_params.pop("deprecated_kwargs")
-                self.assertDictEaual(tf_push_to_hub_params, pt_push_to_hub_params)
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            tf_push_to_hub_params = dict(inspect.signature(TFPreTrainedModel.push_to_hub).parameters)
+            tf_push_to_hub_params.pop("base_model_card_args")
+            pt_push_to_hub_params = dict(inspect.signature(PreTrainedModel.push_to_hub).parameters)
+            pt_push_to_hub_params.pop("deprecated_kwargs")
+            self.assertDictEaual(tf_push_to_hub_params, pt_push_to_hub_params)
 
     def test_push_to_hub_in_organization(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"valid_org/test-model-tf-org-{Path(tmp_dir).name}"
-                config = BertConfig(
-                    vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
-                )
-                model = TFBertModel(config)
-                # Make sure model is properly initialized
-                model.build_in_name_scope()
+        with TemporaryHubRepo(namespace="valid_org", token=self._token) as tmp_repo:
+            config = BertConfig(
+                vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
+            )
+            model = TFBertModel(config)
+            # Make sure model is properly initialized
+            model.build_in_name_scope()
 
-                model.push_to_hub(tmp_repo, token=self._token)
+            model.push_to_hub(tmp_repo.repo_id, token=self._token)
 
-                new_model = TFBertModel.from_pretrained(tmp_repo)
-                models_equal = True
-                for p1, p2 in zip(model.weights, new_model.weights):
-                    if not tf.math.reduce_all(p1 == p2):
-                        models_equal = False
-                        break
-                self.assertTrue(models_equal)
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            new_model = TFBertModel.from_pretrained(tmp_repo.repo_id)
+            models_equal = True
+            for p1, p2 in zip(model.weights, new_model.weights):
+                if not tf.math.reduce_all(p1 == p2):
+                    models_equal = False
+                    break
+            self.assertTrue(models_equal)
 
     def test_push_to_hub_in_organization_via_save_pretrained(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"valid_org/test-model-tf-org-{Path(tmp_dir).name}"
-                config = BertConfig(
-                    vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
-                )
-                model = TFBertModel(config)
-                # Make sure model is properly initialized
-                model.build_in_name_scope()
+        with TemporaryHubRepo(namespace="valid_org", token=self._token) as tmp_repo:
+            config = BertConfig(
+                vocab_size=99, hidden_size=32, num_hidden_layers=5, num_attention_heads=4, intermediate_size=37
+            )
+            model = TFBertModel(config)
+            # Make sure model is properly initialized
+            model.build_in_name_scope()
 
-                # Push to hub via save_pretrained
-                model.save_pretrained(tmp_dir, push_to_hub=True, token=self._token, repo_id=tmp_repo)
+            # Push to hub via save_pretrained
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                model.save_pretrained(tmp_dir, push_to_hub=True, token=self._token, repo_id=tmp_repo.repo_id)
 
-                new_model = TFBertModel.from_pretrained(tmp_repo)
-                models_equal = True
-                for p1, p2 in zip(model.weights, new_model.weights):
-                    if not tf.math.reduce_all(p1 == p2):
-                        models_equal = False
-                        break
-                self.assertTrue(models_equal)
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            new_model = TFBertModel.from_pretrained(tmp_repo.repo_id)
+            models_equal = True
+            for p1, p2 in zip(model.weights, new_model.weights):
+                if not tf.math.reduce_all(p1 == p2):
+                    models_equal = False
+                    break
+            self.assertTrue(models_equal)

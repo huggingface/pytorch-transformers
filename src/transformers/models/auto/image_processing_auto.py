@@ -54,6 +54,7 @@ else:
     IMAGE_PROCESSOR_MAPPING_NAMES = OrderedDict(
         [
             ("align", ("EfficientNetImageProcessor",)),
+            ("aria", ("AriaImageProcessor")),
             ("beit", ("BeitImageProcessor",)),
             ("bit", ("BitImageProcessor",)),
             ("blip", ("BlipImageProcessor",)),
@@ -90,6 +91,7 @@ else:
             ("idefics", ("IdeficsImageProcessor",)),
             ("idefics2", ("Idefics2ImageProcessor",)),
             ("idefics3", ("Idefics3ImageProcessor",)),
+            ("ijepa", ("ViTImageProcessor", "ViTImageProcessorFast")),
             ("imagegpt", ("ImageGPTImageProcessor",)),
             ("instructblip", ("BlipImageProcessor",)),
             ("instructblipvideo", ("InstructBlipVideoImageProcessor",)),
@@ -433,7 +435,9 @@ class AutoImageProcessor:
         if image_processor_class is None and image_processor_auto_map is None:
             if not isinstance(config, PretrainedConfig):
                 config = AutoConfig.from_pretrained(
-                    pretrained_model_name_or_path, trust_remote_code=trust_remote_code, **kwargs
+                    pretrained_model_name_or_path,
+                    trust_remote_code=trust_remote_code,
+                    **kwargs,
                 )
             # It could be in `config.image_processor_type``
             image_processor_class = getattr(config, "image_processor_type", None)

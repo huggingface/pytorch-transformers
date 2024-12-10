@@ -140,6 +140,7 @@ _REGULAR_SUPPORTED_MODEL_NAMES_AND_TASKS = [
     "gptj",
     "hiera",
     "hubert",
+    "ijepa",
     "layoutlm",
     "llama",
     "cohere",

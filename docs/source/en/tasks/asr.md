@@ -112,7 +112,7 @@ The next step is to load a Wav2Vec2 processor to process the audio signal:
 >>> processor = AutoProcessor.from_pretrained("facebook/wav2vec2-base")
 ```
 
-The MInDS-14 dataset has a sampling rate of 8000kHz (you can find this information in its [dataset card](https://huggingface.co/datasets/PolyAI/minds14)), which means you'll need to resample the dataset to 16000kHz to use the pretrained Wav2Vec2 model:
+The MInDS-14 dataset has a sampling rate of 8000Hz (you can find this information in its [dataset card](https://huggingface.co/datasets/PolyAI/minds14)), which means you'll need to resample the dataset to 16000Hz to use the pretrained Wav2Vec2 model:
 
 ```py
 >>> minds = minds.cast_column("audio", Audio(sampling_rate=16_000))

@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 from ..utils import (
     is_accelerate_available,
     is_optimum_quanto_available,
-    is_quanto_available,
     is_torch_available,
     logging,
 )
@@ -63,7 +62,7 @@ class QuantoHfQuantizer(HfQuantizer):
             )
 
     def validate_environment(self, *args, **kwargs):
-        if not (is_optimum_quanto_available() or is_quanto_available()):
+        if not is_optimum_quanto_available():
             raise ImportError(
                 "Loading an optimum-quanto quantized model requires optimum-quanto library (`pip install optimum-quanto`)"
             )
@@ -91,11 +90,6 @@ class QuantoHfQuantizer(HfQuantizer):
     def update_missing_keys(self, model, missing_keys: List[str], prefix: str) -> List[str]:
         if is_optimum_quanto_available():
             from optimum.quanto import QModuleMixin
-        elif is_quanto_available():
-            logger.warning_once(
-                "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
-            )
-            from quanto import QModuleMixin
 
         not_missing_keys = []
         for name, module in model.named_modules():
@@ -122,11 +116,6 @@ class QuantoHfQuantizer(HfQuantizer):
         """
         if is_optimum_quanto_available():
             from optimum.quanto import QModuleMixin
-        elif is_quanto_available():
-            logger.warning_once(
-                "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
-            )
-            from quanto import QModuleMixin
 
         device_map = kwargs.get("device_map", None)
         param_device = kwargs.get("param_device", None)

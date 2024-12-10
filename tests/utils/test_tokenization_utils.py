@@ -20,7 +20,7 @@ import unittest
 import unittest.mock as mock
 from pathlib import Path
 
-from huggingface_hub import HfFolder, delete_repo
+from huggingface_hub import HfFolder
 from huggingface_hub.file_download import http_get
 from requests.exceptions import HTTPError
 
@@ -32,7 +32,7 @@ from transformers import (
     GPT2TokenizerFast,
     is_tokenizers_available,
 )
-from transformers.testing_utils import TOKEN, USER, is_staging_test, require_tokenizers
+from transformers.testing_utils import TOKEN, TemporaryHubRepo, is_staging_test, require_tokenizers
 from transformers.tokenization_utils import ExtensionsTrie, Trie
 
 
@@ -118,114 +118,84 @@ class TokenizerPushToHubTester(unittest.TestCase):
         cls._token = TOKEN
         HfFolder.save_token(TOKEN)
 
-    @staticmethod
-    def _try_delete_repo(repo_id, token):
-        try:
-            # Reset repo
-            delete_repo(repo_id=repo_id, token=token)
-        except:  # noqa E722
-            pass
-
     def test_push_to_hub(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-tokenizer-{Path(tmp_dir).name}"
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            with tempfile.TemporaryDirectory() as tmp_dir:
                 vocab_file = os.path.join(tmp_dir, "vocab.txt")
                 with open(vocab_file, "w", encoding="utf-8") as vocab_writer:
                     vocab_writer.write("".join([x + "\n" for x in self.vocab_tokens]))
                 tokenizer = BertTokenizer(vocab_file)
 
-                tokenizer.push_to_hub(tmp_repo, token=self._token)
-                new_tokenizer = BertTokenizer.from_pretrained(tmp_repo)
-                self.assertDictEqual(new_tokenizer.vocab, tokenizer.vocab)
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            tokenizer.push_to_hub(tmp_repo.repo_id, token=self._token)
+            new_tokenizer = BertTokenizer.from_pretrained(tmp_repo.repo_id)
+            self.assertDictEqual(new_tokenizer.vocab, tokenizer.vocab)
 
     def test_push_to_hub_via_save_pretrained(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-tokenizer-{Path(tmp_dir).name}"
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            with tempfile.TemporaryDirectory() as tmp_dir:
                 vocab_file = os.path.join(tmp_dir, "vocab.txt")
                 with open(vocab_file, "w", encoding="utf-8") as vocab_writer:
                     vocab_writer.write("".join([x + "\n" for x in self.vocab_tokens]))
                 tokenizer = BertTokenizer(vocab_file)
 
                 # Push to hub via save_pretrained
-                tokenizer.save_pretrained(tmp_dir, repo_id=tmp_repo, push_to_hub=True, token=self._token)
+                tokenizer.save_pretrained(tmp_dir, repo_id=tmp_repo.repo_id, push_to_hub=True, token=self._token)
 
-                new_tokenizer = BertTokenizer.from_pretrained(tmp_repo)
-                self.assertDictEqual(new_tokenizer.vocab, tokenizer.vocab)
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            new_tokenizer = BertTokenizer.from_pretrained(tmp_repo.repo_id)
+            self.assertDictEqual(new_tokenizer.vocab, tokenizer.vocab)
 
     def test_push_to_hub_in_organization(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"valid_org/test-tokenizer-{Path(tmp_dir).name}"
+        with TemporaryHubRepo(namespace="valid_org", token=self._token) as tmp_repo:
+            with tempfile.TemporaryDirectory() as tmp_dir:
                 vocab_file = os.path.join(tmp_dir, "vocab.txt")
                 with open(vocab_file, "w", encoding="utf-8") as vocab_writer:
                     vocab_writer.write("".join([x + "\n" for x in self.vocab_tokens]))
                 tokenizer = BertTokenizer(vocab_file)
 
-                tokenizer.push_to_hub(tmp_repo, token=self._token)
-                new_tokenizer = BertTokenizer.from_pretrained(tmp_repo)
-                self.assertDictEqual(new_tokenizer.vocab, tokenizer.vocab)
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            tokenizer.push_to_hub(tmp_repo.repo_id, token=self._token)
+            new_tokenizer = BertTokenizer.from_pretrained(tmp_repo.repo_id)
+            self.assertDictEqual(new_tokenizer.vocab, tokenizer.vocab)
 
     def test_push_to_hub_in_organization_via_save_pretrained(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"valid_org/test-tokenizer-{Path(tmp_dir).name}"
+        with TemporaryHubRepo(namespace="valid_org", token=self._token) as tmp_repo:
+            with tempfile.TemporaryDirectory() as tmp_dir:
                 vocab_file = os.path.join(tmp_dir, "vocab.txt")
                 with open(vocab_file, "w", encoding="utf-8") as vocab_writer:
                     vocab_writer.write("".join([x + "\n" for x in self.vocab_tokens]))
                 tokenizer = BertTokenizer(vocab_file)
 
                 # Push to hub via save_pretrained
-                tokenizer.save_pretrained(tmp_dir, repo_id=tmp_repo, push_to_hub=True, token=self._token)
+                tokenizer.save_pretrained(tmp_dir, repo_id=tmp_repo.repo_id, push_to_hub=True, token=self._token)
 
-                new_tokenizer = BertTokenizer.from_pretrained(tmp_repo)
-                self.assertDictEqual(new_tokenizer.vocab, tokenizer.vocab)
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            new_tokenizer = BertTokenizer.from_pretrained(tmp_repo.repo_id)
+            self.assertDictEqual(new_tokenizer.vocab, tokenizer.vocab)
 
     @require_tokenizers
     def test_push_to_hub_dynamic_tokenizer(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-dynamic-tokenizer-{Path(tmp_dir).name}"
-                CustomTokenizer.register_for_auto_class()
-
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            CustomTokenizer.register_for_auto_class()
+            with tempfile.TemporaryDirectory() as tmp_dir:
                 vocab_file = os.path.join(tmp_dir, "vocab.txt")
                 with open(vocab_file, "w", encoding="utf-8") as vocab_writer:
                     vocab_writer.write("".join([x + "\n" for x in self.vocab_tokens]))
                 tokenizer = CustomTokenizer(vocab_file)
 
-                # No fast custom tokenizer
-                tokenizer.push_to_hub(tmp_repo, token=self._token)
+            # No fast custom tokenizer
+            tokenizer.push_to_hub(tmp_repo.repo_id, token=self._token)
 
-                tokenizer = AutoTokenizer.from_pretrained(tmp_repo, trust_remote_code=True)
-                # Can't make an isinstance check because the new_model.config is from the CustomTokenizer class of a dynamic module
-                self.assertEqual(tokenizer.__class__.__name__, "CustomTokenizer")
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            tokenizer = AutoTokenizer.from_pretrained(tmp_repo.repo_id, trust_remote_code=True)
+            # Can't make an isinstance check because the new_model.config is from the CustomTokenizer class of a dynamic module
+            self.assertEqual(tokenizer.__class__.__name__, "CustomTokenizer")
 
     @require_tokenizers
     def test_push_to_hub_dynamic_tokenizer_with_both_slow_and_fast_classes(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            try:
-                tmp_repo = f"{USER}/test-dynamic-tokenizer-{Path(tmp_dir).name}"
-                CustomTokenizer.register_for_auto_class()
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            CustomTokenizer.register_for_auto_class()
 
-                # Fast and slow custom tokenizer
-                CustomTokenizerFast.register_for_auto_class()
+            # Fast and slow custom tokenizer
+            CustomTokenizerFast.register_for_auto_class()
 
+            with tempfile.TemporaryDirectory() as tmp_dir:
                 vocab_file = os.path.join(tmp_dir, "vocab.txt")
                 with open(vocab_file, "w", encoding="utf-8") as vocab_writer:
                     vocab_writer.write("".join([x + "\n" for x in self.vocab_tokens]))
@@ -234,17 +204,14 @@ class TokenizerPushToHubTester(unittest.TestCase):
                 bert_tokenizer.save_pretrained(tmp_dir)
                 tokenizer = CustomTokenizerFast.from_pretrained(tmp_dir)
 
-                tokenizer.push_to_hub(tmp_repo, token=self._token)
+            tokenizer.push_to_hub(tmp_repo.repo_id, token=self._token)
 
-                tokenizer = AutoTokenizer.from_pretrained(tmp_repo, trust_remote_code=True)
-                # Can't make an isinstance check because the new_model.config is from the FakeConfig class of a dynamic module
-                self.assertEqual(tokenizer.__class__.__name__, "CustomTokenizerFast")
-                tokenizer = AutoTokenizer.from_pretrained(tmp_repo, use_fast=False, trust_remote_code=True)
-                # Can't make an isinstance check because the new_model.config is from the FakeConfig class of a dynamic module
-                self.assertEqual(tokenizer.__class__.__name__, "CustomTokenizer")
-            finally:
-                # Always (try to) delete the repo.
-                self._try_delete_repo(repo_id=tmp_repo, token=self._token)
+            tokenizer = AutoTokenizer.from_pretrained(tmp_repo.repo_id, trust_remote_code=True)
+            # Can't make an isinstance check because the new_model.config is from the FakeConfig class of a dynamic module
+            self.assertEqual(tokenizer.__class__.__name__, "CustomTokenizerFast")
+            tokenizer = AutoTokenizer.from_pretrained(tmp_repo.repo_id, use_fast=False, trust_remote_code=True)
+            # Can't make an isinstance check because the new_model.config is from the FakeConfig class of a dynamic module
+            self.assertEqual(tokenizer.__class__.__name__, "CustomTokenizer")
 
 
 class TrieTest(unittest.TestCase):

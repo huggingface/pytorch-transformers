@@ -997,13 +997,6 @@ def is_auto_awq_available():
     return _auto_awq_available
 
 
-def is_quanto_available():
-    logger.warning_once(
-        "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
-    )
-    return _quanto_available
-
-
 def is_optimum_quanto_available():
     # `importlib.metadata.version` doesn't work with `optimum.quanto`, need to put `optimum_quanto`
     return _is_optimum_quanto_available

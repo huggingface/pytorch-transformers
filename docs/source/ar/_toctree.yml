@@ -133,12 +133,18 @@
     title: المعايير
   - local: notebooks
     title: دفاتر الملاحظات مع الأمثلة
-#   - local: community
-#     title: موارد المجتمع
+  - local: community
+    title: موارد المجتمع
   - local: troubleshooting
     title: استكشاف الأخطاء وإصلاحها
   - local: gguf
     title: التوافق مع ملفات GGUF
+  - local: tiktoken
+    title: التوافق مع ملفات TikToken
+  - local: modular_transformers
+    title: الوحدات النمطية في `transformers`
+  - local: how_to_hack_models
+    title: اختراق النموذج (الكتابة فوق فئة لاستخدامك)
   title: أدلة المطورين
 # - sections:
 #   - local: quantization/overview

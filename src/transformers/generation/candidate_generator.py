@@ -19,6 +19,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 import numpy as np
 import torch
 
+from ..utils import is_sklearn_available
+
+
+if is_sklearn_available():
+    from sklearn.metrics import roc_curve
+
 from ..cache_utils import Cache
 from ..pytorch_utils import isin_mps_friendly
 from .logits_process import LogitsProcessorList, MinLengthLogitsProcessor
@@ -177,6 +183,15 @@ class AssistedCandidateGenerator(CandidateGenerator):
                     "Please pass in `min_length` into `.generate()` instead"
                 )
 
+        if (
+            is_sklearn_available()
+            and self.assistant_model.generation_config.assistant_confidence_threshold
+            and type(self) is AssistedCandidateGenerator
+        ):
+            self.probs = []
+            self.matches = []
+
+
     def get_candidates(self, input_ids: torch.LongTensor) -> Tuple[torch.LongTensor, Optional[torch.FloatTensor]]:
         """
         Fetches the candidates to be tried for the current input.
@@ -228,6 +243,17 @@ class AssistedCandidateGenerator(CandidateGenerator):
         self.assistant_kwargs["past_key_values"] = assistant_output.past_key_values
         self.generation_config.cache_implementation = None
 
+        if (
+            is_sklearn_available()
+            and self.assistant_model.generation_config.assistant_confidence_threshold
+            and type(self) is AssistedCandidateGenerator
+        ):
+            scores_tensor = torch.cat(assistant_output.scores, dim=0)
+            scores_softmax = torch.softmax(scores_tensor, dim=-1)
+            ids = assistant_output.sequences[-1, -len(assistant_output.scores) :]
+            p = scores_softmax[range(len(ids)), ids]
+            self.probs.extend(p.tolist())
+
         # 4. Prepare variables for output
         candidate_logits = torch.stack(assistant_output.scores, dim=1)
         candidate_ids = assistant_output.sequences
@@ -258,6 +284,38 @@ class AssistedCandidateGenerator(CandidateGenerator):
                 self.num_assistant_tokens += 2.0
             else:
                 self.num_assistant_tokens = max(1.0, self.num_assistant_tokens - 1.0)
+
+        # The assistant's confidence threshold is adjusted throughout the speculative iterations to reduce the number of unnecessary draft and target forward passes. The costs are estimated based on the ROC curve, which considers the probability of the draft token and its match with the target. A cost of 25% is assigned to false positives and 75% to false negatives.
+        # This adaptation is not compatible with UAG, as it relies on the number of matched tokens based on the draft vocabulary, which is unavailable in UAG.
+        if (
+            is_sklearn_available()
+            and self.assistant_model.generation_config.assistant_confidence_threshold
+            and type(self) is AssistedCandidateGenerator
+        ):
+            # update self.matches
+            self.matches.extend([1] * num_matches)
+            if len(self.probs) > len(self.matches):
+                self.matches.append(0)
+
+            # update self.probs
+            excess_length = len(self.probs) - len(self.matches)
+            if excess_length > 0:
+                del self.probs[-excess_length:]
+
+            if (
+                len(self.probs) > 5 and {0, 1}.issubset(self.matches)
+            ):  # require at least 5 samples to calculate the ROC curve and at least one positive and one negative sample
+                fpr, tpr, thresholds = roc_curve(self.matches, self.probs)
+                fnr = 1 - tpr
+
+                # Calculate the cost for each threshold
+                costs = fpr + 3 * fnr
+
+                # Find the threshold that minimizes the cost
+                optimal_threshold_index = np.argmin(costs)
+                best_threshold = thresholds[optimal_threshold_index]
+
+                self.assistant_model.generation_config.assistant_confidence_threshold = best_threshold
 
 
 class AssistedCandidateGeneratorDifferentTokenizers(AssistedCandidateGenerator):

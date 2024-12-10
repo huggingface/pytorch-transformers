@@ -456,6 +456,8 @@ just like in multinomial sampling. However, in assisted decoding, reducing the t
 ['Alice and Bob, a couple of friends of mine, who are both in the same office as']
 ```
 
+We recommend to install `scikit-learn` library to enhance the candidate generation strategy and achieve additional speedup.
+
 #### Universal Assisted Decoding
 
 Universal Assisted Decoding (UAD) adds support for main and assistant models with different tokenizers.

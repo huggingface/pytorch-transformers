@@ -291,7 +291,6 @@ def load_gguf_checkpoint(gguf_checkpoint_path, return_tensors=False):
     # FIXME: Currnetly this implementation is only for flan-t5 architecture.
     # It needs to be developed for supporting legacy t5.
     elif "t5" in architecture or "t5encoder" in architecture:
-        parsed_parameters["config"]["tie_word_embeddings"] = False
         parsed_parameters["config"]["is_gated_act"] = True
         updated_architecture = "t5"
     else:
@@ -308,7 +307,7 @@ def load_gguf_checkpoint(gguf_checkpoint_path, return_tensors=False):
         ffn_norm_name = "ffn_norm"
         qkv_bias = any(bias_name in tensor.name for tensor in reader.tensors for bias_name in attn_bias_name)
         use_parallel_residual = any(ffn_norm_name in tensor.name for tensor in reader.tensors)
-        parsed_parameters["config"]["qkv_bias"] = qkv_bias
+        parsed_parameters["config"]["use_qkv_bias"] = qkv_bias
         parsed_parameters["config"]["use_parallel_residual"] = not use_parallel_residual
 
     model_size = ""
@@ -325,6 +324,12 @@ def load_gguf_checkpoint(gguf_checkpoint_path, return_tensors=False):
 
     if architecture + model_size not in GGUF_SUPPORTED_ARCHITECTURES:
         raise ValueError(f"Architecture {architecture + model_size} not supported")
+
+    # Handle tie_word_embeddings, if lm_head.weight is not present in tensors,
+    # tie_word_embeddings is true otherwise false
+    parsed_parameters["config"]["tie_word_embeddings"] = all(
+        "output.weight" != tensor.name for tensor in reader.tensors
+    )
 
     # List all key-value pairs in a columnized format
     for gguf_key, field in reader.fields.items():

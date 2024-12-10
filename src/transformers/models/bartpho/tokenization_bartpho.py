@@ -311,3 +311,6 @@ class BartphoTokenizer(PreTrainedTokenizer):
                         fp.write(f"{str(token)} \n")
 
         return out_vocab_file, out_monolingual_vocab_file
+
+
+__all__ = ["BartphoTokenizer"]

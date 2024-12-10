@@ -32,10 +32,9 @@ from typing import Dict, List
 from unittest.mock import Mock, patch
 
 import numpy as np
-from huggingface_hub import HfFolder, ModelCard, create_branch, delete_repo, list_repo_commits, list_repo_files
+from huggingface_hub import HfFolder, ModelCard, create_branch, list_repo_commits, list_repo_files
 from packaging import version
 from parameterized import parameterized
-from requests.exceptions import HTTPError
 
 from transformers import (
     AutoFeatureExtractor,
@@ -59,6 +58,7 @@ from transformers.testing_utils import (
     USER,
     CaptureLogger,
     LoggingLevel,
+    TemporaryHubRepo,
     TestCasePlus,
     backend_device_count,
     execute_subprocess_async,
@@ -750,11 +750,102 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
         self.check_trained_model(trainer.model, alternate_seed=True)
 
     @slow
-    def test_gradient_accumulation_loss_alignment(self):
+    def test_gradient_accumulation_loss_alignment_with_model_loss(self):
         set_seed(42)
         import datasets
 
-        model_name = "distilgpt2"
+        model_name = "nickypro/tinyllama-110M"
+        dataset_name = "wikitext"
+        dataset_config = "wikitext-2-raw-v1"
+        dataset = datasets.load_dataset(dataset_name, dataset_config, split="train[:500]")
+        dataset = dataset.train_test_split(test_size=0.2)
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+        tokenizer.pad_token = tokenizer.eos_token
+
+        def tokenize_function(examples):
+            return tokenizer(examples["text"], max_length=128, padding="max_length", truncation=True)
+
+        tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset["train"].column_names)
+
+        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+
+        model = AutoModelForCausalLM.from_pretrained(model_name)
+
+        base_loss_callback = StoreLossCallback()
+
+        args_kwargs = {
+            "report_to": "none",
+            "logging_steps": 1,
+            "max_steps": 20,
+            "learning_rate": 3e-4,
+            "disable_tqdm": True,
+        }
+
+        args = TrainingArguments(
+            "./generation",
+            **args_kwargs,
+        )
+        trainer = Trainer(
+            model,
+            args,
+            train_dataset=tokenized_dataset["train"],
+            callbacks=[base_loss_callback],
+            data_collator=data_collator,
+        )
+        assert trainer.model_accepts_loss_kwargs
+        trainer.train()
+
+        grad_accum_loss_callback = StoreLossCallback()
+        args = TrainingArguments(
+            "./generation",
+            **args_kwargs,
+            gradient_accumulation_steps=2,
+            per_device_train_batch_size=4,
+        )
+        set_seed(42)
+        model = AutoModelForCausalLM.from_pretrained(model_name)
+        trainer = Trainer(
+            model,
+            args,
+            train_dataset=tokenized_dataset["train"],
+            callbacks=[grad_accum_loss_callback],
+            data_collator=data_collator,
+        )
+        trainer.train()
+
+        set_seed(42)
+        model = AutoModelForCausalLM.from_pretrained(model_name)
+        broken_loss_callback = StoreLossCallback()
+        trainer = Trainer(
+            model,
+            args,
+            train_dataset=tokenized_dataset["train"],
+            callbacks=[broken_loss_callback],
+            data_collator=data_collator,
+        )
+        # disable model_accepts_loss_kwargs
+        trainer.model_accepts_loss_kwargs = False
+        trainer.train()
+
+        # Calculate the difference between the base loss and the grad_accum loss
+        diff_truth = [
+            abs(base - grad) for base, grad in zip(base_loss_callback.losses, grad_accum_loss_callback.losses)
+        ]
+        diff_broken = [abs(base - grad) for base, grad in zip(base_loss_callback.losses, broken_loss_callback.losses)]
+
+        # all diff truth should be quite close
+        self.assertLess(max(diff_truth), 0.01, f"Difference {max(diff_truth)} is not within 0.01")
+
+        # max diff broken should be very off
+        self.assertGreater(max(diff_broken), 3, f"Difference {max(diff_broken)} is not greater than 3")
+
+    @slow
+    def test_gradient_accumulation_loss_alignment_with_loss_func(self):
+        set_seed(42)
+        import datasets
+
+        model_name = "roneneldan/TinyStories-33M"
         dataset_name = "wikitext"
         dataset_config = "wikitext-2-raw-v1"
         dataset = datasets.load_dataset(dataset_name, dataset_config, split="train[:500]")
@@ -836,15 +927,16 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
         trainer.train()
 
         # Calculate the difference between the base loss and the grad_accum loss
-        diff_truth = [base - grad for base, grad in zip(base_loss_callback.losses, grad_accum_loss_callback.losses)]
-        diff_broken = [base - grad for base, grad in zip(base_loss_callback.losses, broken_loss_callback.losses)]
-        # These should be quite close
-        for diff in diff_truth:
-            self.assertLess(abs(diff), 0.1, f"Difference {diff} is not within 0.1")
+        diff_truth = [
+            abs(base - grad) for base, grad in zip(base_loss_callback.losses, grad_accum_loss_callback.losses)
+        ]
+        diff_broken = [abs(base - grad) for base, grad in zip(base_loss_callback.losses, broken_loss_callback.losses)]
 
-        # These should be very off
-        for diff in diff_broken:
-            self.assertGreater(abs(diff), 0.1, f"Difference {diff} is not greater than 0.1")
+        # all diff truth should be quite close
+        self.assertLess(max(diff_truth), 0.01, f"Difference {max(diff_truth)} is not within 0.01")
+
+        # max diff broken should be very off
+        self.assertGreater(max(diff_broken), 3, f"Difference {max(diff_broken)} is not greater than 3")
 
     def test_gradient_accumulation(self):
         # Training with half the batch size but accumulation steps as 2 should give the same training losses.
@@ -4152,64 +4244,49 @@ class TrainerIntegrationWithHubTester(unittest.TestCase):
         cls._token = TOKEN
         HfFolder.save_token(TOKEN)
 
-    @classmethod
-    def tearDownClass(cls):
-        for model in [
-            "test-trainer",
-            "test-trainer-epoch",
-            "test-trainer-step",
-            "test-trainer-tensorboard",
-            "test-trainer-tags",
-        ]:
-            try:
-                delete_repo(token=cls._token, repo_id=model)
-            except HTTPError:
-                pass
-
-        try:
-            delete_repo(token=cls._token, repo_id="valid_org/test-trainer-org")
-        except HTTPError:
-            pass
-
     def test_push_to_hub(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trainer = get_regression_trainer(
-                output_dir=os.path.join(tmp_dir, "test-trainer"),
-                push_to_hub=True,
-                hub_token=self._token,
-            )
-            url = trainer.push_to_hub()
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            output_dir_name = tmp_repo.repo_name
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                trainer = get_regression_trainer(
+                    output_dir=os.path.join(tmp_dir, output_dir_name),
+                    push_to_hub=True,
+                    hub_token=self._token,
+                )
+                url = trainer.push_to_hub()
 
             # Extract repo_name from the url
             re_search = re.search(ENDPOINT_STAGING + r"/([^/]+/[^/]+)/", url)
             self.assertTrue(re_search is not None)
             repo_name = re_search.groups()[0]
 
-            self.assertEqual(repo_name, f"{USER}/test-trainer")
+            self.assertEqual(repo_name, f"{USER}/{output_dir_name}")
 
             model = RegressionPreTrainedModel.from_pretrained(repo_name)
             self.assertEqual(model.a.item(), trainer.model.a.item())
             self.assertEqual(model.b.item(), trainer.model.b.item())
 
     def test_push_to_hub_in_organization(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trainer = get_regression_trainer(output_dir=tmp_dir)
-            trainer.save_model()
-            trainer = get_regression_trainer(
-                output_dir=os.path.join(tmp_dir, "test-trainer-org"),
-                push_to_hub=True,
-                hub_model_id="valid_org/test-trainer-org",
-                hub_token=self._token,
-            )
-            url = trainer.push_to_hub()
+        with TemporaryHubRepo(namespace="valid_org", token=self._token) as tmp_repo:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                trainer = get_regression_trainer(output_dir=tmp_dir)
+                trainer.save_model()
+                output_dir_name = tmp_repo.repo_name
+                trainer = get_regression_trainer(
+                    output_dir=os.path.join(tmp_dir, output_dir_name),
+                    push_to_hub=True,
+                    hub_model_id=f"valid_org/{output_dir_name}",
+                    hub_token=self._token,
+                )
+                url = trainer.push_to_hub()
 
             # Extract repo_name from the url
             re_search = re.search(ENDPOINT_STAGING + r"/([^/]+/[^/]+)/", url)
             self.assertTrue(re_search is not None)
             repo_name = re_search.groups()[0]
-            self.assertEqual(repo_name, "valid_org/test-trainer-org")
+            self.assertEqual(repo_name, f"valid_org/{output_dir_name}")
 
-            model = RegressionPreTrainedModel.from_pretrained("valid_org/test-trainer-org")
+            model = RegressionPreTrainedModel.from_pretrained(f"valid_org/{output_dir_name}")
             self.assertEqual(model.a.item(), trainer.model.a.item())
             self.assertEqual(model.b.item(), trainer.model.b.item())
 
@@ -4226,120 +4303,130 @@ class TrainerIntegrationWithHubTester(unittest.TestCase):
         return [commit.strip() for commit in commits]
 
     def test_push_to_hub_with_saves_each_epoch(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            with self.assertLogs(level="WARNING") as logs:
-                trainer = get_regression_trainer(
-                    output_dir=os.path.join(tmp_dir, "test-trainer-epoch"),
-                    push_to_hub=True,
-                    hub_token=self._token,
-                    # To avoid any flakiness if the training goes faster than the uploads.
-                    hub_always_push=True,
-                    save_strategy="epoch",
-                )
-                trainer.train()
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                with self.assertLogs(level="WARNING") as logs:
+                    output_dir_name = tmp_repo.repo_name
+                    trainer = get_regression_trainer(
+                        output_dir=os.path.join(tmp_dir, output_dir_name),
+                        push_to_hub=True,
+                        hub_token=self._token,
+                        # To avoid any flakiness if the training goes faster than the uploads.
+                        hub_always_push=True,
+                        save_strategy="epoch",
+                    )
+                    trainer.train()
 
-        commits = list_repo_commits(f"{USER}/test-trainer-epoch", token=self._token)
-        commits = [c.title for c in commits]
-        self.assertIn("initial commit", commits)
-        self.assertIn("Training in progress, epoch 1", commits)
-        self.assertIn("Training in progress, epoch 2", commits)
-        # Epochs 3 and 4 are not guaranteed to be present (empty commits)
-        self.assertTrue(any("Skipping to prevent empty commit." in record.message for record in logs.records))
+            commits = list_repo_commits(f"{USER}/{output_dir_name}", token=self._token)
+            commits = [c.title for c in commits]
+            self.assertIn("initial commit", commits)
+            self.assertIn("Training in progress, epoch 1", commits)
+            self.assertIn("Training in progress, epoch 2", commits)
+            # Epochs 3 and 4 are not guaranteed to be present (empty commits)
+            self.assertTrue(any("Skipping to prevent empty commit." in record.message for record in logs.records))
 
     def test_push_to_hub_with_saves_each_n_steps(self):
         num_gpus = max(1, backend_device_count(torch_device))
         if num_gpus > 2:
             self.skipTest(reason="More than 2 GPUs available")
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            with self.assertLogs(level="WARNING") as logs:
-                trainer = get_regression_trainer(
-                    output_dir=os.path.join(tmp_dir, "test-trainer-step"),
-                    push_to_hub=True,
-                    hub_token=self._token,
-                    # To avoid any flakiness if the training goes faster than the uploads.
-                    hub_always_push=True,
-                    save_strategy="steps",
-                    save_steps=5,
-                )
-                trainer.train()
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                with self.assertLogs(level="WARNING") as logs:
+                    output_dir_name = tmp_repo.repo_name
+                    trainer = get_regression_trainer(
+                        output_dir=os.path.join(tmp_dir, output_dir_name),
+                        push_to_hub=True,
+                        hub_token=self._token,
+                        # To avoid any flakiness if the training goes faster than the uploads.
+                        hub_always_push=True,
+                        save_strategy="steps",
+                        save_steps=5,
+                    )
+                    trainer.train()
 
-        commits = list_repo_commits(f"{USER}/test-trainer-step", token=self._token)
-        commits = [c.title for c in commits]
-        self.assertIn("initial commit", commits)
+            commits = list_repo_commits(f"{USER}/{output_dir_name}", token=self._token)
+            commits = [c.title for c in commits]
+            self.assertIn("initial commit", commits)
 
-        # Some commits are skipped if nothing has changed
-        # We expect 1 commit per 5 epochs + 1 commit at the end
-        nb_empty_commits = len(
-            [record for record in logs.records if "Skipping to prevent empty commit." in record.message]
-        )
-        nb_epoch_commits = len([commit for commit in commits if "Training in progress, step" in commit])
+            # Some commits are skipped if nothing has changed
+            # We expect 1 commit per 5 epochs + 1 commit at the end
+            nb_empty_commits = len(
+                [record for record in logs.records if "Skipping to prevent empty commit." in record.message]
+            )
+            nb_epoch_commits = len([commit for commit in commits if "Training in progress, step" in commit])
 
-        # max_steps depend on the number of available GPUs
-        max_steps = math.ceil(trainer.args.num_train_epochs * len(trainer.get_train_dataloader()))
-        nb_expected_commits = len(range(5, max_steps, 5))
+            # max_steps depend on the number of available GPUs
+            max_steps = math.ceil(trainer.args.num_train_epochs * len(trainer.get_train_dataloader()))
+            nb_expected_commits = len(range(5, max_steps, 5))
 
-        # '>=' since final commit might be an empty commit as well (not deterministic)
-        self.assertGreaterEqual(nb_empty_commits + nb_epoch_commits, nb_expected_commits)
+            # '>=' since final commit might be an empty commit as well (not deterministic)
+            self.assertGreaterEqual(nb_empty_commits + nb_epoch_commits, nb_expected_commits)
 
     @require_tensorboard
     def test_push_to_hub_with_tensorboard_logs(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trainer = get_regression_trainer(
-                output_dir=os.path.join(tmp_dir, "test-trainer-tensorboard"),
-                hub_token=self._token,
-                save_strategy="epoch",
-                report_to=["tensorboard"],
-                keep_report_to=True,
-            )
-            trainer.train()
-            # Push the runs via `push_to_hub()`
-            trainer.push_to_hub()
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                output_dir_name = tmp_repo.repo_name
+                trainer = get_regression_trainer(
+                    output_dir=os.path.join(tmp_dir, output_dir_name),
+                    hub_token=self._token,
+                    save_strategy="epoch",
+                    report_to=["tensorboard"],
+                    keep_report_to=True,
+                )
+                trainer.train()
+                # Push the runs via `push_to_hub()`
+                trainer.push_to_hub()
 
-        files = list_repo_files(f"{USER}/test-trainer-tensorboard", token=self._token)
-        found_log = False
-        for f in files:
-            if len(f.split("runs")) > 1 and "events.out.tfevents" in f:
-                found_log = True
+            files = list_repo_files(f"{USER}/{output_dir_name}", token=self._token)
+            found_log = False
+            for f in files:
+                if len(f.split("runs")) > 1 and "events.out.tfevents" in f:
+                    found_log = True
 
-        assert found_log is True, "No tensorboard log found in repo"
+            assert found_log is True, "No tensorboard log found in repo"
 
     def test_push_to_hub_tags(self):
         # Checks if `trainer.push_to_hub()` works correctly by adding the desired
         # tag without having to pass `tags` in `push_to_hub`
         # see:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trainer = get_regression_trainer(
-                output_dir=os.path.join(tmp_dir, "test-trainer-tags"),
-                push_to_hub=True,
-                hub_token=self._token,
-            )
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                output_dir_name = tmp_repo.repo_name
+                trainer = get_regression_trainer(
+                    output_dir=os.path.join(tmp_dir, output_dir_name),
+                    push_to_hub=True,
+                    hub_token=self._token,
+                )
 
-            trainer.model.add_model_tags(["test-trainer-tags"])
+                trainer.model.add_model_tags(["test-trainer-tags"])
 
-            url = trainer.push_to_hub()
+                url = trainer.push_to_hub()
 
             # Extract repo_name from the url
             re_search = re.search(ENDPOINT_STAGING + r"/([^/]+/[^/]+)/", url)
             self.assertTrue(re_search is not None)
             repo_name = re_search.groups()[0]
 
-            self.assertEqual(repo_name, f"{USER}/test-trainer-tags")
+            self.assertEqual(repo_name, f"{USER}/{output_dir_name}")
 
             model_card = ModelCard.load(repo_name)
             self.assertTrue("test-trainer-tags" in model_card.data.tags)
 
     def test_push_to_hub_with_revision(self):
         # Checks if `trainer.push_to_hub()` works correctly by adding revision
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trainer = get_regression_trainer(
-                output_dir=os.path.join(tmp_dir, "test-trainer-revision"),
-                push_to_hub=True,
-                hub_token=self._token,
-            )
-            branch = "v1.0"
-            create_branch(repo_id=trainer.hub_model_id, branch=branch, token=self._token, exist_ok=True)
-            url = trainer.push_to_hub(revision=branch)
+        with TemporaryHubRepo(token=self._token) as tmp_repo:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                output_dir_name = tmp_repo.repo_name
+                trainer = get_regression_trainer(
+                    output_dir=os.path.join(tmp_dir, output_dir_name),
+                    push_to_hub=True,
+                    hub_token=self._token,
+                )
+                branch = "v1.0"
+                create_branch(repo_id=trainer.hub_model_id, branch=branch, token=self._token, exist_ok=True)
+                url = trainer.push_to_hub(revision=branch)
 
             # Extract branch from the url
             re_search = re.search(r"tree/([^/]+)/", url)

@@ -347,6 +347,11 @@ class PaliGemmaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTes
     def test_flash_attention_2_padding_matches_padding_free_with_position_ids(self):
         pass
 
+    # TODO (joao, raushan): fix me -- the problem is in `cache_position[0] == 0`, i.e. dynamic control flow
+    @unittest.skip("PaliGemma is not compatible with end-to-end generation compilation")
+    def test_generate_compile_fullgraph(self):
+        pass
+
 
 @slow
 @require_torch

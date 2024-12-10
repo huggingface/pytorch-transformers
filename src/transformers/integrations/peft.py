@@ -108,7 +108,7 @@ class PeftAdapterMixin:
                 </Tip>
 
             token (`str`, `optional`):
-                Whether to use authentication token to load the remote folder. Userful to load private repositories
+                Whether to use authentication token to load the remote folder. Useful to load private repositories
                 that are on HuggingFace Hub. You might need to call `huggingface-cli login` and paste your tokens to
                 cache it.
             device_map (`str` or `Dict[str, Union[int, str, torch.device]]` or `int` or `torch.device`, *optional*):

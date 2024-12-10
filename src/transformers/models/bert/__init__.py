@@ -1,4 +1,4 @@
-# Copyright 2020 The HuggingFace Team. All rights reserved.
+# Copyright 2024 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,183 +11,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from typing import TYPE_CHECKING
 
-from ...utils import (
-    OptionalDependencyNotAvailable,
-    _LazyModule,
-    is_flax_available,
-    is_tensorflow_text_available,
-    is_tf_available,
-    is_tokenizers_available,
-    is_torch_available,
-)
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
-
-_import_structure = {
-    "configuration_bert": ["BertConfig", "BertOnnxConfig"],
-    "tokenization_bert": ["BasicTokenizer", "BertTokenizer", "WordpieceTokenizer"],
-}
-
-try:
-    if not is_tokenizers_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["tokenization_bert_fast"] = ["BertTokenizerFast"]
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_bert"] = [
-        "BertForMaskedLM",
-        "BertForMultipleChoice",
-        "BertForNextSentencePrediction",
-        "BertForPreTraining",
-        "BertForQuestionAnswering",
-        "BertForSequenceClassification",
-        "BertForTokenClassification",
-        "BertLayer",
-        "BertLMHeadModel",
-        "BertModel",
-        "BertPreTrainedModel",
-        "load_tf_weights_in_bert",
-    ]
-
-try:
-    if not is_tf_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_tf_bert"] = [
-        "TFBertEmbeddings",
-        "TFBertForMaskedLM",
-        "TFBertForMultipleChoice",
-        "TFBertForNextSentencePrediction",
-        "TFBertForPreTraining",
-        "TFBertForQuestionAnswering",
-        "TFBertForSequenceClassification",
-        "TFBertForTokenClassification",
-        "TFBertLMHeadModel",
-        "TFBertMainLayer",
-        "TFBertModel",
-        "TFBertPreTrainedModel",
-    ]
-try:
-    if not is_tensorflow_text_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["tokenization_bert_tf"] = ["TFBertTokenizer"]
-
-try:
-    if not is_flax_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_flax_bert"] = [
-        "FlaxBertForCausalLM",
-        "FlaxBertForMaskedLM",
-        "FlaxBertForMultipleChoice",
-        "FlaxBertForNextSentencePrediction",
-        "FlaxBertForPreTraining",
-        "FlaxBertForQuestionAnswering",
-        "FlaxBertForSequenceClassification",
-        "FlaxBertForTokenClassification",
-        "FlaxBertModel",
-        "FlaxBertPreTrainedModel",
-    ]
 
 if TYPE_CHECKING:
-    from .configuration_bert import BertConfig, BertOnnxConfig
-    from .tokenization_bert import BasicTokenizer, BertTokenizer, WordpieceTokenizer
-
-    try:
-        if not is_tokenizers_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .tokenization_bert_fast import BertTokenizerFast
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_bert import (
-            BertForMaskedLM,
-            BertForMultipleChoice,
-            BertForNextSentencePrediction,
-            BertForPreTraining,
-            BertForQuestionAnswering,
-            BertForSequenceClassification,
-            BertForTokenClassification,
-            BertLayer,
-            BertLMHeadModel,
-            BertModel,
-            BertPreTrainedModel,
-            load_tf_weights_in_bert,
-        )
-
-    try:
-        if not is_tf_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_tf_bert import (
-            TFBertEmbeddings,
-            TFBertForMaskedLM,
-            TFBertForMultipleChoice,
-            TFBertForNextSentencePrediction,
-            TFBertForPreTraining,
-            TFBertForQuestionAnswering,
-            TFBertForSequenceClassification,
-            TFBertForTokenClassification,
-            TFBertLMHeadModel,
-            TFBertMainLayer,
-            TFBertModel,
-            TFBertPreTrainedModel,
-        )
-
-    try:
-        if not is_tensorflow_text_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .tokenization_bert_tf import TFBertTokenizer
-
-    try:
-        if not is_flax_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_flax_bert import (
-            FlaxBertForCausalLM,
-            FlaxBertForMaskedLM,
-            FlaxBertForMultipleChoice,
-            FlaxBertForNextSentencePrediction,
-            FlaxBertForPreTraining,
-            FlaxBertForQuestionAnswering,
-            FlaxBertForSequenceClassification,
-            FlaxBertForTokenClassification,
-            FlaxBertModel,
-            FlaxBertPreTrainedModel,
-        )
-
+    from .configuration_bert import *
+    from .convert_bert_original_tf2_checkpoint_to_pytorch import *
+    from .convert_bert_original_tf_checkpoint_to_pytorch import *
+    from .convert_bert_pytorch_checkpoint_to_original_tf import *
+    from .convert_bert_token_dropping_original_tf2_checkpoint_to_pytorch import *
+    from .modeling_bert import *
+    from .modeling_flax_bert import *
+    from .modeling_tf_bert import *
+    from .tokenization_bert import *
+    from .tokenization_bert_fast import *
+    from .tokenization_bert_tf import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

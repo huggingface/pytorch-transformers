@@ -12,7 +12,6 @@ from .configuration_utils import PretrainedConfig
 from .utils import (
     is_hqq_available,
     is_optimum_quanto_available,
-    is_quanto_available,
     is_torchdynamo_compiling,
     logging,
 )
@@ -790,17 +789,6 @@ class QuantoQuantizedCache(QuantizedCache):
                     f"You need optimum-quanto package version to be greater or equal than 0.2.5 to use `QuantoQuantizedCache`. Detected version {optimum_quanto_version}."
                 )
             from optimum.quanto import MaxOptimizer, qint2, qint4
-        elif is_quanto_available():
-            logger.warning_once(
-                "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
-            )
-            quanto_version = version.parse(importlib.metadata.version("quanto"))
-            if quanto_version < version.parse("0.2.0"):
-                raise ImportError(
-                    f"You need quanto package version to be greater or equal than 0.2.0 to use `QuantoQuantizedCache`. Detected version {quanto_version}. "
-                    f"Since quanto will be deprecated, please install optimum-quanto instead with `pip install -U optimum-quanto`"
-                )
-            from quanto import MaxOptimizer, qint2, qint4
 
         if self.nbits not in [2, 4]:
             raise ValueError(f"`nbits` for `quanto` backend has to be one of [`2`, `4`] but got {self.nbits}")
@@ -824,16 +812,6 @@ class QuantoQuantizedCache(QuantizedCache):
             scale, zeropoint = self.optimizer(tensor, self.qtype, axis, self.q_group_size)
             qtensor = quantize_weight(tensor, self.qtype, axis, scale, zeropoint, self.q_group_size)
             return qtensor
-        elif is_quanto_available():
-            logger.warning_once(
-                "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
-            )
-            from quanto import AffineQuantizer
-
-            scale, zeropoint = self.optimizer(tensor, self.qtype.bits, axis, self.q_group_size)
-            qtensor = AffineQuantizer.apply(tensor, self.qtype, axis, self.q_group_size, scale, zeropoint)
-
-        return qtensor
 
     def _dequantize(self, qtensor):
         return qtensor.dequantize()

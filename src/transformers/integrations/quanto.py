@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ..utils import is_optimum_quanto_available, is_quanto_available, is_torch_available, logging
+from ..utils import is_optimum_quanto_available, is_torch_available, logging
 
 
 if is_torch_available():
@@ -50,11 +50,6 @@ def replace_with_quanto_layers(
 
     if is_optimum_quanto_available():
         from optimum.quanto import QLayerNorm, QLinear, qfloat8, qint2, qint4, qint8
-    elif is_quanto_available():
-        logger.warning_once(
-            "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
-        )
-        from quanto import QLayerNorm, QLinear, qfloat8, qint2, qint4, qint8
 
     w_mapping = {"float8": qfloat8, "int8": qint8, "int4": qint4, "int2": qint2}
     a_mapping = {None: None, "float8": qfloat8, "int8": qint8}

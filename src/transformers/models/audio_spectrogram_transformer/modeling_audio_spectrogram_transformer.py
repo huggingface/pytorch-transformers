@@ -670,3 +670,6 @@ class ASTForAudioClassification(ASTPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = ["ASTForAudioClassification", "ASTModel", "ASTPreTrainedModel"]

@@ -325,7 +325,7 @@ or [TensorFlow notebook](https://colab.research.google.com/github/huggingface/no
 
 Evaluation for question answering requires a significant amount of postprocessing. To avoid taking up too much of your time, this guide skips the evaluation step. The [`Trainer`] still calculates the evaluation loss during training so you're not completely in the dark about your model's performance.
 
-If have more time and you're interested in how to evaluate your model for question answering, take a look at the [Question answering](https://huggingface.co/course/chapter7/7?fw=pt#post-processing) chapter from the 🤗 Hugging Face Course!
+If you have more time and you're interested in how to evaluate your model for question answering, take a look at the [Question answering](https://huggingface.co/course/chapter7/7?fw=pt#post-processing) chapter from the 🤗 Hugging Face Course!
 
 ## Inference
 
@@ -397,7 +397,7 @@ Tokenize the text and return TensorFlow tensors:
 >>> from transformers import AutoTokenizer
 
 >>> tokenizer = AutoTokenizer.from_pretrained("my_awesome_qa_model")
->>> inputs = tokenizer(question, text, return_tensors="tf")
+>>> inputs = tokenizer(question, context, return_tensors="tf")
 ```
 
 Pass your inputs to the model and return the `logits`:

@@ -2109,10 +2109,12 @@ class GenerationTesterMixin:
             model.eval()  # otherwise `self.training` is `True` -- this flag is used at attn mask creation time
 
             input_ids = inputs_dict["input_ids"].to(torch_device)
-            # creates two sets of *different* inputs with the same shape
-            half_batch_size = input_ids.shape[0] // 2
-            input_ids_sets = [input_ids[:half_batch_size, :], input_ids[half_batch_size : half_batch_size * 2, :]]
-            self.assertTrue(input_ids_sets[0].shape == input_ids_sets[1].shape)
+            # assisted decoding only supports batch size 1, so divide and conquer
+            batch_size = input_ids.shape[0]
+            input_ids_sets = [torch.unsqueeze(input_ids[0, :], 0)]
+            for i in range(1, batch_size):
+                input_ids_sets.append(torch.unsqueeze(input_ids[i, :], 0))
+                self.assertTrue(input_ids_sets[i].shape == input_ids_sets[0].shape)
 
             generation_kwargs = {
                 "do_sample": False,

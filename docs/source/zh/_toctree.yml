@@ -23,8 +23,8 @@
     title: 使用🤗 PEFT加载和训练adapters
   - local: model_sharing
     title: 分享您的模型
-  - local: transformers_agents
-    title: agents教程
+  - local: agents
+    title: 智能体和工具
   - local: llm_tutorial
     title: 使用LLMs进行生成
   title: 教程
@@ -102,7 +102,7 @@
 - sections:
   - sections:
     - local: main_classes/agent
-      title: Agents和工具
+      title: 智能体和工具
     - local: main_classes/callback
       title: Callbacks
     - local: main_classes/configuration

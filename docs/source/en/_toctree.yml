@@ -133,6 +133,8 @@
       title: DeepSpeed
     - local: perf_train_cpu_many
       title: Distributed CPUs
+    - local: debugging
+      title: Multi-GPU debugging
     - local: perf_train_gpu_many
       title: Parallelism methods
   - title: Hardware-specific training
@@ -149,11 +151,10 @@
       title: Build your own machine
   - local: peft
     title: PEFT
-  - local: debugging
-    title: Debugging
   - local: model_memory_anatomy
     title: Model training anatomy
 - title: Quantization
+  isExpanded: false
   sections:
   - local: quantization/overview
     title: Getting started

@@ -92,7 +92,7 @@ TORCH_CUDA_ARCH_LIST="8.6" DS_BUILD_CPU_ADAM=1 DS_BUILD_UTILS=1 pip install . \
 --disable-pip-version-check 2>&1 | tee build.log
 ```
 
-> [TIP]
+> [!TIP]
 > Add the `DS_BUILD_AIO=1` parameter to the build command to use NVMe offload. Make sure you install the libaio-dev package across your system.
 
 Next, specify your GPU's architecture by editing the `TORCH_CUDA_ARCH_LIST` variable (find a complete list of NVIDIA GPUs and their corresponding architectures on this [page](https://developer.nvidia.com/cuda-gpus)). To check the PyTorch version that corresponds to your architecture, run the following command.
@@ -167,7 +167,7 @@ NCCL_DEBUG=INFO python -m torch.distributed.run --nproc_per_node 2 --nnodes 1 to
 
 Underflow and overflow can occur when activations or weights are `inf`, `nan`, and when `loss=NaN`. This may indicate an underflow or overflow issue. To detect these issues, activate the `DebugUnderflowOverflow` module in [`TrainingArguments.debug`] or import and add the module to your own training loop or another trainer class.
 
-<hfoption id="overflow">
+<hfoptions id="overflow">
 <hfoption id="Trainer">
 
 ```py

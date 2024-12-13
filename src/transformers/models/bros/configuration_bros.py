@@ -133,3 +133,6 @@ class BrosConfig(PretrainedConfig):
         self.dim_bbox_sinusoid_emb_1d = self.dim_bbox_sinusoid_emb_2d // self.dim_bbox
         self.dim_bbox_projection = self.hidden_size // self.num_attention_heads
         self.classifier_dropout_prob = classifier_dropout_prob
+
+
+__all__ = ["BrosConfig"]

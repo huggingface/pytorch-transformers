@@ -1362,3 +1362,13 @@ class BloomForQuestionAnswering(BloomPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "BloomForCausalLM",
+    "BloomModel",
+    "BloomPreTrainedModel",
+    "BloomForSequenceClassification",
+    "BloomForTokenClassification",
+    "BloomForQuestionAnswering",
+]

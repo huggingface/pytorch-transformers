@@ -67,7 +67,7 @@ def get_conversion_pr_reference(api: HfApi, model_id: str, **kwargs):
     # security breaches.
     pr = previous_pr(api, model_id, pr_title, token=token)
 
-    if pr is None or (not private and pr.author != "SFConvertBot"):
+    if pr is None or (not private and pr.author != "SFconvertbot"):
         spawn_conversion(token, private, model_id)
         pr = previous_pr(api, model_id, pr_title, token=token)
     else:

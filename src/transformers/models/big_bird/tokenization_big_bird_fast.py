@@ -227,3 +227,6 @@ class BigBirdTokenizerFast(PreTrainedTokenizerFast):
             copyfile(self.vocab_file, out_vocab_file)
 
         return (out_vocab_file,)
+
+
+__all__ = ["BigBirdTokenizerFast"]

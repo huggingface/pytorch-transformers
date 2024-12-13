@@ -1,4 +1,4 @@
-# Copyright 2023-present NAVER Corp, The Microsoft Research Asia LayoutLM Team Authors and the HuggingFace Inc. team.
+# Copyright 2024 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,63 +13,17 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import OptionalDependencyNotAvailable, _LazyModule, is_tokenizers_available, is_torch_available
-
-
-_import_structure = {
-    "configuration_bros": ["BrosConfig"],
-}
-
-try:
-    if not is_tokenizers_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["processing_bros"] = ["BrosProcessor"]
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_bros"] = [
-        "BrosPreTrainedModel",
-        "BrosModel",
-        "BrosForTokenClassification",
-        "BrosSpadeEEForTokenClassification",
-        "BrosSpadeELForTokenClassification",
-    ]
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
 
 if TYPE_CHECKING:
-    from .configuration_bros import BrosConfig
-
-    try:
-        if not is_tokenizers_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .processing_bros import BrosProcessor
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_bros import (
-            BrosForTokenClassification,
-            BrosModel,
-            BrosPreTrainedModel,
-            BrosSpadeEEForTokenClassification,
-            BrosSpadeELForTokenClassification,
-        )
-
-
+    from .configuration_bros import *
+    from .convert_bros_to_pytorch import *
+    from .modeling_bros import *
+    from .processing_bros import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

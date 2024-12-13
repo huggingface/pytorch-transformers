@@ -405,3 +405,6 @@ class BlenderbotTokenizer(PreTrainedTokenizer):
             `List[int]`: list of [input IDs](../glossary#input-ids) with the appropriate special tokens.
         """
         return token_ids_0 + [self.eos_token_id]
+
+
+__all__ = ["BlenderbotTokenizer"]

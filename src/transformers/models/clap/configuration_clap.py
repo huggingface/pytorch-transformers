@@ -389,3 +389,6 @@ class ClapConfig(PretrainedConfig):
         """
 
         return cls(text_config=text_config.to_dict(), audio_config=audio_config.to_dict(), **kwargs)
+
+
+__all__ = ["ClapAudioConfig", "ClapConfig", "ClapTextConfig"]

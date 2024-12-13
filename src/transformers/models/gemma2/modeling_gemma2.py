@@ -1280,3 +1280,12 @@ class Gemma2ForTokenClassification(Gemma2PreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "Gemma2ForCausalLM",
+    "Gemma2Model",
+    "Gemma2PreTrainedModel",
+    "Gemma2ForSequenceClassification",
+    "Gemma2ForTokenClassification",
+]

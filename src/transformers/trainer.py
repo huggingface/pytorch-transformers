@@ -2938,7 +2938,22 @@ class Trainer:
                             active_adapter = model.active_adapter
 
                         if os.path.exists(best_adapter_model_path) or os.path.exists(best_safe_adapter_model_path):
-                            model.load_adapter(self.state.best_model_checkpoint, active_adapter)
+                            try:
+                                model.load_adapter(self.state.best_model_checkpoint, active_adapter)
+                            except RuntimeError as exc:
+                                if model.peft_config[active_adapter].is_prompt_learning:
+                                    # for context: https://github.com/huggingface/peft/issues/2256
+                                    msg = (
+                                        "When using prompt learning PEFT methods such as "
+                                        f"{model.peft_config[active_adapter].peft_type.value}, setting "
+                                        "load_best_model_at_end=True can lead to errors, it is recommended "
+                                        "to set this to False and to load the model manually from the checkpoint "
+                                        "directory using PeftModel.from_pretrained(base_model, <path>) after training "
+                                        "has finished."
+                                    )
+                                    raise RuntimeError(msg) from exc
+                                else:
+                                    raise
                             # Load_adapter has no return value present, modify it when appropriate.
                             from torch.nn.modules.module import _IncompatibleKeys
 

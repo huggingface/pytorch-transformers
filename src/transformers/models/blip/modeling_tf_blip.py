@@ -1696,3 +1696,14 @@ class TFBlipForImageTextRetrieval(TFBlipPreTrainedModel):
         if getattr(self, "itm_head", None) is not None:
             with tf.name_scope(self.itm_head.name):
                 self.itm_head.build([None, None, self.config.text_config.hidden_size])
+
+
+__all__ = [
+    "TFBlipModel",
+    "TFBlipPreTrainedModel",
+    "TFBlipForConditionalGeneration",
+    "TFBlipForQuestionAnswering",
+    "TFBlipVisionModel",
+    "TFBlipTextModel",
+    "TFBlipForImageTextRetrieval",
+]

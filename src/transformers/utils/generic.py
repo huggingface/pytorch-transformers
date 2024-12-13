@@ -16,6 +16,8 @@ Generic utilities
 """
 
 import inspect
+import json
+import os
 import tempfile
 import warnings
 from collections import OrderedDict, UserDict
@@ -24,7 +26,7 @@ from contextlib import ExitStack, contextmanager
 from dataclasses import fields, is_dataclass
 from enum import Enum
 from functools import partial, wraps
-from typing import Any, ContextManager, Iterable, List, Optional, Tuple, TypedDict
+from typing import Any, ContextManager, Dict, Iterable, List, Optional, Tuple, TypedDict
 
 import numpy as np
 from packaging import version
@@ -867,3 +869,36 @@ class LossKwargs(TypedDict, total=False):
     """
 
     num_items_in_batch: Optional[int]
+
+
+def is_timm_config_dict(config_dict: Dict[str, Any]) -> bool:
+    """Checks whether a config dict is a timm config dict."""
+    return "pretrained_cfg" in config_dict
+
+
+def is_timm_local_checkpoint(pretrained_model_path: str) -> bool:
+    """
+    Checks whether a checkpoint is a timm model checkpoint.
+    """
+    if pretrained_model_path is None:
+        return False
+
+    # in case it's Path, not str
+    pretrained_model_path = str(pretrained_model_path)
+
+    is_file = os.path.isfile(pretrained_model_path)
+    is_dir = os.path.isdir(pretrained_model_path)
+
+    # pretrained_model_path is a file
+    if is_file and pretrained_model_path.endswith(".json"):
+        with open(pretrained_model_path, "r") as f:
+            config_dict = json.load(f)
+        return is_timm_config_dict(config_dict)
+
+    # pretrained_model_path is a directory with a config.json
+    if is_dir and os.path.exists(os.path.join(pretrained_model_path, "config.json")):
+        with open(os.path.join(pretrained_model_path, "config.json"), "r") as f:
+            config_dict = json.load(f)
+        return is_timm_config_dict(config_dict)
+
+    return False

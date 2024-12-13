@@ -3126,3 +3126,18 @@ class BigBirdForQuestionAnswering(BigBirdPreTrainedModel):
         mask.unsqueeze_(0)  # -> (1, maxlen)
         mask = torch.where(mask < q_lengths, 1, 0)
         return mask
+
+
+__all__ = [
+    "BigBirdForCausalLM",
+    "BigBirdForMaskedLM",
+    "BigBirdForMultipleChoice",
+    "BigBirdForPreTraining",
+    "BigBirdForQuestionAnswering",
+    "BigBirdForSequenceClassification",
+    "BigBirdForTokenClassification",
+    "BigBirdLayer",
+    "BigBirdModel",
+    "BigBirdPreTrainedModel",
+    "load_tf_weights_in_big_bird",
+]

@@ -28,7 +28,7 @@ from collections.abc import Mapping, Sized
 from contextlib import contextmanager
 from dataclasses import dataclass
 from inspect import isfunction
-from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from packaging import version
@@ -1527,7 +1527,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
     def apply_chat_template(
         self,
         conversation: Union[List[Dict[str, str]], List[List[Dict[str, str]]]],
-        tools: Optional[List[Dict]] = None,
+        tools: Optional[List[Union[Dict, Callable]]] = None,
         documents: Optional[List[Dict[str, str]]] = None,
         chat_template: Optional[str] = None,
         add_generation_prompt: bool = False,

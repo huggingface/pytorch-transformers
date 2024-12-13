@@ -464,6 +464,7 @@ class BlipPreTrainedModel(PreTrainedModel):
     config_class = BlipConfig
     base_model_prefix = "blip"
     supports_gradient_checkpointing = True
+    _no_split_modules = ["BlipEncoderLayer"]
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -1580,3 +1581,14 @@ class BlipForImageTextRetrieval(BlipPreTrainedModel):
             attentions=vision_outputs.attentions,
             question_embeds=question_embeds,
         )
+
+
+__all__ = [
+    "BlipModel",
+    "BlipPreTrainedModel",
+    "BlipForConditionalGeneration",
+    "BlipForQuestionAnswering",
+    "BlipVisionModel",
+    "BlipTextModel",
+    "BlipForImageTextRetrieval",
+]

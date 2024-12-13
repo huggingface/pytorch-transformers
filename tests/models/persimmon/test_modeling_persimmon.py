@@ -46,11 +46,7 @@ if is_torch_available():
         PersimmonForTokenClassification,
         PersimmonModel,
     )
-    from transformers.models.persimmon.modeling_persimmon import (
-        PersimmonDynamicNTKScalingRotaryEmbedding,
-        PersimmonLinearScalingRotaryEmbedding,
-        PersimmonRotaryEmbedding,
-    )
+    from transformers.models.persimmon.modeling_persimmon import PersimmonRotaryEmbedding
 
 
 # Copied from tests.models.llama.test_modeling_llama.LlamaModelTester with Llama->Persimmon
@@ -451,11 +447,12 @@ class PersimmonModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTester
 
         # Sanity check linear RoPE scaling
         # New position "x" should match original position with index "x/scaling_factor"
-        linear_scaling_rope = PersimmonLinearScalingRotaryEmbedding(
+        linear_scaling_rope = PersimmonRotaryEmbedding(
             head_dim,
             max_position_embeddings=config.max_position_embeddings,
             base=config.rope_theta,
             scaling_factor=scaling_factor,
+            rope_type="linear",
         ).to(torch_device)
         linear_cos_short, linear_sin_short = linear_scaling_rope(x, position_ids_short)
         linear_cos_long, linear_sin_long = linear_scaling_rope(x, position_ids_long)
@@ -469,11 +466,12 @@ class PersimmonModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTester
         # Sanity check Dynamic NTK RoPE scaling
         # Scaling should only be observed after a long input is fed. We can observe that the frequencies increase
         # with scaling_factor (or that `inv_freq` decreases)
-        ntk_scaling_rope = PersimmonDynamicNTKScalingRotaryEmbedding(
+        ntk_scaling_rope = PersimmonRotaryEmbedding(
             head_dim,
             max_position_embeddings=config.max_position_embeddings,
             base=config.rope_theta,
             scaling_factor=scaling_factor,
+            rope_type="dynamic",
         ).to(torch_device)
         ntk_cos_short, ntk_sin_short = ntk_scaling_rope(x, position_ids_short)
         ntk_cos_long, ntk_sin_long = ntk_scaling_rope(x, position_ids_long)

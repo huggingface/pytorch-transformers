@@ -1312,3 +1312,12 @@ class BrosSpadeELForTokenClassification(BrosPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "BrosPreTrainedModel",
+    "BrosModel",
+    "BrosForTokenClassification",
+    "BrosSpadeEEForTokenClassification",
+    "BrosSpadeELForTokenClassification",
+]

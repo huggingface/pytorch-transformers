@@ -131,3 +131,6 @@ class BitConfig(BackboneConfigMixin, PretrainedConfig):
         self._out_features, self._out_indices = get_aligned_output_features_output_indices(
             out_features=out_features, out_indices=out_indices, stage_names=self.stage_names
         )
+
+
+__all__ = ["BitConfig"]

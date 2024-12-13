@@ -1293,3 +1293,14 @@ FLAX_CLIP_MODEL_DOCSTRING = """
 
 overwrite_call_docstring(FlaxCLIPModel, CLIP_INPUTS_DOCSTRING + FLAX_CLIP_MODEL_DOCSTRING)
 append_replace_return_docstrings(FlaxCLIPModel, output_type=FlaxCLIPOutput, config_class=CLIPConfig)
+
+
+__all__ = [
+    "FlaxCLIPModel",
+    "FlaxCLIPPreTrainedModel",
+    "FlaxCLIPTextModel",
+    "FlaxCLIPTextPreTrainedModel",
+    "FlaxCLIPTextModelWithProjection",
+    "FlaxCLIPVisionModel",
+    "FlaxCLIPVisionPreTrainedModel",
+]

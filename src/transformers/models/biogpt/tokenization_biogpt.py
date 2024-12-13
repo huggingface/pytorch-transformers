@@ -356,3 +356,6 @@ class BioGptTokenizer(PreTrainedTokenizer):
             )
 
         self.sm = sacremoses
+
+
+__all__ = ["BioGptTokenizer"]

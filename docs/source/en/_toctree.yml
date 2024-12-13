@@ -705,6 +705,8 @@
         title: Swin2SR
       - local: model_doc/table-transformer
         title: Table Transformer
+      - local: model_doc/timm_wrapper
+        title: Timm Wrapper
       - local: model_doc/upernet
         title: UperNet
       - local: model_doc/van

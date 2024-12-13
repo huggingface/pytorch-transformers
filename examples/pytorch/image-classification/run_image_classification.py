@@ -42,6 +42,7 @@ from transformers import (
     AutoImageProcessor,
     AutoModelForImageClassification,
     HfArgumentParser,
+    TimmWrapperImageProcessor,
     Trainer,
     TrainingArguments,
     set_seed,
@@ -329,31 +330,36 @@ def main():
     )
 
     # Define torchvision transforms to be applied to each image.
-    if "shortest_edge" in image_processor.size:
-        size = image_processor.size["shortest_edge"]
+    if isinstance(image_processor, TimmWrapperImageProcessor):
+        _train_transforms = image_processor.train_transforms
+        _val_transforms = image_processor.val_transforms
     else:
-        size = (image_processor.size["height"], image_processor.size["width"])
-    normalize = (
-        Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
-        if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std")
-        else Lambda(lambda x: x)
-    )
-    _train_transforms = Compose(
-        [
-            RandomResizedCrop(size),
-            RandomHorizontalFlip(),
-            ToTensor(),
-            normalize,
-        ]
-    )
-    _val_transforms = Compose(
-        [
-            Resize(size),
-            CenterCrop(size),
-            ToTensor(),
-            normalize,
-        ]
-    )
+        if "shortest_edge" in image_processor.size:
+            size = image_processor.size["shortest_edge"]
+        else:
+            size = (image_processor.size["height"], image_processor.size["width"])
+
+        # Create normalization transform
+        if hasattr(image_processor, "image_mean") and hasattr(image_processor, "image_std"):
+            normalize = Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
+        else:
+            normalize = Lambda(lambda x: x)
+        _train_transforms = Compose(
+            [
+                RandomResizedCrop(size),
+                RandomHorizontalFlip(),
+                ToTensor(),
+                normalize,
+            ]
+        )
+        _val_transforms = Compose(
+            [
+                Resize(size),
+                CenterCrop(size),
+                ToTensor(),
+                normalize,
+            ]
+        )
 
     def train_transforms(example_batch):
         """Apply _train_transforms across a batch."""

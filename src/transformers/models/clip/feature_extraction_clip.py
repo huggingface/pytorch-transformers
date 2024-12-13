@@ -31,3 +31,6 @@ class CLIPFeatureExtractor(CLIPImageProcessor):
             FutureWarning,
         )
         super().__init__(*args, **kwargs)
+
+
+__all__ = ["CLIPFeatureExtractor"]

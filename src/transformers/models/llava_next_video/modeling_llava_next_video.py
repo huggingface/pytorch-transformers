@@ -122,21 +122,6 @@ class LlavaNextVideoPooler(nn.Module):
         return image_features_spatial_pool.flatten(2).transpose(1, 2).contiguous()
 
 
-class LlavaNextVideoMultiModalProjector(nn.Module):
-    def __init__(self, config: LlavaNextVideoConfig):
-        super().__init__()
-
-        self.linear_1 = nn.Linear(config.vision_config.hidden_size, config.text_config.hidden_size, bias=True)
-        self.act = ACT2FN[config.projector_hidden_act]
-        self.linear_2 = nn.Linear(config.text_config.hidden_size, config.text_config.hidden_size, bias=True)
-
-    def forward(self, image_features):
-        hidden_states = self.linear_1(image_features)
-        hidden_states = self.act(hidden_states)
-        hidden_states = self.linear_2(hidden_states)
-        return hidden_states
-
-
 LLAVA_NEXT_VIDEO_START_DOCSTRING = r"""
     This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
     library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
@@ -189,6 +174,21 @@ class LlavaNextVideoPreTrainedModel(PreTrainedModel):
             module.weight.data.normal_(mean=0.0, std=std)
             if module.padding_idx is not None:
                 module.weight.data[module.padding_idx].zero_()
+
+
+class LlavaNextVideoMultiModalProjector(nn.Module):
+    def __init__(self, config: LlavaNextVideoConfig):
+        super().__init__()
+
+        self.linear_1 = nn.Linear(config.vision_config.hidden_size, config.text_config.hidden_size, bias=True)
+        self.act = ACT2FN[config.projector_hidden_act]
+        self.linear_2 = nn.Linear(config.text_config.hidden_size, config.text_config.hidden_size, bias=True)
+
+    def forward(self, image_features):
+        hidden_states = self.linear_1(image_features)
+        hidden_states = self.act(hidden_states)
+        hidden_states = self.linear_2(hidden_states)
+        return hidden_states
 
 
 def get_anyres_image_grid_shape(image_size, grid_pinpoints, patch_size):
@@ -1157,3 +1157,6 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextVideoPreTrainedModel, Gene
         video_features = self.multi_modal_projector(video_features)
         video_features = torch.split(video_features, frames, dim=0)
         return video_features
+
+
+__all__ = ["LlavaNextVideoForConditionalGeneration", "LlavaNextVideoPreTrainedModel"]

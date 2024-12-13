@@ -239,3 +239,6 @@ class CanineTokenizer(PreTrainedTokenizer):
     # CanineTokenizer has no vocab file
     def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None):
         return ()
+
+
+__all__ = ["CanineTokenizer"]

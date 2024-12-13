@@ -903,3 +903,13 @@ class Gemma2ForTokenClassification(GemmaForTokenClassification):
         super().__init__(config)
         self.model = Gemma2Model(config)
         self.post_init()
+
+
+__all__ = [
+    "Gemma2Config",
+    "Gemma2ForCausalLM",
+    "Gemma2Model",
+    "Gemma2PreTrainedModel",
+    "Gemma2ForSequenceClassification",
+    "Gemma2ForTokenClassification",
+]

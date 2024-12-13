@@ -324,3 +324,6 @@ class BlipConfig(PretrainedConfig):
         """
 
         return cls(text_config=text_config.to_dict(), vision_config=vision_config.to_dict(), **kwargs)
+
+
+__all__ = ["BlipConfig", "BlipTextConfig", "BlipVisionConfig"]

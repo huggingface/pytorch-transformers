@@ -82,16 +82,16 @@
       title: Getting the most out of LLMs
     - local: perplexity
       title: Perplexity of fixed-length models
-    - title: Chat
-      sections:
-      - local: conversations
-        title: Chat pipeline
-      - local: chat_templating
-        title: Templates
-      - local: chat_templating_writing
-        title: Template writing
-      - local: chat_extras
-        title: Tools and RAG
+  - title: Chat
+    sections:
+    - local: conversations
+      title: Chat pipeline
+    - local: chat_templating
+      title: Templates
+    - local: chat_templating_writing
+      title: Template writing
+    - local: chat_extras
+      title: Tools and RAG
   - title: Optimization
     sections:
     - local: perf_torch_compile

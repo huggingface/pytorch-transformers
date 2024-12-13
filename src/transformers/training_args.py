@@ -566,7 +566,7 @@ class TrainingArguments:
                     used when the xla flag is set to true, and an auto wrapping policy is specified through
                     fsdp_min_num_params or fsdp_transformer_layer_cls_to_wrap.
         tp_size (`int`, *optional*):
-            Use tp_size to enable pytorch 2.0 tensor parallelism. Set a value greater than 1 to activate TP. The same is
+            Use tp_size to enable PyTorch tensor parallelism. Set a value greater than 1 to activate TP. The same is
             used to prepare device mesh internally.
         deepspeed (`str` or `dict`, *optional*):
             Use [Deepspeed](https://github.com/microsoft/deepspeed). This is an experimental feature and its API may
@@ -1245,7 +1245,7 @@ class TrainingArguments:
         default=0,
         metadata={
             "help": (
-                "Use tp_size to enable pytorch 2.0 tensor parallelism."
+                "Use tp_size to enable pytorch tensor parallelism."
                 "Set a value greater than 1 to activate TP."
                 "The same is used to prepare device mesh internally."
             )
@@ -1978,6 +1978,7 @@ class TrainingArguments:
 
         if self.tp_size > 1:
             os.environ["ACCELERATE_USE_TP"] = "true"
+            os.environ["TP_SIZE"] = self.tp_size
         # accelerate integration for FSDP
         if len(self.fsdp) > 0 and not self.fsdp_config["xla"]:
             os.environ["ACCELERATE_USE_FSDP"] = "true"

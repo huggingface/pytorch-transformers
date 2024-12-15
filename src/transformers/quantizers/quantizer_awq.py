@@ -111,7 +111,7 @@ class AwqQuantizer(HfQuantizer):
                 " Please double check your model architecture, or submit an issue on github if you think this is a bug."
             )
 
-    def _process_model_after_weight_loading(self, model):
+    def _process_model_after_weight_loading(self, model, **kwargs):
         if self.quantization_config.do_fuse:
             from ..integrations import fuse_awq_modules
 

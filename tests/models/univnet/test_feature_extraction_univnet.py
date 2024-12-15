@@ -50,7 +50,7 @@ def floats_list(shape, scale=1.0, rng=None, name=None):
     return values
 
 
-class UnivNetFeatureExtractionTester(unittest.TestCase):
+class UnivNetFeatureExtractionTester:
     def __init__(
         self,
         parent,

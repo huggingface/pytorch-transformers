@@ -39,7 +39,7 @@ if is_vision_available():
     from PIL import Image
 
 
-class Mask2FormerImageProcessingTester(unittest.TestCase):
+class Mask2FormerImageProcessingTester:
     def __init__(
         self,
         parent,

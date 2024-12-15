@@ -173,13 +173,14 @@ class AutoHfQuantizer:
             quantization_config = AutoQuantizationConfig.from_dict(quantization_config)
 
         if (
-            isinstance(quantization_config, (GPTQConfig, AwqConfig, FbgemmFp8Config))
+            isinstance(quantization_config, (GPTQConfig, AwqConfig, FbgemmFp8Config, CompressedTensorsConfig))
             and quantization_config_from_args is not None
         ):
             # special case for GPTQ / AWQ / FbgemmFp8 config collision
             loading_attr_dict = quantization_config_from_args.get_loading_attributes()
             for attr, val in loading_attr_dict.items():
                 setattr(quantization_config, attr, val)
+
             warning_msg += f"However, loading attributes (e.g. {list(loading_attr_dict.keys())}) will be overwritten with the one you passed to `from_pretrained`. The rest will be ignored."
 
         if warning_msg != "":

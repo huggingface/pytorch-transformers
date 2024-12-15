@@ -34,7 +34,7 @@ if is_vision_available():
     from transformers import Pix2StructImageProcessor
 
 
-class Pix2StructImageProcessingTester(unittest.TestCase):
+class Pix2StructImageProcessingTester:
     def __init__(
         self,
         parent,

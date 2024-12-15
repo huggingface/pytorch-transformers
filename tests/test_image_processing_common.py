@@ -228,14 +228,15 @@ class ImageProcessingTestMixin:
             self.assertEqual(image_processor_second.to_dict(), image_processor_first.to_dict())
 
     def test_image_processor_save_load_with_autoimageprocessor(self):
-        for image_processing_class in self.image_processor_list:
+        for i, image_processing_class in enumerate(self.image_processor_list):
             image_processor_first = image_processing_class(**self.image_processor_dict)
 
             with tempfile.TemporaryDirectory() as tmpdirname:
                 saved_file = image_processor_first.save_pretrained(tmpdirname)[0]
                 check_json_file_has_correct_format(saved_file)
 
-                image_processor_second = AutoImageProcessor.from_pretrained(tmpdirname)
+                use_fast = i == 1
+                image_processor_second = AutoImageProcessor.from_pretrained(tmpdirname, use_fast=use_fast)
 
             self.assertEqual(image_processor_second.to_dict(), image_processor_first.to_dict())
 

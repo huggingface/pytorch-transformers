@@ -197,7 +197,7 @@ class QuantoHfQuantizer(HfQuantizer):
         )
         model.config.quantization_config = self.quantization_config
 
-    def _process_model_after_weight_loading(self, model):
+    def _process_model_after_weight_loading(self, model, **kwargs):
         return model
 
     @property

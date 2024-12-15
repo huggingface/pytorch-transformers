@@ -39,7 +39,7 @@ if is_vision_available():
     from PIL import Image
 
 
-class OneFormerImageProcessorTester(unittest.TestCase):
+class OneFormerImageProcessorTester:
     def __init__(
         self,
         parent,

@@ -51,7 +51,7 @@ def floats_list(shape, scale=1.0, rng=None, name=None):
 
 @require_torch
 # Copied from transformers.tests.encodec.test_feature_extraction_dac.EncodecFeatureExtractionTester with Encodec->Dac
-class DacFeatureExtractionTester(unittest.TestCase):
+class DacFeatureExtractionTester:
     # Ignore copy
     def __init__(
         self,

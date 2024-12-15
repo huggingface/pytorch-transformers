@@ -50,7 +50,7 @@ def floats_list(shape, scale=1.0, rng=None, name=None):
 
 
 @require_torch
-class EnCodecFeatureExtractionTester(unittest.TestCase):
+class EnCodecFeatureExtractionTester:
     def __init__(
         self,
         parent,

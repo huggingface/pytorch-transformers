@@ -33,7 +33,7 @@ if is_vision_available():
     from transformers import SuperPointImageProcessor
 
 
-class SuperPointImageProcessingTester(unittest.TestCase):
+class SuperPointImageProcessingTester:
     def __init__(
         self,
         parent,

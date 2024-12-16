@@ -16,7 +16,7 @@ import unittest
 
 import requests
 
-from transformers.testing_utils import require_torch, require_torch_gpu, require_vision, slow
+from transformers.testing_utils import require_torch, require_torch_gpu, require_torchvision, require_vision, slow
 from transformers.utils import is_torch_available, is_torchvision_available, is_vision_available
 
 from ...test_image_processing_common import ImageProcessingTestMixin, prepare_image_inputs
@@ -374,6 +374,7 @@ class RtDetrImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
 
     @slow
     @require_torch_gpu
+    @require_torchvision
     # Copied from tests.models.detr.test_image_processing_detr.DetrImageProcessingTest.test_fast_processor_equivalence_cpu_gpu_coco_detection_annotations
     def test_fast_processor_equivalence_cpu_gpu_coco_detection_annotations(self):
         # prepare image and target

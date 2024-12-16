@@ -464,6 +464,8 @@ class BlipPreTrainedModel(PreTrainedModel):
     config_class = BlipConfig
     base_model_prefix = "blip"
     supports_gradient_checkpointing = True
+    _no_split_modules = ["BlipEncoderLayer", "BlipTextEmbeddings"]
+    _skip_keys_device_placement = ["past_key_value"]
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -1009,7 +1011,8 @@ class BlipModel(BlipPreTrainedModel):
         text_embeds = text_embeds / text_embeds.norm(p=2, dim=-1, keepdim=True)
 
         # cosine similarity as logits
-        logit_scale = self.logit_scale.exp()
+        logit_scale = self.logit_scale.exp().to(device=text_embeds.device)
+        image_embeds = image_embeds.to(device=text_embeds.device, dtype=text_embeds.dtype)
         logits_per_text = torch.matmul(text_embeds, image_embeds.t()) * logit_scale
         logits_per_image = logits_per_text.t()
 
@@ -1580,3 +1583,14 @@ class BlipForImageTextRetrieval(BlipPreTrainedModel):
             attentions=vision_outputs.attentions,
             question_embeds=question_embeds,
         )
+
+
+__all__ = [
+    "BlipModel",
+    "BlipPreTrainedModel",
+    "BlipForConditionalGeneration",
+    "BlipForQuestionAnswering",
+    "BlipVisionModel",
+    "BlipTextModel",
+    "BlipForImageTextRetrieval",
+]

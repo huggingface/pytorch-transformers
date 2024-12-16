@@ -50,7 +50,7 @@ def floats_list(shape, scale=1.0, rng=None, name=None):
     return values
 
 
-class WhisperFeatureExtractionTester(unittest.TestCase):
+class WhisperFeatureExtractionTester:
     def __init__(
         self,
         parent,

@@ -1639,3 +1639,15 @@ class CanineForQuestionAnswering(CaninePreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "CanineForMultipleChoice",
+    "CanineForQuestionAnswering",
+    "CanineForSequenceClassification",
+    "CanineForTokenClassification",
+    "CanineLayer",
+    "CanineModel",
+    "CaninePreTrainedModel",
+    "load_tf_weights_in_canine",
+]

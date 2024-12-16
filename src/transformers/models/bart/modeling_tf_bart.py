@@ -1709,3 +1709,6 @@ class TFBartForSequenceClassification(TFBartPretrainedModel, TFSequenceClassific
         if getattr(self, "classification_head", None) is not None:
             with tf.name_scope(self.classification_head.name):
                 self.classification_head.build(None)
+
+
+__all__ = ["TFBartForConditionalGeneration", "TFBartForSequenceClassification", "TFBartModel", "TFBartPretrainedModel"]

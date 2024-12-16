@@ -231,3 +231,6 @@ class ByT5Tokenizer(PreTrainedTokenizer):
     # ByT5Tokenizer has no vocab file
     def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str]:
         return ()
+
+
+__all__ = ["ByT5Tokenizer"]

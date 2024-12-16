@@ -250,7 +250,7 @@ class IJepaModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
 
     @slow
     def test_model_from_pretrained(self):
-        model_name = "jmtzt/ijepa_vith14_1k"
+        model_name = "facebook/ijepa_vith14_1k"
         model = IJepaModel.from_pretrained(model_name)
         self.assertIsNotNone(model)
 
@@ -266,11 +266,11 @@ def prepare_img():
 class IJepaModelIntegrationTest(unittest.TestCase):
     @cached_property
     def default_image_processor(self):
-        return ViTImageProcessor.from_pretrained("jmtzt/ijepa_vith14_1k") if is_vision_available() else None
+        return ViTImageProcessor.from_pretrained("facebook/ijepa_vith14_1k") if is_vision_available() else None
 
     @slow
     def test_inference_no_head(self):
-        model = IJepaModel.from_pretrained("jmtzt/ijepa_vith14_1k").to(torch_device)
+        model = IJepaModel.from_pretrained("facebook/ijepa_vith14_1k").to(torch_device)
 
         image_processor = self.default_image_processor
         image = prepare_img()
@@ -299,7 +299,7 @@ class IJepaModelIntegrationTest(unittest.TestCase):
         A small test to make sure that inference work in half precision without any problem.
         """
         model = IJepaModel.from_pretrained(
-            "jmtzt/ijepa_vith14_1k",
+            "facebook/ijepa_vith14_1k",
             torch_dtype=torch.float16,
             device_map="auto",
         )
@@ -319,7 +319,7 @@ class IJepaModelIntegrationTest(unittest.TestCase):
         # allowing to interpolate the pre-trained position embeddings in order to use
         # the model on higher resolutions. The DINO model by Facebook AI leverages this
         # to visualize self-attention on higher resolution images.
-        model = IJepaModel.from_pretrained("jmtzt/ijepa_vith14_1k").to(torch_device)
+        model = IJepaModel.from_pretrained("facebook/ijepa_vith14_1k").to(torch_device)
 
         image_processor = self.default_image_processor
         image = prepare_img()

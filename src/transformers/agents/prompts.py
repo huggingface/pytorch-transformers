@@ -129,7 +129,7 @@ final_answer(caption)
 ```<end_action>
 
 ---
-Above example were using tools that might not exist for you. You only have acces to those Tools:
+Above example were using tools that might not exist for you. You only have access to these Tools:
 <<tool_names>>
 
 Remember to make sure that variables you use are all defined.
@@ -256,7 +256,7 @@ Action:
 }<end_action>
 
 
-Above example were using notional tools that might not exist for you. You only have acces to those tools:
+Above example were using notional tools that might not exist for you. You only have access to these tools:
 <<tool_descriptions>>
 
 Here are the rules you should always follow to solve your task:
@@ -348,7 +348,7 @@ pope_current_age = 85 ** 0.36
 final_answer(pope_current_age)
 ```<end_action>
 
-Above example were using notional tools that might not exist for you. On top of performing computations in the Python code snippets that you create, you have acces to those tools (and no other tool):
+Above example were using notional tools that might not exist for you. On top of performing computations in the Python code snippets that you create, you have access to these tools (and no other tool):
 
 <<tool_descriptions>>
 
@@ -395,7 +395,7 @@ Do not add anything else."""
 SYSTEM_PROMPT_PLAN = """You are a world expert at making efficient plans to solve any task using a set of carefully crafted tools.
 
 Now for the given task, develop a step-by-step high-level plan taking into account the above inputs and list of facts.
-This plan should involve individual tasks based on the avilable tools, that if executed correctly will yield the correct answer.
+This plan should involve individual tasks based on the available tools, that if executed correctly will yield the correct answer.
 Do not skip steps, do not add any superfluous steps. Only write the high-level plan, DO NOT DETAIL INDIVIDUAL TOOL CALLS.
 After writing the final step of the plan, write the '\n<end_plan>' tag and stop there."""
 
@@ -466,7 +466,7 @@ Here is the up to date list of facts that you know:
 ```
 
 Now for the given task, develop a step-by-step high-level plan taking into account the above inputs and list of facts.
-This plan should involve individual tasks based on the avilable tools, that if executed correctly will yield the correct answer.
+This plan should involve individual tasks based on the available tools, that if executed correctly will yield the correct answer.
 Beware that you have {remaining_steps} steps remaining.
 Do not skip steps, do not add any superfluous steps. Only write the high-level plan, DO NOT DETAIL INDIVIDUAL TOOL CALLS.
 After writing the final step of the plan, write the '\n<end_plan>' tag and stop there.
@@ -474,7 +474,7 @@ After writing the final step of the plan, write the '\n<end_plan>' tag and stop 
 Now write your new plan below."""
 
 SYSTEM_PROMPT_PLAN_STRUCTURED = """Output a step-by-step plan to solve the task using the given tools.
-This plan should involve individual tasks based on the avilable tools, that if executed correctly will yield the correct answer. Each step should be structured as follows:
+This plan should involve individual tasks based on the available tools, that if executed correctly will yield the correct answer. Each step should be structured as follows:
 Step #n: {
   "description": <description of what the step does and its output>
   "tool": <tool to use>,
@@ -620,7 +620,7 @@ Now for the given task, create a plan taking into account the list of facts.
 After writing the final step of the plan, write the '\n<end_plan>' tag and stop there. Output the plan only and nothing else."""
 
 SYSTEM_PROMPT_PLAN_UPDATE_STRUCTURED = """Output a step-by-step plan to solve the task using the given tools.
-This plan should involve individual tasks based on the avilable tools, that if executed correctly will yield the correct answer. Each step should be structured as follows:
+This plan should involve individual tasks based on the available tools, that if executed correctly will yield the correct answer. Each step should be structured as follows:
 Step #n: {{
   "description": <description of what the step does and its output>
   "tool": <tool to use>,

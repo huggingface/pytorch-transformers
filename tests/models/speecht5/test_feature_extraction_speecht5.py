@@ -50,7 +50,7 @@ def floats_list(shape, scale=1.0, rng=None, name=None):
 
 
 @require_torch
-class SpeechT5FeatureExtractionTester(unittest.TestCase):
+class SpeechT5FeatureExtractionTester:
     def __init__(
         self,
         parent,

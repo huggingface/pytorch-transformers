@@ -140,6 +140,7 @@ class AutoImageProcessorTest(unittest.TestCase):
     def test_use_fast_selection(self):
         checkpoint = "hf-internal-testing/tiny-random-vit"
 
+        # TODO: @yoni, change in v4.48 (when use_fast set to True by default)
         # Slow image processor is selected by default
         image_processor = AutoImageProcessor.from_pretrained(checkpoint)
         self.assertIsInstance(image_processor, ViTImageProcessor)

@@ -36,7 +36,7 @@ if is_vision_available():
     from transformers import IdeficsImageProcessor
 
 
-class IdeficsImageProcessingTester(unittest.TestCase):
+class IdeficsImageProcessingTester:
     def __init__(
         self,
         parent,

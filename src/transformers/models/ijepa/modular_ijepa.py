@@ -155,7 +155,7 @@ class IJepaModel(IJepaPreTrainedModel, ViTModel):
         self.embeddings = IJepaEmbeddings(config, use_mask_token=use_mask_token)
 
 
-_IMAGE_CLASS_CHECKPOINT = "jmtzt/ijepa_vith14_1k"
+_IMAGE_CLASS_CHECKPOINT = "facebook/ijepa_vith14_1k"
 _IMAGE_CLASS_EXPECTED_OUTPUT = "Egyptian cat"
 
 

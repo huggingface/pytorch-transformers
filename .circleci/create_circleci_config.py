@@ -32,7 +32,7 @@ COMMON_ENV_VARIABLES = {
     "RUN_PT_FLAX_CROSS_TESTS": False,
 }
 # Disable the use of {"s": None} as the output is way too long, causing the navigation on CircleCI impractical
-COMMON_PYTEST_OPTIONS = {"max-worker-restart": 0, "dist": "loadfile", "vvv": None, "rsf":None}
+COMMON_PYTEST_OPTIONS = {"max-worker-restart": 0, "dist": "loadfile", "vvv": None, "rsfE":None}
 DEFAULT_DOCKER_IMAGE = [{"image": "cimg/python:3.8.12"}]
 
 
@@ -40,9 +40,22 @@ class EmptyJob:
     job_name = "empty"
 
     def to_dict(self):
+        steps = [{"run": 'ls -la'}]
+        if self.job_name == "collection_job":
+            steps.extend(
+                [
+                    "checkout",
+                    {"run": "pip install requests || true"},
+                    {"run": """while [[ $(curl --location --request GET "https://circleci.com/api/v2/workflow/$CIRCLE_WORKFLOW_ID/job" --header "Circle-Token: $CCI_TOKEN"| jq -r '.items[]|select(.name != "collection_job")|.status' | grep -c "running") -gt 0 ]]; do sleep 5; done || true"""},
+                    {"run": 'python utils/process_circleci_workflow_test_reports.py --workflow_id $CIRCLE_WORKFLOW_ID || true'},
+                    {"store_artifacts": {"path": "outputs"}},
+                    {"run": 'echo "All required jobs have now completed"'},
+                ]
+            )
+
         return {
             "docker": copy.deepcopy(DEFAULT_DOCKER_IMAGE),
-            "steps":["checkout"],
+            "steps": steps,
         }
 
 
@@ -133,7 +146,7 @@ class CircleCIJob:
                 "command": """dpkg-query --show --showformat='${Installed-Size}\t${Package}\n' | sort -rh | head -25 | sort -h | awk '{ package=$2; sub(".*/", "", package); printf("%.5f GB %s\n", $1/1024/1024, package)}' || true"""}
             },
             {"run": {"name": "Create `test-results` directory", "command": "mkdir test-results"}},
-            {"run": {"name": "Get files to test", "command":f'curl -L -o {self.job_name}_test_list.txt <<pipeline.parameters.{self.job_name}_test_list>>' if self.name != "pr_documentation_tests" else 'echo "Skipped"'}},
+            {"run": {"name": "Get files to test", "command":f'curl -L -o {self.job_name}_test_list.txt <<pipeline.parameters.{self.job_name}_test_list>> --header "Circle-Token: $CIRCLE_TOKEN"' if self.name != "pr_documentation_tests" else 'echo "Skipped"'}},
                         {"run": {"name": "Split tests across parallel nodes: show current parallel tests",
                     "command": f"TESTS=$(circleci tests split  --split-by=timings {self.job_name}_test_list.txt) && echo $TESTS > splitted_tests.txt && echo $TESTS | tr ' ' '\n'" if self.parallelism else f"awk '{{printf \"%s \", $0}}' {self.job_name}_test_list.txt > splitted_tests.txt"
                     }
@@ -352,6 +365,7 @@ REPO_UTIL_TESTS = [repo_utils_job]
 DOC_TESTS = [doc_test_job]
 ALL_TESTS = REGULAR_TESTS + EXAMPLES_TESTS + PIPELINE_TESTS + REPO_UTIL_TESTS + DOC_TESTS + [custom_tokenizers_job] + [exotic_models_job]  # fmt: skip
 
+
 def create_circleci_config(folder=None):
     if folder is None:
         folder = os.getcwd()
@@ -361,7 +375,13 @@ def create_circleci_config(folder=None):
 
     if len(jobs) == 0:
         jobs = [EmptyJob()]
-    print("Full list of job name inputs", {j.job_name + "_test_list":{"type":"string", "default":''} for j in jobs})
+    else:
+        print("Full list of job name inputs", {j.job_name + "_test_list":{"type":"string", "default":''} for j in jobs})
+        # Add a job waiting all the test jobs and aggregate their test summary files at the end
+        collection_job = EmptyJob()
+        collection_job.job_name = "collection_job"
+        jobs = [collection_job] + jobs
+
     config = {
         "version": "2.1",
         "parameters": {
@@ -371,9 +391,14 @@ def create_circleci_config(folder=None):
             **{j.job_name + "_test_list":{"type":"string", "default":''} for j in jobs},
             **{j.job_name + "_parallelism":{"type":"integer", "default":1} for j in jobs},
         },
-        "jobs" : {j.job_name: j.to_dict() for j in jobs},
-        "workflows": {"version": 2, "run_tests": {"jobs": [j.job_name for j in jobs]}}
+        "jobs": {j.job_name: j.to_dict() for j in jobs}
     }
+    if "CIRCLE_TOKEN" in os.environ:
+        # For private forked repo. (e.g. new model addition)
+        config["workflows"] = {"version": 2, "run_tests": {"jobs": [{j.job_name: {"context": ["TRANSFORMERS_CONTEXT"]}} for j in jobs]}}
+    else:
+        # For public repo. (e.g. `transformers`)
+        config["workflows"] = {"version": 2, "run_tests": {"jobs": [j.job_name for j in jobs]}}
     with open(os.path.join(folder, "generated_config.yml"), "w") as f:
         f.write(yaml.dump(config, sort_keys=False, default_flow_style=False).replace("' << pipeline", " << pipeline").replace(">> '", " >>"))
 

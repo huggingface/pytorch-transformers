@@ -36,7 +36,7 @@ if is_vision_available():
     from transformers import YolosImageProcessor
 
 
-class YolosImageProcessingTester(unittest.TestCase):
+class YolosImageProcessingTester:
     def __init__(
         self,
         parent,

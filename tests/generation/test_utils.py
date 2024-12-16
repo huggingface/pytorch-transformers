@@ -1202,6 +1202,7 @@ class GenerationTesterMixin:
                     "prophetnet",
                     "seamlessm4t",
                     "clvp",
+                    "fuyu",
                 ]
             ):
                 self.skipTest(reason="May fix in the future: need model-specific fixes")
@@ -1727,6 +1728,7 @@ class GenerationTesterMixin:
             num_hidden_layers = text_config.num_hidden_layers
 
             inputs_embeds = model.get_input_embeddings()(input_ids)
+            max_cache_len += inputs_embeds.shape[1]
             outputs = model.generate(inputs_embeds=inputs_embeds, **generation_kwargs, **inputs_dict)
 
             # we should get `max_length` in shape, not `max_length - embeds_length`

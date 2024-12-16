@@ -45,7 +45,8 @@ class GgufIntegrationTests(unittest.TestCase):
     phi3_model_id = "microsoft/Phi-3-mini-4k-instruct-gguf"
     bloom_model_id = "afrideva/bloom-560m-GGUF"
     original_bloom_model_id = "bigscience/bloom-560m"
-    falcon7b_model_id = "xaviviro/falcon-7b-quantized-gguf"
+    falcon7b_model_id_q2 = "xaviviro/falcon-7b-quantized-gguf"
+    falcon7b_model_id_fp16 = "medmekk/falcon-7b-gguf"
     falcon40b_model_id = "maddes8cht/tiiuae-falcon-40b-gguf"
     original_flacon7b_model_id = "tiiuae/falcon-7b"
     t5_model_id = "repetitio/flan-t5-small"
@@ -615,9 +616,9 @@ class GgufIntegrationTests(unittest.TestCase):
         self.assertEqual(tokenizer.decode(out[0], skip_special_tokens=True), EXPECTED_TEXT)
 
     def test_falcon7b_q2_k(self):
-        tokenizer = AutoTokenizer.from_pretrained(self.falcon7b_model_id, gguf_file=self.q2_k_falcon7b_model_id)
+        tokenizer = AutoTokenizer.from_pretrained(self.falcon7b_model_id_q2, gguf_file=self.q2_k_falcon7b_model_id)
         model = AutoModelForCausalLM.from_pretrained(
-            self.falcon7b_model_id,
+            self.falcon7b_model_id_q2,
             gguf_file=self.q2_k_falcon7b_model_id,
             device_map="auto",
             torch_dtype=torch.float16,
@@ -631,7 +632,7 @@ class GgufIntegrationTests(unittest.TestCase):
 
     def test_falcon7b_weights_conversion_fp16(self):
         quantized_model = AutoModelForCausalLM.from_pretrained(
-            self.falcon7b_model_id,
+            self.falcon7b_model_id_fp16,
             gguf_file=self.fp16_falcon7b_model_id,
             device_map="auto",
             torch_dtype=torch.float16,

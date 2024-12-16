@@ -197,33 +197,6 @@ class FalconRotaryEmbedding(nn.Module):
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
 
 
-# Copied from transformers.models.llama.modeling_llama.LlamaLinearScalingRotaryEmbedding with Llama->Falcon
-class FalconLinearScalingRotaryEmbedding(FalconRotaryEmbedding):
-    """FalconRotaryEmbedding extended with linear scaling. Credits to the Reddit user /u/kaiokendev"""
-
-    def __init__(self, *args, **kwargs):
-        logger.warning_once(
-            "`FalconLinearScalingRotaryEmbedding` is deprecated an will be removed in v4.46. Please use "
-            "`FalconRotaryEmbedding`, which now also does linear scaling (simply pass the model config to __init__)."
-        )
-        kwargs["rope_type"] = "linear"
-        super().__init__(*args, **kwargs)
-
-
-# Copied from transformers.models.llama.modeling_llama.LlamaDynamicNTKScalingRotaryEmbedding with Llama->Falcon
-class FalconDynamicNTKScalingRotaryEmbedding(FalconRotaryEmbedding):
-    """FalconRotaryEmbedding extended with Dynamic NTK scaling. Credits to the Reddit users /u/bloc97 and /u/emozilla"""
-
-    def __init__(self, *args, **kwargs):
-        logger.warning_once(
-            "`FalconDynamicNTKScalingRotaryEmbedding` is deprecated an will be removed in v4.46. Please use "
-            "`FalconRotaryEmbedding`, which now also does dynamic ntk scaling (simply pass the model config to "
-            "__init__)."
-        )
-        kwargs["rope_type"] = "dynamic"
-        super().__init__(*args, **kwargs)
-
-
 def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torch.dtype) -> torch.Tensor:
     batch_size, seq_length = attention_mask.shape
     closest_power_of_2 = 2 ** math.floor(math.log2(num_heads))
@@ -388,7 +361,7 @@ class FalconAttention(nn.Module):
         use_cache: bool = False,
         output_attentions: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # will become mandatory in v4.46
+        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ):
         fused_qkv = self.query_key_value(hidden_states)  # [batch_size, seq_length, 3 x hidden_size]
         num_kv_heads = self.num_heads if self.new_decoder_architecture else self.num_kv_heads
@@ -402,16 +375,7 @@ class FalconAttention(nn.Module):
         value_layer = value_layer.transpose(1, 2).reshape(batch_size, num_kv_heads, query_length, self.head_dim)
 
         if alibi is None:
-            if position_embeddings is None:
-                logger.warning_once(
-                    "The attention layers in this model are transitioning from computing the RoPE embeddings internally "
-                    "through `position_ids` (2D tensor with the indexes of the tokens), to using externally computed "
-                    "`position_embeddings` (Tuple of tensors, containing cos and sin). In v4.46 `position_ids` will be "
-                    "removed and `position_embeddings` will be mandatory."
-                )
-                cos, sin = self.rotary_emb(value_layer, position_ids)
-            else:
-                cos, sin = position_embeddings
+            cos, sin = position_embeddings
             query_layer, key_layer = apply_rotary_pos_emb(query_layer, key_layer, cos, sin)
 
         if layer_past is not None:
@@ -548,7 +512,7 @@ class FalconFlashAttention2(FalconAttention):
         use_cache: bool = False,
         output_attentions: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # will become mandatory in v4.46
+        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ):
         fused_qkv = self.query_key_value(hidden_states)  # [batch_size, seq_length, 3 x hidden_size]
         num_kv_heads = self.num_heads if self.new_decoder_architecture else self.num_kv_heads
@@ -562,16 +526,7 @@ class FalconFlashAttention2(FalconAttention):
         value_layer = value_layer.transpose(1, 2).reshape(batch_size, num_kv_heads, query_length, self.head_dim)
 
         if alibi is None:
-            if position_embeddings is None:
-                logger.warning_once(
-                    "The attention layers in this model are transitioning from computing the RoPE embeddings internally "
-                    "through `position_ids` (2D tensor with the indexes of the tokens), to using externally computed "
-                    "`position_embeddings` (Tuple of tensors, containing cos and sin). In v4.46 `position_ids` will be "
-                    "removed and `position_embeddings` will be mandatory."
-                )
-                cos, sin = self.rotary_emb(value_layer, position_ids)
-            else:
-                cos, sin = position_embeddings
+            cos, sin = position_embeddings
             query_layer, key_layer = apply_rotary_pos_emb(query_layer, key_layer, cos, sin)
 
         if layer_past is not None:
@@ -695,7 +650,7 @@ class FalconDecoderLayer(nn.Module):
         use_cache: bool = False,
         output_attentions: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # will become mandatory in v4.46
+        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
         **kwargs,
     ):
         residual = hidden_states

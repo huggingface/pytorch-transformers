@@ -19,7 +19,7 @@ import unittest
 
 import numpy as np
 
-from transformers.testing_utils import require_torch, require_torch_gpu, require_vision, slow
+from transformers.testing_utils import require_torch, require_torch_gpu, require_torchvision, require_vision, slow
 from transformers.utils import is_torch_available, is_torchvision_available, is_vision_available
 
 from ...test_image_processing_common import AnnotationFormatTestMixin, ImageProcessingTestMixin, prepare_image_inputs
@@ -669,6 +669,7 @@ class DetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessingTestMixi
 
     @slow
     @require_torch_gpu
+    @require_torchvision
     def test_fast_processor_equivalence_cpu_gpu_coco_detection_annotations(self):
         # prepare image and target
         image = Image.open("./tests/fixtures/tests_samples/COCO/000000039769.png")
@@ -724,6 +725,7 @@ class DetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessingTestMixi
 
     @slow
     @require_torch_gpu
+    @require_torchvision
     def test_fast_processor_equivalence_cpu_gpu_coco_panoptic_annotations(self):
         # prepare image, target and masks_path
         image = Image.open("./tests/fixtures/tests_samples/COCO/000000039769.png")

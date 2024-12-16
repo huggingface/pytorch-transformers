@@ -284,3 +284,6 @@ class BarthezTokenizer(PreTrainedTokenizer):
                 fi.write(content_spiece_model)
 
         return (out_vocab_file,)
+
+
+__all__ = ["BarthezTokenizer"]

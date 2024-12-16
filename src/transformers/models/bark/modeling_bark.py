@@ -1819,3 +1819,13 @@ class BarkModel(BarkPreTrainedModel):
         config.coarse_acoustics_config._attn_implementation = config._attn_implementation
         config.fine_acoustics_config._attn_implementation = config._attn_implementation
         return config
+
+
+__all__ = [
+    "BarkFineModel",
+    "BarkSemanticModel",
+    "BarkCoarseModel",
+    "BarkModel",
+    "BarkPreTrainedModel",
+    "BarkCausalModel",
+]

@@ -1455,3 +1455,6 @@ class TFCLIPModel(TFCLIPPreTrainedModel):
         if getattr(self, "clip", None) is not None:
             with tf.name_scope(self.clip.name):
                 self.clip.build(None)
+
+
+__all__ = ["TFCLIPModel", "TFCLIPPreTrainedModel", "TFCLIPTextModel", "TFCLIPVisionModel"]

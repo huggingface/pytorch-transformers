@@ -38,7 +38,7 @@ if is_vision_available():
     from PIL import Image
 
 
-class MaskFormerImageProcessingTester(unittest.TestCase):
+class MaskFormerImageProcessingTester:
     def __init__(
         self,
         parent,

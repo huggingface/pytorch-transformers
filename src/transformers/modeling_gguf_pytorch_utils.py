@@ -307,7 +307,7 @@ def load_gguf_checkpoint(gguf_checkpoint_path, return_tensors=False):
         ffn_norm_name = "ffn_norm"
         qkv_bias = any(bias_name in tensor.name for tensor in reader.tensors for bias_name in attn_bias_name)
         use_parallel_residual = any(ffn_norm_name in tensor.name for tensor in reader.tensors)
-        parsed_parameters["config"]["qkv_bias"] = qkv_bias
+        parsed_parameters["config"]["use_qkv_bias"] = qkv_bias
         parsed_parameters["config"]["use_parallel_residual"] = not use_parallel_residual
 
     model_size = ""

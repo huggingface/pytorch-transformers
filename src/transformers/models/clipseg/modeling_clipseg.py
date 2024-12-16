@@ -1504,3 +1504,12 @@ class CLIPSegForImageSegmentation(CLIPSegPreTrainedModel):
             vision_model_output=vision_outputs,
             decoder_output=decoder_outputs,
         )
+
+
+__all__ = [
+    "CLIPSegModel",
+    "CLIPSegPreTrainedModel",
+    "CLIPSegTextModel",
+    "CLIPSegVisionModel",
+    "CLIPSegForImageSegmentation",
+]

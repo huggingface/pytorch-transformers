@@ -943,3 +943,40 @@ class HubertModelIntegrationTest(unittest.TestCase):
         self.assertTrue(torch.allclose(outputs[:, :4, :4], expected_outputs_first, atol=5e-3))
         self.assertTrue(torch.allclose(outputs[:, -4:, -4:], expected_outputs_last, atol=5e-3))
         self.assertTrue(abs(outputs.sum() - expected_output_sum) < 0.1)
+
+    def test_inference_hubert_25hz(self):
+        model = HubertModel.from_pretrained("slprl/mhubert-base-25hz").to(torch_device)
+
+        sample = self._load_datasamples(1)
+        input_speech = torch.tensor(sample[0], dtype=torch.float, device=torch_device).unsqueeze(0)
+
+        with torch.no_grad():
+            outputs = model(input_speech, output_hidden_states=True).hidden_states[11]
+
+        # expected outputs taken from the original textlesslib implementation by:
+        # model = SpeechEncoder.by_name(dense_model_name='mhubert-base-25hz', quantizer_model_name='kmeans',
+        # vocab_size=500, deduplicate=False, need_f0=False)
+        # model(wav)['dense']
+        expected_outputs_first = torch.tensor(
+            [
+                [0.0267, 0.1776, -0.1706, -0.4559],
+                [-0.2430, -0.2943, -0.1864, -0.1187],
+                [-0.1812, -0.4239, -0.1916, -0.0858],
+                [-0.1495, -0.4758, -0.4036, 0.0302],
+            ],
+            device=torch_device,
+        )
+        expected_outputs_last = torch.tensor(
+            [
+                [0.3366, -0.2734, -0.1415, -0.3055],
+                [0.2329, -0.3580, -0.1421, -0.3197],
+                [0.1631, -0.4301, -0.1965, -0.2956],
+                [0.3342, -0.2185, -0.2253, -0.2363],
+            ],
+            device=torch_device,
+        )
+        expected_output_sum = 1681.7603
+
+        self.assertTrue(torch.allclose(outputs[:, :4, :4], expected_outputs_first, atol=5e-3))
+        self.assertTrue(torch.allclose(outputs[:, -4:, -4:], expected_outputs_last, atol=5e-3))
+        self.assertTrue(abs(outputs.sum() - expected_output_sum) < 0.1)

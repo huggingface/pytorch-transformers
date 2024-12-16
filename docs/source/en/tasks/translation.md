@@ -290,7 +290,7 @@ Pass your `compute_metrics` function to [`~transformers.KerasMetricCallback`]:
 ```py
 >>> from transformers.keras_callbacks import KerasMetricCallback
 
->>> metric_callback = KerasMetricCallback(metric_fn=compute_metrics, eval_dataset=tf_validation_set)
+>>> metric_callback = KerasMetricCallback(metric_fn=compute_metrics, eval_dataset=tf_test_set)
 ```
 
 Specify where to push your model and tokenizer in the [`~transformers.PushToHubCallback`]:

@@ -59,7 +59,7 @@ def prepare_metadata(class_info_file, repo_path="shi-labs/oneformer_demo"):
     return metadata
 
 
-class OneFormerProcessorTester(unittest.TestCase):
+class OneFormerProcessorTester:
     def __init__(
         self,
         parent,

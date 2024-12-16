@@ -414,3 +414,6 @@ class LlavaNextVideoImageProcessor(BaseImageProcessor):
 
         data = {"pixel_values_videos": pixel_values}
         return BatchFeature(data=data, tensor_type=return_tensors)
+
+
+__all__ = ["LlavaNextVideoImageProcessor"]

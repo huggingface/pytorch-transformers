@@ -51,7 +51,7 @@ if is_torch_available():
         LlamaModel,
         LlamaTokenizer,
     )
-    from transformers.models.llama.modeling_llama import LlamaLinearScalingRotaryEmbedding, LlamaRotaryEmbedding
+    from transformers.models.llama.modeling_llama import LlamaRotaryEmbedding
 
 
 class LlamaModelTester:
@@ -488,43 +488,6 @@ class LlamaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
             torch.testing.assert_close(yarn_cos_long, original_cos_long)
         with self.assertRaises(AssertionError):
             torch.testing.assert_close(yarn_sin_long, original_sin_long)
-
-    def test_rope_class_retrocompatibility(self):
-        # Delete me when we remove compatibility for the old API :)
-        config, _ = self.model_tester.prepare_config_and_inputs_for_common()
-        scaling_factor = 10
-        short_input_length = 10
-        long_input_length = int(config.max_position_embeddings * 1.5)
-        config.rope_scaling = {"type": "linear", "factor": 10}
-
-        # Inputs
-        x = torch.randn(1, dtype=torch.float32, device=torch_device)  # used exlusively to get the dtype and the device
-        position_ids_short = torch.arange(short_input_length, dtype=torch.long, device=torch_device)
-        position_ids_short = position_ids_short.unsqueeze(0)
-        position_ids_long = torch.arange(long_input_length, dtype=torch.long, device=torch_device)
-        position_ids_long = position_ids_long.unsqueeze(0)
-
-        # Old API -- under the hood, "type": "linear" is set and `LlamaRotaryEmbedding` is called
-        old_api_rope = LlamaLinearScalingRotaryEmbedding(
-            config.hidden_size // config.num_attention_heads,
-            max_position_embeddings=config.max_position_embeddings,
-            base=config.rope_theta,
-            scaling_factor=scaling_factor,
-        ).to(torch_device)
-        old_cos_short, old_sin_short = old_api_rope(x, position_ids_short)
-        old_cos_long, old_sin_long = old_api_rope(x, position_ids_long)
-
-        # New API
-        config.rope_scaling = {"type": "linear", "factor": scaling_factor}
-        new_api_rope = LlamaRotaryEmbedding(config=config).to(torch_device)
-        new_cos_short, new_sin_short = new_api_rope(x, position_ids_short)
-        new_cos_long, new_sin_long = new_api_rope(x, position_ids_long)
-
-        # The results should match
-        torch.testing.assert_close(old_cos_short, new_cos_short)
-        torch.testing.assert_close(old_sin_short, new_sin_short)
-        torch.testing.assert_close(old_cos_long, new_cos_long)
-        torch.testing.assert_close(old_sin_long, new_sin_long)
 
     def test_model_loading_old_rope_configs(self):
         def _reinitialize_config(base_config, new_kwargs):

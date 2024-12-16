@@ -589,6 +589,11 @@ class SeamlessM4Tv2ModelWithSpeechInputTest(ModelTesterMixin, unittest.TestCase)
                 [self.model_tester.num_attention_heads, encoder_seq_length, encoder_key_length],
             )
 
+    # TODO: @ydshieh: refer to #34968
+    @unittest.skip(reason="Failing on multi-gpu runner")
+    def test_retain_grad_hidden_states_attentions(self):
+        pass
+
 
 @require_torch
 class SeamlessM4Tv2ModelWithTextInputTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):

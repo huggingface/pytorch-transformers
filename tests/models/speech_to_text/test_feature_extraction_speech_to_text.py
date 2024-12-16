@@ -48,7 +48,7 @@ def floats_list(shape, scale=1.0, rng=None, name=None):
 
 @require_torch
 @require_torchaudio
-class Speech2TextFeatureExtractionTester(unittest.TestCase):
+class Speech2TextFeatureExtractionTester:
     def __init__(
         self,
         parent,

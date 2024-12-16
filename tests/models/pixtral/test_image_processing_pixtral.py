@@ -38,7 +38,7 @@ if is_vision_available():
         from transformers import PixtralImageProcessorFast
 
 
-class PixtralImageProcessingTester(unittest.TestCase):
+class PixtralImageProcessingTester:
     def __init__(
         self,
         parent,

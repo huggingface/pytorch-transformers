@@ -946,3 +946,11 @@ overwrite_call_docstring(FlaxBeitForImageClassification, FLAX_BEIT_CLASSIF_DOCST
 append_replace_return_docstrings(
     FlaxBeitForImageClassification, output_type=FlaxSequenceClassifierOutput, config_class=BeitConfig
 )
+
+
+__all__ = [
+    "FlaxBeitForImageClassification",
+    "FlaxBeitForMaskedImageModeling",
+    "FlaxBeitModel",
+    "FlaxBeitPreTrainedModel",
+]

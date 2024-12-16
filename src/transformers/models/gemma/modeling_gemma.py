@@ -1295,4 +1295,10 @@ class GemmaForTokenClassification(GemmaPreTrainedModel):
         )
 
 
-__all__ = ["GemmaModel", "GemmaForCausalLM", "GemmaForSequenceClassification", "GemmaForTokenClassification"]
+__all__ = [
+    "GemmaModel",
+    "GemmaForCausalLM",
+    "GemmaForSequenceClassification",
+    "GemmaForTokenClassification",
+    "GemmaPreTrainedModel",
+]

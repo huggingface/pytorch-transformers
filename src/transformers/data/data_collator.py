@@ -256,7 +256,7 @@ class DataCollatorWithPadding:
             If set will pad the sequence to a multiple of the provided value.
 
             This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >=
-            7.5 (Volta).
+            7.0 (Volta).
         return_tensors (`str`, *optional*, defaults to `"pt"`):
             The type of Tensor to return. Allowable values are "np", "pt" and "tf".
     """
@@ -308,7 +308,7 @@ class DataCollatorForTokenClassification(DataCollatorMixin):
             If set will pad the sequence to a multiple of the provided value.
 
             This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >=
-            7.5 (Volta).
+            7.0 (Volta).
         label_pad_token_id (`int`, *optional*, defaults to -100):
             The id to use when padding the labels (-100 will be automatically ignore by PyTorch loss functions).
         return_tensors (`str`, *optional*, defaults to `"pt"`):
@@ -568,7 +568,7 @@ class DataCollatorForSeq2Seq:
             If set will pad the sequence to a multiple of the provided value.
 
             This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >=
-            7.5 (Volta).
+            7.0 (Volta).
         label_pad_token_id (`int`, *optional*, defaults to -100):
             The id to use when padding the labels (-100 will be automatically ignored by PyTorch loss functions).
         return_tensors (`str`, *optional*, defaults to `"pt"`):
@@ -693,6 +693,9 @@ class DataCollatorForLanguageModeling(DataCollatorMixin):
             The probability with which to (randomly) mask tokens in the input, when `mlm` is set to `True`.
         pad_to_multiple_of (`int`, *optional*):
             If set will pad the sequence to a multiple of the provided value.
+
+            This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >=
+            7.0 (Volta).
         return_tensors (`str`):
             The type of Tensor to return. Allowable values are "np", "pt" and "tf".
 

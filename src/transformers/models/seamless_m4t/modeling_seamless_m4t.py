@@ -293,6 +293,8 @@ def format_speech_generation_kwargs(kwargs):
         elif key.startswith("speech_"):
             key = key[len("speech_") :]
             kwargs_speech[key] = value
+        elif key == "generation_config":
+            kwargs_text[key] = value
         else:
             # If the key is already in a specific config, then it's been set with a
             # submodules specific value and we don't override

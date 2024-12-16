@@ -1677,3 +1677,14 @@ class CLIPForImageClassification(CLIPPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "CLIPModel",
+    "CLIPPreTrainedModel",
+    "CLIPTextModel",
+    "CLIPTextModelWithProjection",
+    "CLIPVisionModel",
+    "CLIPVisionModelWithProjection",
+    "CLIPForImageClassification",
+]

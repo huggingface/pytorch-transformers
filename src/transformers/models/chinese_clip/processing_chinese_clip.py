@@ -158,3 +158,6 @@ class ChineseCLIPProcessor(ProcessorMixin):
             FutureWarning,
         )
         return self.image_processor_class
+
+
+__all__ = ["ChineseCLIPProcessor"]

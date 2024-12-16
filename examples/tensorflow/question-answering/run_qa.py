@@ -62,7 +62,7 @@ except (ModuleNotFoundError, ImportError):
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.47.0.dev0")
+check_min_version("4.48.0.dev0")
 
 logger = logging.getLogger(__name__)
 

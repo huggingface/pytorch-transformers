@@ -362,3 +362,6 @@ class ChameleonImageProcessor(BaseImageProcessor):
         alpha = img_rgba[:, :, 3] / 255.0
         img_rgb = (1 - alpha[:, :, np.newaxis]) * 255 + alpha[:, :, np.newaxis] * img_rgba[:, :, :3]
         return PIL.Image.fromarray(img_rgb.astype("uint8"), "RGB")
+
+
+__all__ = ["ChameleonImageProcessor"]

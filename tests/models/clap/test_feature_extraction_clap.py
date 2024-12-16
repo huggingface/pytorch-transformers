@@ -53,7 +53,7 @@ def floats_list(shape, scale=1.0, rng=None, name=None):
 @require_torch
 @require_torchaudio
 # Copied from tests.models.whisper.test_feature_extraction_whisper.WhisperFeatureExtractionTester with Whisper->Clap
-class ClapFeatureExtractionTester(unittest.TestCase):
+class ClapFeatureExtractionTester:
     def __init__(
         self,
         parent,

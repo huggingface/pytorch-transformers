@@ -2533,3 +2533,15 @@ class Blip2ForImageTextRetrieval(Blip2PreTrainedModel):
             text_model_output=text_outputs,
             vision_model_output=vision_outputs,
         )
+
+
+__all__ = [
+    "Blip2Model",
+    "Blip2VisionModelWithProjection",
+    "Blip2QFormerModel",
+    "Blip2PreTrainedModel",
+    "Blip2ForConditionalGeneration",
+    "Blip2ForImageTextRetrieval",
+    "Blip2VisionModel",
+    "Blip2TextModelWithProjection",
+]

@@ -36,6 +36,7 @@ from ..llama.modeling_llama import (
     LlamaForSequenceClassification,
     LlamaForTokenClassification,
     LlamaModel,
+    LlamaPreTrainedModel,
     apply_rotary_pos_emb,
     repeat_kv,
 )
@@ -803,6 +804,10 @@ class GemmaDecoderLayer(LlamaDecoderLayer):
         return outputs
 
 
+class GemmaPreTrainedModel(LlamaPreTrainedModel):
+    pass
+
+
 class GemmaModel(LlamaModel):
     def __init__(self, config: GemmaConfig):
         super().__init__(config)
@@ -1040,4 +1045,5 @@ __all__ = [
     "GemmaForCausalLM",
     "GemmaForSequenceClassification",
     "GemmaForTokenClassification",
+    "GemmaPreTrainedModel",
 ]

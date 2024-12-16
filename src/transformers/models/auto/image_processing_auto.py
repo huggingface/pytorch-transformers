@@ -30,6 +30,8 @@ from ...utils import (
     CONFIG_NAME,
     IMAGE_PROCESSOR_NAME,
     get_file_from_repo,
+    is_timm_config_dict,
+    is_timm_local_checkpoint,
     is_torchvision_available,
     is_vision_available,
     logging,
@@ -54,6 +56,7 @@ else:
     IMAGE_PROCESSOR_MAPPING_NAMES = OrderedDict(
         [
             ("align", ("EfficientNetImageProcessor",)),
+            ("aria", ("AriaImageProcessor")),
             ("beit", ("BeitImageProcessor",)),
             ("bit", ("BitImageProcessor",)),
             ("blip", ("BlipImageProcessor",)),
@@ -137,6 +140,7 @@ else:
             ("swinv2", ("ViTImageProcessor", "ViTImageProcessorFast")),
             ("table-transformer", ("DetrImageProcessor",)),
             ("timesformer", ("VideoMAEImageProcessor",)),
+            ("timm_wrapper", ("TimmWrapperImageProcessor",)),
             ("tvlt", ("TvltImageProcessor",)),
             ("tvp", ("TvpImageProcessor",)),
             ("udop", ("LayoutLMv3ImageProcessor",)),
@@ -172,7 +176,7 @@ for model_type, image_processors in IMAGE_PROCESSOR_MAPPING_NAMES.items():
 IMAGE_PROCESSOR_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, IMAGE_PROCESSOR_MAPPING_NAMES)
 
 
-def image_processor_class_from_name(class_name: str):
+def get_image_processor_class_from_name(class_name: str):
     if class_name == "BaseImageProcessorFast":
         return BaseImageProcessorFast
 
@@ -365,7 +369,7 @@ class AutoImageProcessor:
                 identifier allowed by git.
             use_fast (`bool`, *optional*, defaults to `False`):
                 Use a fast torchvision-base image processor if it is supported for a given model.
-                If a fast tokenizer is not available for a given model, a normal numpy-based image processor
+                If a fast image processor is not available for a given model, a normal numpy-based image processor
                 is returned instead.
             return_unused_kwargs (`bool`, *optional*, defaults to `False`):
                 If `False`, then this function returns just the final image processor object. If `True`, then this
@@ -376,6 +380,8 @@ class AutoImageProcessor:
                 Whether or not to allow for custom models defined on the Hub in their own modeling files. This option
                 should only be set to `True` for repositories you trust and in which you have read the code, as it will
                 execute code present on the Hub on your local machine.
+            image_processor_filename (`str`, *optional*, defaults to `"config.json"`):
+                The name of the file in the model directory to use for the image processor config.
             kwargs (`Dict[str, Any]`, *optional*):
                 The values in kwargs of any keys which are image processor attributes will be used to override the
                 loaded values. Behavior concerning key/value pairs whose keys are *not* image processor attributes is
@@ -411,28 +417,59 @@ class AutoImageProcessor:
             kwargs["token"] = use_auth_token
 
         config = kwargs.pop("config", None)
+        # TODO: @yoni, change in v4.48 (use_fast set to True by default)
         use_fast = kwargs.pop("use_fast", None)
         trust_remote_code = kwargs.pop("trust_remote_code", None)
         kwargs["_from_auto"] = True
 
-        config_dict, _ = ImageProcessingMixin.get_image_processor_dict(pretrained_model_name_or_path, **kwargs)
-        image_processor_class = config_dict.get("image_processor_type", None)
+        # Resolve the image processor config filename
+        if "image_processor_filename" in kwargs:
+            image_processor_filename = kwargs.pop("image_processor_filename")
+        elif is_timm_local_checkpoint(pretrained_model_name_or_path):
+            image_processor_filename = CONFIG_NAME
+        else:
+            image_processor_filename = IMAGE_PROCESSOR_NAME
+
+        # Load the image processor config
+        try:
+            # Main path for all transformers models and local TimmWrapper checkpoints
+            config_dict, _ = ImageProcessingMixin.get_image_processor_dict(
+                pretrained_model_name_or_path, image_processor_filename=image_processor_filename, **kwargs
+            )
+        except Exception as initial_exception:
+            # Fallback path for Hub TimmWrapper checkpoints. Timm models' image processing is saved in `config.json`
+            # instead of `preprocessor_config.json`. Because this is an Auto class and we don't have any information
+            # except the model name, the only way to check if a remote checkpoint is a timm model is to try to
+            # load `config.json` and if it fails with some error, we raise the initial exception.
+            try:
+                config_dict, _ = ImageProcessingMixin.get_image_processor_dict(
+                    pretrained_model_name_or_path, image_processor_filename=CONFIG_NAME, **kwargs
+                )
+            except Exception:
+                raise initial_exception
+
+            # In case we have a config_dict, but it's not a timm config dict, we raise the initial exception,
+            # because only timm models have image processing in `config.json`.
+            if not is_timm_config_dict(config_dict):
+                raise initial_exception
+
+        image_processor_type = config_dict.get("image_processor_type", None)
         image_processor_auto_map = None
         if "AutoImageProcessor" in config_dict.get("auto_map", {}):
             image_processor_auto_map = config_dict["auto_map"]["AutoImageProcessor"]
 
         # If we still don't have the image processor class, check if we're loading from a previous feature extractor config
         # and if so, infer the image processor class from there.
-        if image_processor_class is None and image_processor_auto_map is None:
+        if image_processor_type is None and image_processor_auto_map is None:
             feature_extractor_class = config_dict.pop("feature_extractor_type", None)
             if feature_extractor_class is not None:
-                image_processor_class = feature_extractor_class.replace("FeatureExtractor", "ImageProcessor")
+                image_processor_type = feature_extractor_class.replace("FeatureExtractor", "ImageProcessor")
             if "AutoFeatureExtractor" in config_dict.get("auto_map", {}):
                 feature_extractor_auto_map = config_dict["auto_map"]["AutoFeatureExtractor"]
                 image_processor_auto_map = feature_extractor_auto_map.replace("FeatureExtractor", "ImageProcessor")
 
         # If we don't find the image processor class in the image processor config, let's try the model config.
-        if image_processor_class is None and image_processor_auto_map is None:
+        if image_processor_type is None and image_processor_auto_map is None:
             if not isinstance(config, PretrainedConfig):
                 config = AutoConfig.from_pretrained(
                     pretrained_model_name_or_path,
@@ -440,18 +477,47 @@ class AutoImageProcessor:
                     **kwargs,
                 )
             # It could be in `config.image_processor_type``
-            image_processor_class = getattr(config, "image_processor_type", None)
+            image_processor_type = getattr(config, "image_processor_type", None)
             if hasattr(config, "auto_map") and "AutoImageProcessor" in config.auto_map:
                 image_processor_auto_map = config.auto_map["AutoImageProcessor"]
 
-        if image_processor_class is not None:
-            # Update class name to reflect the use_fast option. If class is not found, None is returned.
-            if use_fast is not None:
-                if use_fast and not image_processor_class.endswith("Fast"):
-                    image_processor_class += "Fast"
-                elif not use_fast and image_processor_class.endswith("Fast"):
-                    image_processor_class = image_processor_class[:-4]
-            image_processor_class = image_processor_class_from_name(image_processor_class)
+        image_processor_class = None
+        # TODO: @yoni, change logic in v4.48 (when use_fast set to True by default)
+        if image_processor_type is not None:
+            # if use_fast is not set and the processor was saved with a fast processor, we use it, otherwise we use the slow processor.
+            if use_fast is None:
+                use_fast = image_processor_type.endswith("Fast")
+                if not use_fast:
+                    logger.warning_once(
+                        "Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. "
+                        "`use_fast=True` will be the default behavior in v4.48, even if the model was saved with a slow processor. "
+                        "This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`."
+                    )
+            # Update class name to reflect the use_fast option. If class is not found, we fall back to the slow version.
+            if use_fast and not is_torchvision_available():
+                logger.warning_once(
+                    "Using `use_fast=True` but `torchvision` is not available. Falling back to the slow image processor."
+                )
+                use_fast = False
+            if use_fast:
+                if not image_processor_type.endswith("Fast"):
+                    image_processor_type += "Fast"
+                for _, image_processors in IMAGE_PROCESSOR_MAPPING_NAMES.items():
+                    if image_processor_type in image_processors:
+                        break
+                else:
+                    image_processor_type = image_processor_type[:-4]
+                    use_fast = False
+                    logger.warning_once(
+                        "`use_fast` is set to `True` but the image processor class does not have a fast version. "
+                        " Falling back to the slow version."
+                    )
+                image_processor_class = get_image_processor_class_from_name(image_processor_type)
+            else:
+                image_processor_type = (
+                    image_processor_type[:-4] if image_processor_type.endswith("Fast") else image_processor_type
+                )
+                image_processor_class = get_image_processor_class_from_name(image_processor_type)
 
         has_remote_code = image_processor_auto_map is not None
         has_local_code = image_processor_class is not None or type(config) in IMAGE_PROCESSOR_MAPPING

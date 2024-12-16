@@ -48,7 +48,7 @@ if requirements_available:
     from transformers import Pop2PianoFeatureExtractor
 
 
-class Pop2PianoFeatureExtractionTester(unittest.TestCase):
+class Pop2PianoFeatureExtractionTester:
     def __init__(
         self,
         parent,

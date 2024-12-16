@@ -195,12 +195,12 @@ class GenerationConfig(PushToHubMixin):
         > Parameters for manipulation of the model output logits
 
         temperature (`float`, *optional*, defaults to 1.0):
-            The value used to modulate the next token probabilities.
+            The value used to module the next token probabilities. This value is set in a model's `generation_config.json` file. If it isn't set, the default value is 1.0
         top_k (`int`, *optional*, defaults to 50):
-            The number of highest probability vocabulary tokens to keep for top-k-filtering.
+            The number of highest probability vocabulary tokens to keep for top-k-filtering. This value is set in a model's `generation_config.json` file. If it isn't set, the default value is 50.
         top_p (`float`, *optional*, defaults to 1.0):
             If set to float < 1, only the smallest set of most probable tokens with probabilities that add up to
-            `top_p` or higher are kept for generation.
+            `top_p` or higher are kept for generation. This value is set in a model's `generation_config.json` file. If it isn't set, the default value is 1.0
         min_p (`float`, *optional*):
             Minimum token probability, which will be scaled by the probability of the most likely token. It must be a
             value between 0 and 1. Typical values are in the 0.01-0.2 range, comparably selective as setting `top_p` in

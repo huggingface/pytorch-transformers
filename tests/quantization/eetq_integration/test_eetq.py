@@ -119,7 +119,7 @@ class EetqTest(unittest.TestCase):
 
         self.assertEqual(nb_linears - 1, nb_eetq_linear)
 
-        # Try with `linear_weights_not_to_quantize`
+        # Try with `modules_to_not_convert`
         with init_empty_weights():
             model = OPTForCausalLM(config)
         quantization_config = EetqConfig(modules_to_not_convert=["fc1"])
@@ -128,7 +128,7 @@ class EetqTest(unittest.TestCase):
         for module in model.modules():
             if isinstance(module, EetqLinear):
                 nb_eetq_linear += 1
-
+        # 25 corresponds to the lm_head along with 24 fc1 layers.
         self.assertEqual(nb_linears - 25, nb_eetq_linear)
 
     def test_quantized_model(self):

@@ -44,7 +44,7 @@ def floats_list(shape, scale=1.0, rng=None, name=None):
     return values
 
 
-class Wav2Vec2FeatureExtractionTester(unittest.TestCase):
+class Wav2Vec2FeatureExtractionTester:
     def __init__(
         self,
         parent,

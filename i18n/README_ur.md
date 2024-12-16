@@ -91,7 +91,7 @@ limitations under the License.
 - [&#8207;BART کے ساتھ خلاصہ کاری](https://huggingface.co/facebook/bart-large-cnn?text=The+tower+is+324+metres+%281%2C063+ft%29+tall%2C+about+the+same+height+as+an+81-storey+building%2C+and+the+tallest+structure+in+Paris.+Its+base+is+square%2C+measuring+125+metres+%28410+ft%29+on+each+side.+During+its+construction%2C+the+Eiffel+Tower+surpassed+the+Washington+Monument+to+become+the+tallest+man-made+structure+in+the+world%2C+a+title+it+held+for+41+years+until+the+Chrysler+Building+in+New+York+City+was+finished+in+1930.+It+was+the+first+structure+to+reach+a+height+of+300+metres.+Due+to+the+addition+of+a+broadcasting+aerial+at+the+top+of+the+tower+in+1957%2C+it+is+now+taller+than+the+Chrysler+Building+by+5.2+metres+%2817+ft%29.+Excluding+transmitters%2C+the+Eiffel+Tower+is+the+second+tallest+free-standing+structure+in+France+after+the+Millau+Viaduct)
 - [&#8207;DistilBERT کے ساتھ سوالات کے جوابات](https://huggingface.co/distilbert/distilbert-base-uncased-distilled-squad?text=Which+name+is+also+used+to+describe+the+Amazon+rainforest+in+English%3F&context=The+Amazon+rainforest+%28Portuguese%3A+Floresta+Amaz%C3%B4nica+or+Amaz%C3%B4nia%3B+Spanish%3A+Selva+Amaz%C3%B3nica%2C+Amazon%C3%ADa+or+usually+Amazonia%3B+French%3A+For%C3%AAt+amazonienne%3B+Dutch%3A+Amazoneregenwoud%29%2C+also+known+in+English+as+Amazonia+or+the+Amazon+Jungle%2C+is+a+moist+broadleaf+forest+that+covers+most+of+the+Amazon+basin+of+South+America.+This+basin+encompasses+7%2C000%2C000+square+kilometres+%282%2C700%2C000+sq+mi%29%2C+of+which+5%2C500%2C000+square+kilometres+%282%2C100%2C000+sq+mi%29+are+covered+by+the+rainforest.+This+region+includes+territory+belonging+to+nine+nations.+The+majority+of+the+forest+is+contained+within+Brazil%2C+with+60%25+of+the+rainforest%2C+followed+by+Peru+with+13%25%2C+Colombia+with+10%25%2C+and+with+minor+amounts+in+Venezuela%2C+Ecuador%2C+Bolivia%2C+Guyana%2C+Suriname+and+French+Guiana.+States+or+departments+in+four+nations+contain+%22Amazonas%22+in+their+names.+The+Amazon+represents+over+half+of+the+planet%27s+remaining+rainforests%2C+and+comprises+the+largest+and+most+biodiverse+tract+of+tropical+rainforest+in+the+world%2C+with+an+estimated+390+billion+individual+trees+divided+into+16%2C000+species)
 - [&#8207;T5 کے ساتھ ترجمہ](https://huggingface.co/google-t5/t5-base?text=My+name+is+Wolfgang+and+I+live+in+Berlin)
-  
+
 کمپیوٹر وژن میں:
 - [&#8207;ViT کے ساتھ امیج کی درجہ بندی](https://huggingface.co/google/vit-base-patch16-224)
 - [&#8207;DETR کے ساتھ اشیاء کی شناخت](https://huggingface.co/facebook/detr-resnet-50)
@@ -224,7 +224,7 @@ limitations under the License.
 ## مجھے Transformers کیوں استعمال کرنا چاہیے؟
 
 &#8207; 1. استعمال میں آسان جدید ترین ماڈلز:
-   
+
  - قدرتی زبان کی سمجھ اور تخلیق، کمپیوٹر وژن، اور آڈیو کے کاموں میں اعلی کارکردگی۔
  - معلمین اور عملی ماہرین کے لیے کم داخلی رکاوٹ۔
  - سیکھنے کے لیے صرف تین کلاسز کے ساتھ چند یوزر فرینڈلی ایبسٹریکشنز۔
@@ -236,7 +236,7 @@ limitations under the License.
 - عملی ماہرین کمپیوٹ وقت اور پروڈکشن اخراجات کو کم کر سکتے ہیں۔
 - ہر موڈیلٹی کے لیے 400,000 سے زیادہ pretrained ماڈلز کے ساتھ درجنوں آرکیٹیکچرز۔
 
-&#8207; 3. ماڈل کے لائف ٹائم کے ہر حصے کے لیے صحیح 
+&#8207; 3. ماڈل کے لائف ٹائم کے ہر حصے کے لیے صحیح
 فریم ورک کا انتخاب کریں:
 
   - 3 لائنز کے کوڈ میں جدید ترین ماڈلز تربیت دیں۔
@@ -259,7 +259,7 @@ limitations under the License.
 
 #### &#8207; pip کے ساتھ
 
-یہ ریپوزٹری Python 3.8+، Flax 0.4.1+، PyTorch 1.11+، اور TensorFlow 2.6+ پر ٹیسٹ کی گئی ہے۔
+یہ ریپوزٹری Python 3.9+، Flax 0.4.1+، PyTorch 1.11+، اور TensorFlow 2.6+ پر ٹیسٹ کی گئی ہے۔
 
 آپ کو 🤗 Transformers کو ایک [ورچوئل ماحول](https://docs.python.org/3/library/venv.html) میں انسٹال کرنا چاہیے۔ اگر آپ Python ورچوئل ماحول سے واقف نہیں ہیں، تو [یوزر گائیڈ](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/) دیکھیں۔
 
@@ -290,7 +290,7 @@ Flax، PyTorch، یا TensorFlow کو conda کے ساتھ انسٹال کرنے 
 
 > **_نوٹ:_**  ونڈوز پر، آپ کو کیشنگ سے فائدہ اٹھانے کے لیے ڈویلپر موڈ کو ایکٹیویٹ کرنے کا پیغام دیا جا سکتا ہے۔ اگر یہ آپ کے لیے ممکن نہیں ہے، تو براہ کرم ہمیں [اس مسئلے](https://github.com/huggingface/huggingface_hub/issues/1062) میں بتائیں۔
 
-### ماڈل کی تعمیرات 
+### ماڈل کی تعمیرات
 
 &#8207; 🤗 Transformers کی طرف سے فراہم کردہ **[تمام ماڈل چیک پوائنٹس](https://huggingface.co/models)** ہگنگ فیس کے ماڈل حب [model hub](https://huggingface.co/models) سے بآسانی مربوط ہیں، جہاں یہ براہ راست [صارفین](https://huggingface.co/users) اور [تنظیموں](https://huggingface.co/organizations) کے ذریعہ اپ لوڈ کیے جاتے ہیں۔
 

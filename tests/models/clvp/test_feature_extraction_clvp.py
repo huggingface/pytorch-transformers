@@ -57,7 +57,7 @@ def floats_list(shape, scale=1.0, rng=None, name=None):
 
 
 @require_torch
-class ClvpFeatureExtractionTester(unittest.TestCase):
+class ClvpFeatureExtractionTester:
     def __init__(
         self,
         parent,

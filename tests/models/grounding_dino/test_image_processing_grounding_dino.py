@@ -37,7 +37,7 @@ if is_vision_available():
     from transformers import GroundingDinoImageProcessor
 
 
-class GroundingDinoImageProcessingTester(unittest.TestCase):
+class GroundingDinoImageProcessingTester:
     def __init__(
         self,
         parent,

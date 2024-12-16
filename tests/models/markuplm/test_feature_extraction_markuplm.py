@@ -26,7 +26,7 @@ if is_bs4_available():
     from transformers import MarkupLMFeatureExtractor
 
 
-class MarkupLMFeatureExtractionTester(unittest.TestCase):
+class MarkupLMFeatureExtractionTester:
     def __init__(self, parent):
         self.parent = parent
 

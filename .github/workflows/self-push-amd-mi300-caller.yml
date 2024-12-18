@@ -1,10 +1,10 @@
 name: Self-hosted runner (AMD mi300 CI caller)
 
 on:
-  workflow_run:
-    workflows: ["Self-hosted runner (push-caller)"]
-    branches: ["main"]
-    types: [completed]
+  #workflow_run:
+  #  workflows: ["Self-hosted runner (push-caller)"]
+  #  branches: ["main"]
+  #  types: [completed]
   push:
     branches:
       - run_amd_push_ci_caller*

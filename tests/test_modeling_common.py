@@ -4202,16 +4202,20 @@ class ModelTesterMixin:
                                             outputs_eager = model_eager(**prepared_inputs)
                                             outputs_sdpa = model_sdpa(**prepared_inputs)
 
-                                    logits_eager = (
-                                        outputs_eager.hidden_states[-1]
-                                        if not is_encoder_decoder
-                                        else outputs_eager.decoder_hidden_states[-1]
-                                    )
-                                    logits_sdpa = (
-                                        outputs_sdpa.hidden_states[-1]
-                                        if not is_encoder_decoder
-                                        else outputs_sdpa.decoder_hidden_states[-1]
-                                    )
+                                    if hasattr(outputs_eager, "vision_hidden_states"):
+                                        logits_eager = outputs_eager.vision_hidden_states[-1]
+                                        logits_sdpa = outputs_sdpa.vision_hidden_states[-1]
+                                    else:
+                                        logits_eager = (
+                                            outputs_eager.hidden_states[-1]
+                                            if not is_encoder_decoder
+                                            else outputs_eager.decoder_hidden_states[-1]
+                                        )
+                                        logits_sdpa = (
+                                            outputs_sdpa.hidden_states[-1]
+                                            if not is_encoder_decoder
+                                            else outputs_sdpa.decoder_hidden_states[-1]
+                                        )
 
                                     if torch_device in ["cpu", "cuda"]:
                                         atol = atols[torch_device, enable_kernels, torch_dtype]
@@ -4287,6 +4291,8 @@ class ModelTesterMixin:
                 )
             if config.model_type in ["idefics", "idefics2", "idefics3"]:
                 self.skipTest(reason="Idefics currently (transformers==4.39.1) requires an image_attention_mask input")
+            if config.model_type in ["sam"]:
+                self.skipTest(reason="SAM requires an attention_mask input for relative positional embeddings")
             model = model_class(config)
 
             with tempfile.TemporaryDirectory() as tmpdirname:

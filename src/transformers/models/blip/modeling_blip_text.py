@@ -82,7 +82,6 @@ class BlipTextEmbeddings(nn.Module):
             position_ids = self.position_ids[:, past_key_values_length : seq_length + past_key_values_length]
 
         if inputs_embeds is None:
-            input_ids = input_ids.to(self.word_embeddings.weight.device)
             inputs_embeds = self.word_embeddings(input_ids)
 
         embeddings = inputs_embeds

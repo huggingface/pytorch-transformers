@@ -514,7 +514,7 @@ class NougatTokenizerFast(PreTrainedTokenizerFast):
         generation = generation.replace("\n* [leftmargin=*]\n", "\n")
         # Remove lines with markdown headings starting with #, with numerals,
         # and possibly roman numerals with trailing spaces and newlines
-        generation = re.sub(r"^#+ (?:\.?(?:\d|[ixv])+)*\s*(?:$|\n\s*)", "", generation, flags=re.M)
+        generation = re.sub(r"^#+ (?:[\d+\.]+|[ixv\.]+)?\s*(?:$|\n\s*)", "", generation, flags=re.M)
         # most likely hallucinated titles
         lines = generation.split("\n")
         if lines[-1].startswith("#") and lines[-1].lstrip("#").startswith(" ") and len(lines) > 1:

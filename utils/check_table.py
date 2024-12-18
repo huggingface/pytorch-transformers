@@ -87,7 +87,7 @@ def _find_text_in_file(filename: str, start_prompt: str, end_prompt: str) -> str
 _re_tf_models = re.compile(r"TF(.*)(?:Model|Encoder|Decoder|ForConditionalGeneration)")
 _re_flax_models = re.compile(r"Flax(.*)(?:Model|Encoder|Decoder|ForConditionalGeneration)")
 # Will match any TF or Flax model too so need to be in an else branch after the two previous regexes.
-_re_pt_models = re.compile(r"(.*)(?:Model|Encoder|Decoder|ForConditionalGeneration)")
+_re_pt_models = re.compile(r"(.*)(?:Model|Encoder|Decoder|ForConditionalGeneration|ForRetrieval)")
 
 
 # This is to make sure the transformers module imported is the one in the repo.
@@ -157,6 +157,7 @@ MODEL_NAMES_WITH_SAME_CONFIG = {
     "LayoutXLM": "LayoutLMv2",
     "Llama2": "LLaMA",
     "Llama3": "LLaMA",
+    "Falcon3": "LLaMA",
     "MADLAD-400": "T5",
     "MatCha": "Pix2Struct",
     "mBART-50": "mBART",

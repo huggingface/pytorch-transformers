@@ -134,10 +134,3 @@ jobs:
           slackChannel: ${{ secrets.SLACK_CIFEEDBACK_CHANNEL }}
           slackToken: ${{ secrets.SLACK_CIFEEDBACK_BOT_TOKEN }}
           waitForSSH: true
-
-  benchmark:
-    name: Benchmark workflow
-    needs: get_modified_models
-    if: ${{ needs.get_modified_models.outputs.matrix != '[]' && needs.get_modified_models.outputs.matrix != '' && fromJson(needs.get_modified_models.outputs.matrix)[0] != null }}
-    uses: ./.github/workflows/benchmark.yml
-    secrets: inherit

@@ -37,7 +37,7 @@ A [`pipeline`] apoia diversas tarefas fora da caixa:
 **Texto**:
 * Análise sentimental: classifica a polaridade de um texto.
 * Geração de texto (em Inglês): gera texto a partir de uma entrada.
-* Reconhecimento de entidade mencionada: legenda cada palavra com uma classe que a representa (pessoa, data, local, etc...) 
+* Reconhecimento de entidade mencionada: legenda cada palavra com uma classe que a representa (pessoa, data, local, etc...)
 * Respostas: extrai uma resposta dado algum contexto e uma questão
 * Máscara de preenchimento: preenche o espaço, dado um texto com máscaras de palavras.
 * Sumarização: gera o resumo de um texto longo ou documento.
@@ -87,7 +87,7 @@ Importe [`pipeline`] e especifique a tarefa que deseja completar:
 >>> classifier = pipeline("sentiment-analysis")
 ```
 
-A pipeline baixa and armazena um [modelo pré-treinado](https://huggingface.co/distilbert/distilbert-base-uncased-finetuned-sst-2-english) padrão e tokenizer para análise sentimental. Agora você pode usar `classifier` no texto alvo: 
+A pipeline baixa and armazena um [modelo pré-treinado](https://huggingface.co/distilbert/distilbert-base-uncased-finetuned-sst-2-english) padrão e tokenizer para análise sentimental. Agora você pode usar `classifier` no texto alvo:
 
 ```py
 >>> classifier("We are very happy to show you the 🤗 Transformers library.")
@@ -107,7 +107,7 @@ label: NEGATIVE, with score: 0.5309
 A [`pipeline`] também pode iterar sobre um Dataset inteiro. Comece instalando a biblioteca de [🤗 Datasets](https://huggingface.co/docs/datasets/):
 
 ```bash
-pip install datasets 
+pip install datasets
 ```
 
 Crie uma [`pipeline`] com a tarefa que deseja resolver e o modelo que deseja usar.
@@ -133,7 +133,7 @@ Precisamos garantir que a taxa de amostragem do conjunto de dados corresponda à
 >>> dataset = dataset.cast_column("audio", Audio(sampling_rate=speech_recognizer.feature_extractor.sampling_rate))
 ```
 
-Os arquivos de áudio são carregados e re-amostrados automaticamente ao chamar a coluna `"audio"`. 
+Os arquivos de áudio são carregados e re-amostrados automaticamente ao chamar a coluna `"audio"`.
 Vamos extrair as arrays de formas de onda originais das primeiras 4 amostras e passá-las como uma lista para o pipeline:
 
 ```py
@@ -176,7 +176,7 @@ Use o [`TFAutoModelForSequenceClassification`] and [`AutoTokenizer`] para carreg
 </tf>
 </frameworkcontent>
 
-Então você pode especificar o modelo e o tokenizador na [`pipeline`] e aplicar o `classifier` no seu texto alvo: 
+Então você pode especificar o modelo e o tokenizador na [`pipeline`] e aplicar o `classifier` no seu texto alvo:
 
 ```py
 >>> classifier = pipeline("sentiment-analysis", model=model, tokenizer=tokenizer)
@@ -190,7 +190,7 @@ Se você não conseguir achar um modelo para o seu caso de uso, precisará usar 
 
 <Youtube id="AhChOFRegn4"/>
 
-Por baixo dos panos, as classes [`AutoModelForSequenceClassification`] e [`AutoTokenizer`] trabalham juntas para fortificar o [`pipeline`]. Um [AutoClass](./model_doc/auto) é um atalho que automaticamente recupera a arquitetura de um modelo pré-treinado a partir de seu nome ou caminho. Basta selecionar a `AutoClass` apropriada para sua tarefa e seu tokenizer associado com [`AutoTokenizer`]. 
+Por baixo dos panos, as classes [`AutoModelForSequenceClassification`] e [`AutoTokenizer`] trabalham juntas para fortificar o [`pipeline`]. Um [AutoClass](./model_doc/auto) é um atalho que automaticamente recupera a arquitetura de um modelo pré-treinado a partir de seu nome ou caminho. Basta selecionar a `AutoClass` apropriada para sua tarefa e seu tokenizer associado com [`AutoTokenizer`].
 
 Vamos voltar ao nosso exemplo e ver como você pode usar a `AutoClass` para replicar os resultados do [`pipeline`].
 
@@ -383,8 +383,8 @@ Um recurso particularmente interessante dos 🤗 Transformers é a capacidade de
 ```py
 >>> from transformers import AutoModel
 
->>> tokenizer = AutoTokenizer.from_pretrained(tf_save_directory)
->>> pt_model = AutoModelForSequenceClassification.from_pretrained(tf_save_directory, from_tf=True)
+>>> tokenizer = AutoTokenizer.from_pretrained(pt_save_directory)
+>>> pt_model = AutoModelForSequenceClassification.from_pretrained(pt_save_directory, from_pt=True)
 ```
 </pt>
 <tf>
@@ -392,8 +392,8 @@ Um recurso particularmente interessante dos 🤗 Transformers é a capacidade de
 ```py
 >>> from transformers import TFAutoModel
 
->>> tokenizer = AutoTokenizer.from_pretrained(pt_save_directory)
->>> tf_model = TFAutoModelForSequenceClassification.from_pretrained(pt_save_directory, from_pt=True)
+>>> tokenizer = AutoTokenizer.from_pretrained(tf_save_directory)
+>>> tf_model = TFAutoModelForSequenceClassification.from_pretrained(tf_save_directory, from_tf=True)
 ```
 </tf>
 </frameworkcontent>

@@ -396,6 +396,8 @@
         title: ESM
       - local: model_doc/falcon
         title: Falcon
+      - local: model_doc/falcon3
+        title: Falcon3
       - local: model_doc/falcon_mamba
         title: FalconMamba
       - local: model_doc/fastspeech2_conformer
@@ -834,6 +836,8 @@
         title: CLIPSeg
       - local: model_doc/clvp
         title: CLVP
+      - local: model_doc/colpali
+        title: ColPali
       - local: model_doc/data2vec
         title: Data2Vec
       - local: model_doc/deplot

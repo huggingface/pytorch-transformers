@@ -306,6 +306,10 @@ _import_structure = {
     ],
     "models.cohere": ["CohereConfig"],
     "models.cohere2": ["Cohere2Config"],
+    "models.colpali": [
+        "ColPaliConfig",
+        "ColPaliProcessor",
+    ],
     "models.conditional_detr": ["ConditionalDetrConfig"],
     "models.convbert": [
         "ConvBertConfig",
@@ -1468,6 +1472,7 @@ else:
             "MODEL_FOR_OBJECT_DETECTION_MAPPING",
             "MODEL_FOR_PRETRAINING_MAPPING",
             "MODEL_FOR_QUESTION_ANSWERING_MAPPING",
+            "MODEL_FOR_RETRIEVAL_MAPPING",
             "MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING",
             "MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING",
             "MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING",
@@ -1789,6 +1794,12 @@ else:
     )
     _import_structure["models.cohere"].extend(["CohereForCausalLM", "CohereModel", "CoherePreTrainedModel"])
     _import_structure["models.cohere2"].extend(["Cohere2ForCausalLM", "Cohere2Model", "Cohere2PreTrainedModel"])
+    _import_structure["models.colpali"].extend(
+        [
+            "ColPaliForRetrieval",
+            "ColPaliPreTrainedModel",
+        ]
+    )
     _import_structure["models.conditional_detr"].extend(
         [
             "ConditionalDetrForObjectDetection",
@@ -5207,6 +5218,10 @@ if TYPE_CHECKING:
     )
     from .models.cohere import CohereConfig
     from .models.cohere2 import Cohere2Config
+    from .models.colpali import (
+        ColPaliConfig,
+        ColPaliProcessor,
+    )
     from .models.conditional_detr import (
         ConditionalDetrConfig,
     )
@@ -6413,6 +6428,7 @@ if TYPE_CHECKING:
             MODEL_FOR_OBJECT_DETECTION_MAPPING,
             MODEL_FOR_PRETRAINING_MAPPING,
             MODEL_FOR_QUESTION_ANSWERING_MAPPING,
+            MODEL_FOR_RETRIEVAL_MAPPING,
             MODEL_FOR_SEMANTIC_SEGMENTATION_MAPPING,
             MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
             MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
@@ -6688,6 +6704,10 @@ if TYPE_CHECKING:
             Cohere2ForCausalLM,
             Cohere2Model,
             Cohere2PreTrainedModel,
+        )
+        from .models.colpali import (
+            ColPaliForRetrieval,
+            ColPaliPreTrainedModel,
         )
         from .models.conditional_detr import (
             ConditionalDetrForObjectDetection,

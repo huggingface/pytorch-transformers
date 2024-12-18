@@ -13,11 +13,11 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Multi-GPU inference
+# 多GPU推理
 
-Built-in Tensor Parallelism (TP) is now available with certain models using PyTorch. Tensor parallelism shards a model onto multiple GPUs, enabling larger model sizes, and parallelizes computations such as matrix multiplication.
+某些模型现已支持内置的**张量并行**（Tensor Parallelism, TP），并通过 PyTorch 实现。张量并行技术将模型切分到多个 GPU 上，从而支持更大的模型尺寸，并对诸如矩阵乘法等计算任务进行并行化。
 
-To enable tensor parallel, pass the argument `tp_plan="auto"` to [`~AutoModelForCausalLM.from_pretrained`]:
+要启用张量并行，只需在调用 [`~AutoModelForCausalLM.from_pretrained`] 时传递参数 `tp_plan="auto"`：
 
 ```python
 import os
@@ -26,42 +26,42 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
 
-# Initialize distributed
+# 初始化分布式环境
 rank = int(os.environ["RANK"])
 device = torch.device(f"cuda:{rank}")
 torch.distributed.init_process_group("nccl", device_id=device)
 
-# Retrieve tensor parallel model
+# 获取支持张量并行的模型
 model = AutoModelForCausalLM.from_pretrained(
     model_id,
     tp_plan="auto",
 )
 
-# Prepare input tokens
+# 准备输入tokens
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 prompt = "Can I help"
 inputs = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
 
-# Distributed run
+# 分布式运行
 outputs = model(inputs)
 ```
 
-You can use `torchrun` to launch the above script with multiple processes, each mapping to a GPU:
+您可以使用 `torchrun` 命令启动上述脚本，多进程模式会自动将每个进程映射到一张 GPU：
 
 ```
 torchrun --nproc-per-node 4 demo.py
 ```
 
-PyTorch tensor parallel is currently supported for the following models:
+目前，PyTorch 张量并行支持以下模型：
 * [Llama](https://huggingface.co/docs/transformers/model_doc/llama#transformers.LlamaModel)
 
-You can request to add tensor parallel support for another model by opening a GitHub Issue or Pull Request.
+如果您希望对其他模型添加张量并行支持，可以通过提交 GitHub Issue 或 Pull Request 来提出请求。
 
-### Expected speedups
+### 预期性能提升
 
-You can benefit from considerable speedups for inference, especially for inputs with large batch size or long sequences.
+对于推理场景（尤其是处理大批量或长序列的输入），张量并行可以显著提升计算速度。
 
-For a single forward pass on [Llama](https://huggingface.co/docs/transformers/model_doc/llama#transformers.LlamaModel) with a sequence length of 512 and various batch sizes, the expected speedup is as follows:
+以下是 [Llama](https://huggingface.co/docs/transformers/model_doc/llama#transformers.LlamaModel) 模型在序列长度为 512 且不同批量大小情况下的单次前向推理的预期加速效果：
 
 <div style="text-align: center">
 <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/Meta-Llama-3-8B-Instruct%2C%20seqlen%20%3D%20512%2C%20python%2C%20w_%20compile.png">

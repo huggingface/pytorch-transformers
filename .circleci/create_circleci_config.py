@@ -40,9 +40,22 @@ class EmptyJob:
     job_name = "empty"
 
     def to_dict(self):
+        steps = [{"run": 'ls -la'}]
+        if self.job_name == "collection_job":
+            steps.extend(
+                [
+                    "checkout",
+                    {"run": "pip install requests || true"},
+                    {"run": """while [[ $(curl --location --request GET "https://circleci.com/api/v2/workflow/$CIRCLE_WORKFLOW_ID/job" --header "Circle-Token: $CCI_TOKEN"| jq -r '.items[]|select(.name != "collection_job")|.status' | grep -c "running") -gt 0 ]]; do sleep 5; done || true"""},
+                    {"run": 'python utils/process_circleci_workflow_test_reports.py --workflow_id $CIRCLE_WORKFLOW_ID || true'},
+                    {"store_artifacts": {"path": "outputs"}},
+                    {"run": 'echo "All required jobs have now completed"'},
+                ]
+            )
+
         return {
             "docker": copy.deepcopy(DEFAULT_DOCKER_IMAGE),
-            "steps":["checkout"],
+            "steps": steps,
         }
 
 
@@ -352,6 +365,7 @@ REPO_UTIL_TESTS = [repo_utils_job]
 DOC_TESTS = [doc_test_job]
 ALL_TESTS = REGULAR_TESTS + EXAMPLES_TESTS + PIPELINE_TESTS + REPO_UTIL_TESTS + DOC_TESTS + [custom_tokenizers_job] + [exotic_models_job]  # fmt: skip
 
+
 def create_circleci_config(folder=None):
     if folder is None:
         folder = os.getcwd()
@@ -361,7 +375,13 @@ def create_circleci_config(folder=None):
 
     if len(jobs) == 0:
         jobs = [EmptyJob()]
-    print("Full list of job name inputs", {j.job_name + "_test_list":{"type":"string", "default":''} for j in jobs})
+    else:
+        print("Full list of job name inputs", {j.job_name + "_test_list":{"type":"string", "default":''} for j in jobs})
+        # Add a job waiting all the test jobs and aggregate their test summary files at the end
+        collection_job = EmptyJob()
+        collection_job.job_name = "collection_job"
+        jobs = [collection_job] + jobs
+
     config = {
         "version": "2.1",
         "parameters": {
@@ -371,7 +391,7 @@ def create_circleci_config(folder=None):
             **{j.job_name + "_test_list":{"type":"string", "default":''} for j in jobs},
             **{j.job_name + "_parallelism":{"type":"integer", "default":1} for j in jobs},
         },
-        "jobs" : {j.job_name: j.to_dict() for j in jobs}
+        "jobs": {j.job_name: j.to_dict() for j in jobs}
     }
     if "CIRCLE_TOKEN" in os.environ:
         # For private forked repo. (e.g. new model addition)

@@ -109,7 +109,7 @@ label: NEGATIVE, with score: 0.5309
 Die [`pipeline`] kann auch über einen ganzen Datensatz iterieren. Starten wir mit der Installation der [🤗 Datasets](https://huggingface.co/docs/datasets/) Bibliothek:
 
 ```bash
-pip install datasets 
+pip install datasets
 ```
 
 Erstellen wir eine [`pipeline`] mit der Aufgabe die wir lösen und dem Modell welches wir nutzen möchten.
@@ -191,7 +191,7 @@ Wenn Sie kein Modell für Ihren Anwendungsfall finden können, müssen Sie ein v
 
 <Youtube id="AhChOFRegn4"/>
 
-Unter der Haube arbeiten die Klassen [`AutoModelForSequenceClassification`] und [`AutoTokenizer`] zusammen, um die [`pipeline`] zu betreiben. Eine [`AutoClass`](./model_doc/auto) ist eine Abkürzung, die automatisch die Architektur eines trainierten Modells aus dessen Namen oder Pfad abruft. Sie müssen nur die passende `AutoClass` für Ihre Aufgabe und den zugehörigen Tokenizer mit [`AutoTokenizer`] auswählen. 
+Unter der Haube arbeiten die Klassen [`AutoModelForSequenceClassification`] und [`AutoTokenizer`] zusammen, um die [`pipeline`] zu betreiben. Eine [`AutoClass`](./model_doc/auto) ist eine Abkürzung, die automatisch die Architektur eines trainierten Modells aus dessen Namen oder Pfad abruft. Sie müssen nur die passende `AutoClass` für Ihre Aufgabe und den zugehörigen Tokenizer mit [`AutoTokenizer`] auswählen.
 
 Kehren wir zu unserem Beispiel zurück und sehen wir uns an, wie Sie die `AutoClass` verwenden können, um die Ergebnisse der [`pipeline`] zu replizieren.
 
@@ -281,7 +281,7 @@ Jetzt können Sie Ihren vorverarbeiteten Stapel von Eingaben direkt an das Model
 ```
 
 Das Modell gibt die endgültigen Aktivierungen in dem Attribut "logits" aus. Wenden Sie die Softmax-Funktion auf die "logits" an, um die Wahrscheinlichkeiten zu erhalten:
-  
+
 ```py
 >>> from torch import nn
 
@@ -308,7 +308,7 @@ In der [Aufgabenzusammenfassung](./task_summary) steht, welche [AutoModel]-Klass
 </Tip>
 
 Jetzt können Sie Ihren vorverarbeiteten Stapel von Eingaben direkt an das Modell übergeben, indem Sie die Wörterbuchschlüssel direkt an die Tensoren übergeben:
-  
+
 ```py
 >>> tf_outputs = tf_model(tf_batch)
 ```
@@ -383,8 +383,8 @@ Ein besonders cooles 🤗 Transformers-Feature ist die Möglichkeit, ein Modell 
 ```py
 >>> from transformers import AutoModel
 
->>> tokenizer = AutoTokenizer.from_pretrained(tf_save_directory)
->>> pt_model = AutoModelForSequenceClassification.from_pretrained(tf_save_directory, from_tf=True)
+>>> tokenizer = AutoTokenizer.from_pretrained(pt_save_directory)
+>>> pt_model = AutoModelForSequenceClassification.from_pretrained(pt_save_directory, from_pt=True)
 ```
 </pt>
 <tf>
@@ -392,8 +392,8 @@ Ein besonders cooles 🤗 Transformers-Feature ist die Möglichkeit, ein Modell 
 ```py
 >>> from transformers import TFAutoModel
 
->>> tokenizer = AutoTokenizer.from_pretrained(pt_save_directory)
->>> tf_model = TFAutoModelForSequenceClassification.from_pretrained(pt_save_directory, from_pt=True)
+>>> tokenizer = AutoTokenizer.from_pretrained(tf_save_directory)
+>>> tf_model = TFAutoModelForSequenceClassification.from_pretrained(tf_save_directory, from_tf=True)
 ```
 </tf>
 </frameworkcontent>

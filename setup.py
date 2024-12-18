@@ -20,7 +20,7 @@ To create the package for pypi.
 1. Create the release branch named: v<RELEASE>-release, for example v4.19-release. For a patch release checkout the
    current release branch.
 
-   If releasing on a special branch, copy the updated README.md on the main branch for your the commit you will make
+   If releasing on a special branch, copy the updated README.md on the main branch for the commit you will make
    for the post-release and run `make fix-copies` on the main branch as well.
 
 2. Run `make pre-release` (or `make pre-patch` for a patch release) and commit these changes with the message:

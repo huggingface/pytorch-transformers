@@ -58,14 +58,14 @@ jobs:
                 name: "Prepare pipeline parameters"
                 command: |
                     python utils/process_test_artifacts.py 
-            
+
             # To avoid too long generated_config.yaml on the continuation orb, we pass the links to the artifacts as parameters.
             # Otherwise the list of tests was just too big. Explicit is good but for that it was a limitation.
             # We used:
 
             # https://circleci.com/docs/api/v2/index.html#operation/getJobArtifacts : to get the job artifacts
             # We could not pass a nested dict, which is why we create the test_file_... parameters for every single job
-                
+
             - store_artifacts:
                 path: test_preparation/transformed_artifacts.json
             - store_artifacts:

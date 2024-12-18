@@ -20,12 +20,12 @@ rendered properly in your Markdown viewer.
 
 <Youtube id="TksaY_FDgnk"/>
 
-Automatic speech recognition (ASR) converts a speech signal to text, mapping a sequence of audio inputs to text outputs. Virtual assistants like Siri and Alexa use ASR models to help users everyday, and there are many other useful user-facing applications like live captioning and note-taking during meetings.
+Automatic speech recognition (ASR) converts a speech signal to text, mapping a sequence of audio inputs to text outputs. Virtual assistants like Siri and Alexa use ASR models to help users every day, and there are many other useful user-facing applications like live captioning and note-taking during meetings.
 
 This guide will show you how to:
 
-1. Finetune [Wav2Vec2](https://huggingface.co/facebook/wav2vec2-base) on the [MInDS-14](https://huggingface.co/datasets/PolyAI/minds14) dataset to transcribe audio to text.
-2. Use your finetuned model for inference.
+1. Fine-tune [Wav2Vec2](https://huggingface.co/facebook/wav2vec2-base) on the [MInDS-14](https://huggingface.co/datasets/PolyAI/minds14) dataset to transcribe audio to text.
+2. Use your fine-tuned model for inference.
 
 <Tip>
 
@@ -49,7 +49,7 @@ We encourage you to login to your Hugging Face account so you can upload and sha
 
 ## Load MInDS-14 dataset
 
-Start by loading a smaller subset of the [MInDS-14](https://huggingface.co/datasets/PolyAI/minds14) dataset from the 🤗 Datasets library. This'll give you a chance to experiment and make sure everything works before spending more time training on the full dataset.
+Start by loading a smaller subset of the [MInDS-14](https://huggingface.co/datasets/PolyAI/minds14) dataset from the 🤗 Datasets library. This will give you a chance to experiment and make sure everything works before spending more time training on the full dataset.
 
 ```py
 >>> from datasets import load_dataset, Audio
@@ -79,13 +79,13 @@ DatasetDict({
 })
 ```
 
-While the dataset contains a lot of useful information, like `lang_id` and `english_transcription`, you'll focus on the `audio` and `transcription` in this guide. Remove the other columns with the [`~datasets.Dataset.remove_columns`] method:
+While the dataset contains a lot of useful information, like `lang_id` and `english_transcription`, this guide focuses on the `audio` and `transcription`. Remove the other columns with the [`~datasets.Dataset.remove_columns`] method:
 
 ```py
 >>> minds = minds.remove_columns(["english_transcription", "intent_class", "lang_id"])
 ```
 
-Take a look at the example again:
+Review the example again:
 
 ```py
 >>> minds["train"][0]
@@ -125,7 +125,7 @@ The MInDS-14 dataset has a sampling rate of 8000Hz (you can find this informatio
  'transcription': "hi I'm trying to use the banking app on my phone and currently my checking and savings account balance is not refreshing"}
 ```
 
-As you can see in the `transcription` above, the text contains a mix of upper and lowercase characters. The Wav2Vec2 tokenizer is only trained on uppercase characters so you'll need to make sure the text matches the tokenizer's vocabulary:
+As you can see in the `transcription` above, the text contains a mix of uppercase and lowercase characters. The Wav2Vec2 tokenizer is only trained on uppercase characters so you'll need to make sure the text matches the tokenizer's vocabulary:
 
 ```py
 >>> def uppercase(example):
@@ -196,7 +196,7 @@ Now instantiate your `DataCollatorForCTCWithPadding`:
 
 ## Evaluate
 
-Including a metric during training is often helpful for evaluating your model's performance. You can quickly load an evaluation method with the 🤗 [Evaluate](https://huggingface.co/docs/evaluate/index) library. For this task, load the [word error rate](https://huggingface.co/spaces/evaluate-metric/wer) (WER) metric (see the 🤗 Evaluate [quick tour](https://huggingface.co/docs/evaluate/a_quick_tour) to learn more about how to load and compute a metric):
+Including a metric during training is often helpful for evaluating your model's performance. You can quickly load an evaluation method with the 🤗 [Evaluate](https://huggingface.co/docs/evaluate/index) library. For this task, load the [word error rate](https://huggingface.co/spaces/evaluate-metric/wer) (WER) metric (refer to the 🤗 Evaluate [quick tour](https://huggingface.co/docs/evaluate/a_quick_tour) to learn more about loading and computing metrics):
 
 ```py
 >>> import evaluate
@@ -236,7 +236,7 @@ If you aren't familiar with finetuning a model with the [`Trainer`], take a look
 
 </Tip>
 
-You're ready to start training your model now! Load Wav2Vec2 with [`AutoModelForCTC`]. Specify the reduction to apply with the `ctc_loss_reduction` parameter. It is often better to use the average instead of the default summation:
+You are now ready to start training your model! Load Wav2Vec2 with [`AutoModelForCTC`]. Specify the reduction to apply with the `ctc_loss_reduction` parameter. It is often better to use the average instead of the default summation:
 
 ```py
 >>> from transformers import AutoModelForCTC, TrainingArguments, Trainer
@@ -252,7 +252,7 @@ At this point, only three steps remain:
 
 1. Define your training hyperparameters in [`TrainingArguments`]. The only required parameter is `output_dir` which specifies where to save your model. You'll push this model to the Hub by setting `push_to_hub=True` (you need to be signed in to Hugging Face to upload your model). At the end of each epoch, the [`Trainer`] will evaluate the WER and save the training checkpoint.
 2. Pass the training arguments to [`Trainer`] along with the model, dataset, tokenizer, data collator, and `compute_metrics` function.
-3. Call [`~Trainer.train`] to finetune your model.
+3. Call [`~Trainer.train`] to fine-tune your model.
 
 ```py
 >>> training_args = TrainingArguments(
@@ -289,7 +289,7 @@ At this point, only three steps remain:
 >>> trainer.train()
 ```
 
-Once training is completed, share your model to the Hub with the [`~transformers.Trainer.push_to_hub`] method so everyone can use your model:
+Once training is completed, share your model to the Hub with the [`~transformers.Trainer.push_to_hub`] method so it can be accessible to everyone:
 
 ```py
 >>> trainer.push_to_hub()
@@ -299,13 +299,13 @@ Once training is completed, share your model to the Hub with the [`~transformers
 
 <Tip>
 
-For a more in-depth example of how to finetune a model for automatic speech recognition, take a look at this blog [post](https://huggingface.co/blog/fine-tune-wav2vec2-english) for English ASR and this [post](https://huggingface.co/blog/fine-tune-xlsr-wav2vec2) for multilingual ASR.
+For a more in-depth example of how to fine-tune a model for automatic speech recognition, take a look at this blog [post](https://huggingface.co/blog/fine-tune-wav2vec2-english) for English ASR and this [post](https://huggingface.co/blog/fine-tune-xlsr-wav2vec2) for multilingual ASR.
 
 </Tip>
 
 ## Inference
 
-Great, now that you've finetuned a model, you can use it for inference!
+Great, now that you've fine-tuned a model, you can use it for inference!
 
 Load an audio file you'd like to run inference on. Remember to resample the sampling rate of the audio file to match the sampling rate of the model if you need to!
 
@@ -318,7 +318,7 @@ Load an audio file you'd like to run inference on. Remember to resample the samp
 >>> audio_file = dataset[0]["audio"]["path"]
 ```
 
-The simplest way to try out your finetuned model for inference is to use it in a [`pipeline`]. Instantiate a `pipeline` for automatic speech recognition with your model, and pass your audio file to it:
+The simplest way to try out your fine-tuned model for inference is to use it in a [`pipeline`]. Instantiate a `pipeline` for automatic speech recognition with your model, and pass your audio file to it:
 
 ```py
 >>> from transformers import pipeline

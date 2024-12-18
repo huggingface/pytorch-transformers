@@ -24,8 +24,8 @@ Audio classification - just like with text - assigns a class label output from t
 
 This guide will show you how to:
 
-1. Finetune [Wav2Vec2](https://huggingface.co/facebook/wav2vec2-base) on the [MInDS-14](https://huggingface.co/datasets/PolyAI/minds14) dataset to classify speaker intent.
-2. Use your finetuned model for inference.
+1. Fine-tune [Wav2Vec2](https://huggingface.co/facebook/wav2vec2-base) on the [MInDS-14](https://huggingface.co/datasets/PolyAI/minds14) dataset to classify speaker intent.
+2. Use your fine-tuned model for inference.
 
 <Tip>
 
@@ -210,7 +210,7 @@ At this point, only three steps remain:
 
 1. Define your training hyperparameters in [`TrainingArguments`]. The only required parameter is `output_dir`, which specifies where to save your model. You'll push this model to the Hub by setting `push_to_hub=True` (you need to be signed in to Hugging Face to upload your model). At the end of each epoch, the [`Trainer`] will evaluate the accuracy and save the training checkpoint.
 2. Pass the training arguments to [`Trainer`] along with the model, dataset, tokenizer, data collator, and `compute_metrics` function.
-3. Call [`~Trainer.train`] to finetune your model.
+3. Call [`~Trainer.train`] to fine-tune your model.
 
 
 ```py
@@ -252,13 +252,13 @@ Once training is completed, share your model to the Hub with the [`~transformers
 
 <Tip>
 
-For a more in-depth example of how to finetune a model for audio classification, take a look at the corresponding [PyTorch notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/examples/audio_classification.ipynb).
+For a more in-depth example of how to fine-tune a model for audio classification, take a look at the corresponding [PyTorch notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/examples/audio_classification.ipynb).
 
 </Tip>
 
 ## Inference
 
-Great, now that you've finetuned a model, you can use it for inference!
+Great, now that you've fine-tuned a model, you can use it for inference!
 
 Load an audio file you'd like to run inference on. Remember to resample the sampling rate of the audio file to match the sampling rate of the model if you need to!
 
@@ -271,7 +271,7 @@ Load an audio file you'd like to run inference on. Remember to resample the samp
 >>> audio_file = dataset[0]["audio"]["path"]
 ```
 
-The simplest way to try out your finetuned model for inference is to use it in a [`pipeline`]. Instantiate a `pipeline` for audio classification with your model, and pass your audio file to it:
+The simplest way to try out your fine-tuned model for inference is to use it in a [`pipeline`]. Instantiate a `pipeline` for audio classification with your model, and pass your audio file to it:
 
 ```py
 >>> from transformers import pipeline

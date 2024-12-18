@@ -69,6 +69,8 @@
       title: 完全分片数据并行
     - local: perf_train_special
       title: 在 Apple silicon 芯片上进行 PyTorch 训练
+    - local: perf_infer_gpu_multi
+      title: 多GPU推理
     - local: perf_train_cpu
       title: 在CPU上进行高效训练
     - local: perf_hardware

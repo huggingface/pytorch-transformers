@@ -689,16 +689,12 @@ def spectrogram_batch(
     if hop_length <= 0:
         raise ValueError("hop_length must be greater than zero")
 
-    # Check the dimensions of the waveform
+    # Check the dimensions of the waveform , and if waveform is complex
     for waveform in waveform_list:
         if waveform.ndim != 1:
             raise ValueError(f"Input waveform must have only one dimension, shape is {waveform.shape}")
-
-    # Check if waveform is complex
-    for waveform in waveform_list:
         if np.iscomplexobj(waveform):
             raise ValueError("Complex-valued input waveforms are not currently supported")
-
     # Center pad the waveform
     if center:
         padding = [(int(frame_length // 2), int(frame_length // 2))]

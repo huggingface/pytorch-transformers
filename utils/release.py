@@ -45,12 +45,14 @@ or use `make post-release`.
 import argparse
 import os
 import re
+from pathlib import Path
 
 import packaging.version
 
 
 # All paths are defined with the intent that this script should be run from the root of the repo.
 PATH_TO_EXAMPLES = "examples/"
+PATH_TO_MODELS = "src/transformers/models"
 # This maps a type of file to the pattern to look for when searching where the version is defined, as well as the
 # template to follow when replacing it with the new version.
 REPLACE_PATTERNS = {
@@ -117,6 +119,17 @@ def global_version_update(version: str, patch: bool = False):
         update_version_in_examples(version)
 
 
+def remove_conversion_scripts():
+    """
+    Delete the scripts that convert models from older, unsupported formats. We don't want to include these
+    in release wheels because they often have to open insecure file types (pickle, Torch .bin models). This results in
+    vulnerability scanners flagging us and can cause compliance issues for users with strict security policies.
+    """
+    model_dir = Path(PATH_TO_MODELS)
+    for conversion_script in list(model_dir.glob("**/convert*.py")):
+        conversion_script.unlink()
+
+
 def get_version() -> packaging.version.Version:
     """
     Reads the current version in the main __init__.
@@ -131,7 +144,7 @@ def pre_release_work(patch: bool = False):
     """
     Do all the necessary pre-release steps:
     - figure out the next minor release version and ask confirmation
-    - update the version eveywhere
+    - update the version everywhere
     - clean-up the model list in the main README
 
     Args:
@@ -155,13 +168,15 @@ def pre_release_work(patch: bool = False):
 
     print(f"Updating version to {version}.")
     global_version_update(version, patch=patch)
+    print("Deleting conversion scripts.")
+    remove_conversion_scripts()
 
 
 def post_release_work():
     """
-    Do all the necesarry post-release steps:
+    Do all the necessary post-release steps:
     - figure out the next dev version and ask confirmation
-    - update the version eveywhere
+    - update the version everywhere
     - clean-up the model list in the main README
     """
     # First let's get the current version

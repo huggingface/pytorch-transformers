@@ -749,6 +749,8 @@ class Gemma2ForCausalLM(GemmaForCausalLM):
         **loss_kwargs,
     ) -> Union[Tuple, CausalLMOutputWithPast]:
         r"""
+        Example
+
         ```python
         >>> from transformers import AutoTokenizer, GemmaForCausalLM
 

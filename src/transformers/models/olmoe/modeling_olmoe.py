@@ -890,13 +890,6 @@ OLMOE_INPUTS_DOCSTRING = r"""
 )
 # TODO: re-enable check: Copied from transformers.models.llama.modeling_llama.LlamaModel with Llama->Olmoe
 class OlmoeModel(OlmoePreTrainedModel):
-    """
-    Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`OlmoeDecoderLayer`]
-
-    Args:
-        config: OlmoeConfig
-    """
-
     def __init__(self, config: OlmoeConfig):
         super().__init__(config)
         self.padding_idx = config.pad_token_id

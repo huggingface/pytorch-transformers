@@ -33,6 +33,7 @@ from torch import nn
 from ...activations import ACT2FN
 from ...cache_utils import Cache, DynamicCache, SlidingWindowCache, StaticCache
 from ...generation import GenerationMixin
+from ...integrations.deepspeed import deepspeed_ulysses_attention, support_deepspeed_ulysses
 from ...modeling_attn_mask_utils import AttentionMaskConverter
 from ...modeling_outputs import (
     BaseModelOutputWithPast,
@@ -311,6 +312,7 @@ class Starcoder2Attention(nn.Module):
         return attn_output, attn_weights, past_key_value
 
 
+@support_deepspeed_ulysses
 class Starcoder2FlashAttention2(Starcoder2Attention):
     """
     Starcoder2 flash attention module. This module inherits from `Starcoder2Attention` as the weights of the module stays
@@ -326,6 +328,7 @@ class Starcoder2FlashAttention2(Starcoder2Attention):
         # Beware that with flash_attn<2.1, using q_seqlen != k_seqlen (except for the case q_seqlen == 1) produces a wrong mask (top-left).
         self._flash_attn_uses_top_left_mask = not is_flash_attn_greater_or_equal_2_10()
 
+    # Ignore copy
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -392,7 +395,7 @@ class Starcoder2FlashAttention2(Starcoder2Attention):
             key_states,
             value_states,
             attention_mask,
-            q_len,
+            q_len * getattr(self, "sp_group_size", 1),
             position_ids=position_ids,
             dropout=dropout_rate,
             sliding_window=getattr(self.config, "sliding_window", None),
@@ -410,6 +413,7 @@ class Starcoder2FlashAttention2(Starcoder2Attention):
         return attn_output, attn_weights, past_key_value
 
 
+@support_deepspeed_ulysses
 class Starcoder2SdpaAttention(Starcoder2Attention):
     """
     Starcoder2 attention module using torch.nn.functional.scaled_dot_product_attention. This module inherits from
@@ -417,6 +421,10 @@ class Starcoder2SdpaAttention(Starcoder2Attention):
     SDPA API.
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    # Ignore copy
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -467,7 +475,7 @@ class Starcoder2SdpaAttention(Starcoder2Attention):
 
         causal_mask = attention_mask
         if attention_mask is not None:  # no matter the length, we just slice it
-            causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
+            causal_mask = attention_mask[:, :, :, : key_states.shape[-2] * getattr(self, "sp_group_size", 1)]
 
         # SDPA with memory-efficient backend is currently (torch==2.1.2) bugged with non-contiguous inputs with custom attn_mask,
         # Reference: https://github.com/pytorch/pytorch/issues/112577.
@@ -481,7 +489,14 @@ class Starcoder2SdpaAttention(Starcoder2Attention):
         # # The q_len > 1 is necessary to match with AttentionMaskConverter.to_causal_4d that does not create a causal mask in case q_len == 1.
         is_causal = True if causal_mask is None and q_len > 1 else False
 
-        attn_output = torch.nn.functional.scaled_dot_product_attention(
+        if hasattr(self, "sp_group_size") and self.sp_group_size > 1:
+            scaled_dot_product_attention = deepspeed_ulysses_attention(
+                torch.nn.functional.scaled_dot_product_attention, seq_dim=2, head_dim=1
+            )
+        else:
+            scaled_dot_product_attention = torch.nn.functional.scaled_dot_product_attention
+
+        attn_output = scaled_dot_product_attention(
             query_states,
             key_states,
             value_states,
@@ -612,6 +627,7 @@ class Starcoder2PreTrainedModel(PreTrainedModel):
     config_class = Starcoder2Config
     base_model_prefix = "model"
     supports_gradient_checkpointing = True
+    supports_sequence_parallel = True
     _no_split_modules = ["Starcoder2DecoderLayer"]
     _skip_keys_device_placement = "past_key_values"
     _supports_flash_attn_2 = True
@@ -619,6 +635,7 @@ class Starcoder2PreTrainedModel(PreTrainedModel):
     _supports_cache_class = True
     _supports_quantized_cache = True
     _supports_static_cache = True
+    _supports_sequence_parallel = True
 
     def _init_weights(self, module):
         std = self.config.initializer_range
@@ -795,7 +812,9 @@ class Starcoder2Model(Starcoder2PreTrainedModel):
         if cache_position is None:
             past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
             cache_position = torch.arange(
-                past_seen_tokens, past_seen_tokens + inputs_embeds.shape[1], device=inputs_embeds.device
+                past_seen_tokens,
+                past_seen_tokens + inputs_embeds.shape[1] * getattr(self, "sp_group_size", 1),
+                device=inputs_embeds.device,
             )
         if position_ids is None:
             position_ids = cache_position.unsqueeze(0)
@@ -907,7 +926,7 @@ class Starcoder2Model(Starcoder2PreTrainedModel):
 
         dtype, device = input_tensor.dtype, input_tensor.device
         min_dtype = torch.finfo(dtype).min
-        sequence_length = input_tensor.shape[1]
+        sequence_length = input_tensor.shape[1] * getattr(self, "sp_group_size", 1)
         # SlidingWindowCache or StaticCache
         if using_sliding_window_cache or using_static_cache:
             target_length = past_key_values.get_max_cache_shape()

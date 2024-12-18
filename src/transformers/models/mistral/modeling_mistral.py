@@ -30,6 +30,7 @@ from torch.nn import CrossEntropyLoss
 from ...activations import ACT2FN
 from ...cache_utils import Cache, DynamicCache, SlidingWindowCache, StaticCache
 from ...generation import GenerationMixin
+from ...integrations.deepspeed import deepspeed_ulysses_attention, support_deepspeed_ulysses
 from ...modeling_attn_mask_utils import AttentionMaskConverter
 from ...modeling_outputs import (
     BaseModelOutputWithPast,
@@ -270,6 +271,7 @@ class MistralAttention(nn.Module):
         return attn_output, attn_weights, past_key_value
 
 
+@support_deepspeed_ulysses
 class MistralFlashAttention2(MistralAttention):
     """
     Mistral flash attention module. This module inherits from `MistralAttention` as the weights of the module stays
@@ -359,7 +361,7 @@ class MistralFlashAttention2(MistralAttention):
             key_states,
             value_states,
             attention_mask,
-            q_len,
+            q_len * getattr(self, "sp_group_size", 1),
             position_ids=position_ids,
             dropout=dropout_rate,
             sliding_window=getattr(self.config, "sliding_window", None),
@@ -378,12 +380,16 @@ class MistralFlashAttention2(MistralAttention):
 
 # copied from transformers.models.llama.modeling_llama.LlamaSdpaAttention with Llama->Mistral
 # TODO(joao): add me back asap :)
+@support_deepspeed_ulysses
 class MistralSdpaAttention(MistralAttention):
     """
     Mistral attention module using torch.nn.functional.scaled_dot_product_attention. This module inherits from
     `MistralAttention` as the weights of the module stays untouched. The only changes are on the forward pass to adapt to
     SDPA API.
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     # Adapted from MistralAttention.forward
     def forward(
@@ -436,7 +442,7 @@ class MistralSdpaAttention(MistralAttention):
 
         causal_mask = attention_mask
         if attention_mask is not None:
-            causal_mask = causal_mask[:, :, :, : key_states.shape[-2]]
+            causal_mask = causal_mask[:, :, :, : key_states.shape[-2] * getattr(self, "sp_group_size", 1)]
 
         # SDPA with memory-efficient backend is currently (torch==2.1.2) bugged with non-contiguous inputs with custom attn_mask,
         # Reference: https://github.com/pytorch/pytorch/issues/112577.
@@ -449,7 +455,14 @@ class MistralSdpaAttention(MistralAttention):
         # in SDPA to support both torch.compile's dynamic shapes and full graph options. An inline conditional prevents dynamic shapes from compiling.
         is_causal = True if causal_mask is None and q_len > 1 else False
 
-        attn_output = torch.nn.functional.scaled_dot_product_attention(
+        if hasattr(self, "sp_group_size") and self.sp_group_size > 1:
+            scaled_dot_product_attention = deepspeed_ulysses_attention(
+                torch.nn.functional.scaled_dot_product_attention, seq_dim=2, head_dim=1
+            )
+        else:
+            scaled_dot_product_attention = torch.nn.functional.scaled_dot_product_attention
+
+        attn_output = scaled_dot_product_attention(
             query_states,
             key_states,
             value_states,
@@ -575,12 +588,14 @@ class MistralPreTrainedModel(PreTrainedModel):
     config_class = MistralConfig
     base_model_prefix = "model"
     supports_gradient_checkpointing = True
+    supports_sequence_parallel = True
     _no_split_modules = ["MistralDecoderLayer"]
     _skip_keys_device_placement = "past_key_values"
     _supports_flash_attn_2 = True
     _supports_sdpa = True
     _supports_cache_class = True
     _supports_static_cache = True
+    _supports_sequence_parallel = True
 
     def _init_weights(self, module):
         std = self.config.initializer_range
@@ -673,6 +688,7 @@ MISTRAL_INPUTS_DOCSTRING = r"""
     "The bare Mistral Model outputting raw hidden-states without any specific head on top.",
     MISTRAL_START_DOCSTRING,
 )
+@support_deepspeed_ulysses
 class MistralModel(MistralPreTrainedModel):
     """
     Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`MistralDecoderLayer`]
@@ -755,7 +771,9 @@ class MistralModel(MistralPreTrainedModel):
         if cache_position is None:
             past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
             cache_position = torch.arange(
-                past_seen_tokens, past_seen_tokens + inputs_embeds.shape[1], device=inputs_embeds.device
+                past_seen_tokens,
+                past_seen_tokens + inputs_embeds.shape[1] * getattr(self, "sp_group_size", 1),
+                device=inputs_embeds.device,
             )
 
         if position_ids is None:
@@ -871,7 +889,7 @@ class MistralModel(MistralPreTrainedModel):
 
         dtype, device = input_tensor.dtype, input_tensor.device
         min_dtype = torch.finfo(dtype).min
-        sequence_length = input_tensor.shape[1]
+        sequence_length = input_tensor.shape[1] * getattr(self, "sp_group_size", 1)
         # SlidingWindowCache or StaticCache
         if using_sliding_window_cache or using_static_cache:
             target_length = past_key_values.get_max_cache_shape()

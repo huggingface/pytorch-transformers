@@ -28,6 +28,9 @@ from huggingface_hub import get_full_repo_name
 from packaging import version
 
 from .debug_utils import DebugOption
+from .integrations.deepspeed import (
+    is_deepspeed_sp_enabled,
+)
 from .trainer_utils import (
     EvaluationStrategy,
     FSDPOption,
@@ -2145,6 +2148,7 @@ class TrainingArguments:
                 "Using deprecated `--per_gpu_train_batch_size` argument which will be removed in a future "
                 "version. Using `--per_device_train_batch_size` is preferred."
             )
+
         per_device_batch_size = self.per_gpu_train_batch_size or self.per_device_train_batch_size
         train_batch_size = per_device_batch_size * max(1, self.n_gpu)
         return train_batch_size
@@ -2354,6 +2358,8 @@ class TrainingArguments:
         """
         requires_backends(self, ["torch"])
         if self.distributed_state is not None:
+            if is_deepspeed_sp_enabled():
+                return self.deepspeed_plugin.get_value("data_parallel_size")
             return self.distributed_state.num_processes
         elif is_sagemaker_mp_enabled():
             return smp.dp_size() if not smp.state.cfg.prescaled_batch else smp.rdp_size()

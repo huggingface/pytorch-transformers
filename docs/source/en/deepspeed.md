@@ -1141,6 +1141,52 @@ Using multiple GPUs with ZeRO-3 for generation requires synchronizing the GPUs b
 
 For Transformers>=4.28, if `synced_gpus` is automatically set to `True` if multiple GPUs are detected during generation.
 
+### Non-Trainer Sequence Parallelism
+DeepSpeed sequence parallelism, also known as [DeepSpeed Ulysses](https://github.com/microsoft/DeepSpeed/blob/master/blogs/deepspeed-ulysses/README.md), is a distributed training technique targeting long context LLM problems. Sequence parallelism would allow for a virtually indefinite growth in sequence length and model size with an increase in GPUs, unlimited by single GPU memory. DeepSpeed sequence parallelism is compatible with HuggingFace Transformers by adding 'sequence_parallel_size' and 'data_parallel_size' to the DeepSpeed configuration. Additionally, it's required that the user’s script correctly shard the input data along the sequence dimension.
+
+```py
+ds_config {
+    'sequence_parallel_size': 2,
+    'data_parallel_size': 1,
+    ......
+    ......
+}
+
+config = transformers.AutoConfig.from_pretrained(model_name)
+    
+model = AutoModelForCausalLM.from_pretrained(model_name,
+                                            config=config,
+                                            attn_implementation="flash_attention_2")
+
+model, _, _, _ = deepspeed.initialize(model=model,
+                                      model_parameters=model.parameters(),
+                                      config=ds_config,
+                                      dist_init_required=True,)
+                                        
+    
+spg = model.get_sequence_parallel_group() 
+seq_parallel_world_size = dist.get_world_size(spg)
+seq_parallel_rank = dist.get_rank(spg)
+
+for n, batch in enumerate(data_loader):
+    seq_length = batch["input_ids"].size(1)
+    assert seq_length % seq_parallel_world_size == 0
+    sub_seq_length = seq_length // seq_parallel_world_size
+    sub_seq_start = seq_parallel_rank * sub_seq_length
+    sub_seq_end = (seq_parallel_rank + 1) * sub_seq_length
+
+    batch["input_ids"] = batch["input_ids"][:, sub_seq_start:sub_seq_end]
+    batch["labels"] = batch["labels"][:, sub_seq_start:sub_seq_end]
+
+.......
+
+```
+
+The HuggingFace Transformers will internally invoke DeepSpeed Ulysses to take advantage of multi-GPU optimization during the pretraining, posttraining, and fine-tuning of long context LLMs. DeepSpeed sequence parallelism is compatible with FlashAttention and is fully supported. A detailed example script is available [here](https://github.com/microsoft/DeepSpeedExamples/blob/uly-hf/post_training/sequence_parallelism/test_ulysses.py).
+
+Also, integration with the [`Trainer`]  is underway, appropriate documentation will be updated once [`Trainer`] integration feature is available.
+
+
 ## Troubleshoot
 
 When you encounter an issue, you should consider whether DeepSpeed is the cause of the problem because often it isn't (unless it's super obviously and you can see DeepSpeed modules in the exception)! The first step should be to retry your setup without DeepSpeed, and if the problem persists, then you can report the issue. If the issue is a core DeepSpeed problem and unrelated to the Transformers integration, open an Issue on the [DeepSpeed repository](https://github.com/microsoft/DeepSpeed).

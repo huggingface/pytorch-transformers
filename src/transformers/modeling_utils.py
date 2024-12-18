@@ -44,7 +44,13 @@ from .activations import get_activation
 from .configuration_utils import PretrainedConfig
 from .dynamic_module_utils import custom_object_save
 from .generation import CompileConfig, GenerationConfig, GenerationMixin
-from .integrations import PeftAdapterMixin, deepspeed_config, is_deepspeed_zero3_enabled
+from .integrations import (
+    PeftAdapterMixin,
+    deepspeed_config,
+    is_deepspeed_available,
+    is_deepspeed_sp_enabled,
+    is_deepspeed_zero3_enabled,
+)
 from .loss.loss_utils import LOSS_MAPPING
 from .pytorch_utils import (  # noqa: F401
     Conv1D,
@@ -129,6 +135,11 @@ if is_accelerate_available():
     accelerate_version = version.parse(importlib.metadata.version("accelerate"))
     if accelerate_version >= version.parse("0.31"):
         from accelerate.utils.modeling import get_state_dict_from_offload
+
+    if is_deepspeed_available():
+        import deepspeed
+        from deepspeed.utils import groups as deepspeed_groups
+
 
 if is_safetensors_available():
     from safetensors import safe_open
@@ -1283,6 +1294,9 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
 
     # Has support for a `QuantoQuantizedCache` instance as `past_key_values`
     _supports_quantized_cache = False
+
+    # Model supports sequence parallelism (DeepSpeed only)
+    _supports_sequence_parallel = False
 
     # A tensor parallel plan to be applied to the model when TP is enabled. For
     # top-level models, this attribute is currently defined in respective model
@@ -4039,11 +4053,17 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         tp_device = None
 
         if is_deepspeed_zero3_enabled() and not is_quantized and not _is_ds_init_called:
-            import deepspeed
-
             logger.info("Detected DeepSpeed ZeRO-3: activating zero.init() for this model")
+            sequence_data_parallel_group = None
+            if is_deepspeed_sp_enabled() and deepspeed_groups._zero_param_parallel_is_initialized():
+                sequence_data_parallel_group = deepspeed_groups._get_sequence_data_parallel_group()
+
             init_contexts = [
-                deepspeed.zero.Init(config_dict_or_path=deepspeed_config()),
+                deepspeed.zero.Init(
+                    config_dict_or_path=deepspeed_config(),
+                    sequence_data_parallel_group=sequence_data_parallel_group,
+                    mpu=deepspeed_groups.mpu,
+                ),
                 set_zero3_state(),
             ] + init_contexts
         elif low_cpu_mem_usage:
@@ -4259,6 +4279,10 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                     "Generation config file not found, using a generation config created from the model config."
                 )
                 pass
+
+        if is_deepspeed_sp_enabled():
+            if not getattr(model, "_supports_sequence_parallel", False):
+                raise ValueError(f"{model.__class__} does not support sequence parallelism.")
 
         # Dispatch model with hooks on all devices if necessary
         if device_map is not None:

@@ -885,3 +885,46 @@ def check_target_module_exists(optim_target_modules, key: str, return_is_regex: 
         return target_module_found, is_regex
 
     return target_module_found
+
+
+def shard_tensor(tensor, num_shards, rank, dim=1):
+    seq_length = tensor.shape[dim]
+    sub_seq_length = seq_length // num_shards
+    indices = [slice(None)] * tensor.ndim
+    indices[dim] = slice(rank * sub_seq_length, (rank + 1) * sub_seq_length)
+    return tensor[tuple(indices)]
+
+
+def shard_inputs(
+    num_shards=1,
+    rank=0,
+    input_ids=None,
+    attention_mask=None,
+    loss_mask=None,
+    position_ids=None,
+    input_embeds=None,
+    labels=None,
+    **kwargs,
+):
+    if num_shards == 1:
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "loss_mask": loss_mask,
+            "position_ids": position_ids,
+            "input_embeds": input_embeds,
+            "labels": labels,
+            **kwargs,
+        }
+    if position_ids is None and input_ids is not None:
+        # expand the position_ids to match batch size
+        position_ids = torch.arange(input_ids.shape[1], dtype=torch.long, device=input_ids.device)
+        position_ids = position_ids.unsqueeze(0).expand(input_ids.shape[0], -1)
+    result = kwargs
+    for key, value in zip(
+        ["input_ids", "attention_mask", "loss_mask", "position_ids", "input_embeds", "labels"],
+        [input_ids, attention_mask, loss_mask, position_ids, input_embeds, labels],
+    ):
+        if value is not None:
+            result[key] = shard_tensor(value, num_shards, rank)
+    return result

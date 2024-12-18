@@ -122,7 +122,11 @@ def require_deepspeed_aio(test_case):
 if is_deepspeed_available():
     from deepspeed.utils import logger as deepspeed_logger  # noqa
     from deepspeed.utils.zero_to_fp32 import load_state_dict_from_zero_checkpoint
-    from transformers.integrations.deepspeed import deepspeed_config, is_deepspeed_zero3_enabled  # noqa
+    from transformers.integrations.deepspeed import (
+        deepspeed_config,
+        is_deepspeed_zero3_enabled,
+        is_deepspeed_sp_enabled,
+    )  # noqa
 
 
 def get_launcher(distributed=False):
@@ -1359,3 +1363,18 @@ class TestDeepSpeedWithLauncher(TestCasePlus):
         with CaptureStderr() as cs:
             execute_subprocess_async(cmd, env=self.get_env())
         self.assertIn("Detected DeepSpeed ZeRO-3", cs.err)
+
+    @parameterized.expand([2, 4, 8, 16])
+    @require_torch_accelerator
+    @require_torch_multi_accelerator
+    def test_deepspeed_sp(self, sp_size):
+        # Check if deepspeed_sp is enabled
+        # Run deepspeed sp with 2 GPUs and different sp_size
+        self.assertFalse(is_deepspeed_sp_enabled())
+        ds_args = [f"--sequence-length={sp_size}"]
+        script = [f"{self.test_file_dir_str}/test_ulysses.py"]
+        distributed = True
+        launcher = get_launcher(distributed)
+
+        cmd = launcher + script + ds_args
+        execute_subprocess_async(cmd, env=self.get_env())

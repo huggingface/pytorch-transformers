@@ -56,6 +56,11 @@ else:
     from builtins import object as DeepSpeedConfig
 
 
+if is_deepspeed_available():
+    from deepspeed.sequence.layer import _SeqAllToAll
+    from deepspeed.utils import groups as deepspeed_groups
+
+
 class HfDeepSpeedConfig(DeepSpeedConfig):
     """
     This object contains a DeepSpeed configuration dictionary and can be quickly queried for things like zero stage.
@@ -135,11 +140,15 @@ class HfTrainerDeepSpeedConfig(HfDeepSpeedConfig):
     def trainer_config_process(self, args, auto_find_batch_size=False):
         """
         Adjust the config with `TrainingArguments` values. This stage is run during `TrainingArguments` object
-        creation.
+        creation., sequence_parallel_size, sequence_parallel_rank)
         """
+        if getattr(self, "sequence_parallel_size") and self.sequence_parallel_size() > 1:
+            world_size = getattr(self, "data_parallel_size", args.world_size // self.sequence_parallel_size())()
+        else:
+            world_size = args.world_size
         # DeepSpeed does:
         # train_batch_size = world_size * train_micro_batch_size_per_gpu * gradient_accumulation_steps
-        train_batch_size = args.world_size * args.per_device_train_batch_size * args.gradient_accumulation_steps
+        train_batch_size = world_size * args.per_device_train_batch_size * args.gradient_accumulation_steps
         self.fill_match(
             "train_micro_batch_size_per_gpu",
             args.per_device_train_batch_size,
@@ -298,6 +307,13 @@ def is_deepspeed_zero3_enabled():
         return False
 
 
+def is_deepspeed_sp_enabled():
+    if _hf_deepspeed_config_weak_ref is not None and _hf_deepspeed_config_weak_ref() is not None:
+        return _hf_deepspeed_config_weak_ref().is_sequence_parallel()
+    else:
+        return False
+
+
 def deepspeed_config():
     if _hf_deepspeed_config_weak_ref is not None and _hf_deepspeed_config_weak_ref() is not None:
         return _hf_deepspeed_config_weak_ref().config
@@ -445,3 +461,54 @@ def deepspeed_load_checkpoint(deepspeed_engine, checkpoint_path, load_module_str
             raise ValueError(f"[deepspeed] failed to resume from checkpoint {checkpoint_path}")
     else:
         raise ValueError(f"Can't find a valid checkpoint at {checkpoint_path}")
+
+
+def deepspeed_ulysses_attention(attn_func, seq_dim=1, head_dim=2):
+    def wrapped(*args, **kwargs):
+        if is_deepspeed_sp_enabled():
+            spg = deepspeed_groups._get_sequence_parallel_group()
+            scatter_idx = head_dim  # Scatter on num_heads dimension
+            gather_idx = seq_dim  # Gather on seq_len dimension
+            batch_dim_idx = 0  # Synonymous with the batch_first==true
+            args = list(args)
+            args[0] = _SeqAllToAll.apply(spg, args[0], scatter_idx, gather_idx, batch_dim_idx)
+            args[1] = _SeqAllToAll.apply(spg, args[1], scatter_idx, gather_idx, batch_dim_idx)
+            args[2] = _SeqAllToAll.apply(spg, args[2], scatter_idx, gather_idx, batch_dim_idx)
+            args = tuple(args)
+
+        attn_output = attn_func(*args, **kwargs)
+
+        if is_deepspeed_sp_enabled():
+            scatter_idx = seq_dim  # Scatter back on seq_len dimension
+            gather_idx = head_dim  # Gather on num_heads dimension
+            batch_dim_idx = 0
+            attn_output = _SeqAllToAll.apply(spg, attn_output, scatter_idx, gather_idx, batch_dim_idx)
+
+        return attn_output
+
+    return wrapped
+
+
+def support_deepspeed_ulysses(module):
+    module._supports_sequence_parallel = True
+
+    original_forward = module.forward
+
+    def wrapped_forward(
+        query_states: torch.Tensor,
+        *args,
+        **kwargs,
+    ):
+        # lazily set if sequence parallelism is enabled to ensure deepspeed is initialized first
+        if is_deepspeed_sp_enabled():
+            module.sp_group_size = deepspeed_groups._get_sequence_parallel_world_size()
+
+        return original_forward(
+            query_states,
+            *args,
+            **kwargs,
+        )
+
+    module.forward = wrapped_forward
+
+    return module

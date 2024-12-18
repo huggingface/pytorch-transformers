@@ -57,13 +57,22 @@ from torch.utils.data import DataLoader, Dataset, IterableDataset, RandomSampler
 
 from . import __version__
 from .configuration_utils import PretrainedConfig
-from .data.data_collator import DataCollator, DataCollatorWithPadding, default_data_collator
+from .data.data_collator import (
+    DataCollator,
+    DataCollatorWithPadding,
+    default_data_collator,
+)
 from .debug_utils import DebugOption, DebugUnderflowOverflow
 from .feature_extraction_sequence_utils import SequenceFeatureExtractor
 from .feature_extraction_utils import FeatureExtractionMixin
 from .hyperparameter_search import ALL_HYPERPARAMETER_SEARCH_BACKENDS, default_hp_search_backend
 from .image_processing_utils import BaseImageProcessor
-from .integrations.deepspeed import deepspeed_init, deepspeed_load_checkpoint, is_deepspeed_available
+from .integrations.deepspeed import (
+    deepspeed_init,
+    deepspeed_load_checkpoint,
+    is_deepspeed_available,
+    is_deepspeed_sp_enabled,
+)
 from .integrations.tpu import tpu_spmd_dataloader
 from .modelcard import TrainingSummary
 from .modeling_utils import PreTrainedModel, load_sharded_checkpoint, unwrap_model
@@ -133,6 +142,7 @@ from .trainer_utils import (
     number_of_arguments,
     seed_worker,
     set_seed,
+    shard_inputs,
     speed_metrics,
 )
 from .training_args import OptimizerNames, ParallelMode, TrainingArguments
@@ -952,8 +962,11 @@ class Trainer:
         if self.train_dataset is None or not has_length(self.train_dataset):
             return None
 
-        # Build the sampler.
-        if self.args.group_by_length:
+        if self.is_deepspeed_enabled and is_deepspeed_sp_enabled():
+            assert self.args.group_by_length is False, "Group by length is not supported with sequence parallelism."
+            return SequentialSampler(self.train_dataset)
+
+        elif self.args.group_by_length:
             if is_datasets_available() and isinstance(self.train_dataset, datasets.Dataset):
                 lengths = (
                     self.train_dataset[self.args.length_column_name]
@@ -1014,6 +1027,8 @@ class Trainer:
         if eval_dataset is None or not has_length(eval_dataset):
             return None
         # Build the sampler.
+        if self.is_deepspeed_enabled and is_deepspeed_sp_enabled():
+            return SequentialSampler(self.eval_dataset)
 
         # Deprecated code
         if self.args.use_legacy_prediction_loop:
@@ -3618,6 +3633,32 @@ class Trainer:
 
         return inputs
 
+    def _finalize_inputs(
+        self,
+        input_ids: torch.LongTensor = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        loss_mask: Optional[torch.Tensor] = None,
+        position_ids: Optional[torch.LongTensor] = None,
+        input_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
+        **model_kwargs,
+    ):
+        inputs = {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "loss_mask": loss_mask,
+            "position_ids": position_ids,
+            "input_embeds": input_embeds,
+            "labels": labels,
+            **model_kwargs,
+        }
+        if is_deepspeed_sp_enabled():
+            ds_plugin = self.accelerator.state.deepspeed_plugin
+            num_shards = ds_plugin.sequence_parallel_size
+            rank = ds_plugin.sequence_parallel_rank
+            inputs = shard_inputs(num_shards, rank, **inputs)
+        return inputs
+
     def compute_loss_context_manager(self):
         """
         A helper wrapper to group together context managers.
@@ -3715,12 +3756,16 @@ class Trainer:
             labels = inputs.pop("labels")
         else:
             labels = None
+
         if self.model_accepts_loss_kwargs:
             loss_kwargs = {}
             if num_items_in_batch is not None:
                 loss_kwargs["num_items_in_batch"] = num_items_in_batch
             inputs = {**inputs, **loss_kwargs}
+
+        inputs = self._finalize_inputs(**inputs)
         outputs = model(**inputs)
+
         # Save past state if it exists
         # TODO: this needs to be fixed and made cleaner later.
         if self.args.past_index >= 0:
@@ -4435,6 +4480,7 @@ class Trainer:
         loss_without_labels = True if len(self.label_names) == 0 and return_loss else False
 
         inputs = self._prepare_inputs(inputs)
+
         if ignore_keys is None:
             if hasattr(self.model, "config"):
                 ignore_keys = getattr(self.model.config, "keys_to_ignore_at_inference", [])

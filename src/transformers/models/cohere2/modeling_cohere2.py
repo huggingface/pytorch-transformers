@@ -659,11 +659,8 @@ class Cohere2Model(Cohere2PreTrainedModel):
             [Cohere2DecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
         self.norm = Cohere2LayerNorm(hidden_size=(config.hidden_size), eps=config.layer_norm_eps)
-
-        self.gradient_checkpointing = False
-        if getattr(config, "pretraining_tp", 1) != 1:
-            logger.warn("`pretraining_tp` is deprecated, please use `model.tensor_parallel` instead.")
         self.rotary_emb = Cohere2RotaryEmbedding(config=config)
+        self.gradient_checkpointing = False
 
         # Initialize weights and apply final processing
         self.post_init()

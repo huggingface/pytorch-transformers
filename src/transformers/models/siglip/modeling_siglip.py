@@ -438,7 +438,6 @@ class SiglipFlashAttention2(SiglipAttention):
 
     is_causal = False
 
-    # Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2.__init__
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

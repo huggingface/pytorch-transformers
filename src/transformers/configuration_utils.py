@@ -37,10 +37,10 @@ from .utils import (
     download_url,
     extract_commit_hash,
     is_remote_url,
-    is_timm_config_dict,
     is_torch_available,
     logging,
 )
+from .utils.generic import is_timm_config_dict
 
 
 logger = logging.get_logger(__name__)

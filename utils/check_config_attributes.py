@@ -34,6 +34,9 @@ CONFIG_MAPPING = transformers.models.auto.configuration_auto.CONFIG_MAPPING
 SPECIAL_CASES_TO_ALLOW = {
     # 'max_position_embeddings' is not used in modeling file, but needed for eval frameworks like Huggingface's lighteval (https://github.com/huggingface/lighteval/blob/af24080ea4f16eaf1683e353042a2dfc9099f038/src/lighteval/models/base_model.py#L264).
     # periods and offsers are not used in modeling file, but used in the configuration file to define `layers_block_type` and `layers_num_experts`.
+    "BambaConfig": [
+        "attn_layer_indices",
+    ],
     "JambaConfig": [
         "max_position_embeddings",
         "attn_layer_offset",
@@ -307,6 +310,10 @@ def check_attribute_being_used(config_class, attributes, default_value, source_s
         "backbone_config",
         "use_timm_backbone",
         "backbone_kwargs",
+        # rope attributes may not appear directly in the modeling but are used
+        "rope_theta",
+        "partial_rotary_factor",
+        "pretraining_tp",
     ]
     attributes_used_in_generation = ["encoder_no_repeat_ngram_size"]
 

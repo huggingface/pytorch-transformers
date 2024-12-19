@@ -1,71 +1,25 @@
-import argparse
-import json
-import logging
+from logging import Logger
 import os
-import sys
-from statistics import mean
 from threading import Event, Thread
 from time import perf_counter, sleep
 from typing import Optional
+from benchmarks_entrypoint import MetricsRecorder
 import gpustat
 import psutil
 import psycopg2
 import torch
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig, StaticCache
-from psycopg2.extras import Json
-from psycopg2.extensions import register_adapter
 
 
 os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter("[%(levelname)s - %(asctime)s] %(message)s")
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-
 os.environ["TOKENIZERS_PARALLELISM"] = "1"
 torch.set_float32_matmul_precision("high")
-register_adapter(dict, Json)
 
 
-def parse_arguments():
-    """
-    Parse command line arguments for the benchmarking CLI.
-    """
-    parser = argparse.ArgumentParser(description="CLI for benchmarking the huggingface/transformers.")
-
-    parser.add_argument(
-        "branch",
-        type=str,
-        help="The branch name on which the benchmarking is performed.",
-    )
-
-    parser.add_argument(
-        "commit_id",
-        type=str,
-        help="The commit hash on which the benchmarking is performed.",
-    )
-
-    parser.add_argument(
-        "commit_msg",
-        type=str,
-        help="The commit message associated with the commit, truncated to 70 characters.",
-    )
-
-    args = parser.parse_args()
-
-    return args.branch, args.commit_id, args.commit_msg
-
-
-def collect_metrics(benchmark_id, continue_metric_collection):
+def collect_metrics(benchmark_id, continue_metric_collection, metrics_recorder):
     p = psutil.Process(os.getpid())
-    conn = psycopg2.connect("dbname=metrics")
-    cur = conn.cursor()
     while not continue_metric_collection.is_set():
         with p.oneshot():
             cpu_util = p.cpu_percent()
@@ -73,47 +27,41 @@ def collect_metrics(benchmark_id, continue_metric_collection):
         gpu_stats = gpustat.GPUStatCollection.new_query()
         gpu_util = gpu_stats[0]["utilization.gpu"]
         gpu_mem_megabytes = gpu_stats[0]["memory.used"]
-        cur.execute(
-            "INSERT INTO device_measurements (benchmark_id, cpu_util, mem_megabytes, gpu_util, gpu_mem_megabytes) VALUES (%s, %s, %s, %s, %s)",
-            (benchmark_id, cpu_util, mem_megabytes, gpu_util, gpu_mem_megabytes),
+        metrics_recorder.collect_device_measurements(
+            benchmark_id, cpu_util, mem_megabytes, gpu_util, gpu_mem_megabytes
         )
         sleep(0.01)
-        conn.commit()
-    conn.close()
 
 
-def run_benchmark(branch: str, commit_id: str, commit_msg: str, num_tokens_to_generate=100):
+def run_benchmark(logger: Logger, branch: str, commit_id: str, commit_msg: str, num_tokens_to_generate=100):
     continue_metric_collection = Event()
     metrics_thread = None
+    model_id = "meta-llama/Llama-2-7b-hf"
+    metrics_recorder = MetricsRecorder(psycopg2.connect("dbname=metrics"), logger, branch, commit_id, commit_msg)
     try:
         gpu_stats = gpustat.GPUStatCollection.new_query()
         gpu_name = gpu_stats[0]["name"]
-        conn = psycopg2.connect("dbname=metrics")
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO benchmarks (branch, commit_id, commit_message, gpu_name) VALUES (%s, %s, %s, %s) RETURNING benchmark_id",
-            (branch, commit_id, commit_msg, gpu_name),
+        benchmark_id = metrics_recorder.initialise_benchmark({"gpu_name": gpu_name, "model_id": model_id})
+        logger.info(f"running benchmark #{benchmark_id} on {gpu_name} for {model_id}")
+        metrics_thread = Thread(
+            target=collect_metrics,
+            args=[benchmark_id, continue_metric_collection, metrics_recorder],
         )
-        conn.commit()
-        benchmark_id = cur.fetchone()[0]
-        logger.info(f"running benchmark #{benchmark_id} on {gpu_name}")
-        metrics_thread = Thread(target=collect_metrics, args=[benchmark_id, continue_metric_collection])
         metrics_thread.start()
         logger.info("started background thread to fetch device metrics")
 
         os.environ["TOKENIZERS_PARALLELISM"] = "false"  # silence warnings when compiling
 
         device = "cuda"
-        ckpt = "meta-llama/Llama-2-7b-hf"
 
         logger.info("downloading weights")
         # This is to avoid counting download in model load time measurement
-        model = AutoModelForCausalLM.from_pretrained(ckpt, torch_dtype=torch.float16)
+        model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float16)
         gen_config = GenerationConfig(do_sample=False, top_p=1, temperature=1)
         logger.info("loading model")
         start = perf_counter()
         model = AutoModelForCausalLM.from_pretrained(
-            ckpt, torch_dtype=torch.float16, generation_config=gen_config
+            model_id, torch_dtype=torch.float16, generation_config=gen_config
         ).eval()
         model.to(device)
         torch.cuda.synchronize()
@@ -121,7 +69,7 @@ def run_benchmark(branch: str, commit_id: str, commit_msg: str, num_tokens_to_ge
         model_load_time = end - start
         logger.info(f"loaded model in: {model_load_time}s")
 
-        tokenizer = AutoTokenizer.from_pretrained(ckpt)
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
 
         prompt = "Why dogs are so cute?"
         inputs = tokenizer(prompt, return_tensors="pt").to(device)
@@ -368,41 +316,27 @@ def run_benchmark(branch: str, commit_id: str, commit_msg: str, num_tokens_to_ge
             logger.info(f"completed second compile generation in: {fourth_compile_generate_time}s")
             logger.info(f"generated: {tokenizer.batch_decode(output.cpu().tolist())}")
 
-        cur.execute(
-            """
-            INSERT INTO model_measurements (
-                benchmark_id,
-                measurements
-            ) VALUES (%s, %s)
-            """,
-            (
-                benchmark_id,
-                {
-                    "model_load_time": model_load_time,
-                    "first_eager_forward_pass_time_secs": first_eager_fwd_pass_time,
-                    "second_eager_forward_pass_time_secs": second_eager_fwd_pass_time,
-                    "first_eager_generate_time_secs": first_eager_generate_time,
-                    "second_eager_generate_time_secs": second_eager_generate_time,
-                    "time_to_first_token_secs": time_to_first_token,
-                    "time_to_second_token_secs": time_to_second_token,
-                    "time_to_third_token_secs": time_to_third_token,
-                    "time_to_next_token_mean_secs": mean_time_to_next_token,
-                    "first_compile_generate_time_secs": first_compile_generate_time,
-                    "second_compile_generate_time_secs": second_compile_generate_time,
-                    "third_compile_generate_time_secs": third_compile_generate_time,
-                    "fourth_compile_generate_time_secs": fourth_compile_generate_time,
-                },
-            ),
+        metrics_recorder.collect_model_measurements(
+            benchmark_id,
+            {
+                "model_load_time": model_load_time,
+                "first_eager_forward_pass_time_secs": first_eager_fwd_pass_time,
+                "second_eager_forward_pass_time_secs": second_eager_fwd_pass_time,
+                "first_eager_generate_time_secs": first_eager_generate_time,
+                "second_eager_generate_time_secs": second_eager_generate_time,
+                "time_to_first_token_secs": time_to_first_token,
+                "time_to_second_token_secs": time_to_second_token,
+                "time_to_third_token_secs": time_to_third_token,
+                "time_to_next_token_mean_secs": mean_time_to_next_token,
+                "first_compile_generate_time_secs": first_compile_generate_time,
+                "second_compile_generate_time_secs": second_compile_generate_time,
+                "third_compile_generate_time_secs": third_compile_generate_time,
+                "fourth_compile_generate_time_secs": fourth_compile_generate_time,
+            },
         )
-        conn.commit()
-        conn.close()
     except Exception as e:
         logger.error(f"Caught exception: {e}")
     continue_metric_collection.set()
     if metrics_thread is not None:
         metrics_thread.join()
-
-
-if __name__ == "__main__":
-    branch, commit_id, commit_msg = parse_arguments()
-    run_benchmark(branch, commit_id, commit_msg, num_tokens_to_generate=20)
+    metrics_recorder.close()

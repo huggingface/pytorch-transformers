@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS benchmarks (
   branch VARCHAR(255),
   commit_id VARCHAR(72),
   commit_message VARCHAR(70),
-  gpu_name VARCHAR(255),
+  metadata jsonb,
   created_at timestamp without time zone NOT NULL DEFAULT (current_timestamp AT TIME ZONE 'UTC')
 );
 

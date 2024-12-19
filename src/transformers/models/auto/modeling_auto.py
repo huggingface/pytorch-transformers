@@ -39,6 +39,7 @@ MODEL_MAPPING_NAMES = OrderedDict(
         ("aria_text", "AriaTextModel"),
         ("audio-spectrogram-transformer", "ASTModel"),
         ("autoformer", "AutoformerModel"),
+        ("bamba", "BambaModel"),
         ("bark", "BarkModel"),
         ("bart", "BartModel"),
         ("beit", "BeitModel"),
@@ -471,6 +472,7 @@ MODEL_FOR_CAUSAL_LM_MAPPING_NAMES = OrderedDict(
     [
         # Model for Causal LM mapping
         ("aria_text", "AriaTextForCausalLM"),
+        ("bamba", "BambaForCausalLM"),
         ("bart", "BartForCausalLM"),
         ("bert", "BertLMHeadModel"),
         ("bert-generation", "BertGenerationDecoder"),

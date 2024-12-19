@@ -417,12 +417,9 @@ class PersimmonModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTester
         # The output should be different for long inputs
         self.assertFalse(torch.allclose(original_long_output, scaled_long_output, atol=1e-5))
 
-    # Copied from tests.models.falcon.test_modeling_falcon.FalconModelTest.test_model_rope_scaling with Falcon->Persimmon
+    # Copied from tests.models.gpt_neox.test_modeling_gpt_neox.GPTNeoXModelTest.test_model_rope_scaling with GPTNeoX->Persimmon
     def test_model_rope_scaling(self):
         config, _ = self.model_tester.prepare_config_and_inputs_for_common()
-        hidden_size = config.hidden_size
-        num_heads = config.num_attention_heads
-        head_dim = hidden_size // num_heads
         scaling_factor = 10
         short_input_length = 10
         long_input_length = int(config.max_position_embeddings * 1.5)
@@ -435,11 +432,7 @@ class PersimmonModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTester
         position_ids_long = position_ids_long.unsqueeze(0)
 
         # Sanity check original RoPE
-        original_rope = PersimmonRotaryEmbedding(
-            head_dim,
-            max_position_embeddings=config.max_position_embeddings,
-            base=config.rope_theta,
-        ).to(torch_device)
+        original_rope = PersimmonRotaryEmbedding(config).to(torch_device)
         original_cos_short, original_sin_short = original_rope(x, position_ids_short)
         original_cos_long, original_sin_long = original_rope(x, position_ids_long)
         torch.testing.assert_close(original_cos_short, original_cos_long[:, :short_input_length, :])
@@ -447,13 +440,8 @@ class PersimmonModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTester
 
         # Sanity check linear RoPE scaling
         # New position "x" should match original position with index "x/scaling_factor"
-        linear_scaling_rope = PersimmonRotaryEmbedding(
-            head_dim,
-            max_position_embeddings=config.max_position_embeddings,
-            base=config.rope_theta,
-            scaling_factor=scaling_factor,
-            rope_type="linear",
-        ).to(torch_device)
+        config.rope_scaling = {"type": "linear", "factor": scaling_factor}
+        linear_scaling_rope = PersimmonRotaryEmbedding(config).to(torch_device)
         linear_cos_short, linear_sin_short = linear_scaling_rope(x, position_ids_short)
         linear_cos_long, linear_sin_long = linear_scaling_rope(x, position_ids_long)
         torch.testing.assert_close(linear_cos_short, linear_cos_long[:, :short_input_length, :])
@@ -466,13 +454,8 @@ class PersimmonModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTester
         # Sanity check Dynamic NTK RoPE scaling
         # Scaling should only be observed after a long input is fed. We can observe that the frequencies increase
         # with scaling_factor (or that `inv_freq` decreases)
-        ntk_scaling_rope = PersimmonRotaryEmbedding(
-            head_dim,
-            max_position_embeddings=config.max_position_embeddings,
-            base=config.rope_theta,
-            scaling_factor=scaling_factor,
-            rope_type="dynamic",
-        ).to(torch_device)
+        config.rope_scaling = {"type": "dynamic", "factor": scaling_factor}
+        ntk_scaling_rope = PersimmonRotaryEmbedding(config).to(torch_device)
         ntk_cos_short, ntk_sin_short = ntk_scaling_rope(x, position_ids_short)
         ntk_cos_long, ntk_sin_long = ntk_scaling_rope(x, position_ids_long)
         torch.testing.assert_close(ntk_cos_short, original_cos_short)

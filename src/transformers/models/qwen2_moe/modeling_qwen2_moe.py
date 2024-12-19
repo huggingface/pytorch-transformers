@@ -169,40 +169,18 @@ class Qwen2MoeRMSNorm(nn.Module):
 class Qwen2MoeRotaryEmbedding(nn.Module):
     def __init__(
         self,
-        dim=None,
-        max_position_embeddings=2048,
-        base=10000,
+        config: Qwen2MoeConfig,
         device=None,
-        scaling_factor=1.0,
-        rope_type="default",
-        config: Optional[Qwen2MoeConfig] = None,
     ):
         super().__init__()
-        # TODO (joao): remove the `if` below, only used for BC
         self.rope_kwargs = {}
-        if config is None:
-            logger.warning_once(
-                "`Qwen2MoeRotaryEmbedding` can now be fully parameterized by passing the model config through the "
-                "`config` argument. All other arguments will be removed in v4.46"
-            )
-            self.rope_kwargs = {
-                "rope_type": rope_type,
-                "factor": scaling_factor,
-                "dim": dim,
-                "base": base,
-                "max_position_embeddings": max_position_embeddings,
-            }
-            self.rope_type = rope_type
-            self.max_seq_len_cached = max_position_embeddings
-            self.original_max_seq_len = max_position_embeddings
+        # BC: "rope_type" was originally "type"
+        if hasattr(config, "rope_scaling") and config.rope_scaling is not None:
+            self.rope_type = config.rope_scaling.get("rope_type", config.rope_scaling.get("type"))
         else:
-            # BC: "rope_type" was originally "type"
-            if config.rope_scaling is not None:
-                self.rope_type = config.rope_scaling.get("rope_type", config.rope_scaling.get("type"))
-            else:
-                self.rope_type = "default"
-            self.max_seq_len_cached = config.max_position_embeddings
-            self.original_max_seq_len = config.max_position_embeddings
+            self.rope_type = "default"
+        self.max_seq_len_cached = config.max_position_embeddings
+        self.original_max_seq_len = config.max_position_embeddings
 
         self.config = config
         self.rope_init_fn = ROPE_INIT_FUNCTIONS[self.rope_type]
@@ -318,7 +296,8 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
 
-# Copied from transformers.models.qwen2.modeling_qwen2.Qwen2Attention with Qwen2->Qwen2Moe
+# copied from transformers.models.qwen2.modeling_qwen2.Qwen2Attention with Qwen2->Qwen2Moe
+# no longer copied after attention refactors
 class Qwen2MoeAttention(nn.Module):
     """
     Multi-headed attention from 'Attention Is All You Need' paper. Modified to use sliding window attention: Longformer
@@ -419,7 +398,8 @@ class Qwen2MoeAttention(nn.Module):
         return attn_output, attn_weights, past_key_value
 
 
-# Copied from transformers.models.qwen2.modeling_qwen2.Qwen2FlashAttention2 with Qwen2->Qwen2Moe
+# NO LONGER EXIST Copied from transformers.models.qwen2.modeling_qwen2.Qwen2FlashAttention2 with Qwen2->Qwen2Moe
+# TODO cyril: modular
 class Qwen2MoeFlashAttention2(Qwen2MoeAttention):
     """
     Qwen2Moe flash attention module, following Qwen2Moe attention module. This module inherits from `Qwen2MoeAttention`
@@ -429,7 +409,6 @@ class Qwen2MoeFlashAttention2(Qwen2MoeAttention):
     config.max_window_layers layers.
     """
 
-    # Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2.__init__
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -530,7 +509,8 @@ class Qwen2MoeFlashAttention2(Qwen2MoeAttention):
         return attn_output, attn_weights, past_key_value
 
 
-# Copied from transformers.models.qwen2.modeling_qwen2.Qwen2SdpaAttention with Qwen2->Qwen2Moe
+# NO LONGER EXIST Copied from transformers.models.qwen2.modeling_qwen2.Qwen2SdpaAttention with Qwen2->Qwen2Moe
+# TODO cyril: modular
 class Qwen2MoeSdpaAttention(Qwen2MoeAttention):
     """
     Qwen2Moe attention module using torch.nn.functional.scaled_dot_product_attention. This module inherits from
@@ -1578,11 +1558,10 @@ SQuAD (a linear layer on top of the hidden-states output to compute `span start 
 class Qwen2MoeForQuestionAnswering(Qwen2MoePreTrainedModel):
     base_model_prefix = "model"
 
-    # Copied from models.models.bloom.modeling_bloom.BloomForQuestionAnswering.__init__ with Bloom->Qwen2Moe
     def __init__(self, config):
         super().__init__(config)
-        self.model = Qwen2MoeModel(config)
         self.qa_outputs = nn.Linear(config.hidden_size, 2)
+        self.model = Qwen2MoeModel(config)  # diff with Llama: transformer->model
 
         # Initialize weights and apply final processing
         self.post_init()

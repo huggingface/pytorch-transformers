@@ -563,32 +563,17 @@ class ModelUtilsTest(TestCasePlus):
         if is_flash_attn_2_available():
             attn_implementation_available.append("flash_attention_2")
 
-        mistral_attention_classes = {
-            "eager": "MistralAttention",
-            "sdpa": "MistralSdpaAttention",
-            "flash_attention_2": "MistralFlashAttention2",
-        }
         for requested_attn_implementation in attn_implementation_available:
             model = AutoModelForCausalLM.from_pretrained(
                 TINY_MISTRAL, attn_implementation=requested_attn_implementation
             )
             self.assertEqual(model.config._attn_implementation, requested_attn_implementation)
-            for module in model.modules():
-                if "Attention" in module.__class__.__name__:
-                    self.assertEqual(
-                        module.__class__.__name__, mistral_attention_classes[requested_attn_implementation]
-                    )
 
             config = AutoConfig.from_pretrained(TINY_MISTRAL)
             model = AutoModelForCausalLM.from_pretrained(
                 TINY_MISTRAL, config=config, attn_implementation=requested_attn_implementation
             )
             self.assertEqual(model.config._attn_implementation, requested_attn_implementation)
-            for module in model.modules():
-                if "Attention" in module.__class__.__name__:
-                    self.assertEqual(
-                        module.__class__.__name__, mistral_attention_classes[requested_attn_implementation]
-                    )
 
     def test_model_from_config_attn_implementation(self):
         # test that the model can be instantiated with attn_implementation of either
@@ -602,11 +587,6 @@ class ModelUtilsTest(TestCasePlus):
         if is_flash_attn_2_available():
             attn_implementation_available.append("flash_attention_2")
 
-        mistral_attention_classes = {
-            "eager": "MistralAttention",
-            "sdpa": "MistralSdpaAttention",
-            "flash_attention_2": "MistralFlashAttention2",
-        }
         for requested_attn_implementation in attn_implementation_available:
             config = AutoConfig.from_pretrained(TINY_MISTRAL, attn_implementation=requested_attn_implementation)
             # Ensure the config was set correctly
@@ -614,11 +594,6 @@ class ModelUtilsTest(TestCasePlus):
             self.assertEqual(config._attn_implementation_internal, requested_attn_implementation)
             model = AutoModelForCausalLM.from_config(config)
             self.assertEqual(model.config._attn_implementation, requested_attn_implementation)
-            for module in model.modules():
-                if "Attention" in module.__class__.__name__:
-                    self.assertEqual(
-                        module.__class__.__name__, mistral_attention_classes[requested_attn_implementation]
-                    )
 
             config = AutoConfig.from_pretrained(TINY_MISTRAL)
             # When the config is not set, the default is "eager"
@@ -626,11 +601,6 @@ class ModelUtilsTest(TestCasePlus):
             self.assertEqual(config._attn_implementation_internal, None)
             model = AutoModelForCausalLM.from_config(config=config, attn_implementation=requested_attn_implementation)
             self.assertEqual(model.config._attn_implementation, requested_attn_implementation)
-            for module in model.modules():
-                if "Attention" in module.__class__.__name__:
-                    self.assertEqual(
-                        module.__class__.__name__, mistral_attention_classes[requested_attn_implementation]
-                    )
 
             # Set a nonsense attn_implementation in the config, which should be overridden by the explicit argument
             config = AutoConfig.from_pretrained(TINY_MISTRAL, attn_implementation="foo-bar-baz")
@@ -638,11 +608,6 @@ class ModelUtilsTest(TestCasePlus):
             self.assertEqual(config._attn_implementation_internal, "foo-bar-baz")
             model = AutoModelForCausalLM.from_config(config=config, attn_implementation=requested_attn_implementation)
             self.assertEqual(model.config._attn_implementation, requested_attn_implementation)
-            for module in model.modules():
-                if "Attention" in module.__class__.__name__:
-                    self.assertEqual(
-                        module.__class__.__name__, mistral_attention_classes[requested_attn_implementation]
-                    )
 
     def test_torch_dtype_byte_sizes(self):
         torch_dtypes_and_bytes = [
@@ -1749,6 +1714,26 @@ class ModelUtilsTest(TestCasePlus):
             with warnings.catch_warnings(record=True) as w:
                 new_model.generate(random_ids, max_new_tokens=3)
             self.assertTrue(len(w) == 0)
+
+    def test_load_model_with_state_dict_only(self):
+        model = BertModel.from_pretrained("hf-internal-testing/tiny-random-bert")
+        state_dict = model.state_dict()
+        config = model.config
+
+        model_loaded = BertModel.from_pretrained(
+            pretrained_model_name_or_path=None, config=config, state_dict=state_dict
+        )
+        self.assertTrue(check_models_equal(model, model_loaded))
+
+    def test_load_model_with_state_dict_only_low_cpu_mem_usage(self):
+        model = BertModel.from_pretrained("hf-internal-testing/tiny-random-bert")
+        state_dict = model.state_dict()
+        config = model.config
+
+        model_loaded = BertModel.from_pretrained(
+            pretrained_model_name_or_path=None, config=config, state_dict=state_dict, low_cpu_mem_usage=True
+        )
+        self.assertTrue(check_models_equal(model, model_loaded))
 
 
 @slow

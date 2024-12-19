@@ -2398,6 +2398,7 @@ class GenerationTesterMixin:
         # 2. We ignore models that have unique cache structures (e.g. mamba) or are in need of refatoring to match the
         #    standard cache format (e.g.gptbigcode )
         models_without_standard_cache = (
+            "bamba",
             "ctrl",
             "fsmt",
             "gptbigcode",

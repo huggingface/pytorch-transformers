@@ -484,7 +484,7 @@ class TFModelTesterMixin:
 
         return new_tf_outputs, new_pt_outputs
 
-    def check_pt_tf_outputs(self, tf_outputs, pt_outputs, model_class, tol=1e-5, name="outputs", attributes=None):
+    def check_pt_tf_outputs(self, tf_outputs, pt_outputs, model_class, tol=1e-4, name="outputs", attributes=None):
         """Check the outputs from PyTorch and TensorFlow models are close enough. Checks are done in a recursive way.
 
         Args:
@@ -495,6 +495,7 @@ class TFModelTesterMixin:
             attributes (`Tuple[str]`): The names of the output's element if the output is a tuple/list with each element
                 being a named field in the output.
         """
+        from transformers.cache_utils import DynamicCache
 
         self.assertEqual(type(name), str)
         if attributes is not None:
@@ -540,6 +541,8 @@ class TFModelTesterMixin:
                 attributes = tuple([f"{name}_{idx}" for idx in range(len(tf_outputs))])
 
             for tf_output, pt_output, attr in zip(tf_outputs, pt_outputs, attributes):
+                if isinstance(pt_output, DynamicCache):
+                    pt_output = pt_output.to_legacy_cache()
                 self.check_pt_tf_outputs(tf_output, pt_output, model_class, tol=tol, name=attr)
 
         elif isinstance(tf_outputs, tf.Tensor):

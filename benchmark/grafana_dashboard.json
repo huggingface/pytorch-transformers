@@ -30,7 +30,7 @@
       "title": "Go to data",
       "tooltip": "Go to data",
       "type": "link",
-      "url": "http://transformers-benchmarks.huggingface.co/d/fdz33iyzln9c0a/transformers-benchmarks?orgId=1&from=${StartTime}&to=${EndTime}"
+      "url": "http://transformers-benchmarks.hf.co/d/fdz33iyzln9c0a/transformers-benchmarks?orgId=1&from=${StartTime}&to=${EndTime}"
     }
   ],
   "liveNow": true,
@@ -77,7 +77,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 196
+                "value": 202
               }
             ]
           },
@@ -101,7 +101,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 581
+                "value": 524
               }
             ]
           },
@@ -113,7 +113,19 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 379
+                "value": 353
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "model_id"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 216
               }
             ]
           }
@@ -143,12 +155,14 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-postgresql-datasource"
+            "default": true,
+            "type": "grafana-postgresql-datasource",
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT commit_id as commit_id, commit_message, gpu_name, created_at AS date FROM benchmarks WHERE branch = '${branch}' ORDER BY benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT commit_id, commit_message, metadata->>'gpu_name' as gpu_name, metadata->>'model_id' as model_id, created_at AS date FROM benchmarks WHERE branch = '${branch}' AND metadata->>'gpu_name' = '${gpu_name}' ORDER BY benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -306,13 +320,14 @@
       "targets": [
         {
           "datasource": {
+            "default": true,
             "type": "grafana-postgresql-datasource",
-            "uid": "bdz2yss7sxo1sc"
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CAST(m.measurements->'first_eager_forward_pass_time_secs' AS double precision) AS first_eager_forward_pass_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND gpu_name = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT CAST(m.measurements->'first_eager_forward_pass_time_secs' AS double precision) AS first_eager_forward_pass_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND b.metadata->>'gpu_name' = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -431,13 +446,14 @@
       "targets": [
         {
           "datasource": {
+            "default": true,
             "type": "grafana-postgresql-datasource",
-            "uid": "bdz2yss7sxo1sc"
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CAST(m.measurements->'second_eager_forward_pass_time_secs' AS double precision) AS second_eager_forward_pass_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND gpu_name = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT CAST(m.measurements->'second_eager_forward_pass_time_secs' AS double precision) AS second_eager_forward_pass_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND b.metadata->>'gpu_name' = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -565,13 +581,14 @@
       "targets": [
         {
           "datasource": {
+            "default": true,
             "type": "grafana-postgresql-datasource",
-            "uid": "bdz2yss7sxo1sc"
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CAST(m.measurements->'time_to_first_token_secs' AS double precision) AS time_to_first_token_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND gpu_name = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT CAST(m.measurements->'time_to_first_token_secs' AS double precision) AS time_to_first_token_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND b.metadata->>'gpu_name' = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -686,13 +703,14 @@
       "targets": [
         {
           "datasource": {
+            "default": true,
             "type": "grafana-postgresql-datasource",
-            "uid": "bdz2yss7sxo1sc"
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CAST(m.measurements->'time_to_second_token_secs' AS double precision) AS time_to_second_token_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND gpu_name = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT CAST(m.measurements->'time_to_second_token_secs' AS double precision) AS time_to_second_token_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND b.metadata->>'gpu_name' = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -807,13 +825,14 @@
       "targets": [
         {
           "datasource": {
+            "default": true,
             "type": "grafana-postgresql-datasource",
-            "uid": "bdz2yss7sxo1sc"
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CAST(m.measurements->'time_to_third_token_secs' AS double precision) AS time_to_third_token_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND gpu_name = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT CAST(m.measurements->'time_to_third_token_secs' AS double precision) AS time_to_third_token_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND b.metadata->>'gpu_name' = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -928,13 +947,14 @@
       "targets": [
         {
           "datasource": {
+            "default": true,
             "type": "grafana-postgresql-datasource",
-            "uid": "bdz2yss7sxo1sc"
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CAST(m.measurements->'time_to_next_token_mean_secs' AS double precision) AS time_to_next_token_mean_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND gpu_name = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT CAST(m.measurements->'time_to_next_token_mean_secs' AS double precision) AS time_to_next_token_mean_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND b.metadata->>'gpu_name' = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1062,13 +1082,14 @@
       "targets": [
         {
           "datasource": {
+            "default": true,
             "type": "grafana-postgresql-datasource",
-            "uid": "bdz2yss7sxo1sc"
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CAST(m.measurements->'first_compile_generate_time_secs' AS double precision) AS first_compile_generate_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND gpu_name = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT CAST(m.measurements->'first_compile_generate_time_secs' AS double precision) AS first_compile_generate_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND b.metadata->>'gpu_name' = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1183,13 +1204,14 @@
       "targets": [
         {
           "datasource": {
+            "default": true,
             "type": "grafana-postgresql-datasource",
-            "uid": "bdz2yss7sxo1sc"
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CAST(m.measurements->'second_compile_generate_time_secs' AS double precision) AS second_compile_generate_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND gpu_name = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT CAST(m.measurements->'second_compile_generate_time_secs' AS double precision) AS second_compile_generate_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND b.metadata->>'gpu_name' = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1304,13 +1326,14 @@
       "targets": [
         {
           "datasource": {
+            "default": true,
             "type": "grafana-postgresql-datasource",
-            "uid": "bdz2yss7sxo1sc"
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CAST(m.measurements->'third_compile_generate_time_secs' AS double precision) AS third_compile_generate_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND gpu_name = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT CAST(m.measurements->'third_compile_generate_time_secs' AS double precision) AS third_compile_generate_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND b.metadata->>'gpu_name' = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1425,13 +1448,14 @@
       "targets": [
         {
           "datasource": {
+            "default": true,
             "type": "grafana-postgresql-datasource",
-            "uid": "bdz2yss7sxo1sc"
+            "uid": "be28nkzirtb0gd"
           },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CAST(m.measurements->'fourth_compile_generate_time_secs' AS double precision) AS fourth_compile_generate_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND gpu_name = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
+          "rawSql": "SELECT CAST(m.measurements->'fourth_compile_generate_time_secs' AS double precision) AS fourth_compile_generate_time_secs, left(b.commit_id, 7), m.time FROM benchmarks as b JOIN model_measurements AS m ON b.benchmark_id = m.benchmark_id WHERE b.branch = '${branch}' AND b.metadata->>'gpu_name' = '${gpu_name}' ORDER BY b.benchmark_id DESC LIMIT ${last_n_commits};",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1480,11 +1504,7 @@
       "id": 15,
       "panels": [
         {
-          "datasource": {
-            "default": true,
-            "type": "grafana-postgresql-datasource",
-            "uid": "be28nkzirtb0gd"
-          },
+          "datasource": {},
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1528,8 +1548,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1563,8 +1582,9 @@
           "targets": [
             {
               "datasource": {
+                "default": true,
                 "type": "grafana-postgresql-datasource",
-                "uid": "bdz2yss7sxo1sc"
+                "uid": "be28nkzirtb0gd"
               },
               "editorMode": "code",
               "format": "table",
@@ -1665,11 +1685,7 @@
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "default": true,
-            "type": "grafana-postgresql-datasource",
-            "uid": "be28nkzirtb0gd"
-          },
+          "datasource": {},
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1713,8 +1729,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1748,8 +1763,9 @@
           "targets": [
             {
               "datasource": {
+                "default": true,
                 "type": "grafana-postgresql-datasource",
-                "uid": "bdz2yss7sxo1sc"
+                "uid": "be28nkzirtb0gd"
               },
               "editorMode": "code",
               "format": "table",
@@ -1850,11 +1866,7 @@
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "default": true,
-            "type": "grafana-postgresql-datasource",
-            "uid": "be28nkzirtb0gd"
-          },
+          "datasource": {},
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1898,8 +1910,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1933,8 +1944,9 @@
           "targets": [
             {
               "datasource": {
+                "default": true,
                 "type": "grafana-postgresql-datasource",
-                "uid": "bdz2yss7sxo1sc"
+                "uid": "be28nkzirtb0gd"
               },
               "editorMode": "code",
               "format": "table",
@@ -2035,11 +2047,7 @@
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "default": true,
-            "type": "grafana-postgresql-datasource",
-            "uid": "be28nkzirtb0gd"
-          },
+          "datasource": {},
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2083,8 +2091,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2118,8 +2125,9 @@
           "targets": [
             {
               "datasource": {
+                "default": true,
                 "type": "grafana-postgresql-datasource",
-                "uid": "bdz2yss7sxo1sc"
+                "uid": "be28nkzirtb0gd"
               },
               "editorMode": "code",
               "format": "table",
@@ -2224,7 +2232,6 @@
       "type": "row"
     }
   ],
-  "refresh": "",
   "schemaVersion": 39,
   "tags": [],
   "templating": {
@@ -2236,6 +2243,7 @@
           "value": "main"
         },
         "datasource": {
+          "default": true,
           "type": "grafana-postgresql-datasource",
           "uid": "be28nkzirtb0gd"
         },
@@ -2248,7 +2256,7 @@
         "name": "branch",
         "options": [],
         "query": "SELECT DISTINCT branch FROM benchmarks;",
-        "refresh": 2,
+        "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "sort": 0,
@@ -2261,6 +2269,7 @@
           "value": "1729701492845"
         },
         "datasource": {
+          "default": true,
           "type": "grafana-postgresql-datasource",
           "uid": "be28nkzirtb0gd"
         },
@@ -2281,10 +2290,11 @@
       {
         "current": {
           "selected": false,
-          "text": "1730120430069",
-          "value": "1730120430069"
+          "text": "1730393397577",
+          "value": "1730393397577"
         },
         "datasource": {
+          "default": true,
           "type": "grafana-postgresql-datasource",
           "uid": "be28nkzirtb0gd"
         },
@@ -2312,15 +2322,16 @@
           "type": "grafana-postgresql-datasource",
           "uid": "be28nkzirtb0gd"
         },
-        "definition": "SELECT DISTINCT gpu_name FROM benchmarks;",
+        "definition": "SELECT DISTINCT metadata->>'gpu_name' FROM benchmarks;",
+        "description": "",
         "hide": 0,
         "includeAll": false,
         "label": "GPU",
         "multi": false,
         "name": "gpu_name",
         "options": [],
-        "query": "SELECT DISTINCT gpu_name FROM benchmarks;",
-        "refresh": 2,
+        "query": "SELECT DISTINCT metadata->>'gpu_name' FROM benchmarks;",
+        "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "sort": 0,
@@ -2328,7 +2339,7 @@
       },
       {
         "current": {
-          "selected": false,
+          "selected": true,
           "text": "10",
           "value": "10"
         },
@@ -2359,6 +2370,6 @@
   "timezone": "browser",
   "title": "Transformers benchmarks",
   "uid": "fdz33iyzln9c0a",
-  "version": 4,
+  "version": 10,
   "weekStart": ""
 }

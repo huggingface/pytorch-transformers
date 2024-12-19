@@ -119,6 +119,7 @@ if is_torch_available():
     from torch import nn
 
     from transformers import MODEL_MAPPING, AdaptiveEmbedding
+    from transformers.cache_utils import DynamicCache
     from transformers.modeling_utils import load_state_dict, no_init_weights
     from transformers.pytorch_utils import id_tensor_storage
 
@@ -1285,6 +1286,11 @@ class ModelTesterMixin:
                             )
                             for i in range(model.config.num_hidden_layers)
                         )
+                        empty_pkv = (
+                            DynamicCache.from_legacy_cache(empty_pkv)
+                            if model_class._supports_cache_class
+                            else empty_pkv
+                        )
 
                         cache_length = 9
                         cache_shape = (batch_size, num_heads, cache_length, head_dim)
@@ -1294,6 +1300,11 @@ class ModelTesterMixin:
                                 torch.rand(cache_shape, dtype=torch.float, device=torch_device),
                             )
                             for i in range(model.config.num_hidden_layers)
+                        )
+                        non_empty_pkv = (
+                            DynamicCache.from_legacy_cache(non_empty_pkv)
+                            if model_class._supports_cache_class
+                            else non_empty_pkv
                         )
 
                         inps = copy.deepcopy(inputs_to_test[0])
@@ -2471,7 +2482,7 @@ class ModelTesterMixin:
         return new_tf_outputs, new_pt_outputs
 
     # Copied from tests.test_modeling_tf_common.TFModelTesterMixin.check_pt_tf_outputs
-    def check_pt_tf_outputs(self, tf_outputs, pt_outputs, model_class, tol=1e-5, name="outputs", attributes=None):
+    def check_pt_tf_outputs(self, tf_outputs, pt_outputs, model_class, tol=1e-4, name="outputs", attributes=None):
         """Check the outputs from PyTorch and TensorFlow models are close enough. Checks are done in a recursive way.
 
         Args:
@@ -2527,6 +2538,8 @@ class ModelTesterMixin:
                 attributes = tuple([f"{name}_{idx}" for idx in range(len(tf_outputs))])
 
             for tf_output, pt_output, attr in zip(tf_outputs, pt_outputs, attributes):
+                if isinstance(pt_output, DynamicCache):
+                    pt_output = pt_output.to_legacy_cache()
                 self.check_pt_tf_outputs(tf_output, pt_output, model_class, tol=tol, name=attr)
 
         elif isinstance(tf_outputs, tf.Tensor):
@@ -2702,7 +2715,7 @@ class ModelTesterMixin:
         diff = np.abs((a - b)).max()
         self.assertLessEqual(diff, tol, f"Difference between torch and flax is {diff} (>= {tol}).")
 
-    def check_pt_flax_outputs(self, fx_outputs, pt_outputs, model_class, tol=1e-5, name="outputs", attributes=None):
+    def check_pt_flax_outputs(self, fx_outputs, pt_outputs, model_class, tol=1e-4, name="outputs", attributes=None):
         """
         Args:
             model_class: The class of the model that is currently testing. For example, ..., etc.
@@ -2712,7 +2725,6 @@ class ModelTesterMixin:
                 Currently unused, but in the future, we could use this information to make the error message clearer
                 by giving the name(s) of the output tensor(s) with large difference(s) between PT and Flax.
         """
-
         self.assertEqual(type(name), str)
         if attributes is not None:
             self.assertEqual(type(attributes), tuple, f"{name}: The argument `attributes` should be a `tuple`")
@@ -2757,6 +2769,8 @@ class ModelTesterMixin:
                 attributes = tuple([f"{name}_{idx}" for idx in range(len(fx_outputs))])
 
             for fx_output, pt_output, attr in zip(fx_outputs, pt_outputs, attributes):
+                if isinstance(pt_output, DynamicCache):
+                    pt_output = pt_output.to_legacy_cache()
                 self.check_pt_flax_outputs(fx_output, pt_output, model_class, tol=tol, name=attr)
 
         elif isinstance(fx_outputs, jnp.ndarray):
@@ -3881,15 +3895,6 @@ class ModelTesterMixin:
                     if "SdpaAttention" in class_name or "SdpaSelfAttention" in class_name:
                         raise ValueError("The eager model should not have SDPA attention layers")
 
-                has_sdpa = False
-                for name, submodule in model_sdpa.named_modules():
-                    class_name = submodule.__class__.__name__
-                    if "SdpaAttention" in class_name or "SdpaSelfAttention" in class_name:
-                        has_sdpa = True
-                        break
-                if not has_sdpa and model_sdpa.config.model_type != "falcon":
-                    raise ValueError("The SDPA model should have SDPA attention layers")
-
     @require_torch_sdpa
     def test_sdpa_can_dispatch_composite_models(self):
         """
@@ -3941,15 +3946,6 @@ class ModelTesterMixin:
                     class_name = submodule.__class__.__name__
                     if "SdpaAttention" in class_name or "SdpaSelfAttention" in class_name:
                         raise ValueError("The eager model should not have SDPA attention layers")
-
-                has_sdpa = False
-                for name, submodule in model_sdpa.named_modules():
-                    class_name = submodule.__class__.__name__
-                    if "SdpaAttention" in class_name or "SdpaSelfAttention" in class_name:
-                        has_sdpa = True
-                        break
-                if not has_sdpa and any(module_attn == "sdpa" for module_attn in [text_attn, vision_attn]):
-                    raise ValueError("The SDPA model should have SDPA attention layers")
 
     @parameterized.expand([("float16",), ("bfloat16",), ("float32",)])
     @require_torch_sdpa

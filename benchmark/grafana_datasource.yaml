@@ -1,0 +1,17 @@
+apiVersion: 1
+datasources:
+  - name: grafana-postgresql-datasource
+    uid: be28nkzirtb0gd
+    type: postgres
+    url: $GRAFANA_POSTGRES_DATASOURCE_URL
+    user: $GRAFANA_POSTGRES_DATASOURCE_USER
+    secureJsonData:
+      password: $GRAFANA_POSTGRES_DATASOURCE_PWD
+    jsonData:
+      database: metrics
+      maxOpenConns: 100
+      maxIdleConns: 100
+      maxIdleConnsAuto: true
+      connMaxLifetime: 14400
+      postgresVersion: 1000
+      timescaledb: false

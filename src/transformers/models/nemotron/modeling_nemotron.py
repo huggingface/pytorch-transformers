@@ -301,7 +301,8 @@ class NemotronAttention(nn.Module):
         return attn_output, attn_weights, past_key_value
 
 
-# Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2 with LLAMA->NEMOTRON,Llama->Nemotron,llama->nemotron
+# NO LONGER EXIST Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2 with LLAMA->NEMOTRON,Llama->Nemotron,llama->nemotron
+# TODO cyril: modular
 class NemotronFlashAttention2(NemotronAttention):
     """
     Nemotron flash attention module. This module inherits from `NemotronAttention` as the weights of the module stays
@@ -415,7 +416,8 @@ class NemotronFlashAttention2(NemotronAttention):
         return attn_output, attn_weights, past_key_value
 
 
-# Copied from transformers.models.llama.modeling_llama.LlamaSdpaAttention with LLAMA->NEMOTRON,Llama->Nemotron,llama->nemotron
+# NO LONGER EXIST Copied from transformers.models.llama.modeling_llama.LlamaSdpaAttention with LLAMA->NEMOTRON,Llama->Nemotron,llama->nemotron
+# TODO cyril: modular
 class NemotronSdpaAttention(NemotronAttention):
     """
     Nemotron attention module using torch.nn.functional.scaled_dot_product_attention. This module inherits from
@@ -514,7 +516,8 @@ NEMOTRON_ATTENTION_CLASSES = {
 }
 
 
-# Copied from transformers.models.llama.modeling_llama.LlamaDecoderLayer with LLAMA->NEMOTRON,Llama->Nemotron,llama->nemotron
+# copied from transformers.models.llama.modeling_llama.LlamaDecoderLayer with LLAMA->NEMOTRON,Llama->Nemotron,llama->nemotron
+# no longer copied after attention refactors
 class NemotronDecoderLayer(nn.Module):
     # Ignore copy
     def __init__(self, config: NemotronConfig, layer_idx: int):

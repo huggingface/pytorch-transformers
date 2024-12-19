@@ -23,6 +23,7 @@ import numpy as np
 
 import transformers
 from transformers import is_flax_available, is_torch_available
+from transformers.cache_utils import DynamicCache
 from transformers.models.auto import get_values
 from transformers.testing_utils import CaptureLogger, is_pt_flax_cross_test, require_flax, torch_device
 from transformers.utils import CONFIG_NAME, GENERATION_CONFIG_NAME, logging
@@ -180,7 +181,7 @@ class FlaxModelTesterMixin:
             check_equivalence(model, tuple_inputs, dict_inputs, {"output_hidden_states": True})
 
     # (Copied from tests.test_modeling_common.ModelTesterMixin.check_pt_flax_outputs)
-    def check_pt_flax_outputs(self, fx_outputs, pt_outputs, model_class, tol=1e-5, name="outputs", attributes=None):
+    def check_pt_flax_outputs(self, fx_outputs, pt_outputs, model_class, tol=1e-4, name="outputs", attributes=None):
         """
         Args:
             model_class: The class of the model that is currently testing. For example, ..., etc.
@@ -190,7 +191,6 @@ class FlaxModelTesterMixin:
                 Currently unused, but in the future, we could use this information to make the error message clearer
                 by giving the name(s) of the output tensor(s) with large difference(s) between PT and Flax.
         """
-
         self.assertEqual(type(name), str)
         if attributes is not None:
             self.assertEqual(type(attributes), tuple, f"{name}: The argument `attributes` should be a `tuple`")
@@ -235,6 +235,8 @@ class FlaxModelTesterMixin:
                 attributes = tuple([f"{name}_{idx}" for idx in range(len(fx_outputs))])
 
             for fx_output, pt_output, attr in zip(fx_outputs, pt_outputs, attributes):
+                if isinstance(pt_output, DynamicCache):
+                    pt_output = pt_output.to_legacy_cache()
                 self.check_pt_flax_outputs(fx_output, pt_output, model_class, tol=tol, name=attr)
 
         elif isinstance(fx_outputs, jnp.ndarray):

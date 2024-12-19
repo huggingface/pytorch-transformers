@@ -322,6 +322,8 @@
       sections:
       - local: model_doc/albert
         title: ALBERT
+      - local: model_doc/bamba
+        title: Bamba
       - local: model_doc/bart
         title: BART
       - local: model_doc/barthez

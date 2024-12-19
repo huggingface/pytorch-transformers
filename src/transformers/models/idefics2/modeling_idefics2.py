@@ -272,7 +272,6 @@ class Idefics2VisionFlashAttention2(Idefics2VisionAttention):
     flash attention and deal with padding tokens in case the input contains any of them.
     """
 
-    # Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2.__init__
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -859,7 +858,8 @@ class Idefics2PerceiverAttention(nn.Module):
         return attn_output, attn_weights, past_key_value
 
 
-# Copied from transformers.models.mistral.modeling_mistral.MistralFlashAttention2 with MistralAttention->Idefics2PerceiverAttention,MistralFlashAttention->Idefics2PerceiverFlashAttention,Mistral->Idefics2
+# NO LONGER EXIST Copied from transformers.models.mistral.modeling_mistral.MistralFlashAttention2 with MistralAttention->Idefics2PerceiverAttention,MistralFlashAttention->Idefics2PerceiverFlashAttention,Mistral->Idefics2
+# TODO cyril: modular
 class Idefics2PerceiverFlashAttention2(Idefics2PerceiverAttention):
     """
     Idefics2 flash attention module. This module inherits from `Idefics2PerceiverAttention` as the weights of the module stays
@@ -867,7 +867,6 @@ class Idefics2PerceiverFlashAttention2(Idefics2PerceiverAttention):
     flash attention and deal with padding tokens in case the input contains any of them.
     """
 
-    # Copied from transformers.models.llama.modeling_llama.LlamaFlashAttention2.__init__
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

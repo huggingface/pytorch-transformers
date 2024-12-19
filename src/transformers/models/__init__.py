@@ -20,6 +20,7 @@ from . import (
     audio_spectrogram_transformer,
     auto,
     autoformer,
+    bamba,
     bark,
     bart,
     barthez,

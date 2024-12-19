@@ -154,37 +154,38 @@
   - local: model_memory_anatomy
     title: Model training anatomy
 - title: Quantization
-  isExpanded: false
+  isExpanded: False
   sections:
   - local: quantization/overview
-    title: Getting started
-  - local: quantization/bitsandbytes
-    title: bitsandbytes
-  - local: quantization/gptq
-    title: GPTQ
-  - local: quantization/awq
-    title: AWQ
+    title: Overview
   - local: quantization/aqlm
     title: AQLM
-  - local: quantization/quanto
-    title: Quanto
-  - local: quantization/eetq
-    title: EETQ
-  - local: quantization/hqq
-    title: HQQ
-  - local: quantization/fbgemm_fp8
-    title: FBGEMM FP8
-  - local: quantization/optimum
-    title: Optimum
-  - local: quantization/torchao
-    title: TorchAO
+  - local: quantization/awq
+    title: AWQ
   - local: quantization/bitnet
     title: BitNet
+  - local: quantization/bitsandbytes
+    title: bitsandbytes
   - local: quantization/compressed_tensors
     title: compressed-tensors
+  - local: quantization/eetq
+    title: EETQ
+  - local: quantization/fbgemm_fp8
+    title: FBGEMM FP8
+  - local: quantization/gptq
+    title: GPTQ
+  - local: quantization/hqq
+    title: HQQ
+  - local: quantization/optimum
+    title: Optimum
+  - local: quantization/quanto
+    title: Quanto
+  - local: quantization/torchao
+    title: TorchAO
   - local: quantization/contribute
     title: Contribute new quantization method
 - title: Deploy to production
+  isExpanded: False
   sections:
   - local: serialization
     title: Export to ONNX
@@ -274,6 +275,7 @@
   - local: troubleshooting
     title: Troubleshoot
 - title: Community
+  isExpanded: False
   sections:
   - local: contributing
     title: How to contribute to Transformers?

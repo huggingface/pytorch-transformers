@@ -48,8 +48,6 @@ pip install -e .
 </hfoption>
 </hfoptions>
 
-Search using the compressed-tensors [tag](https://huggingface.co/models?other=compressed-tensors) to find a compatible model on the Hugging Face Hub.
-
 Only models that have already been quantized can be loaded at the moment, and once a model is loaded, it cannot be saved. To quantize a model into the compressed-tensors format, see [llm-compressor](https://github.com/vllm-project/llm-compressor). Alternatively, models can be created independently and serizlied with a compressed-tensors config.
 
 ```python

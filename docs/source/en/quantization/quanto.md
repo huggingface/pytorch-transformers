@@ -14,55 +14,56 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Optimum-quanto
+# Optimum Quanto
 
-<Tip>
+[Quanto](https://github.com/huggingface/optimum-quanto) is a PyTorch quantization backend for [Optimum](https://huggingface.co/docs/optimum/index). It features linear quantization for weights (float8, int8, int4, int2) with accuracy very similar to full-precision models. Quanto is compatible with with any model modality and device, making it simple to use regardless of hardware.
 
-Try optimum-quanto + transformers with this [notebook](https://colab.research.google.com/drive/16CXfVmtdQvciSh9BopZUDYcmXCDpvgrT?usp=sharing)!
+Quanto is also compatible with [torch.compile](https://pytorch.org/tutorials/intermediate/torch_compile_tutorial.html) for faster generation.
 
-</Tip>
-
-
-[🤗 optimum-quanto](https://github.com/huggingface/optimum-quanto) library is a versatile pytorch quantization toolkit. The quantization method used is the linear quantization. Quanto provides several unique features such as:
-
-- weights quantization (`float8`,`int8`,`int4`,`int2`)
-- activation quantization (`float8`,`int8`)
-- modality agnostic (e.g CV,LLM)
-- device agnostic (e.g CUDA,XPU,MPS,CPU)
-- compatibility with `torch.compile`
-- easy to add custom kernel for specific device
-- supports quantization aware training
-<!-- Add link to the blogpost -->
-
-Before you begin, make sure the following libraries are installed:
+Install Quanto with the following command.
 
 ```bash
 pip install optimum-quanto accelerate transformers
 ```
 
-Now you can quantize a model by passing [`QuantoConfig`] object in the [`~PreTrainedModel.from_pretrained`] method. This works for any model in any modality, as long as it contains `torch.nn.Linear` layers. 
+Quantize a model by creating a [`QuantoConfig`] and specifiying the `weights` parameter to quantize to. This works for any model in any modality as long as it contains [torch.nn.Linear](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html) layers.
 
-The integration with transformers only supports weights quantization. For the more complex use case such as activation quantization, calibration and quantization aware training, you should use [optimum-quanto](https://github.com/huggingface/optimum-quanto) library instead.
-
-By default, the weights are loaded in full precision (torch.float32) regardless of the actual data type the weights are stored in such as torch.float16. Set `torch_dtype="auto"` to load the weights in the data type defined in a model's `config.json` file to automatically load the most memory-optimal data type.
+> [!TIP]
+> The Transformers integration only supports weight quantization. Use the Quanto library directly if you need activation quantization, calibration, or QAT.
 
 ```py
 from transformers import AutoModelForCausalLM, AutoTokenizer, QuantoConfig
 
-model_id = "facebook/opt-125m"
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-quantization_config = QuantoConfig(weights="int8")
-quantized_model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="cuda:0", quantization_config=quantization_config)
+quant_config = QuantoConfig(weights="int8")
+model = transformers.AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-3.1-8B", 
+    torch_dtype="auto", 
+    device_map="auto", 
+    quantization_config=quant_config
+)
 ```
 
-Note that serialization is not supported yet with transformers but it is coming soon! If you want to save the model, you can use quanto library instead.
+## torch.compile
 
-Optimum-quanto library uses linear quantization algorithm for quantization. Even though this is a basic quantization technique, we get very good results! Have a look at the following benchmark (llama-2-7b on perplexity metric). You can find more benchmarks [here](https://github.com/huggingface/optimum-quanto/tree/main/bench/generation)
+Wrap a Quanto model with [torch.compile](https://pytorch.org/tutorials/intermediate/torch_compile_tutorial.html) for faster generation.
 
-<div class="flex gap-4">
-  <div>
-    <img class="rounded-xl" src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/quantization/NousResearch-Llama-2-7b-hf_Perplexity.png" alt="llama-2-7b-quanto-perplexity" />
-  </div>
-</div>
+```py
+import torch
+from transformers import AutoModelForSpeechSeq2Seq, QuantoConfig
 
-The library is versatile enough to be compatible with most PTQ optimization algorithms. The plan in the future is to integrate the most popular algorithms in the most seamless possible way (AWQ, Smoothquant).
+quant_config = QuantoConfig(weights="int8")
+model = AutoModelForSpeechSeq2Seq.from_pretrained(
+  "openai/whisper-large-v2",
+  torch_dtype="auto",
+  device_map="auto",
+  quantization_config=quant_config
+)
+
+model = torch.compile(model)
+```
+
+## Resources
+
+Read the [Quanto: a PyTorch quantization backend for Optimum](https://huggingface.co/blog/quanto-introduction) blog post to learn more about the library design and benchmarks.
+
+For more hands-on examples, take a look at the Quanto [notebook](https://colab.research.google.com/drive/16CXfVmtdQvciSh9BopZUDYcmXCDpvgrT?usp=sharing).

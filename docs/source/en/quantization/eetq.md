@@ -22,7 +22,7 @@ EETQ further supports fine-tuning with [PEFT](https://huggingface.co/docs/peft).
 
 Install EETQ from the [release page](https://github.com/NetEase-FuXi/EETQ/releases) or [source code](https://github.com/NetEase-FuXi/EETQ). CUDA 11.4+ is required for EETQ.
 
-<hfoption id="install">
+<hfoptions id="install">
 <hfoption id="release page">
 
 ```bash

@@ -13,8 +13,6 @@
     sections:
     - local: models
       title: Load
-    - local: gguf
-      title: GGUF
     - local: custom_models
       title: Create a custom model
     - local: how_to_hack_models
@@ -171,7 +169,9 @@
   - local: quantization/eetq
     title: EETQ
   - local: quantization/fbgemm_fp8
-    title: FBGEMM FP8
+    title: FBGEMM
+    - local: gguf
+      title: GGUF
   - local: quantization/gptq
     title: GPTQ
   - local: quantization/hqq
@@ -181,9 +181,9 @@
   - local: quantization/quanto
     title: Quanto
   - local: quantization/torchao
-    title: TorchAO
+    title: torchao
   - local: quantization/contribute
-    title: Contribute new quantization method
+    title: Contribute
 - title: Deploy to production
   isExpanded: False
   sections:

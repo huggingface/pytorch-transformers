@@ -16,4 +16,4 @@ rendered properly in your Markdown viewer.
 
 # Optimum
 
-The [Optimum](https://huggingface.co/docs/optimum/index) library supports quantization for Intel, Furiosa, ONNX Runtime, GPTQ, and lower-level PyTorch quantization functions. Consider using Optimum for quantization if you're using specific and optimized hardware like Intel CPUs, Furiosa NPUs or a model accelerator like ONNX Runtime.
+[Optimum](https://huggingface.co/docs/optimum/index) is an optimization library that supports quantization for Intel, Furiousa, ONNX Runtime, GPTQ, and lower-level PyTorch quantization functions. It is designed to enhance performance for specific hardware - Intel CPUs/HPUs, AMD GPUs, Furiousa NPUs, etc. - and model accelerators like ONNX Runtime.

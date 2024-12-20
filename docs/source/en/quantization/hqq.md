@@ -36,7 +36,7 @@ Quantize a model by creating a [`HqqConfig`] and specifying the `nbits` and `gro
 ``` py
 from transformers import AutoModelForCausalLM, AutoTokenizer, HqqConfig
 
-quant_config  = HqqConfig(nbits=8, group_size=64)
+quant_config = HqqConfig(nbits=8, group_size=64)
 model = transformers.AutoModelForCausalLM.from_pretrained(
     "meta-llama/Llama-3.1-8B", 
     torch_dtype=torch.float16, 
@@ -72,6 +72,9 @@ model = transformers.AutoModelForCausalLM.from_pretrained(
 )
 ```
 
+</hfoption>
+</hfoptions>
+
 ## Backends
 
 HQQ supports various backends, including pure PyTorch and custom dequantization CUDA kernels. These backends are suitable for older GPUs and PEFT/QLoRA training.
@@ -91,3 +94,7 @@ prepare_for_inference("model", backend="torchao_int4")
 ```
 
 Refer to the [Backend](https://github.com/mobiusml/hqq/#backend) guide for more details.
+
+## Resources
+
+Read the [Half-Quadratic Quantization of Large Machine Learning Models](https://mobiusml.github.io/hqq_blog/) blog post for more details about HQQ.

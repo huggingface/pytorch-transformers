@@ -170,8 +170,8 @@
     title: EETQ
   - local: quantization/fbgemm_fp8
     title: FBGEMM
-    - local: gguf
-      title: GGUF
+  - local: gguf
+    title: GGUF
   - local: quantization/gptq
     title: GPTQ
   - local: quantization/hqq

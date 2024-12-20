@@ -26,6 +26,13 @@ python src/transformers/models/colpali/convert_colpali_weights_to_hf.py \
     --original_vlm_name_or_path google/paligemma-3b-mix-448 \
     --output_dir vidore/colpali-v1.2-hf-internal \
     --push_to_hub
+
+python src/transformers/models/colpali/convert_colpali_weights_to_hf.py \
+    --model_id vidore/colpali-v1.3-merged \
+    --revision 5b955e3415a7c5468ab33119d98d6d45c3a5b2c3 \
+    --original_vlm_name_or_path google/paligemma-3b-mix-448 \
+    --output_dir vidore/colpali-v1.3-hf \
+    --push_to_hub
 ```
 """
 

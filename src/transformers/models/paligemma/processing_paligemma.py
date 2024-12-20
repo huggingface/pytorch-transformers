@@ -287,11 +287,6 @@ class PaliGemmaProcessor(ProcessorMixin):
                 elif not (isinstance(images, list) and isinstance(images[0], list) and is_valid_image(images[0][0])):
                     raise ValueError("images must be an image, list of images or list of list of images")
 
-                if suffix is not None and _is_str_or_image(suffix):
-                    suffix = [suffix]
-                if suffix is not None:
-                    suffix = [sfx + self.tokenizer.eos_token for sfx in suffix]
-
                 input_strings = [
                     build_string_from_input(
                         prompt=prompt,
@@ -314,6 +309,11 @@ class PaliGemmaProcessor(ProcessorMixin):
                     )
                     expanded_samples.append(expanded_sample)
                 input_strings = [f"{sample}\n" for sample in expanded_samples]
+
+        if suffix is not None and _is_str_or_image(suffix):
+            suffix = [suffix]
+        if suffix is not None:
+            suffix = [sfx + self.tokenizer.eos_token for sfx in suffix]
         pixel_values = self.image_processor(images, **output_kwargs["images_kwargs"])["pixel_values"]
 
         # max_length has to account for the image tokens

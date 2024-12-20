@@ -47,6 +47,22 @@ def ForCausalLMLoss(
     return loss
 
 
+def ForMaskedLMLoss(
+    logits, labels, vocab_size: int, num_items_in_batch: int = None, ignore_index: int = -100, **kwargs
+):
+    # Upcast to float if we need to compute the loss to avoid potential precision issues
+    logits = logits.float()
+
+    # Flatten the tokens
+    logits = logits.view(-1, vocab_size)
+    labels = labels.view(-1)
+    # Enable model parallelism
+
+    labels = labels.to(logits.device)
+    loss = fixed_cross_entropy(logits, labels, num_items_in_batch, ignore_index, **kwargs)
+    return loss
+
+
 def ForSequenceClassificationLoss(labels, pooled_logits, config, **kwargs):
     num_labels = config.num_labels
     if config.problem_type is None:
@@ -101,6 +117,7 @@ def ForTokenClassification(logits, labels, config, **kwargs):
 
 LOSS_MAPPING = {
     "ForCausalLM": ForCausalLMLoss,
+    "ForMaskedLM": ForMaskedLMLoss,
     "ForQuestionAnswering": ForQuestionAnsweringLoss,
     "ForSequenceClassification": ForSequenceClassificationLoss,
     "ForTokenClassification": ForTokenClassification,

@@ -159,19 +159,13 @@ COLPALI_FOR_RETRIEVAL_INPUT_DOCSTRING = r"""
 
 @add_start_docstrings(
     """
-    ColPali leverages Vision Language Models (VLMs) to construct efficient multi-vector embeddings in the visual space for document retrieval.
-    By feeding the ViT output patches from PaliGemma-3B to a linear projection, we create a multi-vector representation of documents. The model
-    is trained to maximize the similarity between these document embeddings and the query embeddings, following the ColBERT method.
+    In our proposed ColPali approach, we leverage VLMs to construct efficient multi-vector embeddings directly
+    from document images (“screenshots”) for document retrieval. We train the model to maximize the similarity
+    between these document embeddings and the corresponding query embeddings, using the late interaction method
+    introduced in ColBERT.
 
-    Using ColPali removes the need for potentially complex and brittle layout recognition and OCR pipelines with a single model that can take into account
-    both the textual and visual content (layout, charts, ...) of a document.
-
-    ColPali was introduced in the following paper: [*ColPali: Efficient Document Retrieval with Vision Language Models*](https://arxiv.org/abs/2407.01449).
-
-    Resources:
-    - A blog post detailing ColPali, a vision retrieval model, can be found [here](https://huggingface.co/blog/manu/colpali). 📝
-    - The code for using and training the original ColPali model and for the `colpali-engine` package can be found [here](https://github.com/illuin-tech/colpali). 🌎
-    - Cookbooks for learning to use the Hf version of ColPali, fine-tuning, and similarity maps generation can be found [here](https://github.com/tonywu71/colpali-cookbooks). 📚
+    Using ColPali removes the need for potentially complex and brittle layout recognition and OCR pipelines with a
+    single model that can take into account both the textual and visual content (layout, charts, etc.) of a document.
     """
 )
 class ColPaliForRetrieval(ColPaliPreTrainedModel):

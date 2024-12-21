@@ -182,6 +182,8 @@
     title: Quanto
   - local: quantization/torchao
     title: torchao
+  - local: quantization/vptq
+    title: VPTQ
   - local: quantization/contribute
     title: Contribute
 - title: Deploy to production

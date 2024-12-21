@@ -16,19 +16,17 @@ rendered properly in your Markdown viewer.
 
 # AQLM
 
-> [!TIP]
-> Try AQLM on [Google Colab](https://colab.research.google.com/drive/1-xZmBRXT5Fm3Ghn4Mwa2KRypORXb855X?usp=sharing)!
+Additive Quantization of Language Models ([AQLM](https://arxiv.org/abs/2401.06118)) quantizes multiple weights together and takes advantage of interdependencies between them. AQLM represents groups of 8-16 weights as a sum of multiple vector codes.
 
-Additive Quantization of Language Models ([AQLM](https://arxiv.org/abs/2401.06118)) is a Large Language Models compression method. It quantizes multiple weights together and takes advantage of interdependencies between them. AQLM represents groups of 8-16 weights as a sum of multiple vector codes.
+AQLM also supports fine-tuning with [LoRA](https://huggingface.co/docs/peft/package_reference/lora) with the [PEFT](https://huggingface.co/docs/peft) library, and is fully compatible with [torch.compile](https://pytorch.org/tutorials/intermediate/torch_compile_tutorial.html) for even faster inference and training.
 
-Inference support for AQLM is realised in the `aqlm` library. Make sure to install it to run the models (note aqlm works only with python>=3.10):
+Run the command below to install the AQLM library with kernel support for both GPU and CPU inference and training. AQLM only works with Python 3.10+.
+
 ```bash
 pip install aqlm[gpu,cpu]
 ```
 
-The library provides efficient kernels for both GPU and CPU inference and training.
-
-The instructions on how to quantize models yourself, as well as all the relevant code can be found in the corresponding GitHub [repository](https://github.com/Vahe1994/AQLM). To run AQLM models simply load a model that has been quantized with AQLM:
+Load an AQLM-quantized model with [`~PreTrainedModel.from_pretrained`].
 
 ```python
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -38,20 +36,21 @@ quantized_model = AutoModelForCausalLM.from_pretrained(
     torch_dtype="auto", 
     device_map="auto"
 )
-tokenizer = AutoTokenizer.from_pretrained("ISTA-DASLab/Mixtral-8x7b-AQLM-2Bit-1x16-hf")
 ```
 
-## PEFT
+## Configurations
 
-Starting with version `aqlm 1.0.2`, AQLM supports Parameter-Efficient Fine-Tuning in a form of [LoRA](https://huggingface.co/docs/peft/package_reference/lora) integrated into the [PEFT](https://huggingface.co/blog/peft) library.
+AQLM quantization setups vary mainly in the number of codebooks used, as well as codebook sizes in bits. The most popular setups and supported inference kernels are shown below.
 
-## AQLM configurations
-
-AQLM quantization setups vary mainly on the number of codebooks used as well as codebook sizes in bits. The most popular setups, as well as inference kernels they support are:
- 
 | Kernel | Number of codebooks | Codebook size, bits | Notation | Accuracy | Speedup     | Fast GPU inference | Fast CPU inference |
 |---|---------------------|---------------------|----------|-------------|-------------|--------------------|--------------------|
 | Triton | K                   | N                  | KxN     | -        | Up to ~0.7x | ✅                  | ❌                  |
 | CUDA | 1                   | 16                  | 1x16     | Best        | Up to ~1.3x | ✅                  | ❌                  |
 | CUDA | 2                   | 8                   | 2x8      | OK          | Up to ~3.0x | ✅                  | ❌                  |
 | Numba | K                   | 8                   | Kx8      | Good        | Up to ~4.0x | ❌                  | ✅                  |
+
+## Resources
+
+Run the AQLM demo [notebook](https://colab.research.google.com/drive/1-xZmBRXT5Fm3Ghn4Mwa2KRypORXb855X?usp=sharing) for more examples of how to quantize a model, push a quantized model to the Hub, and more.
+
+For more example demo notebooks, visit the AQLM [repository](https://github.com/Vahe1994/AQLM).

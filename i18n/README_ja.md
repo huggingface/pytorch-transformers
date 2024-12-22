@@ -256,7 +256,7 @@ Hugging Faceチームによって作られた **[トランスフォーマーを�
 
 ### pipにて
 
-このリポジトリは、Python 3.9+, Flax 0.4.1+, PyTorch 1.11+, TensorFlow 2.6+ でテストされています。
+このリポジトリは、Python 3.9+, Flax 0.4.1+, PyTorch 2.0+, TensorFlow 2.6+ でテストされています。
 
 🤗Transformersは[仮想環境](https://docs.python.org/3/library/venv.html)にインストールする必要があります。Pythonの仮想環境に慣れていない場合は、[ユーザーガイド](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/)を確認してください。
 

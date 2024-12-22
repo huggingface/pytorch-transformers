@@ -22,6 +22,9 @@ etc. Model contribution PRs rarely add less than 3-5k lines of code, with much o
 This raises the bar for contributions, and with Modular Transformers, we're aiming to lower the bar to a much more
 acceptable point.
 
+If you plan to add a model to `transformers` make sure you read [How to add a model to 🤗 Transformers?](https://huggingface.co/docs/transformers/add_new_model).
+For any kind of contributions, see [CONTRIBUTING.md](https://github.com/huggingface/transformers/blob/main/CONTRIBUTING.md).
+
 ## What is it?
 
 Modular Transformers introduces the concept of a "modular" file to a model folder. This modular file accepts code
@@ -43,6 +46,12 @@ be moved to the new Modular Transformers format in the coming months.
 
 ### Details 
 
+To generate a single file from the modular file, run the following command.
+
+```bash
+python utils/modular_model_converter.py --files-to-parse src/transformers/models/<your_model>/modular_<your_model>.py
+```
+
 The "linter", which unravels the inheritance and creates all single-files from the modular file, will flatten the 
 inheritance while trying to be invisible to Python users. At this time, the linter flattens a **single** level of
 inheritance.
@@ -59,7 +68,11 @@ file, and the corresponding files will be created for you.
 
 ### Enforcement
 
-[TODO] We are introducing a new test, that makes sure the generated content matches what is present in the `modular_xxxx.py`
+Run the command below to ensure the generated content matches `modular_<your_model>.py`
+
+```bash
+python utils/check_modular_conversion.py --files src/transformers/models/<your_model>/modular_<your_model>.py
+```
 
 ### Examples
 

@@ -35,6 +35,10 @@ Transformers에서 지원되지 않는 양자화 기법들은 [`HfQuantizer`] �
 
 [[autodoc]] AqlmConfig
 
+## VptqConfig[[transformers.VptqConfig]]
+
+[[autodoc]] VptqConfig
+
 ## AwqConfig[[transformers.AwqConfig]]
 
 [[autodoc]] AwqConfig

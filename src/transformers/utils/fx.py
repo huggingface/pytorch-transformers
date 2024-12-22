@@ -60,7 +60,6 @@ from ..models.auto.modeling_auto import (
     MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING_NAMES,
     MODEL_MAPPING_NAMES,
 )
-from ..pytorch_utils import is_torch_greater_or_equal_than_2_0
 from .import_utils import (
     ENV_VARS_TRUE_VALUES,
     TORCH_FX_REQUIRED_VERSION,
@@ -635,10 +634,9 @@ _MANUAL_META_OVERRIDES: Dict[Callable, Callable] = {
     operator.getitem: operator_getitem,
 }
 
-if is_torch_greater_or_equal_than_2_0:
-    _MANUAL_META_OVERRIDES[torch.nn.functional.scaled_dot_product_attention] = (
-        torch_nn_functional_scaled_dot_product_attention
-    )
+_MANUAL_META_OVERRIDES[torch.nn.functional.scaled_dot_product_attention] = (
+    torch_nn_functional_scaled_dot_product_attention
+)
 
 
 class HFProxy(Proxy):

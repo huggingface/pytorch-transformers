@@ -93,11 +93,13 @@ FSDP_MIN_VERSION = "1.12.0"
 GGUF_MIN_VERSION = "0.10.0"
 XLA_FSDPV2_MIN_VERSION = "2.2.0"
 HQQ_MIN_VERSION = "0.2.1"
+VPTQ_MIN_VERSION = "0.0.4"
 
 
 _accelerate_available, _accelerate_version = _is_package_available("accelerate", return_version=True)
 _apex_available = _is_package_available("apex")
 _aqlm_available = _is_package_available("aqlm")
+_vptq_available, _vptq_version = _is_package_available("vptq", return_version=True)
 _av_available = importlib.util.find_spec("av") is not None
 _bitsandbytes_available = _is_package_available("bitsandbytes")
 _eetq_available = _is_package_available("eetq")
@@ -814,6 +816,10 @@ def is_apex_available():
 
 def is_aqlm_available():
     return _aqlm_available
+
+
+def is_vptq_available(min_version: str = VPTQ_MIN_VERSION):
+    return _vptq_available and version.parse(_vptq_version) >= version.parse(min_version)
 
 
 def is_av_available():

@@ -47,8 +47,6 @@ from ...test_modeling_common import (
 if is_torch_available():
     import torch
 
-else:
-    is_torch_greater_or_equal_than_2_0 = False
 
 if is_vision_available():
     from PIL import Image

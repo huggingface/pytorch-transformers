@@ -50,6 +50,9 @@ RUN python3 -m pip install --no-cache-dir git+https://github.com/huggingface/pef
 # Add aqlm for quantization testing
 RUN python3 -m pip install --no-cache-dir aqlm[gpu]==1.0.2
 
+# Add vptq for quantization testing
+RUN python3 -m pip install --no-cache-dir vptq
+
 # Add hqq for quantization testing
 RUN python3 -m pip install --no-cache-dir hqq
 

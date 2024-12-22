@@ -14,6 +14,7 @@
 
 import collections
 import contextlib
+import copy
 import doctest
 import functools
 import gc
@@ -142,6 +143,7 @@ from .utils import (
     is_torchdynamo_available,
     is_torchvision_available,
     is_vision_available,
+    is_vptq_available,
     strtobool,
 )
 
@@ -1142,6 +1144,13 @@ def require_aqlm(test_case):
     return unittest.skipUnless(is_aqlm_available(), "test requires aqlm")(test_case)
 
 
+def require_vptq(test_case):
+    """
+    Decorator marking a test that requires vptq
+    """
+    return unittest.skipUnless(is_vptq_available(), "test requires vptq")(test_case)
+
+
 def require_eetq(test_case):
     """
     Decorator marking a test that requires eetq
@@ -1386,6 +1395,53 @@ def assert_screenout(out, what):
     out_pr = apply_print_resets(out).lower()
     match_str = out_pr.find(what.lower())
     assert match_str != -1, f"expecting to find {what} in output: f{out_pr}"
+
+
+def set_model_tester_for_less_flaky_test(test_case):
+    if hasattr(test_case.model_tester, "num_hidden_layers"):
+        test_case.model_tester.num_hidden_layers = 1
+    if (
+        hasattr(test_case.model_tester, "vision_config")
+        and "num_hidden_layers" in test_case.model_tester.vision_config
+    ):
+        test_case.model_tester.vision_config = copy.deepcopy(test_case.model_tester.vision_config)
+        test_case.model_tester.vision_config["num_hidden_layers"] = 1
+    if hasattr(test_case.model_tester, "text_config") and "num_hidden_layers" in test_case.model_tester.text_config:
+        test_case.model_tester.text_config = copy.deepcopy(test_case.model_tester.text_config)
+        test_case.model_tester.text_config["num_hidden_layers"] = 1
+
+
+def set_config_for_less_flaky_test(config):
+    target_attrs = [
+        "rms_norm_eps",
+        "layer_norm_eps",
+        "norm_eps",
+        "norm_epsilon",
+        "layer_norm_epsilon",
+        "batch_norm_eps",
+    ]
+    for target_attr in target_attrs:
+        setattr(config, target_attr, 1.0)
+
+    # norm layers (layer/group norm, etc.) could cause flaky tests when the tensors have very small variance.
+    # (We don't need the original epsilon values to check eager/sdpa matches)
+    attrs = ["text_config", "vision_config", "text_encoder", "audio_encoder", "decoder"]
+    for attr in attrs:
+        if hasattr(config, attr):
+            for target_attr in target_attrs:
+                setattr(getattr(config, attr), target_attr, 1.0)
+
+
+def set_model_for_less_flaky_test(model):
+    # Another way to make sure norm layers have desired epsilon. (Some models don't set it from its config.)
+    target_names = ("LayerNorm", "GroupNorm", "BatchNorm", "RMSNorm", "BatchNorm2d", "BatchNorm1d")
+    target_attrs = ["eps", "epsilon", "variance_epsilon"]
+    if is_torch_available() and isinstance(model, torch.nn.Module):
+        for module in model.modules():
+            if type(module).__name__.endswith(target_names):
+                for attr in target_attrs:
+                    if hasattr(module, attr):
+                        setattr(module, attr, 1.0)
 
 
 class CaptureStd:

@@ -44,9 +44,6 @@ if is_torch_available():
 
     from transformers import IdeficsForVisionText2Text, IdeficsModel, IdeficsProcessor
     from transformers.models.idefics.configuration_idefics import IdeficsPerceiverConfig, IdeficsVisionConfig
-    from transformers.pytorch_utils import is_torch_greater_or_equal_than_2_0
-else:
-    is_torch_greater_or_equal_than_2_0 = False
 
 if is_vision_available():
     from PIL import Image
@@ -327,7 +324,6 @@ class IdeficsModelTester:
         self.skipTest(reason="Idefics has a hard requirement on SDPA, skipping this test")
 
 
-@unittest.skipIf(not is_torch_greater_or_equal_than_2_0, reason="pytorch 2.0 or higher is required")
 @require_torch
 class IdeficsModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (IdeficsModel, IdeficsForVisionText2Text) if is_torch_available() else ()
@@ -594,7 +590,6 @@ class IdeficsModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase)
         pass
 
 
-@unittest.skipIf(not is_torch_greater_or_equal_than_2_0, reason="pytorch 2.0 or higher is required")
 @require_torch
 class IdeficsForVisionText2TextTest(IdeficsModelTest, GenerationTesterMixin, unittest.TestCase):
     all_model_classes = (IdeficsForVisionText2Text,) if is_torch_available() else ()
@@ -818,7 +813,6 @@ class IdeficsForVisionText2TextTest(IdeficsModelTest, GenerationTesterMixin, uni
         pass
 
 
-@unittest.skipIf(not is_torch_greater_or_equal_than_2_0, reason="pytorch 2.0 or higher is required")
 @require_torch
 @require_vision
 class IdeficsModelIntegrationTest(TestCasePlus):

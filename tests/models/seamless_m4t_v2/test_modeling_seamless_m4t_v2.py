@@ -840,7 +840,13 @@ class SeamlessM4Tv2GenerationTest(unittest.TestCase):
     def test_speech_generation(self):
         config, input_speech, input_text = self.prepare_speech_and_text_input()
 
+        from transformers.testing_utils import set_config_for_less_flaky_test, set_model_for_less_flaky_test
+
+        set_config_for_less_flaky_test(config)
+
         model = SeamlessM4Tv2Model(config=config)
+        set_model_for_less_flaky_test(model)
+
         self.update_generation(model)
         model.save_pretrained(self.tmpdirname)
         model.to(torch_device)
@@ -852,6 +858,11 @@ class SeamlessM4Tv2GenerationTest(unittest.TestCase):
         state_dict = model.state_dict()
 
         text_model = SeamlessM4Tv2ForTextToSpeech.from_pretrained(self.tmpdirname)
+        # Even if this component is loaded after `model.save_pretrained` which is after
+        # `set_model_for_less_flaky_test(model)`, we still need to apply `set_model_for_less_flaky_test` here as the
+        # `eps` attribute in the model's norm layers is not set from the config.
+        set_model_for_less_flaky_test(text_model)
+
         self.update_generation(text_model)
         text_model.to(torch_device)
         text_model.eval()
@@ -859,6 +870,11 @@ class SeamlessM4Tv2GenerationTest(unittest.TestCase):
         output_text = self.factory_generation_speech_test(model, input_text)
 
         speech_model = SeamlessM4Tv2ForSpeechToSpeech.from_pretrained(self.tmpdirname)
+        # Even if this component is loaded after `model.save_pretrained` which is after
+        # `set_model_for_less_flaky_test(model)`, we still need to apply `set_model_for_less_flaky_test` here as the
+        # `eps` attribute in the model's norm layers is not set from the config.
+        set_model_for_less_flaky_test(speech_model)
+
         self.update_generation(speech_model)
         speech_model.to(torch_device)
         speech_model.eval()

@@ -1175,7 +1175,8 @@ class SEWDEncoder(nn.Module):
             )
         else:
             # make sure padded tokens output 0
-            hidden_states[~attention_mask.bool()] = 0.0
+            expand_attention_mask = attention_mask.unsqueeze(-1).repeat(1, 1, hidden_states.shape[2])
+            hidden_states[~expand_attention_mask.bool()] = 0.0
 
             input_lengths = (attention_mask.long()).sum(-1)
             # apply pooling formula to get real output_lengths
@@ -1721,7 +1722,8 @@ class SEWDForSequenceClassification(SEWDPreTrainedModel):
             pooled_output = hidden_states.mean(dim=1)
         else:
             padding_mask = self._get_feature_vector_attention_mask(hidden_states.shape[1], attention_mask)
-            hidden_states[~padding_mask] = 0.0
+            expand_padding_mask = padding_mask.unsqueeze(-1).repeat(1, 1, hidden_states.shape[2])
+            hidden_states[~expand_padding_mask] = 0.0
             pooled_output = hidden_states.sum(dim=1) / padding_mask.sum(dim=1).view(-1, 1)
 
         logits = self.classifier(pooled_output)

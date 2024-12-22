@@ -71,8 +71,6 @@ if is_torch_available():
     import torch
     import torch.distributed as dist
 
-    from .pytorch_utils import is_torch_greater_or_equal_than_2_0
-
 if is_accelerate_available():
     from accelerate.state import AcceleratorState, PartialState
     from accelerate.utils import DistributedType
@@ -1157,7 +1155,7 @@ class TrainingArguments:
         },
     )
     dataloader_prefetch_factor: Optional[int] = field(
-        default=None if not is_torch_available() or is_torch_greater_or_equal_than_2_0 else 2,
+        default=None,
         metadata={
             "help": (
                 "Number of batches loaded in advance by each worker. "
@@ -1702,14 +1700,6 @@ class TrainingArguments:
                         raise ValueError(
                             "Your setup doesn't support bf16/gpu. You need torch>=1.10, using Ampere GPU with cuda>=11.0"
                         )
-                    elif not is_torch_xpu_available():
-                        # xpu
-                        from .pytorch_utils import is_torch_greater_or_equal_than_1_12
-
-                        if not is_torch_greater_or_equal_than_1_12:
-                            raise ValueError(
-                                "Your setup doesn't support bf16/xpu. You need torch>=1.12, using Intel XPU/GPU with IPEX installed"
-                            )
 
         if self.fp16 and self.bf16:
             raise ValueError("At most one of fp16 and bf16 can be True, but not both")
@@ -2056,11 +2046,7 @@ class TrainingArguments:
         if self.use_cpu:
             self.dataloader_pin_memory = False
 
-        if (
-            (not is_torch_available() or is_torch_greater_or_equal_than_2_0)
-            and self.dataloader_num_workers == 0
-            and self.dataloader_prefetch_factor is not None
-        ):
+        if self.dataloader_num_workers == 0 and self.dataloader_prefetch_factor is not None:
             raise ValueError(
                 "--dataloader_prefetch_factor can only be set when data is loaded in a different process, i.e."
                 " when --dataloader_num_workers > 1."

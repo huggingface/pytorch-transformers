@@ -25,7 +25,6 @@ from transformers.modeling_outputs import (
 )
 from transformers.models.superpoint.configuration_superpoint import SuperPointConfig
 
-from ...pytorch_utils import is_torch_greater_or_equal_than_1_13
 from ...utils import (
     ModelOutput,
     add_start_docstrings,
@@ -314,7 +313,7 @@ class SuperPointDescriptorDecoder(nn.Module):
         divisor = divisor.to(keypoints)
         keypoints /= divisor
         keypoints = keypoints * 2 - 1  # normalize to (-1, 1)
-        kwargs = {"align_corners": True} if is_torch_greater_or_equal_than_1_13 else {}
+        kwargs = {"align_corners": True}
         # [batch_size, num_channels, num_keypoints, 2] -> [batch_size, num_channels, num_keypoints, 2]
         keypoints = keypoints.view(batch_size, 1, -1, 2)
         descriptors = nn.functional.grid_sample(descriptors, keypoints, mode="bilinear", **kwargs)

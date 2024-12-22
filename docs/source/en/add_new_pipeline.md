@@ -184,7 +184,7 @@ class PairClassificationPipeline(Pipeline):
 ```
 
 The implementation is framework agnostic, and will work for PyTorch and TensorFlow models. If we have saved this in
-a file named `pair_classification.py`, we can then import it and register it like this. The [register_pipeline](https://github.com/huggingface/transformers/blob/9feae5fb0164e89d4998e5776897c16f7330d3df/src/transformers/pipelines/base.py#L1387) function registers the pipeline details (task type, pipeline class, supported backends) to a models `config.json` file.
+a file named `pair_classification.py`, we can then import it and register it like this.
 
 ```py
 from pair_classification import PairClassificationPipeline
@@ -197,6 +197,22 @@ PIPELINE_REGISTRY.register_pipeline(
     pt_model=AutoModelForSequenceClassification,
     tf_model=TFAutoModelForSequenceClassification,
 )
+```
+
+The [register_pipeline](https://github.com/huggingface/transformers/blob/9feae5fb0164e89d4998e5776897c16f7330d3df/src/transformers/pipelines/base.py#L1387) function registers the pipeline details (task type, pipeline class, supported backends) to a models `config.json` file.
+
+```json
+  "custom_pipelines": {
+    "pair-classification": {
+      "impl": "pair_classification.PairClassificationPipeline",
+      "pt": [
+        "AutoModelForSequenceClassification"
+      ],
+      "tf": [
+        "TFAutoModelForSequenceClassification"
+      ],
+    }
+  },
 ```
 
 Once this is done, we can use it with a pretrained model. For instance `sgugger/finetuned-bert-mrpc` has been

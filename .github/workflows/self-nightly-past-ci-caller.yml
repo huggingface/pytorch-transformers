@@ -21,39 +21,6 @@ jobs:
           echo "$(python3 -c 'print(int(${{ github.run_number }}) % 10)')"
           echo "run_number=$(python3 -c 'print(int(${{ github.run_number }}) % 10)')" >> $GITHUB_OUTPUT
 
-  run_past_ci_pytorch_1-13:
-    name: PyTorch 1.13
-    needs: get_number
-    if: needs.get_number.outputs.run_number == 0 && (cancelled() != true) && ((github.event_name == 'schedule') || ((github.event_name == 'push') && startsWith(github.ref_name, 'run_past_ci')))
-    uses: ./.github/workflows/self-past-caller.yml
-    with:
-      framework: pytorch
-      version: "1.13"
-      sha: ${{ github.sha }}
-    secrets: inherit
-
-  run_past_ci_pytorch_1-12:
-    name: PyTorch 1.12
-    needs: get_number
-    if: needs.get_number.outputs.run_number == 1 && (cancelled() != true) && ((github.event_name == 'schedule') || ((github.event_name == 'push') && startsWith(github.ref_name, 'run_past_ci')))
-    uses: ./.github/workflows/self-past-caller.yml
-    with:
-      framework: pytorch
-      version: "1.12"
-      sha: ${{ github.sha }}
-    secrets: inherit
-
-  run_past_ci_pytorch_1-11:
-    name: PyTorch 1.11
-    needs: get_number
-    if: needs.get_number.outputs.run_number == 2 && (cancelled() != true) && ((github.event_name == 'schedule') || ((github.event_name == 'push') && startsWith(github.ref_name, 'run_past_ci')))
-    uses: ./.github/workflows/self-past-caller.yml
-    with:
-      framework: pytorch
-      version: "1.11"
-      sha: ${{ github.sha }}
-    secrets: inherit
-
   run_past_ci_tensorflow_2-11:
     name: TensorFlow 2.11
     needs: get_number

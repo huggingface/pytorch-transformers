@@ -63,8 +63,6 @@ def load_pytorch_checkpoint_in_flax_state_dict(
         else:
             try:
                 import torch  # noqa: F401
-
-                from .pytorch_utils import is_torch_greater_or_equal_than_1_13  # noqa: F401
             except (ImportError, ModuleNotFoundError):
                 logger.error(
                     "Loading a PyTorch model in Flax, requires both PyTorch and Flax to be installed. Please see"
@@ -73,7 +71,7 @@ def load_pytorch_checkpoint_in_flax_state_dict(
                 )
                 raise
 
-            weights_only_kwarg = {"weights_only": True} if is_torch_greater_or_equal_than_1_13 else {}
+            weights_only_kwarg = {"weights_only": True}
             pt_state_dict = torch.load(pt_path, map_location="cpu", **weights_only_kwarg)
             logger.info(f"PyTorch checkpoint contains {sum(t.numel() for t in pt_state_dict.values()):,} parameters.")
 
@@ -246,13 +244,11 @@ def convert_pytorch_state_dict_to_flax(pt_state_dict, flax_model):
 def convert_pytorch_sharded_state_dict_to_flax(shard_filenames, flax_model):
     import torch
 
-    from .pytorch_utils import is_torch_greater_or_equal_than_1_13
-
     # Load the index
     flax_state_dict = {}
     for shard_file in shard_filenames:
         # load using msgpack utils
-        weights_only_kwarg = {"weights_only": True} if is_torch_greater_or_equal_than_1_13 else {}
+        weights_only_kwarg = {"weights_only": True}
         pt_state_dict = torch.load(shard_file, **weights_only_kwarg)
         weight_dtypes = {k: v.dtype for k, v in pt_state_dict.items()}
         pt_state_dict = {

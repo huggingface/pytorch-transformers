@@ -38,7 +38,6 @@ from ...modeling_outputs import (
 )
 from ...modeling_rope_utils import ROPE_INIT_FUNCTIONS
 from ...modeling_utils import PreTrainedModel
-from ...pytorch_utils import is_torch_greater_or_equal_than_2_0
 from ...utils import (
     add_code_sample_docstrings,
     add_start_docstrings,
@@ -815,14 +814,6 @@ class FalconPreTrainedModel(PreTrainedModel):
     # Adapted from transformers.modeling_utils.PreTrainedModel._check_and_enable_sdpa
     @classmethod
     def _check_and_enable_sdpa(cls, config, hard_check_only: bool = False) -> "PretrainedConfig":
-        # NOTE: Falcon supported SDPA from PyTorch 2.0. We keep it like that for backward compatibility (automatically use SDPA for torch>=2.0).
-        if hard_check_only:
-            if not is_torch_greater_or_equal_than_2_0:
-                raise ImportError("PyTorch SDPA requirements in Transformers are not met. Please install torch>=2.0.")
-
-        if not is_torch_greater_or_equal_than_2_0:
-            return config
-
         _is_bettertransformer = getattr(cls, "use_bettertransformer", False)
         if _is_bettertransformer:
             return config

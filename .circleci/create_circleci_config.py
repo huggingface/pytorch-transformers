@@ -55,6 +55,7 @@ class EmptyJob:
 
         return {
             "docker": copy.deepcopy(DEFAULT_DOCKER_IMAGE),
+            "resource_class": "small",
             "steps": steps,
         }
 
@@ -67,9 +68,9 @@ class CircleCIJob:
     install_steps: List[str] = None
     marker: Optional[str] = None
     parallelism: Optional[int] = 0
-    pytest_num_workers: int = 12
+    pytest_num_workers: int = 8
     pytest_options: Dict[str, Any] = None
-    resource_class: Optional[str] = "2xlarge"
+    resource_class: Optional[str] = "xlarge"
     tests_to_run: Optional[List[str]] = None
     num_test_files_per_worker: Optional[int] = 10
     # This should be only used for doctest job!
@@ -198,7 +199,6 @@ torch_job = CircleCIJob(
     docker_image=[{"image": "huggingface/transformers-torch-light"}],
     marker="not generate",
     parallelism=6,
-    pytest_num_workers=8
 )
 
 generate_job = CircleCIJob(
@@ -206,28 +206,24 @@ generate_job = CircleCIJob(
     docker_image=[{"image": "huggingface/transformers-torch-light"}],
     marker="generate",
     parallelism=6,
-    pytest_num_workers=8
 )
 
 tokenization_job = CircleCIJob(
     "tokenization",
     docker_image=[{"image": "huggingface/transformers-torch-light"}],
     parallelism=8,
-    pytest_num_workers=16
 )
 
 processor_job = CircleCIJob(
     "processors",
     docker_image=[{"image": "huggingface/transformers-torch-light"}],
     parallelism=8,
-    pytest_num_workers=6
 )
 
 tf_job = CircleCIJob(
     "tf",
     docker_image=[{"image":"huggingface/transformers-tf-light"}],
     parallelism=6,
-    pytest_num_workers=16,
 )
 
 
@@ -235,7 +231,8 @@ flax_job = CircleCIJob(
     "flax",
     docker_image=[{"image":"huggingface/transformers-jax-light"}],
     parallelism=6,
-    pytest_num_workers=16
+    pytest_num_workers=16,
+    resource_class="2xlarge",
 )
 
 
@@ -244,7 +241,7 @@ pipelines_torch_job = CircleCIJob(
     additional_env={"RUN_PIPELINE_TESTS": True},
     docker_image=[{"image":"huggingface/transformers-torch-light"}],
     marker="is_pipeline_test",
-    parallelism=4
+    parallelism=4,
 )
 
 
@@ -253,7 +250,7 @@ pipelines_tf_job = CircleCIJob(
     additional_env={"RUN_PIPELINE_TESTS": True},
     docker_image=[{"image":"huggingface/transformers-tf-light"}],
     marker="is_pipeline_test",
-    parallelism=4
+    parallelism=4,
 )
 
 
@@ -270,7 +267,6 @@ examples_torch_job = CircleCIJob(
     docker_image=[{"image":"huggingface/transformers-examples-torch"}],
     # TODO @ArthurZucker remove this once docker is easier to build
     install_steps=["uv venv && uv pip install . && uv pip install -r examples/pytorch/_tests_requirements.txt"],
-    pytest_num_workers=8,
 )
 
 
@@ -278,7 +274,6 @@ examples_tensorflow_job = CircleCIJob(
     "examples_tensorflow",
     additional_env={"OMP_NUM_THREADS": 8},
     docker_image=[{"image":"huggingface/transformers-examples-tf"}],
-    pytest_num_workers=16,
 )
 
 
@@ -293,6 +288,7 @@ hub_job = CircleCIJob(
     ],
     marker="is_staging_test",
     pytest_num_workers=2,
+    resource_class="medium",
 )
 
 
@@ -305,13 +301,13 @@ onnx_job = CircleCIJob(
     ],
     pytest_options={"k onnx": None},
     pytest_num_workers=1,
+    resource_class="small",
 )
 
 
 exotic_models_job = CircleCIJob(
     "exotic_models",
     docker_image=[{"image":"huggingface/transformers-exotic-models"}],
-    pytest_num_workers=12,
     parallelism=4,
     pytest_options={"durations": 100},
 )
@@ -330,7 +326,6 @@ non_model_job = CircleCIJob(
     docker_image=[{"image": "huggingface/transformers-torch-light"}],
     marker="not generate",
     parallelism=6,
-    pytest_num_workers=8,
 )
 
 

@@ -21,6 +21,7 @@ from parameterized import parameterized
 
 from transformers import AutoTokenizer, Mamba2Config, is_torch_available
 from transformers.testing_utils import require_read_token, require_torch, require_torch_gpu, slow, torch_device
+from transformers.utils.import_utils import is_causal_conv1d_available, is_mamba_2_ssm_available
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -36,9 +37,6 @@ if is_torch_available():
         Mamba2Model,
     )
     from transformers.models.mamba2.modeling_mamba2 import Mamba2Cache, Mamba2Mixer
-    from transformers.pytorch_utils import is_torch_greater_or_equal_than_2_0
-else:
-    is_torch_greater_or_equal_than_2_0 = False
 
 
 class Mamba2ModelTester:
@@ -103,6 +101,10 @@ class Mamba2ModelTester:
     ):
         input_ids = ids_tensor([self.batch_size, self.seq_length], self.vocab_size)
 
+        # Only left padding is valid
+        attention_mask = torch.ones(size=(self.batch_size, self.seq_length), device=input_ids.device, dtype=torch.long)
+        attention_mask[0, :1] = 0
+
         sequence_labels = None
         token_labels = None
         choice_labels = None
@@ -118,7 +120,7 @@ class Mamba2ModelTester:
         return (
             config,
             input_ids,
-            None,
+            attention_mask,
             sequence_labels,
             token_labels,
             choice_labels,
@@ -158,10 +160,57 @@ class Mamba2ModelTester:
         inputs_dict = {"input_ids": input_ids}
         return config, inputs_dict
 
+    def create_and_check_mamba2_caching(self, config, input_ids, attention_mask, *args):
+        model = Mamba2Model(config=config)
+        model.to(torch_device)
+        model.eval()
 
-@unittest.skipIf(
-    not is_torch_greater_or_equal_than_2_0, reason="See https://github.com/huggingface/transformers/pull/24204"
-)
+        output_whole = model(input_ids, attention_mask=attention_mask).last_hidden_state
+
+        outputs = model(
+            input_ids[:, :-1],
+            attention_mask=attention_mask[:, :-1],
+            use_cache=True,
+            cache_position=torch.arange(0, config.conv_kernel, device=input_ids.device),
+        )
+        output_one = outputs.last_hidden_state
+
+        # Using the state computed on the first inputs, we will get the same output
+        outputs = model(
+            input_ids[:, -1:],
+            attention_mask=attention_mask[:, -1:],
+            use_cache=True,
+            cache_params=outputs.cache_params,
+            cache_position=torch.arange(config.conv_kernel, config.conv_kernel + 1, device=input_ids.device),
+        )
+        output_two = outputs.last_hidden_state
+
+        self.parent.assertTrue(
+            torch.allclose(torch.cat([output_one, output_two], dim=1), output_whole, atol=1e-3, rtol=1e-3)
+        )
+
+    def create_and_check_mamba2_slow_vs_fast_forward(self, config, input_ids, *args, gradient_checkpointing=False):
+        model = Mamba2Model(config)
+        model.eval()
+
+        if not (is_mamba_2_ssm_available() and is_causal_conv1d_available()):
+            self.parent.skipTest(
+                "This test needs the Mamba2 fast path. Skipping as the necessary packages have not been found."
+            )
+        if torch_device != "cuda":
+            self.parent.skipTest("This test needs the Mamba2 fast path. Skipping as we need a cuda capable device.")
+
+        model.to(torch_device)
+        if gradient_checkpointing:
+            model.gradient_checkpointing_enable()
+
+        token_emb = model.embeddings(input_ids)
+        outputs_fast = model.layers[0].mixer.cuda_kernels_forward(token_emb)
+        outputs_slow = model.layers[0].mixer.torch_forward(token_emb)
+
+        self.parent.assertTrue(torch.allclose(outputs_fast, outputs_slow, atol=1e-3, rtol=1e-3))
+
+
 @require_torch
 class Mamba2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (Mamba2Model, Mamba2ForCausalLM) if is_torch_available() else ()
@@ -184,6 +233,14 @@ class Mamba2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
             self, config_class=Mamba2Config, n_embd=37, common_properties=["hidden_size", "num_hidden_layers"]
         )
 
+    def test_mamba2_caching(self):
+        config_and_inputs = self.model_tester.prepare_config_and_inputs()
+        self.model_tester.create_and_check_mamba2_caching(*config_and_inputs)
+
+    def test_mamba2_slow_vs_fast_forward(self):
+        config_and_inputs = self.model_tester.prepare_config_and_inputs()
+        self.model_tester.create_and_check_mamba2_slow_vs_fast_forward(*config_and_inputs)
+
     def test_initialization(self):
         config, _ = self.model_tester.prepare_config_and_inputs_for_common()
 
@@ -197,23 +254,6 @@ class Mamba2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
 
     @unittest.skip(reason="Mamba 2 weights are not tied")
     def test_tied_weights_keys(self):
-        pass
-
-    @unittest.skip(reason="To fix, Mamba 2 cache slicing test case is an edge case")
-    def test_generate_without_input_ids(self):
-        pass
-
-    @unittest.skip(reason="To fix, Mamba 2 cache slicing test case is an edge case")
-    @parameterized.expand([("greedy", 1), ("beam search", 2)])
-    def test_generate_from_inputs_embeds(self, _, num_beams):
-        pass
-
-    @unittest.skip(reason="To fix, Mamba 2 cache slicing test case is an edge case")
-    def test_greedy_generate_dict_outputs_use_cache(self):
-        pass
-
-    @unittest.skip(reason="To fix, Mamba 2 cache slicing is interacting with beam search")
-    def test_beam_search_generate_dict_outputs_use_cache(self):
         pass
 
     @unittest.skip(reason="A large mamba2 would be necessary (and costly) for that")

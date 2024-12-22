@@ -167,6 +167,8 @@
     title: AWQ
   - local: quantization/aqlm
     title: AQLM
+  - local: quantization/vptq
+    title: VPTQ
   - local: quantization/quanto
     title: Quanto
   - local: quantization/eetq

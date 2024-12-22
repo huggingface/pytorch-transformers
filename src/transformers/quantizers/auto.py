@@ -29,6 +29,7 @@ from ..utils.quantization_config import (
     QuantizationMethod,
     QuantoConfig,
     TorchAoConfig,
+    VptqConfig,
 )
 from .quantizer_aqlm import AqlmHfQuantizer
 from .quantizer_awq import AwqQuantizer
@@ -42,6 +43,7 @@ from .quantizer_gptq import GptqHfQuantizer
 from .quantizer_hqq import HqqHfQuantizer
 from .quantizer_quanto import QuantoHfQuantizer
 from .quantizer_torchao import TorchAoHfQuantizer
+from .quantizer_vptq import VptqHfQuantizer
 
 
 AUTO_QUANTIZER_MAPPING = {
@@ -57,6 +59,7 @@ AUTO_QUANTIZER_MAPPING = {
     "fbgemm_fp8": FbgemmFp8HfQuantizer,
     "torchao": TorchAoHfQuantizer,
     "bitnet": BitNetHfQuantizer,
+    "vptq": VptqHfQuantizer,
 }
 
 AUTO_QUANTIZATION_CONFIG_MAPPING = {
@@ -72,6 +75,7 @@ AUTO_QUANTIZATION_CONFIG_MAPPING = {
     "fbgemm_fp8": FbgemmFp8Config,
     "torchao": TorchAoConfig,
     "bitnet": BitNetConfig,
+    "vptq": VptqConfig,
 }
 
 

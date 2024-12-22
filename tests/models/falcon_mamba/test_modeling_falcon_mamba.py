@@ -43,9 +43,6 @@ if is_torch_available():
         FalconMambaModel,
     )
     from transformers.cache_utils import MambaCache
-    from transformers.pytorch_utils import is_torch_greater_or_equal_than_2_0
-else:
-    is_torch_greater_or_equal_than_2_0 = False
 
 
 # Copied from transformers.tests.models.mamba.MambaModelTester with Mamba->FalconMamba,mamba->falcon_mamba
@@ -246,9 +243,6 @@ class FalconMambaModelTester:
         return config, inputs_dict
 
 
-@unittest.skipIf(
-    not is_torch_greater_or_equal_than_2_0, reason="See https://github.com/huggingface/transformers/pull/24204"
-)
 @require_torch
 # Copied from transformers.tests.models.mamba.MambaModelTest with Mamba->Falcon,mamba->falcon_mamba,FalconMambaCache->MambaCache
 class FalconMambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):

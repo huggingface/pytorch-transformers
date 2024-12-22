@@ -26,7 +26,7 @@ _import_structure = {
         "SynthIDTextWatermarkingConfig",
         "WatermarkingConfig",
     ],
-    "streamers": ["TextIteratorStreamer", "TextStreamer"],
+    "streamers": ["AsyncTextIteratorStreamer", "TextIteratorStreamer", "TextStreamer"],
 }
 
 try:
@@ -199,7 +199,7 @@ if TYPE_CHECKING:
         SynthIDTextWatermarkingConfig,
         WatermarkingConfig,
     )
-    from .streamers import TextIteratorStreamer, TextStreamer
+    from .streamers import AsyncTextIteratorStreamer, TextIteratorStreamer, TextStreamer
 
     try:
         if not is_torch_available():

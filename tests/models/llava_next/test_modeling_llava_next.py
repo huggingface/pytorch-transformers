@@ -48,8 +48,7 @@ if is_torch_available():
     import torch
 
     from transformers.models.llava_next.modeling_llava_next import image_size_to_num_patches
-else:
-    is_torch_greater_or_equal_than_2_0 = False
+
 
 if is_vision_available():
     from PIL import Image

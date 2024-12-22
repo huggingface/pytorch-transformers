@@ -105,6 +105,7 @@ _import_structure = {
     ],
     "peft": ["PeftAdapterMixin"],
     "quanto": ["replace_with_quanto_layers"],
+    "vptq": ["replace_with_vptq_linear"],
 }
 
 try:
@@ -207,6 +208,7 @@ if TYPE_CHECKING:
     )
     from .peft import PeftAdapterMixin
     from .quanto import replace_with_quanto_layers
+    from .vptq import replace_with_vptq_linear
 
     try:
         if not is_torch_available():

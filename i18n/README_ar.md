@@ -245,7 +245,7 @@ limitations under the License.
 
 ### باستخدام pip
 
-تم اختبار هذا المستودع على Python 3.9+، Flax 0.4.1+، PyTorch 1.11+، و TensorFlow 2.6+.
+تم اختبار هذا المستودع على Python 3.9+، Flax 0.4.1+، PyTorch 2.0+، و TensorFlow 2.6+.
 
 يجب تثبيت 🤗 Transformers في [بيئة افتراضية](https://docs.python.org/3/library/venv.html). إذا كنت غير معتاد على البيئات الافتراضية Python، فراجع [دليل المستخدم](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/).
 

@@ -41,9 +41,6 @@ if is_torch_available():
         GPTJForSequenceClassification,
         GPTJModel,
     )
-    from transformers.pytorch_utils import is_torch_greater_or_equal_than_1_12
-else:
-    is_torch_greater_or_equal_than_1_12 = False
 
 
 class GPTJModelTester:
@@ -363,15 +360,9 @@ class GPTJModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin
     test_model_parallel = False
     test_head_masking = False
 
-    @unittest.skipIf(
-        not is_torch_greater_or_equal_than_1_12, reason="PR #22069 made changes that require torch v1.12+."
-    )
     def test_torch_fx(self):
         super().test_torch_fx()
 
-    @unittest.skipIf(
-        not is_torch_greater_or_equal_than_1_12, reason="PR #22069 made changes that require torch v1.12+."
-    )
     def test_torch_fx_output_loss(self):
         super().test_torch_fx_output_loss()
 

@@ -54,7 +54,6 @@ from .pytorch_utils import (  # noqa: F401
     apply_chunking_to_forward,
     find_pruneable_heads_and_indices,
     id_tensor_storage,
-    is_torch_greater_or_equal_than_1_13,
     prune_conv1d_layer,
     prune_layer,
     prune_linear_layer,
@@ -476,7 +475,7 @@ def load_sharded_checkpoint(model, folder, strict=True, prefer_safe=True):
             error_message += f"\nMissing key(s): {str_unexpected_keys}."
         raise RuntimeError(error_message)
 
-    weights_only_kwarg = {"weights_only": True} if is_torch_greater_or_equal_than_1_13 else {}
+    weights_only_kwarg = {"weights_only": True}
     loader = safe_load_file if load_safe else partial(torch.load, map_location="cpu", **weights_only_kwarg)
 
     for shard_file in shard_files:
@@ -532,7 +531,7 @@ def load_state_dict(
             and is_zipfile(checkpoint_file)
         ):
             extra_args = {"mmap": True}
-        weights_only_kwarg = {"weights_only": weights_only} if is_torch_greater_or_equal_than_1_13 else {}
+        weights_only_kwarg = {"weights_only": weights_only}
         return torch.load(
             checkpoint_file,
             map_location=map_location,
@@ -1474,11 +1473,8 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                 )
 
             if not isinstance(config._attn_implementation, dict) and config._attn_implementation not in [
-                "eager",
-                "sdpa",
-                "flash_attention_2",
-                "flex_attention",
-            ]:
+                "eager"
+            ] + list(ALL_ATTENTION_FUNCTIONS.keys()):
                 message = f'Specified `attn_implementation="{config._attn_implementation}"` is not supported. The only possible arguments are `attn_implementation="eager"` (manual attention implementation)'
                 if cls._supports_flash_attn_2:
                     message += ', `"attn_implementation=flash_attention_2"` (implementation using flash attention 2)'
@@ -1540,6 +1536,8 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                     "Using the `SDPA` attention implementation on multi-gpu setup with ROCM may lead to performance issues due to the FA backend. Disabling it to use alternative backends."
                 )
                 torch.backends.cuda.enable_flash_sdp(False)
+        elif requested_attn_implementation in list(ALL_ATTENTION_FUNCTIONS.keys()):
+            config._attn_implementation = requested_attn_implementation
         elif isinstance(requested_attn_implementation, dict):
             config._attn_implementation = None
         else:

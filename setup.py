@@ -100,7 +100,7 @@ _deps = [
     "av==9.2.0",  # Latest version of PyAV (10.0.0) has issues with audio stream.
     "beautifulsoup4",
     "blobfile",
-    "codecarbon==1.2.0",
+    "codecarbon>=2.8.1",
     "cookiecutter==1.7.3",
     "dataclasses",
     "datasets!=2.5.0",
@@ -148,6 +148,7 @@ _deps = [
     "pyyaml>=5.1",
     "pydantic",
     "pytest>=7.2.0,<8.0.0",
+    "pytest-asyncio",
     "pytest-timeout",
     "pytest-xdist",
     "python>=3.9.0",
@@ -319,6 +320,7 @@ extras["tiktoken"] = deps_list("tiktoken", "blobfile")
 extras["testing"] = (
     deps_list(
         "pytest",
+        "pytest-asyncio",
         "pytest-rich",
         "pytest-xdist",
         "timeout-decorator",

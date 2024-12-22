@@ -2,10 +2,10 @@ from typing import Optional, Tuple
 
 import torch
 
-from ..utils import is_torch_greater_or_equal
+from ..utils import is_torch_flex_attn_available
 
 
-if is_torch_greater_or_equal("2.5"):
+if is_torch_flex_attn_available():
     from torch.nn.attention.flex_attention import flex_attention
 
 
@@ -37,8 +37,12 @@ def flex_attention_forward(
         score_mod=causal_mod,
         enable_gqa=True,
         scale=scaling,
+        # Last time checked on PyTorch == 2.5.1: Flex Attention always computes the lse regardless.
+        # For simplification, we thus always return it as no additional computations are introduced.
         return_lse=True,
     )
+    # lse is returned in float32
+    attention_weights = attention_weights.to(value.dtype)
     attn_output = attn_output.transpose(1, 2).contiguous()
 
     return attn_output, attention_weights

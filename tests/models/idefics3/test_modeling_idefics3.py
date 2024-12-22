@@ -40,8 +40,6 @@ if is_torch_available():
         Idefics3ForConditionalGeneration,
         Idefics3Model,
     )
-else:
-    is_torch_greater_or_equal_than_2_0 = False
 
 if is_vision_available():
     from PIL import Image

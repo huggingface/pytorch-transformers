@@ -58,6 +58,7 @@ Use the table below to help you decide which quantization method to use.
 | [optimum-quanto](./quanto)                              | 🟢                       | 🟢   | 🟢        | 🔴              | 🟢                     | 🔴         | 🟢                       | 2 / 4 / 8      | 🔴                                   | 🔴            | 🟢                      | https://github.com/huggingface/optimum-quanto       |
 | [FBGEMM_FP8](./fbgemm_fp8.md)                              | 🟢                       | 🔴    | 🟢        | 🔴              | 🔴                      | 🔴         | 🔴                        | 8      | 🔴                                   | 🟢            | 🟢                      | https://github.com/pytorch/FBGEMM       |
 | [torchao](./torchao.md)                              | 🟢                       |     | 🟢        | 🔴              | partial support (int4 weight only)       | 🔴         |                       | 4 / 8      |                                   | 🟢🔴           | 🟢                      | https://github.com/pytorch/ao       |
+| [VPTQ](./vptq)                      | 🔴                       |  🔴   |     🟢     | 🟡              | 🔴      | 🔴                | 🟢                      | 1 - 8          | 🔴                                   | 🟢            | 🟢                      | https://github.com/microsoft/VPTQ            |
 
 <Tip>
 

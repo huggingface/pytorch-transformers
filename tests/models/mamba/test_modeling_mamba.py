@@ -38,9 +38,6 @@ if is_torch_available():
         MambaModel,
     )
     from transformers.models.mamba.modeling_mamba import MambaCache
-    from transformers.pytorch_utils import is_torch_greater_or_equal_than_2_0
-else:
-    is_torch_greater_or_equal_than_2_0 = False
 
 
 class MambaModelTester:
@@ -239,9 +236,6 @@ class MambaModelTester:
         return config, inputs_dict
 
 
-@unittest.skipIf(
-    not is_torch_greater_or_equal_than_2_0, reason="See https://github.com/huggingface/transformers/pull/24204"
-)
 @require_torch
 class MambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin, unittest.TestCase):
     all_model_classes = (MambaModel, MambaForCausalLM) if is_torch_available() else ()

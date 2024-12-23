@@ -235,6 +235,7 @@ MODEL_MAPPING_NAMES = OrderedDict(
         ("roc_bert", "RoCBertModel"),
         ("roformer", "RoFormerModel"),
         ("rt_detr", "RTDetrModel"),
+        ("d_fine", "DFineModel"),
         ("rwkv", "RwkvModel"),
         ("sam", "SamModel"),
         ("seamless_m4t", "SeamlessM4TModel"),
@@ -885,6 +886,7 @@ MODEL_FOR_OBJECT_DETECTION_MAPPING_NAMES = OrderedDict(
         ("deta", "DetaForObjectDetection"),
         ("detr", "DetrForObjectDetection"),
         ("rt_detr", "RTDetrForObjectDetection"),
+        ("d_fine", "DFineForObjectDetection"),
         ("table-transformer", "TableTransformerForObjectDetection"),
         ("yolos", "YolosForObjectDetection"),
     ]

@@ -283,7 +283,7 @@ class Gemma2DecoderLayer(nn.Module):
                 if past_key_value is not None:  # when decoding
                     attention_mask = attention_mask[:, -self.sliding_window :]
             else:
-                min_dtype = torch.finfo(hidden_states.dtype).min
+                min_dtype = torch.finfo(attention_mask.dtype).min
                 sliding_window_mask = torch.tril(
                     torch.ones_like(attention_mask, dtype=torch.bool), diagonal=-self.sliding_window
                 )

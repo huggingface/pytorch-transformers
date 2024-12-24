@@ -10,6 +10,20 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.issue.number }}-${{ startsWith(github.event.comment.body, 'run-slow') || startsWith(github.event.comment.body, 'run slow') || startsWith(github.event.comment.body, 'run_slow') }}
   cancel-in-progress: true
 
+env:
+  HF_HOME: /mnt/cache
+  TRANSFORMERS_IS_CI: yes
+  OMP_NUM_THREADS: 8
+  MKL_NUM_THREADS: 8
+  RUN_SLOW: yes
+  # For gated repositories, we still need to agree to share information on the Hub repo. page in order to get access.
+  # This token is created under the bot `hf-transformers-bot`.
+  HF_HUB_READ_TOKEN: ${{ secrets.HF_HUB_READ_TOKEN }}
+  SIGOPT_API_TOKEN: ${{ secrets.SIGOPT_API_TOKEN }}
+  TF_FORCE_GPU_ALLOW_GROWTH: true
+  RUN_PT_TF_CROSS_TESTS: 1
+  CUDA_VISIBLE_DEVICES: 0,1
+
 jobs:
   get-pr-number:
     runs-on: ubuntu-22.04
@@ -69,6 +83,7 @@ jobs:
     permissions: write-all
     outputs:
       models: ${{ steps.models_to_run.outputs.models }}
+      quantizations: ${{ steps.models_to_run.outputs.quantizations }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -82,29 +97,33 @@ jobs:
           python -m pip install GitPython
           python utils/pr_slow_ci_models.py --message "$PR_COMMENT" | tee output.txt
           echo "models=$(tail -n 1 output.txt)" >> $GITHUB_ENV
+          python utils/pr_slow_ci_models.py --message "$PR_COMMENT" --quantization | tee output2.txt
+          echo "quantizations=$(tail -n 1 output2.txt)" >> $GITHUB_ENV
 
       - name: Show models to test
         id: models_to_run
         run: |
           echo "${{ env.models }}"
-          echo "models=${{ env.models }}" >> $GITHUB_ENV
           echo "models=${{ env.models }}" >> $GITHUB_OUTPUT
+          echo "${{ env.quantizations }}"
+          echo "quantizations=${{ env.quantizations }}" >> $GITHUB_OUTPUT
 
       - name: Reply to the comment
-        if: ${{ env.models != '[]' }}
+        if: ${{ env.models != '[]' || env.quantizations != '[]' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BODY: "This comment contains run-slow, running the specified jobs:\n\nmodels: ${{ env.models }}\nquantizations: ${{ env.quantizations }}"
         run: |
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             repos/${{ github.repository }}/issues/${{ needs.get-pr-number.outputs.PR_NUMBER }}/comments \
-            -f "body=This comment contains run-slow, running the specified jobs: ${{ env.models }} ..."
+            -f "body=${{ env.BODY }}"
 
   create_run:
     name: Create run
-    if: ${{ needs.get-tests.outputs.models != '[]' }}
+    if: ${{ needs.get-tests.outputs.models != '[]' || needs.get-tests.outputs.quantizations != '[]' }}
     needs: [get-sha, get-tests]
     permissions: write-all
     runs-on: ubuntu-22.04
@@ -125,33 +144,117 @@ jobs:
             -f "target_url=$GITHUB_RUN_URL" -f "state=pending" -f "description=Slow CI job" -f "context=pytest/custom-tests"
 
   run_models_gpu:
-      name: Run all tests for the model
-      if: ${{ needs.get-tests.outputs.models != '[]' }}
-      needs: [get-pr-number, get-tests, create_run]
-      strategy:
-        fail-fast: false
-        matrix:
-          folders: ${{ fromJson(needs.get-tests.outputs.models) }}
-          machine_type: [aws-g4dn-2xlarge-cache, aws-g4dn-12xlarge-cache]
-      runs-on:
-         group: '${{ matrix.machine_type }}'
-      container:
-        image: huggingface/transformers-all-latest-gpu
-        options: --gpus all --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
-      steps:
-      - name: Echo input and matrix info
-        shell: bash
-        run: |
-          echo "${{ matrix.folders }}"
+    name: Run all tests for the model
+    if: ${{ needs.get-tests.outputs.models != '[]' }}
+    needs: [get-pr-number, get-tests, create_run]
+    strategy:
+      fail-fast: false
+      matrix:
+        folders: ${{ fromJson(needs.get-tests.outputs.models) }}
+        machine_type: [aws-g4dn-2xlarge-cache, aws-g4dn-12xlarge-cache]
+    runs-on:
+       group: '${{ matrix.machine_type }}'
+    container:
+      image: huggingface/transformers-all-latest-gpu
+      options: --gpus all --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
+    steps:
+    - name: Echo folder ${{ matrix.folders }}
+      shell: bash
+      # For folders like `models/bert`, set an env. var. (`matrix_folders`) to `models_bert`, which will be used to
+      # set the artifact folder names (because the character `/` is not allowed).
+      run: |
+        echo "${{ matrix.folders }}"
+        matrix_folders=${{ matrix.folders }}
+        matrix_folders=${matrix_folders/'models/'/'models_'}
+        echo "$matrix_folders"
+        echo "matrix_folders=$matrix_folders" >> $GITHUB_ENV
 
+    - name: Checkout to PR merge commit
+      working-directory: /transformers
+      run: |
+          git fetch origin refs/pull/${{ needs.get-pr-number.outputs.PR_NUMBER }}/merge:refs/remotes/pull/${{ needs.get-pr-number.outputs.PR_NUMBER }}/merge
+          git checkout refs/remotes/pull/${{ needs.get-pr-number.outputs.PR_NUMBER }}/merge
+          git log -1 --format=%H
+
+    - name: Reinstall transformers in edit mode (remove the one installed during docker image build)
+      working-directory: /transformers
+      run: python3 -m pip uninstall -y transformers && python3 -m pip install -e .
+
+    - name: NVIDIA-SMI
+      run: |
+        nvidia-smi
+
+    - name: Set `machine_type` for report and artifact names
+      working-directory: /transformers
+      shell: bash
+      run: |
+        echo "${{ matrix.machine_type }}"
+        if [ "${{ matrix.machine_type }}" = "aws-g4dn-2xlarge-cache" ]; then
+          machine_type=single-gpu
+        elif [ "${{ matrix.machine_type }}" = "aws-g4dn-12xlarge-cache" ]; then
+          machine_type=multi-gpu
+        else
+          machine_type=${{ matrix.machine_type }}
+        fi
+        echo "$machine_type"
+        echo "machine_type=$machine_type" >> $GITHUB_ENV
+
+    - name: Environment
+      working-directory: /transformers
+      run: |
+        python3 utils/print_env.py
+
+    - name: Show installed libraries and their versions
+      working-directory: /transformers
+      run: pip freeze
+
+    - name: Run all tests on GPU
+      working-directory: /transformers
+      run: |
+        export CUDA_VISIBLE_DEVICES="$(python3 utils/set_cuda_devices_for_ci.py --test_folder ${{ matrix.folders }})"
+        echo $CUDA_VISIBLE_DEVICES
+        python3 -m pytest -v -rsfE --make-reports=${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports tests/${{ matrix.folders }}
+
+    - name: Failure short reports
+      if: ${{ failure() }}
+      continue-on-error: true
+      run: cat /transformers/reports/${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports/failures_short.txt
+
+    - name: Make sure report directory exists
+      shell: bash
+      run: |
+        mkdir -p /transformers/reports/${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports
+        echo "hello" > /transformers/reports/${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports/hello.txt
+        echo "${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports"
+
+    - name: "Test suite reports artifacts: ${{ env.machine_type }}_run_models_gpu_${{ env.matrix_folders }}_test_reports"
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.machine_type }}_run_models_gpu_${{ env.matrix_folders }}_test_reports
+        path: /transformers/reports/${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports
+
+  run_quantization_torch_gpu:
+    name: Run all tests for a quantization
+    if: ${{ needs.get-tests.outputs.quantizations != '[]' }}
+    needs: [get-pr-number, get-tests, create_run]
+    strategy:
+      fail-fast: false
+      matrix:
+        folders: ${{ fromJson(needs.get-tests.outputs.quantizations) }}
+        machine_type: [aws-g4dn-2xlarge-cache, aws-g4dn-12xlarge-cache]
+    runs-on:
+      group: '${{ matrix.machine_type }}'
+    container:
+      image: huggingface/transformers-quantization-latest-gpu
+      options: --gpus all --shm-size "16gb" --ipc host -v /mnt/cache/.cache/huggingface:/mnt/cache/
+    steps:
       - name: Echo folder ${{ matrix.folders }}
         shell: bash
-        # For folders like `models/bert`, set an env. var. (`matrix_folders`) to `models_bert`, which will be used to
-        # set the artifact folder names (because the character `/` is not allowed).
         run: |
           echo "${{ matrix.folders }}"
           matrix_folders=${{ matrix.folders }}
-          matrix_folders=${matrix_folders/'models/'/'models_'}
+          matrix_folders=${matrix_folders/'quantization/'/'quantization_'}
           echo "$matrix_folders"
           echo "matrix_folders=$matrix_folders" >> $GITHUB_ENV
 
@@ -175,6 +278,7 @@ jobs:
         shell: bash
         run: |
           echo "${{ matrix.machine_type }}"
+
           if [ "${{ matrix.machine_type }}" = "aws-g4dn-2xlarge-cache" ]; then
             machine_type=single-gpu
           elif [ "${{ matrix.machine_type }}" = "aws-g4dn-12xlarge-cache" ]; then
@@ -182,6 +286,7 @@ jobs:
           else
             machine_type=${{ matrix.machine_type }}
           fi
+
           echo "$machine_type"
           echo "machine_type=$machine_type" >> $GITHUB_ENV
 
@@ -194,56 +299,54 @@ jobs:
         working-directory: /transformers
         run: pip freeze
 
-      - name: Run all tests on GPU
+      - name: Run quantization tests on GPU
         working-directory: /transformers
         run: |
-          export CUDA_VISIBLE_DEVICES="$(python3 utils/set_cuda_devices_for_ci.py --test_folder ${{ matrix.folders }})"
-          echo $CUDA_VISIBLE_DEVICES
-          python3 -m pytest -v -rsfE --make-reports=${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports tests/${{ matrix.folders }}
+          python3 -m pytest -v --make-reports=${{ env.machine_type }}_run_quantization_torch_gpu_${{ matrix.folders }}_test_reports tests/${{ matrix.folders }}
 
       - name: Failure short reports
         if: ${{ failure() }}
         continue-on-error: true
-        run: cat /transformers/reports/${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports/failures_short.txt
+        run: cat /transformers/reports/${{ env.machine_type }}_run_quantization_torch_gpu_${{ matrix.folders }}_test_reports/failures_short.txt
 
       - name: Make sure report directory exists
         shell: bash
         run: |
-          mkdir -p /transformers/reports/${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports
-          echo "hello" > /transformers/reports/${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports/hello.txt
-          echo "${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports"
+          mkdir -p /transformers/reports/${{ env.machine_type }}_run_quantization_gpu_${{ matrix.folders }}_test_reports
+          echo "hello" > /transformers/reports/${{ env.machine_type }}_run_quantization_gpu_${{ matrix.folders }}_test_reports/hello.txt
+          echo "${{ env.machine_type }}_run_quantization_gpu_${{ matrix.folders }}_test_reports"
 
-      - name: "Test suite reports artifacts: ${{ env.machine_type }}_run_models_gpu_${{ env.matrix_folders }}_test_reports"
+      - name: "Test suite reports artifacts: ${{ env.machine_type }}_run_quantization_torch_gpu_${{ env.matrix_folders }}_test_reports"
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.machine_type }}_run_models_gpu_${{ env.matrix_folders }}_test_reports
-          path: /transformers/reports/${{ env.machine_type }}_run_models_gpu_${{ matrix.folders }}_test_reports
+          name: ${{ env.machine_type }}_run_quantization_torch_gpu_${{ env.matrix_folders }}_test_reports
+          path: /transformers/reports/${{ env.machine_type }}_run_quantization_torch_gpu_${{ matrix.folders }}_test_reports
 
   update_run_status:
     name: Update Check Run Status
-    needs: [get-sha, create_run, run_models_gpu]
+    needs: [get-sha, create_run, run_models_gpu, run_quantization_torch_gpu]
     permissions: write-all
     if: ${{ always() && needs.create_run.result == 'success' }}
     runs-on: ubuntu-22.04
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GITHUB_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      STATUS_OK: ${{ contains(fromJSON('["skipped", "success"]'), needs.run_models_gpu.result) && contains(fromJSON('["skipped", "success"]'), needs.run_quantization_torch_gpu.result) }}
     steps:
       - name: Get `run_models_gpu` job status
         run: |
           echo "${{ needs.run_models_gpu.result }}"
-          if [ "${{ needs.run_models_gpu.result }}" = "cancelled" ]; then
-            echo "STATUS=failure" >> $GITHUB_ENV
-          elif [ "${{ needs.run_models_gpu.result }}" = "skipped" ]; then
+          echo "${{ needs.run_quantization_torch_gpu.result }}"
+          echo $STATUS_OK
+          if [ "$STATUS_OK" = "true" ]; then
             echo "STATUS=success" >> $GITHUB_ENV
           else
-            echo "STATUS=${{ needs.run_models_gpu.result }}" >> $GITHUB_ENV
+            echo "STATUS=failure" >> $GITHUB_ENV
           fi
 
       - name: Update PR commit statuses
         run: |
-          echo "${{ needs.run_models_gpu.result }}"
           echo "${{ env.STATUS }}"
           gh api \
             --method POST \

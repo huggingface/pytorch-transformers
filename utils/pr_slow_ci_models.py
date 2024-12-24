@@ -27,6 +27,7 @@ python utils/pr_slow_ci_models.py
 """
 
 import argparse
+import os.path
 import re
 import string
 from pathlib import Path
@@ -142,6 +143,7 @@ def check_model_names(model_name: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--message", type=str, default="", help="The content of a comment.")
+    parser.add_argument("--quantization", action="store_true", help="If we collect quantization tests")
     args = parser.parse_args()
 
     new_model = get_new_model()
@@ -149,6 +151,16 @@ if __name__ == "__main__":
     models = ([] if new_model == "" else [new_model]) + specified_models
     # a guard for strange model names
     models = [model for model in models if check_model_names(model)]
-    # Add "models/"
-    models = [f"models/{model}" for model in models]
-    print(sorted(set(models)))
+
+    # Add prefix
+    final_list = []
+    for model in models:
+        if not args.quantization:
+            if os.path.isdir(f"tests/models/{model}"):
+                final_list.append(f"models/{model}")
+            elif os.path.isdir(f"tests/{model}") and model != "quantization":
+                final_list.append(model)
+        elif os.path.isdir(f"tests/quantization/{model}"):
+            final_list.append(f"quantization/{model}")
+
+    print(sorted(set(final_list)))

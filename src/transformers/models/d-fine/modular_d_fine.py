@@ -2,8 +2,13 @@ from ..rt_detr.configuration_rt_detr import RTDetrConfig
 from ..rt_detr.modeling_rt_detr import (
     RTDetrDecoderLayer,
     RTDetrDecoder,
+    RTDetrModel,
     RTDetrMLPPredictionHead,
     RTDetrDecoderOutput,
+    RTDetrHybridEncoder,
+    RTDetrRepVggBlock,
+    RTDetrCSPRepLayer,
+    RTDetrConvNormLayer,
     inverse_sigmoid,
 )
 
@@ -20,12 +25,13 @@ from ...activations import ACT2CLS
 class DFineConfig(RTDetrConfig):
     model_type = "d-fine"
 
-    def __init__(self, decoder_offset_scale=0.5, eval_idx=-1, layer_scale=2, **super_kwargs):
+    def __init__(self, decoder_offset_scale=0.5, eval_idx=-1, layer_scale=2, reg_max=32, **super_kwargs):
         super().__init__(**super_kwargs)
 
         self.decoder_offset_scale = decoder_offset_scale
         self.eval_idx = eval_idx
         self.layer_scale = layer_scale
+        self.reg_max = reg_max
 
 
 def deformable_attention_core_func_v2(
@@ -364,7 +370,47 @@ class LQE(nn.Module):
 
 
 class DFineDecoderOutput(RTDetrDecoderOutput):
+    dec_out_bboxes:torch.FloatTensor = None,
+    dec_out_logits:torch.FloatTensor = None,
+    dec_out_pred_corners:torch.FloatTensor = None,
+    dec_out_refs:torch.FloatTensor = None,
+    pre_bboxes:torch.FloatTensor = None,
+    pre_scores:torch.FloatTensor = None,
+
+
+class DFineVggBlock(RTDetrRepVggBlock):
     pass
+
+
+class DFineConvNormLayer(RTDetrConvNormLayer):
+    pass
+        
+
+class DFineCSPRepLayer(RTDetrCSPRepLayer):
+    pass
+        
+
+class RepNCSPELAN4(nn.Module):
+    # csp-elan
+    def __init__(self, config: DFineConfig, c1, c2, c3, c4, n=3,
+                 bias=False,
+                 act="silu"):
+        super().__init__()
+        self.c = c3//2
+        self.cv1 = DFineConvNormLayer(config, c1, c3, 1, 1, activation=act)
+        self.cv2 = nn.Sequential(DFineCSPRepLayer(c3//2, c4, n, 1, bias=bias, act=act, bottletype=DFineVggBlock), DFineConvNormLayer(config, c4, c4, 3, 1, activation=act))
+        self.cv3 = nn.Sequential(DFineCSPRepLayer(c4, c4, n, 1, bias=bias, act=act, bottletype=DFineVggBlock), DFineConvNormLayer(config, c4, c4, 3, 1, activation=act))
+        self.cv4 = DFineConvNormLayer(config, c3+(2*c4), c2, 1, 1, activation=act)
+
+    def forward_chunk(self, x):
+        y = list(self.cv1(x).chunk(2, 1))
+        y.extend((m(y[-1])) for m in [self.cv2, self.cv3])
+        return self.cv4(torch.cat(y, 1))
+
+    def forward(self, x):
+        y = list(self.cv1(x).split((self.c, self.c), 1))
+        y.extend(m(y[-1]) for m in [self.cv2, self.cv3])
+        return self.cv4(torch.cat(y, 1))
 
 
 class DFineDecoder(RTDetrDecoder):
@@ -376,19 +422,17 @@ class DFineDecoder(RTDetrDecoder):
     to improve bounding box accuracy and robustness.
     """
 
-    def __init__(self, config: DFineConfig, num_layers, reg_max, reg_scale, up):
+    def __init__(self, config: DFineConfig):
         super().__init__(config=config)
         self.d_model = config.d_model
-        self.num_layers = num_layers
         self.layer_scale = config.layer_scale
-        self.eval_idx = config.eval_idx if config.eval_idx >= 0 else num_layers + config.eval_idx
+        self.eval_idx = config.eval_idx if config.eval_idx >= 0 else config.decoder_layers + config.eval_idx
         self.num_head = config.decoder_attention_heads
-        self.up, self.reg_scale, self.reg_max = up, reg_scale, reg_max
         self.layers = nn.ModuleList(
             [DFineDecoderLayer(config=config) for _ in range(config.decoder_layers)]
             + [DFineDecoderLayer(config=config) for _ in range(config.decoder_layers - self.eval_idx - 1)]
         )
-        self.lqe_layers = nn.ModuleList([LQE(4, 64, 2, reg_max) for _ in range(config.decoder_layers)])
+        self.lqe_layers = nn.ModuleList([LQE(4, 64, 2, config.reg_max) for _ in range(config.decoder_layers)])
 
     def value_op(self, memory, value_proj, value_scale, memory_mask, memory_spatial_shapes):
         """
@@ -417,25 +461,17 @@ class DFineDecoder(RTDetrDecoder):
         encoder_attn_mask=None,
         memory_mask=None,
         output_attentions=None,
-        output_hidden_states=None,
         return_dict=None,
     ):
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
-        )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         if inputs_embeds is not None:
             hidden_states = inputs_embeds
 
-        # decoder layers
-        all_hidden_states = () if output_hidden_states else None
-        all_self_attns = () if output_attentions else None
-        all_cross_attentions = () if (output_attentions and memory is not None) else None
-        intermediate = ()
-        intermediate_reference_points = ()
-        intermediate_logits = ()
+        dec_out_bboxes = []
+        dec_out_logits = []
+        dec_out_pred_corners = []
+        dec_out_refs = []
 
         output_detach = pred_corners_undetach = 0
         value = self.value_op(memory, None, None, memory_mask, spatial_shapes)
@@ -453,9 +489,6 @@ class DFineDecoder(RTDetrDecoder):
                 value = self.value_op(memory, None, query_pos_embed.shape[-1], memory_mask, spatial_shapes)
                 hidden_states = F.interpolate(hidden_states, size=query_pos_embed.shape[-1])
                 output_detach = hidden_states.detach()
-
-            if output_hidden_states:
-                all_hidden_states += (hidden_states,)
 
             output = decoder_layer(
                 hidden_states=hidden_states,
@@ -479,44 +512,66 @@ class DFineDecoder(RTDetrDecoder):
             pred_corners = bbox_head[i](hidden_states + output_detach) + pred_corners_undetach
             inter_ref_bbox = distance2bbox(ref_points_initial, integral(pred_corners, project), reg_scale)
 
+            if self.training or i == self.eval_idx:
+                scores = score_head[i](output)
+                # Lqe does not affect the performance here.
+                scores = self.lqe_layers[i](scores, pred_corners)
+                dec_out_logits.append(scores)
+                dec_out_bboxes.append(inter_ref_bbox)
+                dec_out_pred_corners.append(pred_corners)
+                dec_out_refs.append(ref_points_initial)
+
+                if not self.training:
+                    break
+
             pred_corners_undetach = pred_corners
             ref_points_detach = inter_ref_bbox.detach()
             output_detach = hidden_states.detach()
 
-            # Store intermediate results
-            intermediate += (hidden_states,)
-            intermediate_reference_points += (inter_ref_bbox,)
-            intermediate_logits += (pre_scores,) if i == 0 else (score_head[i](hidden_states),)
-
-            if output_attentions:
-                all_self_attns += (output[1],)
-                if memory is not None:
-                    all_cross_attentions += (output[2],)
-
         if not return_dict:
-            return tuple(
-                v
-                for v in [
-                    hidden_states,
-                    intermediate,
-                    intermediate_logits,
-                    intermediate_reference_points,
-                    all_hidden_states,
-                    all_self_attns,
-                    all_cross_attentions,
-                ]
-                if v is not None
+            return (
+                torch.stack(dec_out_bboxes),
+                torch.stack(dec_out_logits),
+                torch.stack(dec_out_pred_corners),
+                torch.stack(dec_out_refs),
+                pre_bboxes,
+                pre_scores,
             )
 
         return DFineDecoderOutput(
             last_hidden_state=hidden_states,
-            intermediate_hidden_states=torch.stack(intermediate, dim=1),
-            intermediate_logits=torch.stack(intermediate_logits, dim=1),
-            intermediate_reference_points=torch.stack(intermediate_reference_points, dim=1),
-            hidden_states=all_hidden_states,
-            attentions=all_self_attns,
-            cross_attentions=all_cross_attentions,
+            dec_out_bboxes=torch.stack(dec_out_bboxes),
+            dec_out_logits=torch.stack(dec_out_logits),
+            dec_out_pred_corners=torch.stack(dec_out_pred_corners),
+            dec_out_refs=torch.stack(dec_out_refs),
+            pre_bboxes=pre_bboxes,
+            pre_scores=pre_scores,
         )
+
+
+class DFineHybridEncoder(RTDetrHybridEncoder):
+    def __init__(self, config: DFineConfig):
+        super().__init__(config=config)
+        # top-down fpn
+        self.lateral_convs = nn.ModuleList()
+        self.fpn_blocks = nn.ModuleList()
+        for _ in range(len(self.in_channels) - 1, 0, -1):
+            self.lateral_convs.append(DFineConvNormLayer(config, hidden_dim, hidden_dim, 1, 1))
+            self.fpn_blocks.append(
+                RepNCSPELAN4(config, hidden_dim * 2, hidden_dim, hidden_dim * 2, round(expansion * hidden_dim // 2), round(3 * depth_mult))
+            )
+
+
+class DFineModel(RTDetrModel):
+    def __init__(self, config: DFineConfig):
+        super().__init__(config)
+
+        # decoder
+        self.decoder = DFineDecoder(config)
+
+        # create encoder
+        self.encoder = DFineHybridEncoder(config=config)
+        
 
 
 class Gate(nn.Module):

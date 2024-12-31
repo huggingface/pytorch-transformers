@@ -14,37 +14,39 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Export to TFLite
+# LiteRT
 
-[TensorFlow Lite](https://www.tensorflow.org/lite/guide) is a lightweight framework for deploying machine learning models 
-on resource-constrained devices, such as mobile phones, embedded systems, and Internet of Things (IoT) devices. 
-TFLite is designed to optimize and run models efficiently on these devices with limited computational power, memory, and 
-power consumption.
-A TensorFlow Lite model is represented in a special efficient portable format identified by the `.tflite` file extension. 
+[LiteRT](https://ai.google.dev/edge/litert) (previously known as TensorFlow Lite) is a high-performance runtime designed for on-device machine learning.
 
-🤗 Optimum offers functionality to export 🤗 Transformers models to TFLite through the `exporters.tflite` module. 
-For the list of supported model architectures, please refer to [🤗 Optimum documentation](https://huggingface.co/docs/optimum/exporters/tflite/overview).
+The [Optimum](https://huggingface.co/docs/optimum/index) library exports a model to LiteRT for [many architectures]((https://huggingface.co/docs/optimum/exporters/onnx/overview)).
 
-To export a model to TFLite, install the required dependencies:
- 
+The benefits of exporting to LiteRT include the following.
+
+- Low-latency, privacy-focused, no internet connectivity required, and reduced model size and power consumption for on-device machine learning.
+- Broad platform, model framework, and language support.
+- Hardware acceleration for GPUs and Apple Silicon.
+
+Export a Transformers model to LiteRT with the Optimum CLI.
+
+Run the command below to install Optimum and the [exporters](https://huggingface.co/docs/optimum/exporters/overview) module for LiteRT.
+
 ```bash
 pip install optimum[exporters-tf]
 ```
 
-To check out all available arguments, refer to the [🤗 Optimum docs](https://huggingface.co/docs/optimum/main/en/exporters/tflite/usage_guides/export_a_model), 
-or view help in command line:
+> [!TIP]
+> Refer to the [Export a model to TFLite with optimum.exporters.tflite](https://huggingface.co/docs/optimum/main/en/exporters/tflite/usage_guides/export_a_model) guide for all available arguments or with the command below.
+> ```bash
+> optimum-cli export tflite --help
+> ```
 
-```bash
-optimum-cli export tflite --help
-```
-
-To export a model's checkpoint from the 🤗 Hub, for example, `google-bert/bert-base-uncased`, run the following command:
+Set the `--model` argument to export a from the Hub.
 
 ```bash
 optimum-cli export tflite --model google-bert/bert-base-uncased --sequence_length 128 bert_tflite/
 ```
 
-You should see the logs indicating progress and showing where the resulting `model.tflite` is saved, like this:
+You should see logs indicating the progress and showing where the resulting `model.tflite` is saved.
 
 ```bash
 Validating TFLite model...
@@ -57,6 +59,8 @@ The TensorFlow Lite export succeeded with the warning: The maximum absolute diff
  The exported model was saved at: bert_tflite
  ```
 
-The example above illustrates exporting a checkpoint from 🤗 Hub. When exporting a local model, first make sure that you 
-saved both the model's weights and tokenizer files in the same directory (`local_path`). When using CLI, pass the 
-`local_path` to the `model` argument instead of the checkpoint name on 🤗 Hub. 
+For local models, make sure the model weights and tokenizer files are saved in the same directory, for example `local_path`. Pass the directory to the `--model` argument and use `--task` to indicate the [task](https://huggingface.co/docs/optimum/exporters/task_manager) a model can perform. If `--task` isn't provided, the model architecture without a task-specific head is used.
+
+```bash
+optimum-cli export tflite --model local_path --task question-answering google-bert/bert-base-uncased --sequence_length 128 bert_tflite/
+```

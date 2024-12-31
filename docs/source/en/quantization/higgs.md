@@ -16,11 +16,30 @@ rendered properly in your Markdown viewer.
 
 # HIGGS
 
-HIGGS is a 0-shot quantization algorithm that combines Hadamard preprocessing with MSE-Optimal quantization grids to achieve lower quantization error and SOTA performance. You can find more information in the paper [arxiv.org/abs/2411.17525](https://arxiv.org/abs/2411.17525).
+[HIGGS](https://arxiv.org/abs/2411.17525) is a zero-shot quantization algorithm that combines Hadamard preprocessing with MSE-Optimal quantization grids to achieve lower quantization error and state-of-the-art performance.
 
-Runtime support for HIGGS is implemented through [FLUTE](https://arxiv.org/abs/2407.10960), and its [library](https://github.com/HanGuo97/flute).
+Runtime support for HIGGS is implemented through the [FLUTE](https://github.com/HanGuo97/flute) library. Only the 70B and 405B variants of Llama 3 and Llama 3.0, and the 8B and 27B variants of Gemma 2 are currently supported. HIGGS also doesn't support quantized training and backward passes in general at the moment.
 
-## Quantization Example
+Run the command below to install FLUTE.
+
+<hfoptions id="install">
+<hfoption id="CUDA 12.1">
+
+```bash
+pip install flute-kernel
+```
+
+</hfoption>
+<hfoption id="CUDA 11.8">
+
+```bash
+pip install flute-kernel -i https://flute-ai.github.io/whl/cu118
+```
+
+</hfoption>
+</hfoptions>
+
+Create a [`HiggsConfig`] with the number of bits to quantize a model to.
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer, HiggsConfig
@@ -30,37 +49,32 @@ model = AutoModelForCausalLM.from_pretrained(
     quantization_config=HiggsConfig(bits=4),
     device_map="auto",
 )
-
-tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-9b-it")
-
-tokenizer.decode(model.generate(
-    **tokenizer("Hi,", return_tensors="pt").to(model.device),
-    temperature=0.5,
-    top_p=0.80,
-)[0])
 ```
 
-## Pre-quantized models
+> [!TIP]
+> Find models pre-quantized with HIGGS in the official ISTA-DASLab [collection](https://huggingface.co/collections/ISTA-DASLab/higgs-675308e432fd56b7f6dab94e).
 
-Some pre-quantized models can be found in the [official collection](https://huggingface.co/collections/ISTA-DASLab/higgs-675308e432fd56b7f6dab94e) on Hugging Face Hub.
+## torch.compile
 
-## Current Limitations
+HIGGS is fully compatible with [torch.compile](https://pytorch.org/tutorials/intermediate/torch_compile_tutorial.html).
 
-**Architectures**
+```python
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, HiggsConfig
 
-Currently, FLUTE, and HIGGS by extension, **only support Llama 3 and 3.0 of 8B, 70B and 405B parameters, as well as Gemma-2 9B and 27B**. We're working on allowing to run more diverse models as well as allow arbitrary models by modifying the FLUTE compilation procedure.
+model = AutoModelForCausalLM.from_pretrained(
+    "google/gemma-2-9b-it",
+    quantization_config=HiggsConfig(bits=4),
+    device_map="auto",
+)
 
-**torch.compile**
+model = torch.compile(model)
+```
 
-HIGGS is fully compatible with `torch.compile`. Compiling `model.forward`, as described [here](../perf_torch_compile.md), here're the speedups it provides on RTX 4090 for `Llama-3.1-8B-Instruct` (forward passes/sec):
+Refer to the table below for a benchmark of forward passes/sec for Llama-3.1-8B-Instruct on a RTX4090.
 
-| Batch Size | BF16 (With `torch.compile`) | HIGGS 4bit (No `torch.compile`) | HIGGS 4bit (With `torch.compile`) |
+| Batch Size | BF16 (with `torch.compile`) | HIGGS 4bit (without `torch.compile`) | HIGGS 4bit (with `torch.compile`) |
 |------------|-----------------------------|----------------------------------|-----------------------------------|
 | 1          | 59                          | 41                               | 124                               |
 | 4          | 57                          | 42                               | 123                               |
 | 16         | 56                          | 41                               | 120                               |
-
-
-**Quantized training**
-
-Currently, HIGGS doesn't support quantized training (and backward passes in general). We're working on adding support for it.

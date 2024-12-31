@@ -14,7 +14,7 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Export to TorchScript
+# TorchScript
 
 <Tip>
 

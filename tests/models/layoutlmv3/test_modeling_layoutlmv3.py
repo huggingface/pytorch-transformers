@@ -378,7 +378,6 @@ class LayoutLMv3ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCa
         model = LayoutLMv3Model.from_pretrained(model_name)
         self.assertIsNotNone(model)
 
-
 # We will verify our results on an image of cute cats
 def prepare_img():
     image = Image.open("./tests/fixtures/tests_samples/COCO/000000039769.png")

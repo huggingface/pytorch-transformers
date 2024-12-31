@@ -22,9 +22,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint
+from packaging import version
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...modeling_attn_mask_utils import _prepare_4d_attention_mask_for_sdpa
 from ...modeling_outputs import (
     BaseModelOutput,
     QuestionAnsweringModelOutput,
@@ -36,6 +38,7 @@ from ...pytorch_utils import apply_chunking_to_forward
 from ...utils import (
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
+    get_torch_version,
     logging,
     replace_return_docstrings,
     torch_int,
@@ -358,6 +361,7 @@ class LayoutLMv3PreTrainedModel(PreTrainedModel):
 
     config_class = LayoutLMv3Config
     base_model_prefix = "layoutlmv3"
+    _supports_sdpa = True
 
     def _init_weights(self, module):
         """Initialize the weights"""
@@ -466,6 +470,71 @@ class LayoutLMv3SelfAttention(nn.Module):
         return outputs
 
 
+class LayoutLMv3SdpaSelfAttention(LayoutLMv3SelfAttention):
+    def __init__(self, config: LayoutLMv3Config) -> None:
+        super().__init__(config)
+        self.require_contiguous_qkv = version.parse(get_torch_version()) < version.parse("2.2.0")
+
+    # Adapted from LayoutLMv3SelfAttention
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        output_attentions: Optional[bool] = False,
+        rel_pos: Optional[torch.Tensor] = None,
+        rel_2d_pos: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor]:
+        if (
+            self.has_relative_attention_bias
+            or self.has_spatial_attention_bias
+            or output_attentions
+            or head_mask is not None
+        ):
+            # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"` once implemented.
+            logger.warning_once(
+                "LayoutLMv3SdpaSelfAttention is used but `torch.nn.functional.scaled_dot_product_attention` does not support "
+                "`relative_attention_bias` or `spatial_attention_bias or `output_attentions=True` or `head_mask`. Falling back to the manual attention implementation, but "
+                "specifying the manual implementation will be required from Transformers version v5.0.0 onwards. "
+                'This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
+            )
+            return super().forward(
+                hidden_states,
+                attention_mask,
+                head_mask,
+                output_attentions,
+                rel_pos,
+                rel_2d_pos,
+            )
+
+        batch_size, seq_len = hidden_states.shape[:2]
+
+        query_layer = self.transpose_for_scores(self.query(hidden_states))
+        key_layer = self.transpose_for_scores(self.key(hidden_states))
+        value_layer = self.transpose_for_scores(self.value(hidden_states))
+
+        # SDPA with memory-efficient backend is broken in torch==2.1.2 when using non-contiguous inputs and a custom
+        # attn_mask, so we need to call `.contiguous()` here. This was fixed in torch==2.2.0.
+        # Reference: https://github.com/pytorch/pytorch/issues/112577
+        if self.require_contiguous_qkv and query_layer.device.type == "cuda" and attention_mask is not None:
+            query_layer = query_layer.contiguous()
+            key_layer = key_layer.contiguous()
+            value_layer = value_layer.contiguous()
+
+        attn_output = torch.nn.functional.scaled_dot_product_attention(
+            query_layer,
+            key_layer,
+            value_layer,
+            attn_mask=attention_mask,
+        )
+
+        attn_output = attn_output.transpose(1, 2)
+        attn_output = attn_output.reshape(batch_size, seq_len, self.all_head_size)
+        attn_output = self.dropout(attn_output)
+
+        return (attn_output,)
+
+
 # Copied from transformers.models.roberta.modeling_roberta.RobertaSelfOutput
 class LayoutLMv3SelfOutput(nn.Module):
     def __init__(self, config):
@@ -481,11 +550,16 @@ class LayoutLMv3SelfOutput(nn.Module):
         return hidden_states
 
 
-# Copied from transformers.models.layoutlmv2.modeling_layoutlmv2.LayoutLMv2Attention with LayoutLMv2->LayoutLMv3
+LAYOUTLMV3_SELF_ATTENTION_CLASSES = {
+    "eager": LayoutLMv3SelfAttention,
+    "sdpa": LayoutLMv3SdpaSelfAttention,
+}
+
+
 class LayoutLMv3Attention(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.self = LayoutLMv3SelfAttention(config)
+        self.self = LAYOUTLMV3_SELF_ATTENTION_CLASSES[config._attn_implementation](config)
         self.output = LayoutLMv3SelfOutput(config)
 
     def forward(
@@ -774,6 +848,8 @@ class LayoutLMv3Model(LayoutLMv3PreTrainedModel):
 
         self.encoder = LayoutLMv3Encoder(config)
 
+        self.attn_implementation = config._attn_implementation
+
         self.init_weights()
 
     def get_input_embeddings(self):
@@ -961,9 +1037,23 @@ class LayoutLMv3Model(LayoutLMv3PreTrainedModel):
                 position_ids = position_ids.expand_as(input_ids)
                 final_position_ids = position_ids
 
-        extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(
-            attention_mask, None, device, dtype=embedding_output.dtype
+        use_sdpa_attention_mask = (
+            self.attn_implementation == "sdpa"
+            and not self.config.has_relative_attention_bias
+            and not self.config.has_spatial_attention_bias
+            and head_mask is None
+            and not output_attentions
         )
+
+        # Expand the attention mask
+        if use_sdpa_attention_mask and attention_mask.dim() == 2:
+            extended_attention_mask = _prepare_4d_attention_mask_for_sdpa(
+                attention_mask, embedding_output.dtype, tgt_len=seq_length
+            )
+        else:
+            extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(
+                attention_mask, None, device, dtype=embedding_output.dtype
+            )
 
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head

@@ -24,7 +24,7 @@ import functools
 from ...activations import ACT2CLS
 
 
-class DFineNetConfig(RTDetrResNetConfig):
+class DFineResNetConfig(RTDetrResNetConfig):
     def __init__(
         self,
         **super_kwargs,
@@ -636,7 +636,7 @@ def _get_clones(partial_module, N):
     return nn.ModuleList([partial_module() for i in range(N)])
 
 
-class DFineForObjectDetection(RTDetrForObjectDetection):
+class DFineModelForObjectDetection(RTDetrForObjectDetection):
     def __init__(self, config: DFineConfig):
         super().__init__(config)
         # D-FINE encoder-decoder model
@@ -648,8 +648,8 @@ class DFineForObjectDetection(RTDetrForObjectDetection):
 
 
 __all__ = [
-    "DFineNetConfig",
+    "DFineResNetConfig",
     "DFineConfig",
     "DFineModel",
-    "DFineForObjectDetection",
+    "DFineModelForObjectDetection",
 ]

@@ -148,6 +148,7 @@ def flash_attention_forward(
     norm_factor,
     attention_dropout,
     training,
+    position_ids=None,
     target_dtype=None,
     **_kwargs,
 ):
@@ -173,6 +174,7 @@ def flash_attention_forward(
         attention_mask,
         query_length,
         dropout=attention_dropout,
+        position_ids=position_ids,
         softmax_scale=norm_factor,
         is_causal=True,
         use_top_left_mask=flash_attn_uses_top_left_mask,
@@ -353,6 +355,7 @@ class GPTNeoXAttention(nn.Module):
             key,
             value,
             attention_mask=attention_mask,
+            position_ids=position_ids,
             head_mask=head_mask,
             norm_factor=self.norm_factor,
             attention_dropout=self.config.attention_dropout,
@@ -931,7 +934,7 @@ class GPTNeoXModel(GPTNeoXPreTrainedModel):
         output_attentions: bool,
     ):
         if self.config._attn_implementation == "flash_attention_2":
-            if attention_mask is not None and 0.0 in attention_mask:
+            if attention_mask is not None and (attention_mask == 0.0).any():
                 return attention_mask
             return None
 

@@ -37,6 +37,13 @@ class CompressedTensorsHfQuantizer(HfQuantizer):
 
     def __init__(self, quantization_config: CompressedTensorsConfig, **kwargs):
         super().__init__(quantization_config, **kwargs)
+
+        if not is_compressed_tensors_available():
+            raise ImportError(
+                "Using `compressed_tensors` quantized models requires the compressed-tensors library: "
+                "`pip install compressed-tensors`"
+            )
+
         from compressed_tensors.compressors import ModelCompressor
 
         self.compressor = ModelCompressor.from_compression_config(quantization_config)

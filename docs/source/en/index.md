@@ -127,6 +127,7 @@ Flax), PyTorch, and/or TensorFlow.
 |                      [DialoGPT](model_doc/dialogpt)                      |       ✅        |         ✅         |      ✅      |
 |                         [DiNAT](model_doc/dinat)                         |       ✅        |         ❌         |      ❌      |
 |                        [DINOv2](model_doc/dinov2)                        |       ✅        |         ❌         |      ✅      |
+|         [DINOv2 with Registers](model_doc/dinov2_with_registers)         |       ✅        |         ❌         |      ❌      |
 |                    [DistilBERT](model_doc/distilbert)                    |       ✅        |         ✅         |      ✅      |
 |                           [DiT](model_doc/dit)                           |       ✅        |         ❌         |      ✅      |
 |                       [DonutSwin](model_doc/donut)                       |       ✅        |         ❌         |      ❌      |

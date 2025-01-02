@@ -114,6 +114,9 @@ class TorchAoHfQuantizer(HfQuantizer):
                 torch_dtype = torch.bfloat16
         if self.quantization_config.quant_type == "int8_dynamic_activation_int8_weight":
             if torch_dtype is None:
+                logger.info(
+                    "Setting torch_dtype to torch.float32 for int8_dynamic_activation_int8_weight quantization as no torch_dtype was specified in from_pretrained"
+                )
                 # we need to set the torch_dtype, otherwise we have dtype mismatch when performing the quantized linear op
                 torch_dtype = torch.float32
         return torch_dtype

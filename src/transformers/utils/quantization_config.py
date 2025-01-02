@@ -42,6 +42,7 @@ class QuantizationMethod(str, Enum):
     VPTQ = "vptq"
     QUANTO = "quanto"
     EETQ = "eetq"
+    HIGGS = "higgs"
     HQQ = "hqq"
     COMPRESSED_TENSORS = "compressed-tensors"
     FBGEMM_FP8 = "fbgemm_fp8"
@@ -1338,6 +1339,58 @@ class FbgemmFp8Config(QuantizationConfigMixin):
         loading_attibutes = ["activation_scale_ub"]
         loading_attibutes_dict = {i: j for i, j in attibutes_dict.items() if i in loading_attibutes}
         return loading_attibutes_dict
+
+
+@dataclass
+class HiggsConfig(QuantizationConfigMixin):
+    """
+    HiggsConfig is a configuration class for quantization using the HIGGS method.
+
+    Args:
+        bits (int, *optional*, defaults to 4):
+            Number of bits to use for quantization. Can be 2, 3 or 4. Default is 4.
+        p (int, *optional*, defaults to 2):
+            Quantization grid dimension. 1 and 2 are supported. 2 is always better in practice. Default is 2.
+        modules_to_not_convert (`list`, *optional*, default to ["lm_head"]):
+            List of linear layers that should not be quantized.
+        hadamard_size (int, *optional*, defaults to 512):
+            Hadamard size for the HIGGS method. Default is 512. Input dimension of matrices is padded to this value. Decreasing this below 512 will reduce the quality of the quantization.
+        group_size (int, *optional*, defaults to 256):
+            Group size for the HIGGS method. Can be 64, 128 or 256. Decreasing it barely affects the performance. Default is 256. Must be a divisor of hadamard_size.
+    """
+
+    def __init__(
+        self,
+        bits: int = 4,
+        p: int = 2,
+        modules_to_not_convert: Optional[List[str]] = None,
+        hadamard_size: int = 512,
+        group_size: int = 256,
+        **kwargs,
+    ):
+        if modules_to_not_convert is None:
+            modules_to_not_convert = ["lm_head"]
+        self.quant_method = QuantizationMethod.HIGGS
+        self.bits = bits
+        self.p = p
+        self.modules_to_not_convert = modules_to_not_convert
+        self.hadamard_size = hadamard_size
+        self.group_size = group_size
+
+        self.post_init()
+
+    def post_init(self):
+        r"""
+        Safety checker that arguments are correct - also replaces some NoneType arguments with their default values.
+        """
+        if self.bits not in [2, 3, 4]:
+            raise ValueError("bits must be 2, 3, or 4")
+        if self.p not in [1, 2]:
+            raise ValueError("p must be 1 or 2. 2 is always better in practice")
+        if self.group_size not in [64, 128, 256]:
+            raise ValueError("group_size must be 64, 128, or 256")
+        if self.hadamard_size % self.group_size != 0:
+            raise ValueError("hadamard_size must be divisible by group_size")
 
 
 @dataclass

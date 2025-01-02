@@ -23,10 +23,18 @@ import warnings
 
 import numpy as np
 import requests
+from packaging import version
 
 from transformers import AutoImageProcessor, BatchFeature
 from transformers.image_utils import AnnotationFormat, AnnotionFormat
-from transformers.testing_utils import check_json_file_has_correct_format, require_torch, require_vision
+from transformers.testing_utils import (
+    check_json_file_has_correct_format,
+    require_torch,
+    require_torch_gpu,
+    require_vision,
+    slow,
+    torch_device,
+)
 from transformers.utils import is_torch_available, is_vision_available
 
 
@@ -462,6 +470,25 @@ class ImageProcessingTestMixin:
 
         if not is_tested:
             self.skipTest(reason="No validation found for `preprocess` method")
+
+    @slow
+    @require_torch_gpu
+    @require_vision
+    def test_can_compile_fast_image_processor(self):
+        if self.fast_image_processing_class is None:
+            self.skipTest("Skipping compilation test as fast image processor is not defined")
+        if version.parse(torch.__version__) < version.parse("2.3"):
+            self.skipTest(reason="This test requires torch >= 2.3 to run.")
+
+        torch.compiler.reset()
+        input_image = torch.randint(0, 255, (3, 224, 224), dtype=torch.uint8)
+        image_processor = self.fast_image_processing_class(**self.image_processor_dict)
+        output_eager = image_processor(input_image, device=torch_device, return_tensors="pt")
+
+        image_processor = torch.compile(image_processor, mode="reduce-overhead")
+        output_compiled = image_processor(input_image, device=torch_device, return_tensors="pt")
+
+        self.assertTrue(torch.allclose(output_eager.pixel_values, output_compiled.pixel_values, atol=1e-4))
 
 
 class AnnotationFormatTestMixin:

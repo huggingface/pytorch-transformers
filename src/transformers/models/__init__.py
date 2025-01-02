@@ -77,6 +77,7 @@ from . import (
     dialogpt,
     dinat,
     dinov2,
+    dinov2_with_registers,
     distilbert,
     dit,
     donut,

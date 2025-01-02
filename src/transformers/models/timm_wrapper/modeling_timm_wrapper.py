@@ -82,6 +82,9 @@ class TimmWrapperPreTrainedModel(PreTrainedModel):
     config_class = TimmWrapperConfig
     _no_split_modules = []
 
+    # used in Trainer to avoid passing `loss_kwargs` to model forward
+    accepts_loss_kwargs = False
+
     def __init__(self, *args, **kwargs):
         requires_backends(self, ["vision", "timm"])
         super().__init__(*args, **kwargs)

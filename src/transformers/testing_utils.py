@@ -79,12 +79,14 @@ from .utils import (
     is_fbgemm_gpu_available,
     is_flash_attn_2_available,
     is_flax_available,
+    is_flute_available,
     is_fsdp_available,
     is_ftfy_available,
     is_g2p_en_available,
     is_galore_torch_available,
     is_gguf_available,
     is_grokadamw_available,
+    is_hadamard_available,
     is_ipex_available,
     is_jieba_available,
     is_jinja_available,
@@ -1237,6 +1239,15 @@ def require_fbgemm_gpu(test_case):
     Decorator for fbgemm_gpu dependency
     """
     return unittest.skipUnless(is_fbgemm_gpu_available(), "test requires fbgemm-gpu")(test_case)
+
+
+def require_flute_hadamard(test_case):
+    """
+    Decorator marking a test that requires higgs and hadamard
+    """
+    return unittest.skipUnless(
+        is_flute_available() and is_hadamard_available(), "test requires flute and fast_hadamard_transform"
+    )(test_case)
 
 
 def require_phonemizer(test_case):

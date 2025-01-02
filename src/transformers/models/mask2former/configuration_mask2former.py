@@ -171,7 +171,7 @@ class Mask2FormerConfig(PretrainedConfig):
             logger.info("`backbone_config` is `None`. Initializing the config with the default `Swin` backbone.")
             backbone_config = CONFIG_MAPPING["swin"](
                 image_size=224,
-                in_channels=3,
+                num_channels=3,
                 patch_size=4,
                 embed_dim=96,
                 depths=[2, 2, 18, 2],

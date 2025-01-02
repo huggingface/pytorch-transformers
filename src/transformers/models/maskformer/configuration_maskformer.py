@@ -131,7 +131,7 @@ class MaskFormerConfig(PretrainedConfig):
             # fall back to https://huggingface.co/microsoft/swin-base-patch4-window12-384-in22k
             backbone_config = SwinConfig(
                 image_size=384,
-                in_channels=3,
+                num_channels=3,
                 patch_size=4,
                 embed_dim=128,
                 depths=[2, 2, 18, 2],

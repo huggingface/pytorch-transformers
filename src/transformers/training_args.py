@@ -2164,7 +2164,7 @@ class TrainingArguments:
             if not is_accelerate_available():
                 raise ImportError(
                     f"Using the `Trainer` with `PyTorch` requires `accelerate>={ACCELERATE_MIN_VERSION}`: "
-                    "Please run `pip install transformers[torch]` or `pip install 'accelerate>={ACCELERATE_MIN_VERSION}'`"
+                    f"Please run `pip install transformers[torch]` or `pip install 'accelerate>={ACCELERATE_MIN_VERSION}'`"
                 )
         # We delay the init of `PartialState` to the end for clarity
         accelerator_state_kwargs = {"enabled": True, "use_configured_state": False}

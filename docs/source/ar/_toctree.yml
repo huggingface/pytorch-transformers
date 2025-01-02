@@ -30,26 +30,26 @@
   - local: conversations
     title: الدردشة مع المحولات
   title: البرامج التعليمية
-# - sections:
-#   - isExpanded: false
-#     sections:
+- sections:
+  - isExpanded: false
+    sections:
 #     - local: tasks/sequence_classification
 #       title: تصنيف النصوص
 #     - local: tasks/token_classification
 #       title: تصنيف الرموز
-#     - local: tasks/question_answering
-#       title: الإجابة على الأسئلة
+    - local: tasks/question_answering
+      title: الإجابة على الأسئلة
 #     - local: tasks/language_modeling
 #       title: نمذجة اللغة السببية
 #     - local: tasks/masked_language_modeling
 #       title: نمذجة اللغة المقنعة
 #     - local: tasks/translation
 #       title: الترجمة
-#     - local: tasks/summarization
-#       title: التلخيص
+    - local: tasks/summarization
+      title: التلخيص
 #     - local: tasks/multiple_choice
 #       title: الاختيار المتعدد
-#     title: معالجة اللغات الطبيعية
+    title: معالجة اللغات الطبيعية
 #   - isExpanded: false
 #     sections:
 #     - local: tasks/audio_classification
@@ -107,7 +107,7 @@
 #     - local: tasks/prompting
 #       title: دليل إرشادي لمحفزات النماذج اللغوية الكبيرة
 #     title: الإرشاد
-#   title: أدلة المهام
+  title: أدلة المهام
 - sections:
   - local: fast_tokenizers
     title: استخدم مجزئيات النصوص السريعة من 🤗 Tokenizers 

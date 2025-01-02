@@ -44,7 +44,7 @@ class VptqConfigTest(unittest.TestCase):
         quantization_config = VptqConfig()
         vptq_orig_config = quantization_config.to_dict()
 
-        self.assertEqual(quantization_config.quant_config, vptq_orig_config["quant_config"])
+        self.assertEqual(vptq_orig_config["quant_method"], quantization_config.quant_method)
 
 
 @slow

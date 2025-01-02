@@ -29,6 +29,7 @@ from ..utils import (
     is_accelerate_available,
     is_bitsandbytes_available,
     is_torch_available,
+    is_torch_npu_available,
     is_torch_xpu_available,
     logging,
 )
@@ -171,6 +172,9 @@ class Bnb4BitHfQuantizer(HfQuantizer):
 
         old_value = getattr(module, tensor_name)
 
+        # `torch.Tensor.to(<int num>)` is not supported by `torch_npu` (see this [issue](https://github.com/Ascend/pytorch/issues/16)).
+        if isinstance(target_device, int) and is_torch_npu_available():
+            target_device = f"npu:{target_device}"
         if tensor_name == "bias":
             if param_value is None:
                 new_value = old_value.to(target_device)
@@ -259,11 +263,12 @@ class Bnb4BitHfQuantizer(HfQuantizer):
             torch_dtype = torch.float16
         return torch_dtype
 
-    # Copied from transformers.quantizers.quantizer_bnb_8bit.Bnb8BitHfQuantizer.update_device_map
     def update_device_map(self, device_map):
         if device_map is None:
             if torch.cuda.is_available():
                 device_map = {"": torch.cuda.current_device()}
+            elif is_torch_npu_available():
+                device_map = {"": f"npu:{torch.npu.current_device()}"}
             elif is_torch_xpu_available():
                 device_map = {"": f"xpu:{torch.xpu.current_device()}"}
             else:

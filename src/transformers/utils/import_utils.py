@@ -128,6 +128,7 @@ except importlib.metadata.PackageNotFoundError:
         _faiss_available = False
 _ftfy_available = _is_package_available("ftfy")
 _g2p_en_available = _is_package_available("g2p_en")
+_hadamard_available = _is_package_available("fast_hadamard_transform")
 _ipex_available, _ipex_version = _is_package_available("intel_extension_for_pytorch", return_version=True)
 _jieba_available = _is_package_available("jieba")
 _jinja_available = _is_package_available("jinja2")
@@ -330,6 +331,10 @@ def is_torch_deterministic():
         return False
     else:
         return True
+
+
+def is_hadamard_available():
+    return _hadamard_available
 
 
 def is_hqq_available(min_version: str = HQQ_MIN_VERSION):
@@ -613,6 +618,13 @@ def is_openai_available():
 
 def is_flax_available():
     return _flax_available
+
+
+def is_flute_available():
+    try:
+        return importlib.util.find_spec("flute") is not None and importlib.metadata.version("flute-kernel") >= "0.3.0"
+    except importlib.metadata.PackageNotFoundError:
+        return False
 
 
 def is_ftfy_available():

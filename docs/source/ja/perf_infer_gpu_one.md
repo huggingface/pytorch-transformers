@@ -55,8 +55,8 @@ model_id = "tiiuae/falcon-7b"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 
 model = AutoModelForCausalLM.from_pretrained(
-    model_id, 
-    torch_dtype=torch.bfloat16, 
+    model_id,
+    torch_dtype=torch.bfloat16,
     attn_implementation="flash_attention_2",
 )
 ```
@@ -112,7 +112,7 @@ model_id = "tiiuae/falcon-7b"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 
 model = AutoModelForCausalLM.from_pretrained(
-    model_id, 
+    model_id,
     load_in_8bit=True,
     attn_implementation="flash_attention_2",
 )
@@ -130,7 +130,7 @@ model_id = "tiiuae/falcon-7b"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 
 model = AutoModelForCausalLM.from_pretrained(
-    model_id, 
+    model_id,
     load_in_4bit=True,
     attn_implementation="flash_attention_2",
 )
@@ -149,7 +149,7 @@ model_id = "tiiuae/falcon-7b"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 
 model = AutoModelForCausalLM.from_pretrained(
-    model_id, 
+    model_id,
     load_in_4bit=True,
     attn_implementation="flash_attention_2",
 )
@@ -173,7 +173,7 @@ BetterTransformerは、テキスト、画像、およびオーディオモデル
 <Tip>
 
 Flash Attentionは、fp16またはbf16のdtypeを使用するモデルにのみ使用できます。BetterTransformerを使用する前に、モデルを適切なdtypeにキャストしてください。
-  
+
 </Tip>
 
 ### Encoder models
@@ -214,11 +214,12 @@ model.to_bettertransformer()
 # Use it for training or inference
 ```
 
-SDPAは、ハードウェアや問題のサイズに応じて[Flash Attention](https://arxiv.org/abs/2205.14135)カーネルを使用することもできます。Flash Attentionを有効にするか、特定の設定（ハードウェア、問題サイズ）で使用可能かどうかを確認するには、[`torch.backends.cuda.sdp_kernel`](https://pytorch.org/docs/master/backends.html#torch.backends.cuda.sdp_kernel)をコンテキストマネージャとして使用します。
+SDPAは、ハードウェアや問題のサイズに応じて[Flash Attention](https://arxiv.org/abs/2205.14135)カーネルを使用することもできます。Flash Attentionを有効にするか、特定の設定（ハードウェア、問題サイズ）で使用可能かどうかを確認するには、[`torch.nn.attention.sdpa_kernel`](https://pytorch.org/docs/stable/generated/torch.nn.attention.sdpa_kernel.html)をコンテキストマネージャとして使用します。
 
 
 ```diff
 import torch
++ from torch.nn.attention import SDPBackend, sdpa_kernel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained("facebook/opt-350m")
@@ -229,7 +230,7 @@ model.to_bettertransformer()
 input_text = "Hello my dog is cute and"
 inputs = tokenizer(input_text, return_tensors="pt").to("cuda")
 
-+ with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
++ with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
     outputs = model.generate(**inputs)
 
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
@@ -421,6 +422,7 @@ In this example, the first GPU will use 1GB of memory and the second 2GB.
 
 ```py
 import torch
+from torch.nn.attention import SDPBackend, sdpa_kernel
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 quantization_config = BitsAndBytesConfig(
@@ -434,7 +436,7 @@ model = AutoModelForCausalLM.from_pretrained("facebook/opt-350m", quantization_c
 input_text = "Hello my dog is cute and"
 inputs = tokenizer(input_text, return_tensors="pt").to("cuda")
 
-with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
+with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
     outputs = model.generate(**inputs)
 
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))

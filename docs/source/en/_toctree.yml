@@ -173,6 +173,8 @@
     title: Quanto
   - local: quantization/eetq
     title: EETQ
+  - local: quantization/higgs
+    title: HIGGS
   - local: quantization/hqq
     title: HQQ
   - local: quantization/fbgemm_fp8
@@ -653,6 +655,8 @@
         title: DiNAT
       - local: model_doc/dinov2
         title: DINOV2
+      - local: model_doc/dinov2_with_registers
+        title: DINOv2 with Registers
       - local: model_doc/dit
         title: DiT
       - local: model_doc/dpt

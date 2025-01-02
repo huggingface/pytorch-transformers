@@ -149,7 +149,7 @@ def convert_clip_checkpoint(checkpoint_path, pytorch_dump_folder_path, config_pa
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pytorch_dump_folder_path", default=None, type=str, help="Path to the output PyTorch model.")
-    parser.add_argument("--checkpoint_path", default=None, type=str, help="Path to fairseq checkpoint")
+    parser.add_argument("--checkpoint_path", default=None, type=str, help="Path to OpenAI checkpoint")
     parser.add_argument("--config_path", default=None, type=str, help="Path to hf config.json of model to convert")
     args = parser.parse_args()
 

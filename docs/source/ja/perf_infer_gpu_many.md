@@ -34,7 +34,7 @@ BetterTransformerは、テキスト、画像、音声モデルの単一GPUおよ
 <Tip>
 
 Flash Attentionは、fp16またはbf16 dtypeを使用しているモデルにのみ使用できます。BetterTransformerを使用する前に、モデルを適切なdtypeにキャストしてください。
-  
+
 </Tip>
 
 ### Decoder models
@@ -53,11 +53,12 @@ model.to_bettertransformer()
 # Use it for training or inference
 ```
 
-SDPAは、ハードウェアや問題のサイズなどの特定の設定で[Flash Attention](https://arxiv.org/abs/2205.14135)カーネルを呼び出すこともできます。Flash Attentionを有効にするか、特定の設定（ハードウェア、問題のサイズ）で利用可能かを確認するには、[`torch.backends.cuda.sdp_kernel`](https://pytorch.org/docs/master/backends.html#torch.backends.cuda.sdp_kernel)をコンテキストマネージャとして使用します。
+SDPAは、ハードウェアや問題のサイズなどの特定の設定で[Flash Attention](https://arxiv.org/abs/2205.14135)カーネルを呼び出すこともできます。Flash Attentionを有効にするか、特定の設定（ハードウェア、問題のサイズ）で利用可能かを確認するには、[`torch.nn.kernel.sdpa_kernel`](https://pytorch.org/docs/stable/generated/torch.nn.attention.sdpa_kernel.html)をコンテキストマネージャとして使用します。
 
 
 ```diff
 import torch
++ from torch.nn.attention import SDPBackend, sdpa_kernel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained("facebook/opt-350m")
@@ -68,7 +69,7 @@ model.to_bettertransformer()
 input_text = "Hello my dog is cute and"
 inputs = tokenizer(input_text, return_tensors="pt").to("cuda")
 
-+ with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
++ with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
     outputs = model.generate(**inputs)
 
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))
@@ -105,6 +106,7 @@ BetterTransformerのパフォーマンスの詳細については、この[ブ�
 
 ```py
 import torch
+from torch.nn.attention import SDPBackend, sdpa_kernel
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 quantization_config = BitsAndBytesConfig(
@@ -118,7 +120,7 @@ model = AutoModelForCausalLM.from_pretrained("facebook/opt-350m", quantization_c
 input_text = "Hello my dog is cute and"
 inputs = tokenizer(input_text, return_tensors="pt").to("cuda")
 
-with torch.backends.cuda.sdp_kernel(enable_flash=True, enable_math=False, enable_mem_efficient=False):
+with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
     outputs = model.generate(**inputs)
 
 print(tokenizer.decode(outputs[0], skip_special_tokens=True))

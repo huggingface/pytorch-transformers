@@ -1,4 +1,5 @@
 from ..rt_detr.configuration_rt_detr import RTDetrConfig
+from ..rt_detr.configuration_rt_detr_resnet import RTDetrResNetConfig
 from ..rt_detr.modeling_rt_detr import (
     RTDetrDecoderLayer,
     RTDetrDecoder,
@@ -9,6 +10,7 @@ from ..rt_detr.modeling_rt_detr import (
     RTDetrRepVggBlock,
     RTDetrCSPRepLayer,
     RTDetrConvNormLayer,
+    RTDetrForObjectDetection,
     inverse_sigmoid,
 )
 
@@ -20,6 +22,14 @@ import math
 from typing import List, Optional
 import functools
 from ...activations import ACT2CLS
+
+
+class DFineNetConfig(RTDetrResNetConfig):
+    def __init__(
+        self,
+        **super_kwargs,
+    ):
+        super().__init__(**super_kwargs)
 
 
 class DFineConfig(RTDetrConfig):
@@ -387,19 +397,25 @@ class DFineConvNormLayer(RTDetrConvNormLayer):
         
 
 class DFineCSPRepLayer(RTDetrCSPRepLayer):
-    pass
+    def __init__(self, config: DFineConfig, in_channels: int, out_channels: int):
+        super().__init__(config=config)
+        self.in_channels = in_channels
+        self.out_channels = out_channels
         
 
 class RepNCSPELAN4(nn.Module):
     # csp-elan
-    def __init__(self, config: DFineConfig, c1, c2, c3, c4, n=3,
-                 bias=False,
+    def __init__(self, config: DFineConfig,
                  act="silu"):
         super().__init__()
+        c1 = config.encoder_hidden_dim * 2
+        c2 = config.encoder_hidden_dim
+        c3 = config.encoder_hidden_dim * 2
+        c4 = round(config.hidden_expansion * config.encoder_hidden_dim // 2)
         self.c = c3//2
         self.cv1 = DFineConvNormLayer(config, c1, c3, 1, 1, activation=act)
-        self.cv2 = nn.Sequential(DFineCSPRepLayer(c3//2, c4, n, 1, bias=bias, act=act, bottletype=DFineVggBlock), DFineConvNormLayer(config, c4, c4, 3, 1, activation=act))
-        self.cv3 = nn.Sequential(DFineCSPRepLayer(c4, c4, n, 1, bias=bias, act=act, bottletype=DFineVggBlock), DFineConvNormLayer(config, c4, c4, 3, 1, activation=act))
+        self.cv2 = nn.Sequential(DFineCSPRepLayer(config, c3//2, c4 ), DFineConvNormLayer(config, c4, c4, 3, 1, activation=act))
+        self.cv3 = nn.Sequential(DFineCSPRepLayer(config, c4, c4 ), DFineConvNormLayer(config, c4, c4, 3, 1, activation=act))
         self.cv4 = DFineConvNormLayer(config, c3+(2*c4), c2, 1, 1, activation=act)
 
     def forward_chunk(self, x):
@@ -549,6 +565,16 @@ class DFineDecoder(RTDetrDecoder):
         )
 
 
+class SCDown(nn.Module):
+    def __init__(self, config: DFineConfig, c1, c2, k, s):
+        super().__init__()
+        self.cv1 = DFineConvNormLayer(config, c1, c2, 1, 1)
+        self.cv2 = DFineConvNormLayer(config, c2, c2, k, s, c2)
+
+    def forward(self, x):
+        return self.cv2(self.cv1(x))
+    
+
 class DFineHybridEncoder(RTDetrHybridEncoder):
     def __init__(self, config: DFineConfig):
         super().__init__(config=config)
@@ -556,9 +582,21 @@ class DFineHybridEncoder(RTDetrHybridEncoder):
         self.lateral_convs = nn.ModuleList()
         self.fpn_blocks = nn.ModuleList()
         for _ in range(len(self.in_channels) - 1, 0, -1):
-            self.lateral_convs.append(DFineConvNormLayer(config, hidden_dim, hidden_dim, 1, 1))
+            self.lateral_convs.append(DFineConvNormLayer(config, self.encoder_hidden_dim, self.encoder_hidden_dim, 1, 1))
             self.fpn_blocks.append(
-                RepNCSPELAN4(config, hidden_dim * 2, hidden_dim, hidden_dim * 2, round(expansion * hidden_dim // 2), round(3 * depth_mult))
+                RepNCSPELAN4(config)
+            )
+        
+        # bottom-up pan
+        self.downsample_convs = nn.ModuleList()
+        self.pan_blocks = nn.ModuleList()
+        for _ in range(len(self.in_channels) - 1):
+            self.downsample_convs.append(nn.Sequential(
+                SCDown(config, self.encoder_hidden_dim, self.encoder_hidden_dim, 3, 2),
+                )
+            )
+            self.pan_blocks.append(
+                RepNCSPELAN4(config)
             )
 
 
@@ -572,7 +610,6 @@ class DFineModel(RTDetrModel):
         # create encoder
         self.encoder = DFineHybridEncoder(config=config)
         
-
 
 class Gate(nn.Module):
     def __init__(self, d_model):
@@ -593,3 +630,26 @@ class Gate(nn.Module):
         """initialize conv/fc bias value according to a given probability value."""
         bias_init = float(-math.log((1 - prior_prob) / prior_prob))
         return bias_init
+
+
+def _get_clones(partial_module, N):
+    return nn.ModuleList([partial_module() for i in range(N)])
+
+
+class DFineForObjectDetection(RTDetrForObjectDetection):
+    def __init__(self, config: DFineConfig):
+        super().__init__(config)
+        # D-FINE encoder-decoder model
+        self.model = DFineModel(config)
+        # here self.model.decoder.bbox_embed is null, but not self.bbox_embed
+        # fix bug
+        self.model.decoder.class_embed = self.class_embed
+        self.model.decoder.bbox_embed = self.bbox_embed
+
+
+__all__ = [
+    "DFineNetConfig",
+    "DFineConfig",
+    "DFineModel",
+    "DFineForObjectDetection",
+]

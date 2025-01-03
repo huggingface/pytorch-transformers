@@ -1441,6 +1441,9 @@ class TorchAoConfig(QuantizationConfigMixin):
                 "TorchAoConfig requires torchao to be installed, please install with `pip install torchao`"
             )
 
+        if self.quant_type == "autoquant":
+            return
+
         _STR_TO_METHOD = self._get_torchao_quant_type_to_method()
         if self.quant_type not in _STR_TO_METHOD.keys():
             raise ValueError(

@@ -2889,6 +2889,7 @@ else:
             "ModernBertForTokenClassification",
             "ModernBertModel",
             "ModernBertPreTrainedModel",
+            "ModernBertForQuestionAnswering",
         ]
     )
     _import_structure["models.moshi"].extend(
@@ -7601,6 +7602,7 @@ if TYPE_CHECKING:
             ModernBertForTokenClassification,
             ModernBertModel,
             ModernBertPreTrainedModel,
+            ModernBertForQuestionAnswering,
         )
         from .models.moshi import (
             MoshiForCausalLM,

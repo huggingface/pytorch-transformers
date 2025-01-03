@@ -208,8 +208,8 @@ class TorchAoHfQuantizer(HfQuantizer):
     def _process_model_after_weight_loading(self, model, **kwargs):
         """No process required for torchao quantized model"""
         if self.quantization_config.quant_type == "autoquant":
-            from torchao import autoquant
             import torchao
+            from torchao import autoquant
             model = torch.compile(model, mode="max-autotune")
             model = autoquant(model, qtensor_class_list=torchao.quantization.ALL_AUTOQUANT_CLASS_LIST)
             return model

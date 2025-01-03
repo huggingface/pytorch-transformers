@@ -31,9 +31,8 @@ if is_torch_available():
     import torch
 
 if is_torchao_available():
-    from torchao.dtypes import AffineQuantizedTensor
     # renamed in torchao 0.7.0, please install the latestest torchao
-    from torchao.dtypes import TensorCoreTiledLayout
+    from torchao.dtypes import AffineQuantizedTensor, TensorCoreTiledLayout
     from torchao.quantization.autoquant import AQMixin
 
 

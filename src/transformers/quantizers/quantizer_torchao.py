@@ -129,7 +129,7 @@ class TorchAoHfQuantizer(HfQuantizer):
                 "int4_weight_only": CustomDtype.INT4,
                 "int8_weight_only": torch.int8,
                 "int8_dynamic_activation_int8_weight": torch.int8,
-                "autoquant": None
+                "autoquant": None,
             }
             return map_to_target_dtype[self.quantization_config.quant_type]
         else:
@@ -210,6 +210,7 @@ class TorchAoHfQuantizer(HfQuantizer):
         if self.quantization_config.quant_type == "autoquant":
             import torchao
             from torchao import autoquant
+
             model = torch.compile(model, mode="max-autotune")
             model = autoquant(model, qtensor_class_list=torchao.quantization.ALL_AUTOQUANT_CLASS_LIST)
             return model

@@ -43,6 +43,7 @@ def check_torchao_quantized(test_module, qlayer, batch_size=1, context_size=1024
     test_module.assertEqual(weight.quant_max, 15)
     test_module.assertTrue(isinstance(weight._layout, TensorCoreTiledLayout))
 
+
 def check_autoquantized(test_module, qlayer):
     weight = qlayer.weight
     test_module.assertTrue(isinstance(weight, AQMixin))

@@ -3551,6 +3551,20 @@ class DepthAnythingPreTrainedModel(metaclass=DummyObject):
         requires_backends(self, ["torch"])
 
 
+class DFineModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class DFineModelForObjectDetection(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
 class DetrForObjectDetection(metaclass=DummyObject):
     _backends = ["torch"]
 

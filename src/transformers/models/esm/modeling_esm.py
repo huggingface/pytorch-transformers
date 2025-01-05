@@ -88,31 +88,60 @@ class RotaryEmbedding(torch.nn.Module):
         super().__init__()
         # Generate and save the inverse frequency buffer (non trainable)
         inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2, dtype=torch.int64).float() / dim))
-        inv_freq = inv_freq
         self.register_buffer("inv_freq", inv_freq)
 
         self._seq_len_cached = None
         self._cos_cached = None
         self._sin_cached = None
+        self._positions_ids_cached = None
 
-    def _update_cos_sin_tables(self, x, seq_dimension=2):
-        seq_len = x.shape[seq_dimension]
-
-        # Reset the tables if the sequence length has changed,
-        # or if we're on a new device (possibly due to tracing for instance)
-        if seq_len != self._seq_len_cached or self._cos_cached.device != x.device:
-            self._seq_len_cached = seq_len
-            t = torch.arange(x.shape[seq_dimension], device=x.device).type_as(self.inv_freq)
-            freqs = torch.outer(t, self.inv_freq)
+    def _update_cos_sin_tables(
+        self,
+        x: torch.Tensor,
+        position_ids: Optional[torch.Tensor] = None,
+        seq_dimension: int = 2,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        # Reset the tables if the sequence length has changed, position_ids
+        # has changed, or if we're on a new device (possibly due to tracing for
+        # instance)
+        device_changed = (self._cos_cached is not None) and (self._cos_cached.device != x.device)
+        t = None
+        if position_ids is not None:
+            if (
+                device_changed
+                or self._positions_ids_cached is None
+                or not torch.equal(position_ids, self._positions_ids_cached)
+            ):
+                # RoPE embeddings depends on position_ids
+                # Caching makes sense: position_ids is the same for every layer
+                if position_ids.dim() == 1:
+                    position_ids = position_ids.unsqueeze(0)
+                self._positions_ids_cached = torch.clone(position_ids)
+                t = position_ids.unsqueeze(-1).type_as(self.inv_freq).to(x.device)
+        else:
+            seq_len = x.shape[seq_dimension]
+            if device_changed or seq_len != self._seq_len_cached:
+                self._seq_len_cached = seq_len
+                t = torch.arange(seq_len, device=x.device)[None, :, None].type_as(self.inv_freq)
+        if t is not None:
+            inv_freq = self.inv_freq[None, None, :].expand(*t.shape[:2], -1)
+            t = t.expand(-1, -1, inv_freq.shape[-1])
+            freqs = t * inv_freq
             emb = torch.cat((freqs, freqs), dim=-1).to(x.device)
-
-            self._cos_cached = emb.cos()[None, None, :, :]
-            self._sin_cached = emb.sin()[None, None, :, :]
+            self._cos_cached = emb.cos().unsqueeze(1)
+            self._sin_cached = emb.sin().unsqueeze(1)
 
         return self._cos_cached, self._sin_cached
 
-    def forward(self, q: torch.Tensor, k: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        self._cos_cached, self._sin_cached = self._update_cos_sin_tables(k, seq_dimension=-2)
+    def forward(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        position_ids: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self._cos_cached, self._sin_cached = self._update_cos_sin_tables(
+            x=k, position_ids=position_ids, seq_dimension=-2
+        )
 
         return (
             apply_rotary_pos_emb(q, self._cos_cached, self._sin_cached),
@@ -276,14 +305,17 @@ class EsmSelfAttention(nn.Module):
         self.is_decoder = config.is_decoder
 
     def transpose_for_scores(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (B, T, num_heads * head_size)
+        # Returned tensor: (B, num_heads, T, head_size)
         new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
         x = x.view(new_x_shape)
-        return x.permute(0, 2, 1, 3)
+        return x.transpose(1, 2)
 
     def forward(
         self,
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.FloatTensor] = None,
+        position_ids: Optional[torch.Tensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.FloatTensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
@@ -316,6 +348,9 @@ class EsmSelfAttention(nn.Module):
             value_layer = self.transpose_for_scores(self.value(hidden_states))
 
         query_layer = self.transpose_for_scores(mixed_query_layer)
+        # query_layer: (B, num_heads, T, head_size)
+        # key_layer, value_layer: (B, num_heads, *, head_size), where
+        # * = T in the default case
 
         # Matt: Our BERT model (which this code was derived from) scales attention logits down by sqrt(head_dim).
         # ESM scales the query down by the same factor instead. Modulo numerical stability these are equivalent,
@@ -334,7 +369,7 @@ class EsmSelfAttention(nn.Module):
             past_key_value = (key_layer, value_layer)
 
         if self.position_embedding_type == "rotary":
-            query_layer, key_layer = self.rotary_embeddings(query_layer, key_layer)
+            query_layer, key_layer = self.rotary_embeddings(query_layer, key_layer, position_ids)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
@@ -426,6 +461,7 @@ class EsmAttention(nn.Module):
         self,
         hidden_states,
         attention_mask=None,
+        position_ids: Optional[torch.Tensor] = None,
         head_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
@@ -436,6 +472,7 @@ class EsmAttention(nn.Module):
         self_outputs = self.self(
             hidden_states_ln,
             attention_mask,
+            position_ids,
             head_mask,
             encoder_hidden_states,
             encoder_attention_mask,
@@ -491,6 +528,7 @@ class EsmLayer(nn.Module):
         self,
         hidden_states,
         attention_mask=None,
+        position_ids: Optional[torch.Tensor] = None,
         head_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
@@ -502,6 +540,7 @@ class EsmLayer(nn.Module):
         self_attention_outputs = self.attention(
             hidden_states,
             attention_mask,
+            position_ids,
             head_mask,
             output_attentions=output_attentions,
             past_key_value=self_attn_past_key_value,
@@ -569,6 +608,7 @@ class EsmEncoder(nn.Module):
         self,
         hidden_states,
         attention_mask=None,
+        position_ids: Optional[torch.Tensor] = None,
         head_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
@@ -602,6 +642,7 @@ class EsmEncoder(nn.Module):
                     layer_module.__call__,
                     hidden_states,
                     attention_mask,
+                    position_ids,
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,
@@ -612,6 +653,7 @@ class EsmEncoder(nn.Module):
                 layer_outputs = layer_module(
                     hidden_states,
                     attention_mask,
+                    position_ids,
                     layer_head_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,

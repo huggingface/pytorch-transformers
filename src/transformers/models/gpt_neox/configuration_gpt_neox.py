@@ -49,7 +49,9 @@ class GPTNeoXConfig(PretrainedConfig):
             The non-linear activation function (function or string) in the encoder and pooler. If string, `"gelu"`,
             `"relu"`, `"selu"` and `"gelu_new"` are supported.
         rotary_pct (`float`, *optional*, defaults to 0.25):
-            percentage of hidden dimensions to allocate to rotary embeddings
+            Percentage of hidden dimensions to allocate to rotary embeddings.
+            Note: In most other models, this parameter is called
+            `partial_rotary_factor`.
         rotary_emb_base (`int`, *optional*, defaults to 10000)
             base for computing rotary embeddings frequency
         attention_dropout (`float`, *optional*, defaults to 0.0):

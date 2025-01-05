@@ -83,9 +83,7 @@ class GPTNeoXJapaneseAttention(nn.Module):
             )
 
         self.layer_idx = layer_idx
-        self.rotary_ndims = int(self.head_size * config.rotary_pct)
-        self.rope_theta = config.rotary_emb_base
-        self.rotary_emb = GPTNeoXJapaneseRotaryEmbedding(config=config)
+        self.rotary_ndims = int(self.head_size * config.partial_rotary_factor)
         self.attention_dropout = nn.Dropout(config.attention_dropout)
         self.norm_factor = math.sqrt(self.head_size)
 
@@ -98,6 +96,7 @@ class GPTNeoXJapaneseAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.FloatTensor,
+        position_embeddings: Tuple[torch.Tensor, torch.Tensor],
         attention_mask: torch.FloatTensor,
         position_ids: torch.LongTensor,
         head_mask: Optional[torch.FloatTensor] = None,
@@ -105,7 +104,6 @@ class GPTNeoXJapaneseAttention(nn.Module):
         use_cache: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ):
         # Compute QKV
         # Attention heads [batch, seq_len, hidden_size]
@@ -297,7 +295,7 @@ def rotate_half(x):
 
 
 # Copied from transformers.models.llama.modeling_llama.apply_rotary_pos_emb
-def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
+def apply_rotary_pos_emb(q, k, cos, sin, unsqueeze_dim=1):
     """Applies Rotary Position Embedding to the query and key tensors.
 
     Args:
@@ -305,8 +303,6 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
         k (`torch.Tensor`): The key tensor.
         cos (`torch.Tensor`): The cosine part of the rotary embedding.
         sin (`torch.Tensor`): The sine part of the rotary embedding.
-        position_ids (`torch.Tensor`, *optional*):
-            Deprecated and unused.
         unsqueeze_dim (`int`, *optional*, defaults to 1):
             The 'unsqueeze_dim' argument specifies the dimension along which to unsqueeze cos[position_ids] and
             sin[position_ids] so that they can be properly broadcasted to the dimensions of q and k. For example, note
@@ -377,6 +373,7 @@ class GPTNeoXJapaneseLayer(nn.Module):
     def forward(
         self,
         hidden_states: Optional[torch.FloatTensor],
+        position_embeddings: Tuple[torch.Tensor, torch.Tensor],
         attention_mask: Optional[torch.FloatTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
@@ -384,12 +381,12 @@ class GPTNeoXJapaneseLayer(nn.Module):
         layer_past: Optional[Cache] = None,
         output_attentions: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ):
         residual = hidden_states
         ln_out = self.input_layernorm(hidden_states)
         attention_layer_outputs, attn_bias = self.attention(
             ln_out,
+            position_embeddings=position_embeddings,
             attention_mask=attention_mask,
             layer_past=layer_past,
             head_mask=head_mask,
@@ -397,7 +394,6 @@ class GPTNeoXJapaneseLayer(nn.Module):
             output_attentions=output_attentions,
             position_ids=position_ids,
             cache_position=cache_position,
-            position_embeddings=position_embeddings,
         )
         attn_output = attention_layer_outputs[0]  # output_attn: a, present, (attentions)
         outputs = attention_layer_outputs[1:]
@@ -623,6 +619,7 @@ class GPTNeoXJapaneseModel(GPTNeoXJapanesePreTrainedModel):
 
             outputs = layer(
                 hidden_states,
+                position_embeddings=position_embeddings,
                 attention_mask=causal_mask,
                 position_ids=position_ids,
                 head_mask=head_mask[i],
@@ -630,7 +627,6 @@ class GPTNeoXJapaneseModel(GPTNeoXJapanesePreTrainedModel):
                 use_cache=use_cache,
                 output_attentions=output_attentions,
                 cache_position=cache_position,
-                position_embeddings=position_embeddings,
             )
             hidden_states = outputs[0]
             if use_cache is True:

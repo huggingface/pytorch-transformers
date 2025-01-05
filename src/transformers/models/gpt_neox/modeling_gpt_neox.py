@@ -271,12 +271,10 @@ class GPTNeoXAttention(nn.Module):
                 "The hidden size is not divisble by the number of attention heads! Make sure to update them"
             )
         self.head_size = self.hidden_size // self.num_attention_heads
-        self.rotary_ndims = int(self.head_size * config.rotary_pct)
-        self.rope_theta = config.rotary_emb_base
+        self.rotary_ndims = int(self.head_size * config.partial_rotary_factor)
         self._init_bias(config.max_position_embeddings)
 
         self.register_buffer("masked_bias", torch.tensor(-1e9), persistent=False)
-        self.rotary_emb = GPTNeoXRotaryEmbedding(config=self.config)
 
         if layer_idx is None:
             logger.warning_once(
@@ -305,6 +303,7 @@ class GPTNeoXAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.FloatTensor,
+        position_embeddings: Tuple[torch.Tensor, torch.Tensor],
         attention_mask: torch.FloatTensor,
         position_ids: torch.LongTensor,
         head_mask: Optional[torch.FloatTensor] = None,
@@ -313,18 +312,19 @@ class GPTNeoXAttention(nn.Module):
         output_attentions: Optional[bool] = False,
         padding_mask: Optional[torch.Tensor] = None,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ):
+        if position_embeddings is None:
+            raise ValueError("position_embeddings = (cos, sin) must be given")
         bsz, seq_len, _ = hidden_states.shape
 
         # Apply attention-specific projections and rope
         query, key, value, present = self._attn_projections_and_rope(
             hidden_states=hidden_states,
+            position_embeddings=position_embeddings,
             position_ids=position_ids,
             layer_past=layer_past,
             use_cache=use_cache,
             cache_position=cache_position,
-            position_embeddings=position_embeddings,
         )
 
         # Checking for fallbacks in case an unsupported feature is requested
@@ -403,12 +403,14 @@ class GPTNeoXAttention(nn.Module):
     def _attn_projections_and_rope(
         self,
         hidden_states: torch.FloatTensor,
+        position_embeddings: Tuple[torch.Tensor, torch.Tensor],
         position_ids: torch.LongTensor,
         layer_past: Optional[Tuple[torch.Tensor]] = None,
         use_cache: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ):
+        if position_embeddings is None:
+            raise ValueError("position_embeddings = (cos, sin) must be given")
         # Compute QKV
         # Attention heads [batch, seq_len, hidden_size]
         #   --> [batch, seq_len, (np * 3 * head_size)]
@@ -563,7 +565,7 @@ def rotate_half(x):
 
 
 # Copied from transformers.models.llama.modeling_llama.apply_rotary_pos_emb
-def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
+def apply_rotary_pos_emb(q, k, cos, sin, unsqueeze_dim=1):
     """Applies Rotary Position Embedding to the query and key tensors.
 
     Args:
@@ -571,8 +573,6 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
         k (`torch.Tensor`): The key tensor.
         cos (`torch.Tensor`): The cosine part of the rotary embedding.
         sin (`torch.Tensor`): The sine part of the rotary embedding.
-        position_ids (`torch.Tensor`, *optional*):
-            Deprecated and unused.
         unsqueeze_dim (`int`, *optional*, defaults to 1):
             The 'unsqueeze_dim' argument specifies the dimension along which to unsqueeze cos[position_ids] and
             sin[position_ids] so that they can be properly broadcasted to the dimensions of q and k. For example, note
@@ -604,14 +604,6 @@ class GPTNeoXMLP(nn.Module):
         return hidden_states
 
 
-GPT_NEOX_ATTENTION_CLASSES = {
-    "eager": GPTNeoXAttention,
-    "flash_attention_2": GPTNeoXFlashAttention2,
-    "sdpa": GPTNeoXSdpaAttention,
-    "flex_attention": GPTNeoXAttention,
-}
-
-
 class GPTNeoXLayer(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
@@ -620,12 +612,13 @@ class GPTNeoXLayer(nn.Module):
         self.post_attention_layernorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.post_attention_dropout = nn.Dropout(config.hidden_dropout)
         self.post_mlp_dropout = nn.Dropout(config.hidden_dropout)
-        self.attention = GPT_NEOX_ATTENTION_CLASSES[config._attn_implementation](config, layer_idx)
+        self.attention = GPTNeoXAttention(config, layer_idx)
         self.mlp = GPTNeoXMLP(config)
 
     def forward(
         self,
         hidden_states: Optional[torch.FloatTensor],
+        position_embeddings: Tuple[torch.Tensor, torch.Tensor],
         attention_mask: Optional[torch.FloatTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
@@ -633,10 +626,10 @@ class GPTNeoXLayer(nn.Module):
         layer_past: Optional[Cache] = None,
         output_attentions: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ):
         attention_layer_outputs = self.attention(
             self.input_layernorm(hidden_states),
+            position_embeddings=position_embeddings,
             attention_mask=attention_mask,
             position_ids=position_ids,
             layer_past=layer_past,
@@ -644,7 +637,6 @@ class GPTNeoXLayer(nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions,
             cache_position=cache_position,
-            position_embeddings=position_embeddings,
         )
         attn_output = attention_layer_outputs[0]  # output_attn: attn_output, present, (attn_weights)
         attn_output = self.post_attention_dropout(attn_output)
@@ -878,6 +870,7 @@ class GPTNeoXModel(GPTNeoXPreTrainedModel):
                 outputs = self._gradient_checkpointing_func(
                     layer.__call__,
                     hidden_states,
+                    position_embeddings,
                     causal_mask,
                     position_ids,
                     head_mask[i],
@@ -885,11 +878,11 @@ class GPTNeoXModel(GPTNeoXPreTrainedModel):
                     None,
                     output_attentions,
                     cache_position,
-                    position_embeddings,
                 )
             else:
                 outputs = layer(
                     hidden_states,
+                    position_embeddings=position_embeddings,
                     attention_mask=causal_mask,
                     position_ids=position_ids,
                     head_mask=head_mask[i],
@@ -897,7 +890,6 @@ class GPTNeoXModel(GPTNeoXPreTrainedModel):
                     use_cache=use_cache,
                     output_attentions=output_attentions,
                     cache_position=cache_position,
-                    position_embeddings=position_embeddings,
                 )
             hidden_states = outputs[0]
             if use_cache is True:

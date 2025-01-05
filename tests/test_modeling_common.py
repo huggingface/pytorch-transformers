@@ -2651,6 +2651,9 @@ class ModelTesterMixin:
 
             tf_model_class = getattr(transformers, tf_model_class_name)
 
+            if hasattr(config, "debug_output"):
+                config.debug_output = True
+
             pt_model = model_class(config).eval()
             tf_model = tf_model_class(config)
 

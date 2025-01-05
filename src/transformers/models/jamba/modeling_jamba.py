@@ -112,6 +112,7 @@ def load_balancing_loss_func(
     if router_logits is None or not isinstance(router_logits, tuple):
         return 0
 
+    compute_device = None
     if isinstance(router_logits, tuple):
         compute_device = router_logits[0].device
         concatenated_router_logits = torch.cat(

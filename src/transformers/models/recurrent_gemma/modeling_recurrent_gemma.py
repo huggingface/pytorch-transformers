@@ -71,9 +71,8 @@ ALL_LAYERNORM_LAYERS.append(RecurrentGemmaRMSNorm)
 class RecurrentGemmaRotaryEmbedding(nn.Module):
     def __init__(self, dim, base=10000, device=None):
         super().__init__()
-        self.dim = dim
         self.base = base
-        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2, dtype=torch.int64).float() / self.dim))
+        inv_freq = 1.0 / (self.base ** (torch.arange(0, dim, 2, dtype=torch.int64).float() / dim))
         self.register_buffer("inv_freq", tensor=inv_freq, persistent=False)
 
     @torch.no_grad()
@@ -103,7 +102,7 @@ def rotate_half(x):
 
 
 # Copied from transformers.models.llama.modeling_llama.apply_rotary_pos_emb
-def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
+def apply_rotary_pos_emb(q, k, cos, sin, unsqueeze_dim=1):
     """Applies Rotary Position Embedding to the query and key tensors.
 
     Args:
@@ -111,8 +110,6 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
         k (`torch.Tensor`): The key tensor.
         cos (`torch.Tensor`): The cosine part of the rotary embedding.
         sin (`torch.Tensor`): The sine part of the rotary embedding.
-        position_ids (`torch.Tensor`, *optional*):
-            Deprecated and unused.
         unsqueeze_dim (`int`, *optional*, defaults to 1):
             The 'unsqueeze_dim' argument specifies the dimension along which to unsqueeze cos[position_ids] and
             sin[position_ids] so that they can be properly broadcasted to the dimensions of q and k. For example, note
@@ -155,14 +152,14 @@ class RecurrentGemmaSdpaAttention(nn.Module):
         self.head_dim = config.head_dim
         self.num_key_value_heads = config.num_key_value_heads
         self.num_key_value_groups = self.num_attention_heads // self.num_key_value_heads
-        self.partial_rotary_factor = config.partial_rotary_factor
+        self.rotary_ndims = int(self.head_dim * config.partial_rotary_factor)
 
         self.q_proj = nn.Linear(self.hidden_size, self.num_attention_heads * self.head_dim, bias=config.attention_bias)
         self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
         self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=config.attention_bias)
         self.o_proj = nn.Linear(self.num_attention_heads * self.head_dim, self.hidden_size, bias=True)
         self.rotary_emb = RecurrentGemmaRotaryEmbedding(
-            int(self.partial_rotary_factor * self.head_dim),
+            self.rotary_ndims,
             base=config.rope_theta,
         )
 
@@ -187,9 +184,11 @@ class RecurrentGemmaSdpaAttention(nn.Module):
         cos, sin = self.rotary_emb(value_states, position_ids)
 
         # Partial rotary embedding
-        query_rot, query_pass = torch.chunk(query_states, int(1 / self.partial_rotary_factor), dim=-1)
-        key_rot, key_pass = torch.chunk(key_states, int(1 / self.partial_rotary_factor), dim=-1)
-        query_rot, key_rot = apply_rotary_pos_emb(query_rot, key_rot, cos, sin, position_ids)
+        query_rot = query_states[..., : self.rotary_ndims]
+        query_pass = query_states[..., self.rotary_ndims :]
+        key_rot = key_states[..., : self.rotary_ndims]
+        key_pass = key_states[..., self.rotary_ndims :]
+        query_rot, key_rot = apply_rotary_pos_emb(query_rot, key_rot, cos, sin)
         query_states = torch.cat((query_rot, query_pass), dim=-1)
         key_states = torch.cat((key_rot, key_pass), dim=-1)
 

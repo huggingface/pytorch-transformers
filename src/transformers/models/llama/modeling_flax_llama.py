@@ -133,7 +133,8 @@ def create_sinusoidal_positions(num_pos, dim):
     freqs = np.einsum("i , j -> i j", np.arange(num_pos), inv_freq).astype("float32")
 
     emb = np.concatenate((freqs, freqs), axis=-1)
-    out = np.concatenate((np.sin(emb)[:, None, :], np.cos(emb)[:, None, :]), axis=-1)
+    emb = emb[:, None, :]
+    out = np.concatenate((np.sin(emb), np.cos(emb)), axis=-1)
     return jnp.array(out[:, :, :num_pos])
 
 

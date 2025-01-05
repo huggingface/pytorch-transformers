@@ -54,6 +54,8 @@ class Qwen2VLVisionConfig(PretrainedConfig):
         self.temporal_patch_size = temporal_patch_size
 
 
+# TODO: Add comment for `rope_scaling["mrope_section"]`. This parameter
+# is mandatory, but it is unclear what it should be set to.
 class Qwen2VLConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a [`Qwen2VLModel`]. It is used to instantiate a

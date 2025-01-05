@@ -81,7 +81,7 @@ def rotate_half(x):
 
 
 # Copied from transformers.models.llama.modeling_llama.apply_rotary_pos_emb
-def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
+def apply_rotary_pos_emb(q, k, cos, sin, unsqueeze_dim=1):
     """Applies Rotary Position Embedding to the query and key tensors.
 
     Args:
@@ -89,8 +89,6 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
         k (`torch.Tensor`): The key tensor.
         cos (`torch.Tensor`): The cosine part of the rotary embedding.
         sin (`torch.Tensor`): The sine part of the rotary embedding.
-        position_ids (`torch.Tensor`, *optional*):
-            Deprecated and unused.
         unsqueeze_dim (`int`, *optional*, defaults to 1):
             The 'unsqueeze_dim' argument specifies the dimension along which to unsqueeze cos[position_ids] and
             sin[position_ids] so that they can be properly broadcasted to the dimensions of q and k. For example, note
@@ -330,6 +328,7 @@ class FalconAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
+        position_embeddings: Tuple[torch.Tensor, torch.Tensor],
         alibi: Optional[torch.Tensor],
         attention_mask: torch.Tensor,
         position_ids: Optional[torch.LongTensor] = None,
@@ -338,8 +337,9 @@ class FalconAttention(nn.Module):
         use_cache: bool = False,
         output_attentions: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ):
+        if position_embeddings is None:
+            raise ValueError("position_embeddings = (cos, sin) must be given")
         fused_qkv = self.query_key_value(hidden_states)  # [batch_size, seq_length, 3 x hidden_size]
         num_kv_heads = self.num_heads if self.new_decoder_architecture else self.num_kv_heads
         # 3 x [batch_size, seq_length, num_heads, head_dim]
@@ -480,6 +480,7 @@ class FalconFlashAttention2(FalconAttention):
     def forward(
         self,
         hidden_states: torch.Tensor,
+        position_embeddings: Tuple[torch.Tensor, torch.Tensor],
         alibi: Optional[torch.Tensor],
         attention_mask: torch.Tensor,
         position_ids: Optional[torch.LongTensor] = None,
@@ -488,8 +489,9 @@ class FalconFlashAttention2(FalconAttention):
         use_cache: bool = False,
         output_attentions: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
     ):
+        if position_embeddings is None:
+            raise ValueError("position_embeddings = (cos, sin) must be given")
         fused_qkv = self.query_key_value(hidden_states)  # [batch_size, seq_length, 3 x hidden_size]
         num_kv_heads = self.num_heads if self.new_decoder_architecture else self.num_kv_heads
         # 3 x [batch_size, seq_length, num_heads, head_dim]
@@ -618,6 +620,7 @@ class FalconDecoderLayer(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
+        position_embeddings: Tuple[torch.Tensor, torch.Tensor],
         alibi: Optional[torch.Tensor],
         attention_mask: torch.Tensor,
         position_ids: Optional[torch.LongTensor] = None,
@@ -626,7 +629,6 @@ class FalconDecoderLayer(nn.Module):
         use_cache: bool = False,
         output_attentions: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
         **kwargs,
     ):
         residual = hidden_states
@@ -640,6 +642,7 @@ class FalconDecoderLayer(nn.Module):
         # Self attention.
         attn_outputs = self.self_attention(
             attention_layernorm_out,
+            position_embeddings=position_embeddings,
             layer_past=layer_past,
             attention_mask=attention_mask,
             position_ids=position_ids,
@@ -648,7 +651,6 @@ class FalconDecoderLayer(nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions,
             cache_position=cache_position,
-            position_embeddings=position_embeddings,
         )
 
         attention_output = attn_outputs[0]
@@ -961,6 +963,7 @@ class FalconModel(FalconPreTrainedModel):
                 outputs = self._gradient_checkpointing_func(
                     block.__call__,
                     hidden_states,
+                    position_embeddings,
                     alibi,
                     causal_mask,
                     position_ids,
@@ -969,11 +972,11 @@ class FalconModel(FalconPreTrainedModel):
                     use_cache,
                     output_attentions,
                     cache_position,
-                    position_embeddings,
                 )
             else:
                 outputs = block(
                     hidden_states,
+                    position_embeddings=position_embeddings,
                     layer_past=past_key_values,
                     attention_mask=causal_mask,
                     position_ids=position_ids,
@@ -982,7 +985,6 @@ class FalconModel(FalconPreTrainedModel):
                     output_attentions=output_attentions,
                     alibi=alibi,
                     cache_position=cache_position,
-                    position_embeddings=position_embeddings,
                 )
 
             hidden_states = outputs[0]

@@ -199,6 +199,14 @@ SPECIAL_CASES_TO_ALLOW = {
         "giou_cost",
         "giou_loss_coefficient",
     ],
+    "GPTNeoXConfig": [
+        "rotary_emb_base",  # Doubles for rope_theta
+        "rotary_pct",  # Doubles for partial_rotary_factor
+    ],
+    "GPTNeoXJapaneseConfig": [
+        "rotary_emb_base",  # Doubles for rope_theta
+        "rotary_pct",  # Doubles for partial_rotary_factor
+    ],
 }
 
 

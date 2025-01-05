@@ -107,17 +107,32 @@ class TFRotaryEmbedding(keras.layers.Layer):
             1.0 / (10000 ** (tf.range(start=0, limit=self.dim, delta=2, dtype=tf.float32) / self.dim))
         )
 
-    def _compute_cos_sin(self, x, seq_dimension=2):
-        seq_len = tf.shape(x)[seq_dimension]
-
-        t = tf.range(seq_len, dtype=self.inv_freq.dtype)
-        freqs = tf.einsum("i, j -> ij", t, self.inv_freq)  # Outer multiplication
-        emb = tf.concat((freqs, freqs), axis=-1)[None, None, :, :]
+    def _compute_cos_sin(
+        self,
+        x: tf.Tensor,
+        position_ids: tf.Tensor | None = None,
+        seq_dimension: int = 2,
+    ) -> Tuple[tf.Tensor, tf.Tensor]:
+        if position_ids is not None:
+            t = tf.cast(position_ids[:, :, None], self.inv_freq.dtype)
+        else:
+            seq_len = tf.shape(x)[seq_dimension]
+            t = tf.range(seq_len, dtype=self.inv_freq.dtype)[None, :, None]
+        inv_freq = self.inv_freq[None, None, :]
+        freqs = t * inv_freq
+        emb = tf.concat((freqs, freqs), axis=-1)
 
         return tf.cos(emb), tf.sin(emb)
 
-    def call(self, q: tf.Tensor, k: tf.Tensor) -> Tuple[tf.Tensor, tf.Tensor]:
-        cos_emb, sin_emb = self._compute_cos_sin(k, seq_dimension=-2)
+    def call(
+        self,
+        q: tf.Tensor,
+        k: tf.Tensor,
+        position_ids: tf.Tensor | None = None,
+    ) -> Tuple[tf.Tensor, tf.Tensor]:
+        cos_emb, sin_emb = self._compute_cos_sin(x=k, position_ids=position_ids, seq_dimension=-2)
+        cos_emb = cos_emb[:, None, :, :]
+        sin_emb = sin_emb[:, None, :, :]
 
         return (
             apply_rotary_pos_emb(q, cos_emb, sin_emb),
@@ -319,6 +334,7 @@ class TFEsmSelfAttention(keras.layers.Layer):
         self.config = config
 
     def transpose_for_scores(self, x: tf.Tensor) -> tf.Tensor:
+        # Returned tensor has shape (B, num_heads, T, head_size)
         new_x_shape = shape_list(x)[:-1] + [self.num_attention_heads, self.attention_head_size]
         x = tf.reshape(x, new_x_shape)
         return tf.transpose(x, perm=(0, 2, 1, 3))
@@ -327,6 +343,7 @@ class TFEsmSelfAttention(keras.layers.Layer):
         self,
         hidden_states: tf.Tensor,
         attention_mask: tf.Tensor | None = None,
+        position_ids: tf.Tensor | None = None,
         head_mask: tf.Tensor | None = None,
         encoder_hidden_states: tf.Tensor | None = None,
         encoder_attention_mask: tf.Tensor | None = None,
@@ -378,7 +395,7 @@ class TFEsmSelfAttention(keras.layers.Layer):
             past_key_value = (key_layer, value_layer)
 
         if self.position_embedding_type == "rotary":
-            query_layer, key_layer = self.rotary_embeddings(query_layer, key_layer)
+            query_layer, key_layer = self.rotary_embeddings(query_layer, key_layer, position_ids)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = tf.matmul(query_layer, key_layer, transpose_b=True)
@@ -484,6 +501,7 @@ class TFEsmAttention(keras.layers.Layer):
         self,
         hidden_states,
         attention_mask=None,
+        position_ids=None,
         head_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
@@ -495,6 +513,7 @@ class TFEsmAttention(keras.layers.Layer):
         self_outputs = self.self(
             hidden_states_ln,
             attention_mask,
+            position_ids,
             head_mask,
             encoder_hidden_states,
             encoder_attention_mask,
@@ -591,6 +610,7 @@ class TFEsmLayer(keras.layers.Layer):
         self,
         hidden_states,
         attention_mask=None,
+        position_ids=None,
         head_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
@@ -603,6 +623,7 @@ class TFEsmLayer(keras.layers.Layer):
         self_attention_outputs = self.attention(
             hidden_states,
             attention_mask,
+            position_ids,
             head_mask,
             output_attentions=output_attentions,
             past_key_value=self_attn_past_key_value,
@@ -630,6 +651,7 @@ class TFEsmLayer(keras.layers.Layer):
             cross_attention_outputs = self.crossattention(
                 attention_output,
                 attention_mask,
+                position_ids,
                 head_mask,
                 encoder_hidden_states,
                 encoder_attention_mask,
@@ -688,6 +710,7 @@ class TFEsmEncoder(keras.layers.Layer):
         self,
         hidden_states,
         attention_mask=None,
+        position_ids=None,
         head_mask=None,
         encoder_hidden_states=None,
         encoder_attention_mask=None,
@@ -713,6 +736,7 @@ class TFEsmEncoder(keras.layers.Layer):
             layer_outputs = layer_module(
                 hidden_states,
                 attention_mask,
+                position_ids,
                 layer_head_mask,
                 encoder_hidden_states,
                 encoder_attention_mask,
@@ -1049,6 +1073,7 @@ class TFEsmMainLayer(keras.layers.Layer):
         encoder_outputs = self.encoder(
             hidden_states=embedding_output,
             attention_mask=extended_attention_mask,
+            position_ids=position_ids,
             head_mask=head_mask,
             encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=encoder_extended_attention_mask,

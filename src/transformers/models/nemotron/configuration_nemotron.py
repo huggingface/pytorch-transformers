@@ -76,7 +76,8 @@ class NemotronConfig(PretrainedConfig):
             Whether to tie weight embeddings
         rope_theta (`float`, *optional*, defaults to 10000.0):
             The base period of the RoPE embeddings.
-        partial_rotary_factor (`float`, *optional*, defaults to 0.5): Percentage of the query and keys which will have rotary embedding.
+        partial_rotary_factor (`float`, *optional*, defaults to 1.0):
+            Percentage of the query and keys which will have rotary embedding.
         attention_bias (`bool`, *optional*, defaults to `False`):
             Whether to use a bias in the query, key, value and output projection layers during self-attention.
         attention_dropout (`float`, *optional*, defaults to 0.0):
@@ -119,7 +120,7 @@ class NemotronConfig(PretrainedConfig):
         eos_token_id=3,
         tie_word_embeddings=False,
         rope_theta=10000.0,
-        partial_rotary_factor=0.5,
+        partial_rotary_factor=1.0,
         attention_bias=False,
         attention_dropout=0.0,
         mlp_bias=False,

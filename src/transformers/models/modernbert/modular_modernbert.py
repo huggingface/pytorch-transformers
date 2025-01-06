@@ -1476,18 +1476,23 @@ class ModernBertForQuestionAnswering(ModernBertPreTrainedModel):
         self._init_weights(self.classifier)
 
     def _init_weights(self, module):
-        """ Initialize the weights """
+        """Initialize the weights using modern best practices"""
         if isinstance(module, nn.Linear):
-            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            # Kaiming/He initialization for Linear layers
+            nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
             if module.bias is not None:
-                module.bias.data.zero_()
+                nn.init.zeros_(module.bias)
+        
         elif isinstance(module, nn.Embedding):
-            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            # Xavier/Glorot initialization for embeddings
+            nn.init.xavier_uniform_(module.weight)
             if module.padding_idx is not None:
                 module.weight.data[module.padding_idx].zero_()
+        
         elif isinstance(module, nn.LayerNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
+            # Standard initialization for LayerNorm
+            nn.init.ones_(module.weight)
+            nn.init.zeros_(module.bias)
 
     @add_start_docstrings_to_model_forward(MODERNBERT_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(

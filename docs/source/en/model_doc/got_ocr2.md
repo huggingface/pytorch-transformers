@@ -45,11 +45,12 @@ The original code can be found [here](https://github.com/Ucas-HaoranWei/GOT-OCR2
 ```python
 >>> from transformers import AutoProcessor, AutoModelForImageTextToText
 
->>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map="cuda")
+>>> device = "cuda" if torch.cuda.is_available() else "cpu"
+>>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map=device)
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/image_ocr.jpg"
->>> inputs = processor(image, return_tensors="pt").to("cuda")
+>>> inputs = processor(image, return_tensors="pt").to(device)
 
 >>> generate_ids = model.generate(
 ...     **inputs,
@@ -68,13 +69,14 @@ The original code can be found [here](https://github.com/Ucas-HaoranWei/GOT-OCR2
 ```python
 >>> from transformers import AutoProcessor, AutoModelForImageTextToText
 
->>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map="cuda")
+>>> device = "cuda" if torch.cuda.is_available() else "cpu"
+>>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map=device)
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image1 = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/multi_box.png"
 >>> image2 = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/image_ocr.jpg"
 
->>> inputs = processor([image1, image2], return_tensors="pt").to("cuda")
+>>> inputs = processor([image1, image2], return_tensors="pt").to(device)
 
 >>> generate_ids = model.generate(
 ...     **inputs,
@@ -95,11 +97,12 @@ GOT-OCR2 can also generate formatted text, such as markdown or LaTeX. Here is an
 ```python
 >>> from transformers import AutoProcessor, AutoModelForImageTextToText
 
->>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map="cuda")
+>>> device = "cuda" if torch.cuda.is_available() else "cpu"
+>>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map=device)
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/latex.png"
->>> inputs = processor(image, return_tensors="pt", format=True).to("cuda")
+>>> inputs = processor(image, return_tensors="pt", format=True).to(device)
 
 >>> generate_ids = model.generate(
 ...     **inputs,
@@ -122,12 +125,13 @@ Here is an example of how to process multiple pages at once:
 ```python
 >>> from transformers import AutoProcessor, AutoModelForImageTextToText
 
->>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map="cuda")
+>>> device = "cuda" if torch.cuda.is_available() else "cpu"
+>>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map=device)
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image1 = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/page1.png"
 >>> image2 = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/page2.png"
->>> inputs = processor([image1, image2], return_tensors="pt", format=True).to("cuda")
+>>> inputs = processor([image1, image2], return_tensors="pt", format=True).to(device)
 
 >>> generate_ids = model.generate(
 ...     **inputs,
@@ -150,11 +154,12 @@ Here is an example of how to process cropped patches:
 >>> import torch
 >>> from transformers import AutoProcessor, AutoModelForImageTextToText
 
->>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", torch_dtype=torch.bfloat16, device_map="cuda")
+>>> device = "cuda" if torch.cuda.is_available() else "cpu"
+>>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", torch_dtype=torch.bfloat16, device_map=device)
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/one_column.png"
->>> inputs = processor(image, return_tensors="pt", format=True, crop_to_patches=True, max_patches=3).to("cuda")
+>>> inputs = processor(image, return_tensors="pt", format=True, crop_to_patches=True, max_patches=3).to(device)
 
 >>> generate_ids = model.generate(
 ...     **inputs,
@@ -175,11 +180,12 @@ GOT supports interactive OCR, where the user can specify the region to be recogn
 ```python
 >>> from transformers import AutoProcessor, AutoModelForImageTextToText
 
->>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map="cuda")
+>>> device = "cuda" if torch.cuda.is_available() else "cpu"
+>>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map=device)
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/multi_box.png"
->>> inputs = processor(image, return_tensors="pt", color="green").to("cuda") # or box=[x1, y1, x2, y2] for coordinates (image pixels)
+>>> inputs = processor(image, return_tensors="pt", color="green").to(device) # or box=[x1, y1, x2, y2] for coordinates (image pixels)
 
 >>> generate_ids = model.generate(
 ...     **inputs,
@@ -202,11 +208,12 @@ Here is an example of how to process sheet music:
 >>> from transformers import AutoProcessor, AutoModelForImageTextToText
 >>> import verovio
 
->>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map="cuda")
+>>> device = "cuda" if torch.cuda.is_available() else "cpu"
+>>> model = AutoModelForImageTextToText.from_pretrained("yonigozlan/GOT-OCR-2.0-hf", device_map=device)
 >>> processor = AutoProcessor.from_pretrained("yonigozlan/GOT-OCR-2.0-hf")
 
 >>> image = "https://huggingface.co/datasets/hf-internal-testing/fixtures_got_ocr/resolve/main/sheet_music.png"
->>> inputs = processor(image, return_tensors="pt", format=True).to("cuda")
+>>> inputs = processor(image, return_tensors="pt", format=True).to(device)
 
 >>> generate_ids = model.generate(
 ...     **inputs,

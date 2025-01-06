@@ -24,6 +24,7 @@ from ..rt_detr.modeling_rt_detr import (
     RTDetrCSPRepLayer,
     RTDetrConvNormLayer,
     RTDetrForObjectDetection,
+    RTDetrPreTrainedModel,
     inverse_sigmoid,
 )
 
@@ -220,6 +221,27 @@ class DFineMultiscaleDeformableAttention(nn.Module):
         )
 
         return output
+    
+
+class Gate(nn.Module):
+    def __init__(self, d_model):
+        super(Gate, self).__init__()
+        self.gate = nn.Linear(2 * d_model, 2 * d_model)
+        bias = self._bias_init_with_prob(0.5)
+        init.constant_(self.gate.bias, bias)
+        init.constant_(self.gate.weight, 0)
+        self.norm = nn.LayerNorm(d_model)
+
+    def forward(self, x1, x2):
+        gate_input = torch.cat([x1, x2], dim=-1)
+        gates = torch.sigmoid(self.gate(gate_input))
+        gate1, gate2 = gates.chunk(2, dim=-1)
+        return self.norm(gate1 * x1 + gate2 * x2)
+
+    def _bias_init_with_prob(self, prior_prob=0.01):
+        """initialize conv/fc bias value according to a given probability value."""
+        bias_init = float(-math.log((1 - prior_prob) / prior_prob))
+        return bias_init
 
 
 class DFineDecoderLayer(RTDetrDecoderLayer):
@@ -291,6 +313,221 @@ class DFineDecoderLayer(RTDetrDecoderLayer):
     def _reset_parameters(self):
         init.xavier_uniform_(self.fc1.weight)
         init.xavier_uniform_(self.fc2.weight)
+
+
+class DFinePreTrainedModel(RTDetrPreTrainedModel):
+    def _init_weights(self, module):
+        # this could be simplified like calling the base class function first then adding new stuff
+        """initialize linear layer biasreturn value according to a given probability value."""
+        if isinstance(module, (DFineMultiscaleDeformableAttention, DFineDecoder)):
+            if module.class_embed is not None:
+                for layer in module.class_embed:
+                    prior_prob = self.config.initializer_bias_prior_prob or 1 / (self.config.num_labels + 1)
+                    bias = float(-math.log((1 - prior_prob) / prior_prob))
+                    nn.init.xavier_uniform_(layer.weight)
+                    nn.init.constant_(layer.bias, bias)
+
+            if module.bbox_embed is not None:
+                for layer in module.bbox_embed:
+                    nn.init.constant_(layer.layers[-1].weight, 0)
+                    nn.init.constant_(layer.layers[-1].bias, 0)
+
+        if isinstance(module, DFineMultiscaleDeformableAttention):
+            nn.init.constant_(module.sampling_offsets.weight.data, 0.0)
+            default_dtype = torch.get_default_dtype()
+            thetas = torch.arange(module.n_heads, dtype=torch.int64).to(default_dtype) * (
+                2.0 * math.pi / module.n_heads
+            )
+            grid_init = torch.stack([thetas.cos(), thetas.sin()], -1)
+            grid_init = (
+                (grid_init / grid_init.abs().max(-1, keepdim=True)[0])
+                .view(module.n_heads, 1, 1, 2)
+                .repeat(1, module.n_levels, module.n_points, 1)
+            )
+            for i in range(module.n_points):
+                grid_init[:, :, i, :] *= i + 1
+            with torch.no_grad():
+                module.sampling_offsets.bias = nn.Parameter(grid_init.view(-1))
+            nn.init.constant_(module.attention_weights.weight.data, 0.0)
+            nn.init.constant_(module.attention_weights.bias.data, 0.0)
+            nn.init.xavier_uniform_(module.value_proj.weight.data)
+            nn.init.constant_(module.value_proj.bias.data, 0.0)
+            nn.init.xavier_uniform_(module.output_proj.weight.data)
+            nn.init.constant_(module.output_proj.bias.data, 0.0)
+
+        if isinstance(module, DFineModel):
+            prior_prob = self.config.initializer_bias_prior_prob or 1 / (self.config.num_labels + 1)
+            bias = float(-math.log((1 - prior_prob) / prior_prob))
+            nn.init.xavier_uniform_(module.enc_score_head.weight)
+            nn.init.constant_(module.enc_score_head.bias, bias)
+
+        if isinstance(module, (nn.Linear, nn.Conv2d, nn.BatchNorm2d)):
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if module.bias is not None:
+                module.bias.data.zero_()
+
+        if hasattr(module, "weight_embedding") and self.config.learn_initial_query:
+            nn.init.xavier_uniform_(module.weight_embedding.weight)
+        if hasattr(module, "denoising_class_embed") and self.config.num_denoising > 0:
+            nn.init.xavier_uniform_(module.denoising_class_embed.weight)
+
+
+class DFineDecoder(RTDetrDecoder):
+    """
+    D-FINE Decoder implementing Fine-grained Distribution Refinement (FDR).
+
+    This decoder refines object detection predictions through iterative updates across multiple layers,
+    utilizing attention mechanisms, location quality estimators, and distribution refinement techniques
+    to improve bounding box accuracy and robustness.
+    """
+
+    def __init__(self, config: DFineConfig):
+        super().__init__(config=config)
+        self.d_model = config.d_model
+        self.layer_scale = config.layer_scale
+        self.eval_idx = config.eval_idx if config.eval_idx >= 0 else config.decoder_layers + config.eval_idx
+        self.num_head = config.decoder_attention_heads
+        self.layers = nn.ModuleList(
+            [DFineDecoderLayer(config=config) for _ in range(config.decoder_layers)]
+            + [DFineDecoderLayer(config=config) for _ in range(config.decoder_layers - self.eval_idx - 1)]
+        )
+        self.lqe_layers = nn.ModuleList([LQE(4, 64, 2, config.reg_max) for _ in range(config.decoder_layers)])
+
+    def value_op(self, memory, value_proj, value_scale, memory_mask, memory_spatial_shapes):
+        """
+        Preprocess values for MSDeformableAttention.
+        """
+        value = value_proj(memory) if value_proj is not None else memory
+        value = F.interpolate(memory, size=value_scale) if value_scale is not None else value
+        if memory_mask is not None:
+            value = value * memory_mask.to(value.dtype).unsqueeze(-1)
+        value = value.reshape(value.shape[0], value.shape[1], self.num_head, -1)
+        split_shape = [h * w for h, w in memory_spatial_shapes]
+        return value.permute(0, 2, 3, 1).split(split_shape, dim=-1)
+
+    def forward(
+        self,
+        inputs_embeds,
+        ref_points_unact,
+        memory,
+        spatial_shapes,
+        bbox_head,
+        score_head,
+        pre_bbox_head,
+        integral,
+        up,
+        reg_scale,
+        encoder_attn_mask=None,
+        memory_mask=None,
+        output_attentions=None,
+        return_dict=None,
+    ):
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        if inputs_embeds is not None:
+            hidden_states = inputs_embeds
+
+        dec_out_bboxes = []
+        dec_out_logits = []
+        dec_out_pred_corners = []
+        dec_out_refs = []
+
+        output_detach = pred_corners_undetach = 0
+        value = self.value_op(memory, None, None, memory_mask, spatial_shapes)
+
+        project = weighting_function(self.reg_max, up, reg_scale)
+        ref_points_detach = F.sigmoid(ref_points_unact)
+
+        for i, decoder_layer in enumerate(self.layers):
+            ref_points_input = ref_points_detach.unsqueeze(2)
+            query_pos_embed = self.query_pos_head(ref_points_detach).clamp(min=-10, max=10)
+
+            # TODO Adjust scale if needed for detachable wider layers
+            if i >= self.eval_idx + 1 and self.layer_scale > 1:
+                query_pos_embed = F.interpolate(query_pos_embed, scale_factor=self.layer_scale)
+                value = self.value_op(memory, None, query_pos_embed.shape[-1], memory_mask, spatial_shapes)
+                hidden_states = F.interpolate(hidden_states, size=query_pos_embed.shape[-1])
+                output_detach = hidden_states.detach()
+
+            output = decoder_layer(
+                hidden_states=hidden_states,
+                position_embeddings=query_pos_embed,
+                reference_points=ref_points_input,
+                spatial_shapes=spatial_shapes,
+                encoder_hidden_states=value,
+                encoder_attention_mask=encoder_attn_mask,
+                output_attentions=output_attentions,
+            )
+
+            hidden_states = output[0]
+
+            if i == 0:
+                # Initial bounding box predictions with inverse sigmoid refinement
+                pre_bboxes = F.sigmoid(pre_bbox_head(output) + inverse_sigmoid(ref_points_detach))
+                pre_scores = score_head[0](hidden_states)
+                ref_points_initial = pre_bboxes.detach()
+
+            # Refine bounding box corners using FDR, integrating previous layer's corrections
+            pred_corners = bbox_head[i](hidden_states + output_detach) + pred_corners_undetach
+            inter_ref_bbox = distance2bbox(ref_points_initial, integral(pred_corners, project), reg_scale)
+
+            if self.training or i == self.eval_idx:
+                scores = score_head[i](output)
+                # Lqe does not affect the performance here.
+                scores = self.lqe_layers[i](scores, pred_corners)
+                dec_out_logits.append(scores)
+                dec_out_bboxes.append(inter_ref_bbox)
+                dec_out_pred_corners.append(pred_corners)
+                dec_out_refs.append(ref_points_initial)
+
+                if not self.training:
+                    break
+
+            pred_corners_undetach = pred_corners
+            ref_points_detach = inter_ref_bbox.detach()
+            output_detach = hidden_states.detach()
+
+        if not return_dict:
+            return (
+                torch.stack(dec_out_bboxes),
+                torch.stack(dec_out_logits),
+                torch.stack(dec_out_pred_corners),
+                torch.stack(dec_out_refs),
+                pre_bboxes,
+                pre_scores,
+            )
+
+        return DFineDecoderOutput(
+            last_hidden_state=hidden_states,
+            dec_out_bboxes=torch.stack(dec_out_bboxes),
+            dec_out_logits=torch.stack(dec_out_logits),
+            dec_out_pred_corners=torch.stack(dec_out_pred_corners),
+            dec_out_refs=torch.stack(dec_out_refs),
+            pre_bboxes=pre_bboxes,
+            pre_scores=pre_scores,
+        )
+
+
+class DFineModel(RTDetrModel):
+    def __init__(self, config: DFineConfig):
+        super().__init__(config)
+
+        # decoder
+        self.decoder = DFineDecoder(config)
+
+        # create encoder
+        self.encoder = DFineHybridEncoder(config=config)
+
+
+class DFineForObjectDetection(RTDetrForObjectDetection):
+    def __init__(self, config: DFineConfig):
+        super().__init__(config)
+        # D-FINE encoder-decoder model
+        self.model = DFineModel(config)
+        # here self.model.decoder.bbox_embed is null, but not self.bbox_embed
+        # fix bug
+        self.model.decoder.class_embed = self.class_embed
+        self.model.decoder.bbox_embed = self.bbox_embed
 
 
 def weighting_function(reg_max, up, reg_scale):
@@ -434,142 +671,6 @@ class RepNCSPELAN4(nn.Module):
         return self.cv4(torch.cat(y, 1))
 
 
-class DFineDecoder(RTDetrDecoder):
-    """
-    D-FINE Decoder implementing Fine-grained Distribution Refinement (FDR).
-
-    This decoder refines object detection predictions through iterative updates across multiple layers,
-    utilizing attention mechanisms, location quality estimators, and distribution refinement techniques
-    to improve bounding box accuracy and robustness.
-    """
-
-    def __init__(self, config: DFineConfig):
-        super().__init__(config=config)
-        self.d_model = config.d_model
-        self.layer_scale = config.layer_scale
-        self.eval_idx = config.eval_idx if config.eval_idx >= 0 else config.decoder_layers + config.eval_idx
-        self.num_head = config.decoder_attention_heads
-        self.layers = nn.ModuleList(
-            [DFineDecoderLayer(config=config) for _ in range(config.decoder_layers)]
-            + [DFineDecoderLayer(config=config) for _ in range(config.decoder_layers - self.eval_idx - 1)]
-        )
-        self.lqe_layers = nn.ModuleList([LQE(4, 64, 2, config.reg_max) for _ in range(config.decoder_layers)])
-
-    def value_op(self, memory, value_proj, value_scale, memory_mask, memory_spatial_shapes):
-        """
-        Preprocess values for MSDeformableAttention.
-        """
-        value = value_proj(memory) if value_proj is not None else memory
-        value = F.interpolate(memory, size=value_scale) if value_scale is not None else value
-        if memory_mask is not None:
-            value = value * memory_mask.to(value.dtype).unsqueeze(-1)
-        value = value.reshape(value.shape[0], value.shape[1], self.num_head, -1)
-        split_shape = [h * w for h, w in memory_spatial_shapes]
-        return value.permute(0, 2, 3, 1).split(split_shape, dim=-1)
-
-    def forward(
-        self,
-        inputs_embeds,
-        ref_points_unact,
-        memory,
-        spatial_shapes,
-        bbox_head,
-        score_head,
-        pre_bbox_head,
-        integral,
-        up,
-        reg_scale,
-        encoder_attn_mask=None,
-        memory_mask=None,
-        output_attentions=None,
-        return_dict=None,
-    ):
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
-        if inputs_embeds is not None:
-            hidden_states = inputs_embeds
-
-        dec_out_bboxes = []
-        dec_out_logits = []
-        dec_out_pred_corners = []
-        dec_out_refs = []
-
-        output_detach = pred_corners_undetach = 0
-        value = self.value_op(memory, None, None, memory_mask, spatial_shapes)
-
-        project = weighting_function(self.reg_max, up, reg_scale)
-        ref_points_detach = F.sigmoid(ref_points_unact)
-
-        for i, decoder_layer in enumerate(self.layers):
-            ref_points_input = ref_points_detach.unsqueeze(2)
-            query_pos_embed = self.query_pos_head(ref_points_detach).clamp(min=-10, max=10)
-
-            # TODO Adjust scale if needed for detachable wider layers
-            if i >= self.eval_idx + 1 and self.layer_scale > 1:
-                query_pos_embed = F.interpolate(query_pos_embed, scale_factor=self.layer_scale)
-                value = self.value_op(memory, None, query_pos_embed.shape[-1], memory_mask, spatial_shapes)
-                hidden_states = F.interpolate(hidden_states, size=query_pos_embed.shape[-1])
-                output_detach = hidden_states.detach()
-
-            output = decoder_layer(
-                hidden_states=hidden_states,
-                position_embeddings=query_pos_embed,
-                reference_points=ref_points_input,
-                spatial_shapes=spatial_shapes,
-                encoder_hidden_states=value,
-                encoder_attention_mask=encoder_attn_mask,
-                output_attentions=output_attentions,
-            )
-
-            hidden_states = output[0]
-
-            if i == 0:
-                # Initial bounding box predictions with inverse sigmoid refinement
-                pre_bboxes = F.sigmoid(pre_bbox_head(output) + inverse_sigmoid(ref_points_detach))
-                pre_scores = score_head[0](hidden_states)
-                ref_points_initial = pre_bboxes.detach()
-
-            # Refine bounding box corners using FDR, integrating previous layer's corrections
-            pred_corners = bbox_head[i](hidden_states + output_detach) + pred_corners_undetach
-            inter_ref_bbox = distance2bbox(ref_points_initial, integral(pred_corners, project), reg_scale)
-
-            if self.training or i == self.eval_idx:
-                scores = score_head[i](output)
-                # Lqe does not affect the performance here.
-                scores = self.lqe_layers[i](scores, pred_corners)
-                dec_out_logits.append(scores)
-                dec_out_bboxes.append(inter_ref_bbox)
-                dec_out_pred_corners.append(pred_corners)
-                dec_out_refs.append(ref_points_initial)
-
-                if not self.training:
-                    break
-
-            pred_corners_undetach = pred_corners
-            ref_points_detach = inter_ref_bbox.detach()
-            output_detach = hidden_states.detach()
-
-        if not return_dict:
-            return (
-                torch.stack(dec_out_bboxes),
-                torch.stack(dec_out_logits),
-                torch.stack(dec_out_pred_corners),
-                torch.stack(dec_out_refs),
-                pre_bboxes,
-                pre_scores,
-            )
-
-        return DFineDecoderOutput(
-            last_hidden_state=hidden_states,
-            dec_out_bboxes=torch.stack(dec_out_bboxes),
-            dec_out_logits=torch.stack(dec_out_logits),
-            dec_out_pred_corners=torch.stack(dec_out_pred_corners),
-            dec_out_refs=torch.stack(dec_out_refs),
-            pre_bboxes=pre_bboxes,
-            pre_scores=pre_scores,
-        )
-
-
 class SCDown(nn.Module):
     def __init__(self, config: DFineConfig, c1, c2, k, s):
         super().__init__()
@@ -605,55 +706,9 @@ class DFineHybridEncoder(RTDetrHybridEncoder):
             )
 
 
-class DFineModel(RTDetrModel):
-    def __init__(self, config: DFineConfig):
-        super().__init__(config)
-
-        # decoder
-        self.decoder = DFineDecoder(config)
-
-        # create encoder
-        self.encoder = DFineHybridEncoder(config=config)
-        
-
-class Gate(nn.Module):
-    def __init__(self, d_model):
-        super(Gate, self).__init__()
-        self.gate = nn.Linear(2 * d_model, 2 * d_model)
-        bias = self._bias_init_with_prob(0.5)
-        init.constant_(self.gate.bias, bias)
-        init.constant_(self.gate.weight, 0)
-        self.norm = nn.LayerNorm(d_model)
-
-    def forward(self, x1, x2):
-        gate_input = torch.cat([x1, x2], dim=-1)
-        gates = torch.sigmoid(self.gate(gate_input))
-        gate1, gate2 = gates.chunk(2, dim=-1)
-        return self.norm(gate1 * x1 + gate2 * x2)
-
-    def _bias_init_with_prob(self, prior_prob=0.01):
-        """initialize conv/fc bias value according to a given probability value."""
-        bias_init = float(-math.log((1 - prior_prob) / prior_prob))
-        return bias_init
-
-
-def _get_clones(partial_module, N):
-    return nn.ModuleList([partial_module() for i in range(N)])
-
-
-class DFineModelForObjectDetection(RTDetrForObjectDetection):
-    def __init__(self, config: DFineConfig):
-        super().__init__(config)
-        # D-FINE encoder-decoder model
-        self.model = DFineModel(config)
-        # here self.model.decoder.bbox_embed is null, but not self.bbox_embed
-        # fix bug
-        self.model.decoder.class_embed = self.class_embed
-        self.model.decoder.bbox_embed = self.bbox_embed
-
-
 __all__ = [
     "DFineConfig",
     "DFineModel",
-    "DFineModelForObjectDetection",
+    "DFinePreTrainedModel",
+    "DFineForObjectDetection",
 ]

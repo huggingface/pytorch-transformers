@@ -16,106 +16,54 @@ rendered properly in your Markdown viewer.
 
 # TorchScript
 
-<Tip>
+[TorchScript](https://pytorch.org/docs/stable/jit.html) serializes PyTorch models into programs that can be executed in non-Python processes. This is especially advantageous in production environments where Python may the most performant choice.
 
-This is the very beginning of our experiments with TorchScript and we are still
-exploring its capabilities with variable-input-size models. It is a focus of interest to
-us and we will deepen our analysis in upcoming releases, with more code examples, a more
-flexible implementation, and benchmarks comparing Python-based codes with compiled
-TorchScript.
+Transformers can export a model to TorchScript by:
 
-</Tip>
+1. creating dummy inputs to create a *trace* of the model to serialize to TorchScript
+2. enabling the `torchscript` parameter in either [`~PretrainedConfig.torchscript`] for a randomly initialized model or [`~PreTrainedModel.from_pretrained`] for a pretrained model
 
-According to the [TorchScript documentation](https://pytorch.org/docs/stable/jit.html):
+## Dummy inputs
 
-> TorchScript is a way to create serializable and optimizable models from PyTorch code.
+The dummy inputs are used in the forward pass, and as the input values are propagated through each layer, PyTorch tracks the different operations executed on each tensor. The recorded operations are used to create the model trace. Once it is recorded, it is serialized into a TorchScript program.
 
-There are two PyTorch modules, [JIT and
-TRACE](https://pytorch.org/docs/stable/jit.html), that allow developers to export their
-models to be reused in other programs like efficiency-oriented C++ programs.
-
-We provide an interface that allows you to export 🤗 Transformers models to TorchScript
-so they can be reused in a different environment than PyTorch-based Python programs.
-Here, we explain how to export and use our models using TorchScript.
-
-Exporting a model requires two things:
-
-- model instantiation with the `torchscript` flag
-- a forward pass with dummy inputs
-
-These necessities imply several things developers should be careful about as detailed
-below.
-
-## TorchScript flag and tied weights
-
-The `torchscript` flag is necessary because most of the 🤗 Transformers language models
-have tied weights between their `Embedding` layer and their `Decoding` layer.
-TorchScript does not allow you to export models that have tied weights, so it is
-necessary to untie and clone the weights beforehand.
-
-Models instantiated with the `torchscript` flag have their `Embedding` layer and
-`Decoding` layer separated, which means that they should not be trained down the line.
-Training would desynchronize the two layers, leading to unexpected results.
-
-This is not the case for models that do not have a language model head, as those do not
-have tied weights. These models can be safely exported without the `torchscript` flag.
-
-## Dummy inputs and standard lengths
-
-The dummy inputs are used for a models forward pass. While the inputs' values are
-propagated through the layers, PyTorch keeps track of the different operations executed
-on each tensor. These recorded operations are then used to create the *trace* of the
-model.
-
-The trace is created relative to the inputs' dimensions. It is therefore constrained by
-the dimensions of the dummy input, and will not work for any other sequence length or
-batch size. When trying with a different size, the following error is raised:
-
-```
-`The expanded size of the tensor (3) must match the existing size (7) at non-singleton dimension 2`
-```
-
-We recommended you trace the model with a dummy input size at least as large as the
-largest input that will be fed to the model during inference. Padding can help fill the
-missing values. However, since the model is traced with a larger input size, the
-dimensions of the matrix will also be large, resulting in more calculations.
-
-Be careful of the total number of operations done on each input and follow the
-performance closely when exporting varying sequence-length models.
-
-## Using TorchScript in Python
-
-This section demonstrates how to save and load models as well as how to use the trace
-for inference.
-
-### Saving a model
-
-To export a `BertModel` with TorchScript, instantiate `BertModel` from the `BertConfig`
-class and then save it to disk under the filename `traced_bert.pt`:
-
-```python
+```py
 from transformers import BertModel, BertTokenizer, BertConfig
 import torch
 
-enc = BertTokenizer.from_pretrained("google-bert/bert-base-uncased")
-
-# Tokenizing input text
+tokenizer = BertTokenizer.from_pretrained("google-bert/bert-base-uncased")
 text = "[CLS] Who was Jim Henson ? [SEP] Jim Henson was a puppeteer [SEP]"
-tokenized_text = enc.tokenize(text)
+tokenized_text = tokenizer.tokenize(text)
 
-# Masking one of the input tokens
 masked_index = 8
 tokenized_text[masked_index] = "[MASK]"
-indexed_tokens = enc.convert_tokens_to_ids(tokenized_text)
+indexed_tokens = tokenizer.convert_tokens_to_ids(tokenized_text)
 segments_ids = [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1]
 
-# Creating a dummy input
+# creating a dummy input
 tokens_tensor = torch.tensor([indexed_tokens])
 segments_tensors = torch.tensor([segments_ids])
 dummy_input = [tokens_tensor, segments_tensors]
+```
 
-# Initializing the model with the torchscript flag
-# Flag set to True even though it is not necessary as this model does not have an LM Head.
+The trace is created based on the provided inputs dimensions and it can only handle inputs with the same shape as the provided input during tracing. An input with a different size raises the error message shown below.
+
+```bash
+`The expanded size of the tensor (3) must match the existing size (7) at non-singleton dimension 2`.
+```
+
+Try to create a trace with a dummy input size at least as large as the largest expected input during inference. Padding can help fill missing values for larger inputs. It may be slower though since a larger input size requires more calculations. Be mindful of the total number of operations performed on each input and track the model performance when exporting models with variable sequence lengths.
+
+## torchscript parameter
+
+Weights between the `Embedding` and `Decoding` layers are tied in Transformers and TorchScript can't export models with tied weights. Instantiating a model with `torchscript=True`, separates the `Embedding` and `Decoding` layers and they aren't trained any further because it would throw the two layers out of sync which can lead to unexpected results.
+
+Models *without* a language model head don't have tied weights and can be safely exported without the `torchscript` parameter.
+
+<hfoptions id="torchscript">
+<hfoption id="randomly initialized model">
+
+```py
 config = BertConfig(
     vocab_size_or_config_json_file=32000,
     hidden_size=768,
@@ -125,105 +73,66 @@ config = BertConfig(
     torchscript=True,
 )
 
-# Instantiating the model
 model = BertModel(config)
-
-# The model needs to be in evaluation mode
 model.eval()
+```
 
-# If you are instantiating the model with *from_pretrained* you can also easily set the TorchScript flag
+</hfoption>
+<hfoption id="pretrained model">
+
+```py
 model = BertModel.from_pretrained("google-bert/bert-base-uncased", torchscript=True)
+model.eval()
+```
 
-# Creating the trace
+</hfoption>
+</hfoptions>
+
+## Export to TorchScript
+
+Create the Torchscript program with [torch.jit.trace](https://pytorch.org/docs/stable/generated/torch.jit.trace.html), and save with [torch.jit.save](https://pytorch.org/docs/stable/generated/torch.jit.save.html).
+
+```py
 traced_model = torch.jit.trace(model, [tokens_tensor, segments_tensors])
 torch.jit.save(traced_model, "traced_bert.pt")
 ```
 
-### Loading a model
+Use [torch.jit.load](https://pytorch.org/docs/stable/generated/torch.jit.load.html) to load the traced model.
 
-Now you can load the previously saved `BertModel`, `traced_bert.pt`, from disk and use
-it on the previously initialised `dummy_input`:
-
-```python
+```py
 loaded_model = torch.jit.load("traced_bert.pt")
 loaded_model.eval()
 
 all_encoder_layers, pooled_output = loaded_model(*dummy_input)
 ```
 
-### Using a traced model for inference
+To use the traced model for inference, use the `__call__` dunder method.
 
-Use the traced model for inference by using its `__call__` dunder method:
-
-```python
+```py
 traced_model(tokens_tensor, segments_tensors)
 ```
 
-## Deploy Hugging Face TorchScript models to AWS with the Neuron SDK
+## Deploy to AWS
 
-AWS introduced the [Amazon EC2 Inf1](https://aws.amazon.com/ec2/instance-types/inf1/)
-instance family for low cost, high performance machine learning inference in the cloud.
-The Inf1 instances are powered by the AWS Inferentia chip, a custom-built hardware
-accelerator, specializing in deep learning inferencing workloads. [AWS
-Neuron](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/#) is the SDK for
-Inferentia that supports tracing and optimizing transformers models for deployment on
-Inf1. The Neuron SDK provides:
+TorchScript programs serialized from Transformers can be deployed on [Amazon EC2 Inf1](https://aws.amazon.com/ec2/instance-types/inf1/) instances. The instance is powered by AWS Inferentia chips, a custom hardware accelerator designed for deep learning inference workloads. [AWS Neuron](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/#) supports tracing Transformers models for deployment on Inf1 instances.
 
+> [!TIP]
+> AWS Neuron requires a [Neuron SDK environment](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/frameworks/torch/inference-torch-neuron.html#inference-torch-neuron) which is preconfigured on [AWS DLAMI](https://docs.aws.amazon.com/dlami/latest/devguide/tutorial-inferentia-launching.html).
 
-1. Easy-to-use API with one line of code change to trace and optimize a TorchScript
-   model for inference in the cloud.
-2. Out of the box performance optimizations for [improved
-   cost-performance](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/neuron-guide/benchmark/>).
-3. Support for Hugging Face transformers models built with either
-   [PyTorch](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/src/examples/pytorch/bert_tutorial/tutorial_pretrained_bert.html)
-   or
-   [TensorFlow](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/src/examples/tensorflow/huggingface_bert/huggingface_bert.html).
+Instead of [torch.jit.trace](https://pytorch.org/docs/stable/generated/torch.jit.trace.html), use [torch.neuron.trace](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/frameworks/torch/torch-neuron/api-compilation-python-api.html) to trace a model and optimize it for Inf1 instances.
 
-### Implications
-
-Transformers models based on the [BERT (Bidirectional Encoder Representations from
-Transformers)](https://huggingface.co/docs/transformers/main/model_doc/bert)
-architecture, or its variants such as
-[distilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) and
-[roBERTa](https://huggingface.co/docs/transformers/main/model_doc/roberta) run best on
-Inf1 for non-generative tasks such as extractive question answering, sequence
-classification, and token classification. However, text generation tasks can still be
-adapted to run on Inf1 according to this [AWS Neuron MarianMT
-tutorial](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/src/examples/pytorch/transformers-marianmt.html).
-More information about models that can be converted out of the box on Inferentia can be
-found in the [Model Architecture
-Fit](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/neuron-guide/models/models-inferentia.html#models-inferentia)
-section of the Neuron documentation.
-
-### Dependencies
-
-Using AWS Neuron to convert models requires a [Neuron SDK
-environment](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/neuron-guide/neuron-frameworks/pytorch-neuron/index.html#installation-guide)
-which comes preconfigured on [AWS Deep Learning
-AMI](https://docs.aws.amazon.com/dlami/latest/devguide/tutorial-inferentia-launching.html).
-
-### Converting a model for AWS Neuron
-
-Convert a model for AWS NEURON using the same code from [Using TorchScript in
-Python](torchscript#using-torchscript-in-python) to trace a `BertModel`. Import the
-`torch.neuron` framework extension to access the components of the Neuron SDK through a
-Python API:
-
-```python
-from transformers import BertModel, BertTokenizer, BertConfig
-import torch
+```py
 import torch.neuron
+
+torch.neuron.trace(model, [tokens_tensor, segments_tensors])
 ```
 
-You only need to modify the following line:
+Refer to the [AWS Neuron](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/index.html) documentation for more information.
 
-```diff
-- torch.jit.trace(model, [tokens_tensor, segments_tensors])
-+ torch.neuron.trace(model, [tokens_tensor, segments_tensors])
-```
+### Model architectures
 
-This enables the Neuron SDK to trace the model and optimize it for Inf1 instances.
+BERT-based models - like [DistilBERT](./model_doc/distilbert) or [RoBERTa](./model_doc/roberta) - run best on Inf1 instances for non-generative tasks such as extractive question answering, and sequence or token classification.
 
-To learn more about AWS Neuron SDK features, tools, example tutorials and latest
-updates, please see the [AWS NeuronSDK
-documentation](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/index.html).
+Text generation can be adapted to run on an Inf1 instance as shown in the [Transformers MarianMT](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/src/examples/pytorch/transformers-marianmt.html) tutorial.
+
+Refer to the [Inference Samples/Tutorials (Inf1)](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/general/models/inference-inf1-samples.html#model-samples-inference-inf1) guide for more information about which models can be converted out of the box to run on Inf1 instances.

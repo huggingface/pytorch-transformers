@@ -62,14 +62,14 @@ class GotOcr2MLPBlock(nn.Module):
     def __init__(self, config):
         super().__init__()
         mlp_dim = config.mlp_dim if config.mlp_dim is not None else int(config.hidden_size * config.mlp_ratio)
-        self.lin1 = nn.Linear(config.hidden_size, mlp_dim)
-        self.lin2 = nn.Linear(mlp_dim, config.hidden_size)
-        self.act = ACT2FN[config.hidden_act]
+        self.fc1 = nn.Linear(config.hidden_size, mlp_dim)
+        self.fc2 = nn.Linear(mlp_dim, config.hidden_size)
+        self.activation_fn = ACT2FN[config.hidden_act]
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        hidden_states = self.lin1(hidden_states)
-        hidden_states = self.act(hidden_states)
-        hidden_states = self.lin2(hidden_states)
+        hidden_states = self.fc1(hidden_states)
+        hidden_states = self.activation_fn(hidden_states)
+        hidden_states = self.fc2(hidden_states)
         return hidden_states
 
 
@@ -84,12 +84,12 @@ class GotOcr2VisionAdapter(nn.Module):
         )
         self.multimodal_projector = nn.Linear(language_hidden_size, language_hidden_size)
 
-    def forward(self, vision_embeddings):
-        x = self.conv_upsampler1(vision_embeddings)
-        x = self.conv_upsampler2(x)
-        x = x.flatten(2).permute(0, 2, 1)
-        x = self.multimodal_projector(x)
-        return x
+    def forward(self, vision_embeddings: torch.Tensor) -> torch.Tensor:
+        hidden_state = self.conv_upsampler1(vision_embeddings)
+        hidden_state = self.conv_upsampler2(hidden_state)
+        hidden_state = hidden_state.flatten(2).permute(0, 2, 1)
+        hidden_state = self.multimodal_projector(hidden_state)
+        return hidden_state
 
 
 @dataclass
@@ -1605,13 +1605,14 @@ class GotOcr2ForConditionalGeneration(GotOcr2PreTrainedModel, GenerationMixin):
 
         >>> # Generate
         >>> streamer = TextStreamer(processor.tokenizer, skip_prompt=True, skip_special_tokens=True)
-        >>> generate_ids = model.generate(**inputs, do_sample=False,
-                        tokenizer = processor.tokenizer,
-                        stop_strings='<|im_end|>',
-                        streamer=streamer,
-                        max_new_tokens=4096,)
-
-        >>> outputs = processor.batch_decode(generate_ids[:, inputs["input_ids"].shape[1]:])
+        >>> generate_ids = model.generate(
+        ...     **inputs,
+        ...     do_sample=False,
+        ...     tokenizer = processor.tokenizer,
+        ...     stop_strings='<|im_end|>',
+        ...     streamer=streamer,
+        ...     max_new_tokens=4096,
+        ... )
         "You should keep in mind what features from the module should be used, especially
         when you're planning to sell a template."
         ```"""

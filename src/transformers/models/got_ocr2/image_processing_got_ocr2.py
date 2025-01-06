@@ -76,9 +76,8 @@ def find_best_patches_grid(
     # compute possible patches grids
     target_patches_grids = {
         (i, j)
-        for n in range(min_patches, max_patches + 1)
-        for i in range(1, n + 1)
-        for j in range(1, n + 1)
+        for i in range(1, max_patches + 1)
+        for j in range(1, max_patches + 1)
         if i * j <= max_patches and i * j >= min_patches
     }
     target_patches_grids = sorted(target_patches_grids, key=lambda x: x[0] * x[1])
@@ -368,6 +367,25 @@ class GotOcr2ImageProcessor(BaseImageProcessor):
         The number of patches and their grid arrangement are determined by the original image size,
         the target patch size and the minimum and maximum number of patches.
         The aspect ratio of the patches grid is chosen to be the closest to the original image aspect ratio.
+
+        Args:
+            image (`PIL.Image.Image`, `np.ndarray`, `torch.Tensor`):
+                The image to be cropped. The image can be a PIL image, NumPy array or PyTorch tensor.
+            min_patches (`int`):
+                The minimum number of patches to be extracted from the image.
+            max_patches (`int`):
+                The maximum number of patches to be extracted from the image.
+            use_thumbnail (`bool`, *optional*, defaults to `True`):
+                Whether to add a thumbnail image to the list of cropped patches.
+            patch_size (`int`, `Tuple[int, int]`, `dict`, *optional*):
+                The size of the output patches.
+            return_numpy (`bool`, *optional*, defaults to `False`):
+                Whether to return the cropped images as NumPy arrays.
+            data_format (`ChannelDimension`, *optional*):
+                The format of the image data. If `None`, the format is inferred from the input image.
+
+        Returns:
+            List[`PIL.Image.Image`] or List[np.ndarray]: The list of cropped images.
         """
         patch_size = patch_size if patch_size is not None else self.size
         patch_size = get_size_dict(patch_size, default_to_square=True)
@@ -378,20 +396,19 @@ class GotOcr2ImageProcessor(BaseImageProcessor):
             image = to_pil_image(image, do_rescale=do_rescale)
 
         # find the closest aspect ratio to the target
-        target_patches_grid = find_best_patches_grid(original_size, patch_size, min_patches, max_patches)
+        num_columns, num_rows = find_best_patches_grid(original_size, patch_size, min_patches, max_patches)
 
         # calculate the target width and height
         patch_size_width, patch_size_height = patch_size["width"], patch_size["height"]
-        target_width = patch_size_width * target_patches_grid[0]
-        target_height = patch_size_height * target_patches_grid[1]
-        num_blocks = target_patches_grid[0] * target_patches_grid[1]
+        target_width = patch_size_width * num_columns
+        target_height = patch_size_height * num_rows
+        num_blocks = num_columns * num_rows
 
         # resize the image so that each patch is of patch_size
         resized_image = image.resize((target_width, target_height))
 
         # split the image into patches
         processed_images = []
-        num_columns = target_patches_grid[0]
         for i in range(num_blocks):
             column = i % num_columns
             row = i // num_columns

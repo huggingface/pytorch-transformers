@@ -46,7 +46,7 @@ ORIGINAL_TO_CONVERTED_KEY_MAPPING = {
     r"model.vision_tower_high.patch_embed.proj":                    r"visual.patch_embed.projection",
     r"model.vision_tower_high.blocks.(\d+).norm":                   r"visual.layers.\1.layer_norm",
     r"model.vision_tower_high.blocks.(\d+).attn":                   r"visual.layers.\1.attn",
-    r"model.vision_tower_high.blocks.(\d+).mlp":                    r"visual.layers.\1.mlp",
+    r"model.vision_tower_high.blocks.(\d+).mlp.lin":                r"visual.layers.\1.mlp.fc",
     r"model.vision_tower_high.neck.0":                              r"visual.neck.conv1",
     r"model.vision_tower_high.neck.1":                              r"visual.neck.layer_norm1",
     r"model.vision_tower_high.neck.2":                              r"visual.neck.conv2",

@@ -72,6 +72,6 @@ class GotOcr2ProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         self.assertEqual(inputs["input_ids"].shape, (1, 547))
         self.assertEqual(inputs["pixel_values"].shape, (2, 3, 384, 384))
 
-        inputs = processor(image_input, return_tensors="pt", crop_to_patches=True)
+        inputs = processor(image_input, return_tensors="pt", crop_to_patches=True, max_patches=6)
         self.assertEqual(inputs["input_ids"].shape, (1, 1826))
         self.assertEqual(inputs["pixel_values"].shape, (7, 3, 384, 384))

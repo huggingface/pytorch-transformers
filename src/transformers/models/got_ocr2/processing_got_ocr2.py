@@ -63,14 +63,15 @@ class GotOcr2ProcessorKwargs(ProcessingKwargs, total=False):
             "multi_page": False,
             "crop_to_patches": False,
             "min_patches": 1,
-            "max_patches": 6,
+            "max_patches": 12,
         },
     }
 
 
-def load_box_annotation(box: Union[List, Tuple], image_size: Tuple[int, int]) -> List:
+def preprocess_box_annotation(box: Union[List, Tuple], image_size: Tuple[int, int]) -> List:
     """
-    Load the box annotation and convert it to the format [x1, y1, x2, y2] in the range [0, 1000]."""
+    Convert box annotation to the format [x1, y1, x2, y2] in the range [0, 1000].
+    """
     width, height = image_size
     if len(box) == 4:
         box[0] = int(box[0] / width * 1000)
@@ -105,6 +106,8 @@ class GotOcr2Processor(ProcessorMixin):
     def __init__(self, image_processor=None, tokenizer=None, chat_template=None, **kwargs):
         super().__init__(image_processor, tokenizer, chat_template=chat_template)
 
+        self.message_start_token = "<|im_start|>"
+        self.message_end_token = "<|im_end|>"
         self.img_start_token = "<img>"
         self.img_end_token = "</img>"
         self.img_pad_token = "<imgpad>"
@@ -219,7 +222,7 @@ class GotOcr2Processor(ProcessorMixin):
             tokenizer_init_kwargs=self.tokenizer.init_kwargs,
             **kwargs,
         )
-        format = output_kwargs["text_kwargs"].pop("format")
+        format_output = output_kwargs["text_kwargs"].pop("format")
         num_image_tokens = output_kwargs["images_kwargs"].pop("num_image_tokens")
         box = output_kwargs["images_kwargs"].pop("box", [None])
         color = output_kwargs["images_kwargs"].pop("color", None)
@@ -246,29 +249,41 @@ class GotOcr2Processor(ProcessorMixin):
                     images[index] = image_group
                 num_images = len(image_group) if (multi_page or crop_to_patches) else 1
                 if box_single[0] is not None:
-                    box_single = load_box_annotation(box_single, image_group.size)
+                    box_single = preprocess_box_annotation(box_single, image_group.size)
                 query = (
                     f"{f'[{color_single}] ' if color_single is not None else ''}"
                     f"{str(box_single) if box_single[0] is not None else ''} "
                     "OCR"
-                    f"{' with format' if format else ''}"
+                    f"{' with format' if format_output else ''}"
                     f"{' across multi pages' if multi_page else ''}"
                     f"{' upon the patch reference' if crop_to_patches else ''}"
                     ": "
                 )
                 prompt = (
-                    "<|im_start|>"
+                    self.message_start_token
                     + self.system_query
-                    + "<|im_end|>"
-                    + "<|im_start|>user\n"
+                    + self.message_end_token
+                    + self.message_start_token
+                    + "user\n"
                     + self.img_start_token
                     + self.img_pad_token * num_image_tokens * num_images
                     + self.img_end_token
                     + "\n"
                     + query
-                    + "<|im_end|><|im_start|>assistant\n"
+                    + self.message_end_token
+                    + self.message_start_token
+                    + "assistant\n"
                 )
                 text.append(prompt)
+        elif crop_to_patches:
+            for index, (image_group, box_single, color_single) in enumerate(zip(images, box, color)):
+                image_group = self.image_processor.crop_image_to_patches(
+                    image_group,
+                    patch_size=output_kwargs["images_kwargs"].get("size"),
+                    min_patches=min_patches,
+                    max_patches=max_patches,
+                )
+                images[index] = image_group
 
         text_inputs = self.tokenizer(text, **output_kwargs["text_kwargs"])
         if multi_page or crop_to_patches:
@@ -296,7 +311,7 @@ class GotOcr2Processor(ProcessorMixin):
     def model_input_names(self):
         tokenizer_input_names = self.tokenizer.model_input_names
         image_processor_input_names = self.image_processor.model_input_names
-        return list(dict.fromkeys(tokenizer_input_names + image_processor_input_names))
+        return list(tokenizer_input_names) + list(image_processor_input_names)
 
 
 __all__ = ["GotOcr2Processor"]

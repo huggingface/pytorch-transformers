@@ -268,3 +268,6 @@ class GLPNImageProcessor(BaseImageProcessor):
             results.append({"predicted_depth": depth})
 
         return results
+
+
+__all__ = ["GLPNImageProcessor"]

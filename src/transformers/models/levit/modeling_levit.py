@@ -733,3 +733,11 @@ class LevitForImageClassificationWithTeacher(LevitPreTrainedModel):
             distillation_logits=distill_logits,
             hidden_states=outputs.hidden_states,
         )
+
+
+__all__ = [
+    "LevitForImageClassification",
+    "LevitForImageClassificationWithTeacher",
+    "LevitModel",
+    "LevitPreTrainedModel",
+]

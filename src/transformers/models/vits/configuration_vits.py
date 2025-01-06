@@ -248,3 +248,6 @@ class VitsConfig(PretrainedConfig):
             )
 
         super().__init__(**kwargs)
+
+
+__all__ = ["VitsConfig"]

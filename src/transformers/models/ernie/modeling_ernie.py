@@ -1799,3 +1799,17 @@ class ErnieForQuestionAnswering(ErniePreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "ErnieForCausalLM",
+    "ErnieForMaskedLM",
+    "ErnieForMultipleChoice",
+    "ErnieForNextSentencePrediction",
+    "ErnieForPreTraining",
+    "ErnieForQuestionAnswering",
+    "ErnieForSequenceClassification",
+    "ErnieForTokenClassification",
+    "ErnieModel",
+    "ErniePreTrainedModel",
+]

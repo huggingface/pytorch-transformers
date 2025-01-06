@@ -1,4 +1,4 @@
-# Copyright 2020 The HuggingFace Team. All rights reserved.
+# Copyright 2024 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,76 +13,16 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import OptionalDependencyNotAvailable, _LazyModule, is_tokenizers_available, is_torch_available
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
-
-_import_structure = {
-    "configuration_roc_bert": ["RoCBertConfig"],
-    "tokenization_roc_bert": ["RoCBertTokenizer"],
-}
-
-try:
-    if not is_tokenizers_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    pass
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_roc_bert"] = [
-        "RoCBertForCausalLM",
-        "RoCBertForMaskedLM",
-        "RoCBertForMultipleChoice",
-        "RoCBertForPreTraining",
-        "RoCBertForQuestionAnswering",
-        "RoCBertForSequenceClassification",
-        "RoCBertForTokenClassification",
-        "RoCBertLayer",
-        "RoCBertModel",
-        "RoCBertPreTrainedModel",
-        "load_tf_weights_in_roc_bert",
-    ]
 
 if TYPE_CHECKING:
-    from .configuration_roc_bert import RoCBertConfig
-    from .tokenization_roc_bert import RoCBertTokenizer
-
-    try:
-        if not is_tokenizers_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        raise OptionalDependencyNotAvailable()
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_roc_bert import (
-            RoCBertForCausalLM,
-            RoCBertForMaskedLM,
-            RoCBertForMultipleChoice,
-            RoCBertForPreTraining,
-            RoCBertForQuestionAnswering,
-            RoCBertForSequenceClassification,
-            RoCBertForTokenClassification,
-            RoCBertLayer,
-            RoCBertModel,
-            RoCBertPreTrainedModel,
-            load_tf_weights_in_roc_bert,
-        )
-
-
+    from .configuration_roc_bert import *
+    from .modeling_roc_bert import *
+    from .tokenization_roc_bert import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

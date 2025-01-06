@@ -146,3 +146,6 @@ class GitProcessor(ProcessorMixin):
     @property
     def model_input_names(self):
         return ["input_ids", "attention_mask", "pixel_values"]
+
+
+__all__ = ["GitProcessor"]

@@ -81,3 +81,6 @@ class TimmBackboneConfig(PretrainedConfig):
         self.use_timm_backbone = True
         self.out_indices = out_indices if out_indices is not None else [-1]
         self.freeze_batch_norm_2d = freeze_batch_norm_2d
+
+
+__all__ = ["TimmBackboneConfig"]

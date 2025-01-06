@@ -31,3 +31,6 @@ class ConvNextFeatureExtractor(ConvNextImageProcessor):
             FutureWarning,
         )
         super().__init__(*args, **kwargs)
+
+
+__all__ = ["ConvNextFeatureExtractor"]

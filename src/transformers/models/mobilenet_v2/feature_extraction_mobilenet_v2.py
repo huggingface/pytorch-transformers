@@ -31,3 +31,6 @@ class MobileNetV2FeatureExtractor(MobileNetV2ImageProcessor):
             FutureWarning,
         )
         super().__init__(*args, **kwargs)
+
+
+__all__ = ["MobileNetV2FeatureExtractor"]

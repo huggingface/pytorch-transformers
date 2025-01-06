@@ -1678,3 +1678,6 @@ class TFT5EncoderModel(TFT5PreTrainedModel):
         if getattr(self, "encoder", None) is not None:
             with tf.name_scope(self.encoder.name):
                 self.encoder.build(None)
+
+
+__all__ = ["TFT5EncoderModel", "TFT5ForConditionalGeneration", "TFT5Model", "TFT5PreTrainedModel"]

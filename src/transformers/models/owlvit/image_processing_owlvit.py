@@ -596,3 +596,6 @@ class OwlViTImageProcessor(BaseImageProcessor):
             results.append({"scores": box_scores, "labels": None, "boxes": boxes})
 
         return results
+
+
+__all__ = ["OwlViTImageProcessor"]

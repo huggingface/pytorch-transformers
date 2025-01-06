@@ -1974,3 +1974,13 @@ class SwitchTransformersEncoderModel(SwitchTransformersPreTrainedModel):
         )
 
         return encoder_outputs
+
+
+__all__ = [
+    "SwitchTransformersEncoderModel",
+    "SwitchTransformersForConditionalGeneration",
+    "SwitchTransformersModel",
+    "SwitchTransformersPreTrainedModel",
+    "SwitchTransformersTop1Router",
+    "SwitchTransformersSparseMLP",
+]

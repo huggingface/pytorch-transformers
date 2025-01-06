@@ -1006,3 +1006,6 @@ class DonutSwinModel(DonutSwinPreTrainedModel):
             attentions=encoder_outputs.attentions,
             reshaped_hidden_states=encoder_outputs.reshaped_hidden_states,
         )
+
+
+__all__ = ["DonutSwinModel", "DonutSwinPreTrainedModel"]

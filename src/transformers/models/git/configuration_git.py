@@ -217,3 +217,6 @@ class GitConfig(PretrainedConfig):
 
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
+
+
+__all__ = ["GitConfig", "GitVisionConfig"]

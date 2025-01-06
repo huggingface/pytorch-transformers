@@ -560,3 +560,6 @@ class SeamlessM4TTokenizer(PreTrainedTokenizer):
 
         self.prefix_tokens = [self.eos_token_id, self.cur_lang_code]
         self.suffix_tokens = [self.eos_token_id]
+
+
+__all__ = ["SeamlessM4TTokenizer"]

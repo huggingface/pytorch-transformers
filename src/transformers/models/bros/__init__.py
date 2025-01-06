@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_bros import *
-    from .convert_bros_to_pytorch import *
     from .modeling_bros import *
     from .processing_bros import *
 else:

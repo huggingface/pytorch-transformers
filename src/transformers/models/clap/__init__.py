@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_clap import *
-    from .convert_clap_original_pytorch_to_hf import *
     from .feature_extraction_clap import *
     from .modeling_clap import *
     from .processing_clap import *

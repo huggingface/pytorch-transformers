@@ -270,3 +270,6 @@ class CodeGenTokenizerFast(PreTrainedTokenizerFast):
             return completion[: min(terminals_pos)]
         else:
             return completion
+
+
+__all__ = ["CodeGenTokenizerFast"]

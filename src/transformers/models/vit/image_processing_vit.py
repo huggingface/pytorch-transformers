@@ -281,3 +281,6 @@ class ViTImageProcessor(BaseImageProcessor):
 
         data = {"pixel_values": images}
         return BatchFeature(data=data, tensor_type=return_tensors)
+
+
+__all__ = ["ViTImageProcessor"]

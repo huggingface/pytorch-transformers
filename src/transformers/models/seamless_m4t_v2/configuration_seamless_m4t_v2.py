@@ -420,3 +420,6 @@ class SeamlessM4Tv2Config(PretrainedConfig):
             max_position_embeddings=max_position_embeddings,
             **kwargs,
         )
+
+
+__all__ = ["SeamlessM4Tv2Config"]

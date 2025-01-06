@@ -137,3 +137,6 @@ class LukeConfig(PretrainedConfig):
         self.layer_norm_eps = layer_norm_eps
         self.use_entity_aware_attention = use_entity_aware_attention
         self.classifier_dropout = classifier_dropout
+
+
+__all__ = ["LukeConfig"]

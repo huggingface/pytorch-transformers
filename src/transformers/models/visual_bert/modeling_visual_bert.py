@@ -1582,3 +1582,15 @@ class VisualBertForRegionToPhraseAlignment(VisualBertPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "VisualBertForMultipleChoice",
+    "VisualBertForPreTraining",
+    "VisualBertForQuestionAnswering",
+    "VisualBertForRegionToPhraseAlignment",
+    "VisualBertForVisualReasoning",
+    "VisualBertLayer",
+    "VisualBertModel",
+    "VisualBertPreTrainedModel",
+]

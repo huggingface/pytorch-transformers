@@ -1,4 +1,4 @@
-# Copyright 2023 The HuggingFace Team. All rights reserved.
+# Copyright 2024 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,67 +13,18 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import (
-    OptionalDependencyNotAvailable,
-    _LazyModule,
-    is_torch_available,
-)
-
-
-_import_structure = {
-    "configuration_clvp": [
-        "ClvpConfig",
-        "ClvpDecoderConfig",
-        "ClvpEncoderConfig",
-    ],
-    "feature_extraction_clvp": ["ClvpFeatureExtractor"],
-    "processing_clvp": ["ClvpProcessor"],
-    "tokenization_clvp": ["ClvpTokenizer"],
-}
-
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_clvp"] = [
-        "ClvpModelForConditionalGeneration",
-        "ClvpForCausalLM",
-        "ClvpModel",
-        "ClvpPreTrainedModel",
-        "ClvpEncoder",
-        "ClvpDecoder",
-    ]
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
 
 if TYPE_CHECKING:
-    from .configuration_clvp import (
-        ClvpConfig,
-        ClvpDecoderConfig,
-        ClvpEncoderConfig,
-    )
-    from .feature_extraction_clvp import ClvpFeatureExtractor
-    from .processing_clvp import ClvpProcessor
-    from .tokenization_clvp import ClvpTokenizer
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_clvp import (
-            ClvpDecoder,
-            ClvpEncoder,
-            ClvpForCausalLM,
-            ClvpModel,
-            ClvpModelForConditionalGeneration,
-            ClvpPreTrainedModel,
-        )
-
+    from .configuration_clvp import *
+    from .feature_extraction_clvp import *
+    from .modeling_clvp import *
+    from .processing_clvp import *
+    from .tokenization_clvp import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

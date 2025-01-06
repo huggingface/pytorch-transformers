@@ -329,3 +329,6 @@ class GPT2Tokenizer(PreTrainedTokenizer):
         if is_split_into_words or add_prefix_space:
             text = " " + text
         return (text, kwargs)
+
+
+__all__ = ["GPT2Tokenizer"]

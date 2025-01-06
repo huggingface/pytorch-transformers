@@ -325,3 +325,6 @@ class SuperPointImageProcessor(BaseImageProcessor):
             results.append({"keypoints": keypoints, "scores": scores, "descriptors": descriptors})
 
         return results
+
+
+__all__ = ["SuperPointImageProcessor"]

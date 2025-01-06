@@ -2571,3 +2571,6 @@ class Mask2FormerForUniversalSegmentation(Mask2FormerPreTrainedModel):
             if loss is not None:
                 output = (loss) + output
         return output
+
+
+__all__ = ["Mask2FormerForUniversalSegmentation", "Mask2FormerModel", "Mask2FormerPreTrainedModel"]

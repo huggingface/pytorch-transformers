@@ -164,3 +164,6 @@ class LxmertConfig(PretrainedConfig):
         self.visual_feat_loss = visual_feat_loss
         self.num_hidden_layers = {"vision": r_layers, "cross_encoder": x_layers, "language": l_layers}
         super().__init__(**kwargs)
+
+
+__all__ = ["LxmertConfig"]

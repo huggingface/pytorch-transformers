@@ -197,3 +197,6 @@ class Qwen2AudioConfig(PretrainedConfig):
         self.text_config = text_config
 
         super().__init__(**kwargs)
+
+
+__all__ = ["Qwen2AudioConfig", "Qwen2AudioEncoderConfig"]

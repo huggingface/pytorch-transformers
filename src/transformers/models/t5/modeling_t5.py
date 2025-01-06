@@ -2491,3 +2491,15 @@ class T5ForQuestionAnswering(T5PreTrainedModel):
             encoder_hidden_states=encoder_outputs.hidden_states,
             encoder_attentions=encoder_outputs.attentions,
         )
+
+
+__all__ = [
+    "T5EncoderModel",
+    "T5ForConditionalGeneration",
+    "T5Model",
+    "T5PreTrainedModel",
+    "load_tf_weights_in_t5",
+    "T5ForQuestionAnswering",
+    "T5ForSequenceClassification",
+    "T5ForTokenClassification",
+]

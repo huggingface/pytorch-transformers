@@ -608,3 +608,6 @@ class Owlv2ImageProcessor(BaseImageProcessor):
             results.append({"scores": box_scores, "labels": None, "boxes": boxes})
 
         return results
+
+
+__all__ = ["Owlv2ImageProcessor"]

@@ -25,7 +25,7 @@ from tokenizers import Tokenizer, decoders, normalizers, pre_tokenizers, process
 from tokenizers.models import BPE, Unigram
 
 from .. import AddedToken
-from ..convert_slow_tokenizer import GPT2Converter, LlamaConverter, Qwen2Converter, T5Converter
+from ..convert_slow_tokenizer import GemmaConverter, GPT2Converter, LlamaConverter, Qwen2Converter, T5Converter
 from ..utils import logging
 from ..utils.logging import tqdm
 
@@ -262,6 +262,22 @@ GGUF_TENSOR_MAPPING = {
         "output.weight": "lm_head.weight",
         "output_norm": "model.norm",
     },
+    "gemma2": {
+        "token_embd": "model.embed_tokens",
+        "blk": "model.layers",
+        "ffn_up": "mlp.up_proj",
+        "ffn_down": "mlp.down_proj",
+        "ffn_gate": "mlp.gate_proj",
+        "ffn_norm": "pre_feedforward_layernorm",
+        "post_attention_norm": "post_attention_layernorm",
+        "post_ffw_norm": "post_feedforward_layernorm",
+        "attn_norm": "input_layernorm",
+        "attn_q": "self_attn.q_proj",
+        "attn_v": "self_attn.v_proj",
+        "attn_k": "self_attn.k_proj",
+        "attn_output": "self_attn.o_proj",
+        "output_norm": "model.norm",
+    },
 }
 
 
@@ -421,6 +437,18 @@ GGUF_CONFIG_MAPPING = {
         "attention.head_count": "num_attention_heads",
         "attention.head_count_kv": "num_key_value_heads",
         "attention.layer_norm_rms_epsilon": "norm_eps",
+        "vocab_size": "vocab_size",
+    },
+    "gemma2": {
+        "context_length": "max_position_embeddings",
+        "block_count": "num_hidden_layers",
+        "feed_forward_length": "intermediate_size",
+        "embedding_length": "hidden_size",
+        "rope.dimension_count": None,
+        "rope.freq_base": "rope_theta",
+        "attention.head_count": "num_attention_heads",
+        "attention.head_count_kv": "num_key_value_heads",
+        "attention.layer_norm_rms_epsilon": "rms_norm_eps",
         "vocab_size": "vocab_size",
     },
 }
@@ -807,6 +835,71 @@ class GGUFT5Converter(T5Converter):
         return tokenizer
 
 
+class GGUFGemmaConverter(GemmaConverter):
+    def __init__(self, tokenizer_dict):
+        # set dummy data to avoid unnecessary merges calculation
+        tokenizer_dict["merges"] = ["dummy text"]
+
+        self.proto = GGUFTokenizerSkeleton(tokenizer_dict)
+        self.original_tokenizer = self.proto
+        self.additional_kwargs = {}
+
+    def vocab(self, proto):
+        original_vocab = list(zip(proto.tokens, proto.scores))
+        updated_vocab = []
+
+        for token, score in original_vocab:
+            if token == "<0x09>":
+                updated_vocab.append(("\t", score))
+            elif " " in token and len(token.strip()) == 0:
+                underscores = "▁" * len(token)
+                updated_vocab.append((underscores, score))
+            else:
+                updated_vocab.append((token, score))
+
+        return updated_vocab
+
+    def normalizer(self, proto):
+        return normalizers.Replace(" ", "▁")
+
+    def decoder(self, replacement, add_prefix_space):
+        sequence = [
+            decoders.Replace("▁", " "),
+            decoders.ByteFallback(),
+            decoders.Fuse(),
+        ]
+
+        if add_prefix_space:
+            sequence += [decoders.Strip(content=" ", left=1)]
+        return decoders.Sequence(sequence)
+
+    def converted(self) -> Tokenizer:
+        vocab_scores = self.vocab(self.proto)
+        tokenizer = Tokenizer(
+            Unigram(
+                vocab_scores,
+                unk_id=self.proto.unk_token_id,
+                byte_fallback=self.handle_byte_fallback,
+            )
+        )
+
+        normalizer = self.normalizer(self.proto)
+        if normalizer is not None:
+            tokenizer.normalizer = normalizer
+
+        replacement = "▁"
+        add_prefix_space = True
+        if hasattr(self.original_tokenizer, "add_prefix_space"):
+            add_prefix_space = self.original_tokenizer.add_prefix_space
+
+        tokenizer.decoder = self.decoder(replacement, add_prefix_space)
+        pre_tokenizer = self.pre_tokenizer(replacement, add_prefix_space)
+        if pre_tokenizer is not None:
+            tokenizer.pre_tokenizer = pre_tokenizer
+
+        return tokenizer
+
+
 GGUF_TO_FAST_CONVERTERS = {
     "llama": GGUFLlamaConverter,
     "qwen2": GGUFQwen2Converter,
@@ -820,6 +913,7 @@ GGUF_TO_FAST_CONVERTERS = {
     "t5": GGUFT5Converter,
     "mamba": GGUFGPTConverter,
     "nemotron": GGUFGPTConverter,
+    "gemma2": GGUFGemmaConverter,
 }
 
 

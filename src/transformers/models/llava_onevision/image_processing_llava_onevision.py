@@ -710,3 +710,6 @@ class LlavaOnevisionImageProcessor(BaseImageProcessor):
         return BatchFeature(
             data={"pixel_values": processed_images, "image_sizes": image_sizes}, tensor_type=return_tensors
         )
+
+
+__all__ = ["LlavaOnevisionImageProcessor"]

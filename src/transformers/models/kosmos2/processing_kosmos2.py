@@ -705,3 +705,6 @@ def clean_text_and_extract_entities_with_bboxes(text, num_patches_per_side=32):
         entities.append(adjusted_entity + (bboxes_in_coords,))
 
     return _cleanup_spaces(processed_text, entities)
+
+
+__all__ = ["Kosmos2Processor"]

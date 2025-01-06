@@ -204,3 +204,6 @@ class EncodecFeatureExtractor(SequenceFeatureExtractor):
             padded_inputs = padded_inputs.convert_to_tensors(return_tensors)
 
         return padded_inputs
+
+
+__all__ = ["EncodecFeatureExtractor"]

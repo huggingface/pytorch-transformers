@@ -1520,3 +1520,12 @@ class Phi3ForTokenClassification(Phi3PreTrainedModel):
             hidden_states=model_outputs.hidden_states,
             attentions=model_outputs.attentions,
         )
+
+
+__all__ = [
+    "Phi3PreTrainedModel",
+    "Phi3Model",
+    "Phi3ForCausalLM",
+    "Phi3ForSequenceClassification",
+    "Phi3ForTokenClassification",
+]

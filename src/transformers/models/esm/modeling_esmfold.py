@@ -2320,3 +2320,6 @@ class EsmForProteinFolding(EsmPreTrainedModel):
         """Returns the pdb (file) string from the model given an input sequence."""
         output = self.infer(seqs, *args, **kwargs)
         return self.output_to_pdb(output)
+
+
+__all__ = ["EsmForProteinFolding", "EsmFoldPreTrainedModel"]

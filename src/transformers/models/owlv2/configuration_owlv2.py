@@ -284,3 +284,6 @@ class Owlv2Config(PretrainedConfig):
         config_dict["vision_config"] = vision_config
 
         return cls.from_dict(config_dict, **kwargs)
+
+
+__all__ = ["Owlv2Config", "Owlv2TextConfig", "Owlv2VisionConfig"]

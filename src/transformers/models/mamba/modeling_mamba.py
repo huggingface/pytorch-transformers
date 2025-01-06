@@ -807,3 +807,6 @@ class MambaForCausalLM(MambaPreTrainedModel, GenerationMixin):
             cache_params=mamba_outputs.cache_params,
             hidden_states=mamba_outputs.hidden_states,
         )
+
+
+__all__ = ["MambaForCausalLM", "MambaModel", "MambaPreTrainedModel"]

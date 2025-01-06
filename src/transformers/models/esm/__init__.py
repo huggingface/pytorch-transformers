@@ -1,4 +1,4 @@
-# Copyright 2022 Facebook and The HuggingFace Team. All rights reserved.
+# Copyright 2024 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,78 +13,18 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import OptionalDependencyNotAvailable, _LazyModule, is_tf_available, is_torch_available
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
-
-_import_structure = {
-    "configuration_esm": ["EsmConfig"],
-    "tokenization_esm": ["EsmTokenizer"],
-}
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_esm"] = [
-        "EsmForMaskedLM",
-        "EsmForSequenceClassification",
-        "EsmForTokenClassification",
-        "EsmModel",
-        "EsmPreTrainedModel",
-    ]
-    _import_structure["modeling_esmfold"] = ["EsmForProteinFolding", "EsmFoldPreTrainedModel"]
-
-try:
-    if not is_tf_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_tf_esm"] = [
-        "TFEsmForMaskedLM",
-        "TFEsmForSequenceClassification",
-        "TFEsmForTokenClassification",
-        "TFEsmModel",
-        "TFEsmPreTrainedModel",
-    ]
 
 if TYPE_CHECKING:
-    from .configuration_esm import EsmConfig
-    from .tokenization_esm import EsmTokenizer
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_esm import (
-            EsmForMaskedLM,
-            EsmForSequenceClassification,
-            EsmForTokenClassification,
-            EsmModel,
-            EsmPreTrainedModel,
-        )
-        from .modeling_esmfold import EsmFoldPreTrainedModel, EsmForProteinFolding
-
-    try:
-        if not is_tf_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_tf_esm import (
-            TFEsmForMaskedLM,
-            TFEsmForSequenceClassification,
-            TFEsmForTokenClassification,
-            TFEsmModel,
-            TFEsmPreTrainedModel,
-        )
-
-
+    from .configuration_esm import *
+    from .modeling_esm import *
+    from .modeling_esmfold import *
+    from .modeling_tf_esm import *
+    from .tokenization_esm import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

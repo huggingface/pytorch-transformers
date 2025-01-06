@@ -883,3 +883,6 @@ class Idefics3ImageProcessor(BaseImageProcessor):
             encoding["cols"] = images_list_cols
 
         return encoding
+
+
+__all__ = ["Idefics3ImageProcessor"]

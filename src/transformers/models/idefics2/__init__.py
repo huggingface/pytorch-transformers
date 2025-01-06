@@ -13,60 +13,17 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import OptionalDependencyNotAvailable, _LazyModule, is_torch_available, is_vision_available
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
-
-_import_structure = {"configuration_idefics2": ["Idefics2Config"]}
-
-
-try:
-    if not is_vision_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["image_processing_idefics2"] = ["Idefics2ImageProcessor"]
-
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_idefics2"] = [
-        "Idefics2ForConditionalGeneration",
-        "Idefics2PreTrainedModel",
-        "Idefics2Model",
-    ]
-    _import_structure["processing_idefics2"] = ["Idefics2Processor"]
 
 if TYPE_CHECKING:
-    from .configuration_idefics2 import Idefics2Config
-
-    try:
-        if not is_vision_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .image_processing_idefics2 import Idefics2ImageProcessor
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_idefics2 import (
-            Idefics2ForConditionalGeneration,
-            Idefics2Model,
-            Idefics2PreTrainedModel,
-        )
-        from .processing_idefics2 import Idefics2Processor
-
-
+    from .configuration_idefics2 import *
+    from .image_processing_idefics2 import *
+    from .modeling_idefics2 import *
+    from .processing_idefics2 import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

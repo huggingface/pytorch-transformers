@@ -265,3 +265,6 @@ class CpmAntTokenizer(PreTrainedTokenizer):
         if token_ids_1 is not None:
             return [1] + ([0] * len(token_ids_0)) + [1] + ([0] * len(token_ids_1))
         return [1] + ([0] * len(token_ids_0))
+
+
+__all__ = ["CpmAntTokenizer"]

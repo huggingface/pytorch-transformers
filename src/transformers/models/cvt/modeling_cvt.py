@@ -720,3 +720,6 @@ class CvtForImageClassification(CvtPreTrainedModel):
             return ((loss,) + output) if loss is not None else output
 
         return ImageClassifierOutputWithNoAttention(loss=loss, logits=logits, hidden_states=outputs.hidden_states)
+
+
+__all__ = ["CvtForImageClassification", "CvtModel", "CvtPreTrainedModel"]

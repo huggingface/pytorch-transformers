@@ -224,3 +224,6 @@ class TapasConfig(PretrainedConfig):
 
         if isinstance(self.aggregation_labels, dict):
             self.aggregation_labels = {int(k): v for k, v in aggregation_labels.items()}
+
+
+__all__ = ["TapasConfig"]

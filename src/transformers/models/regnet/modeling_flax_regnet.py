@@ -817,3 +817,6 @@ append_replace_return_docstrings(
     output_type=FlaxImageClassifierOutputWithNoAttention,
     config_class=RegNetConfig,
 )
+
+
+__all__ = ["FlaxRegNetForImageClassification", "FlaxRegNetModel", "FlaxRegNetPreTrainedModel"]

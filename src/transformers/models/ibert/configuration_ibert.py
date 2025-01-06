@@ -137,3 +137,6 @@ class IBertOnnxConfig(OnnxConfig):
                 ("attention_mask", dynamic_axis),
             ]
         )
+
+
+__all__ = ["IBertConfig", "IBertOnnxConfig"]

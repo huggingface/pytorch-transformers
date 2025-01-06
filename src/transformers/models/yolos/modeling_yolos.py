@@ -887,3 +887,6 @@ class YolosForObjectDetection(YolosPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = ["YolosForObjectDetection", "YolosModel", "YolosPreTrainedModel"]

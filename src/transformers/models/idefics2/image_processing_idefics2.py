@@ -595,3 +595,6 @@ class Idefics2ImageProcessor(BaseImageProcessor):
             data["pixel_attention_mask"] = np.array(pixel_attention_mask) if do_pad else pixel_attention_mask
 
         return BatchFeature(data=data, tensor_type=return_tensors)
+
+
+__all__ = ["Idefics2ImageProcessor"]

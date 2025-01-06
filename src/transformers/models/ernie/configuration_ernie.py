@@ -158,3 +158,6 @@ class ErnieOnnxConfig(OnnxConfig):
                 ("task_type_ids", dynamic_axis),
             ]
         )
+
+
+__all__ = ["ErnieConfig", "ErnieOnnxConfig"]

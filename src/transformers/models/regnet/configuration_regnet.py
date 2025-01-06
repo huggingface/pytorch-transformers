@@ -89,3 +89,6 @@ class RegNetConfig(PretrainedConfig):
         self.hidden_act = hidden_act
         # always downsample in the first stage
         self.downsample_in_first_stage = True
+
+
+__all__ = ["RegNetConfig"]

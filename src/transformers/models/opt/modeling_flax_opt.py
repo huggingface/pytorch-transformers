@@ -797,3 +797,6 @@ append_call_sample_docstring(
     FlaxBaseModelOutput,
     _CONFIG_FOR_DOC,
 )
+
+
+__all__ = ["FlaxOPTForCausalLM", "FlaxOPTModel", "FlaxOPTPreTrainedModel"]

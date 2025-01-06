@@ -672,3 +672,6 @@ class RagRetriever:
                 },
                 tensor_type=return_tensors,
             )
+
+
+__all__ = ["RagRetriever"]

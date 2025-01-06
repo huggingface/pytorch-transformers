@@ -122,3 +122,6 @@ class Pop2PianoConfig(PretrainedConfig):
             is_encoder_decoder=is_encoder_decoder,
             **kwargs,
         )
+
+
+__all__ = ["Pop2PianoConfig"]

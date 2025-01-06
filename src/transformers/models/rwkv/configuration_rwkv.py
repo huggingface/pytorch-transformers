@@ -115,3 +115,6 @@ class RwkvConfig(PretrainedConfig):
         super().__init__(
             tie_word_embeddings=tie_word_embeddings, bos_token_id=bos_token_id, eos_token_id=eos_token_id, **kwargs
         )
+
+
+__all__ = ["RwkvConfig"]

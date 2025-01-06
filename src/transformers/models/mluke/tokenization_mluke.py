@@ -1634,3 +1634,6 @@ class MLukeTokenizer(PreTrainedTokenizer):
         if token_ids_1 is None:
             return len(cls + token_ids_0 + sep) * [0]
         return len(cls + token_ids_0 + sep + sep + token_ids_1 + sep) * [0]
+
+
+__all__ = ["MLukeTokenizer"]

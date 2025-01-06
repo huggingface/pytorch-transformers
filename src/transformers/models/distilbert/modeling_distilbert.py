@@ -1365,3 +1365,14 @@ class DistilBertForMultipleChoice(DistilBertPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "DistilBertForMaskedLM",
+    "DistilBertForMultipleChoice",
+    "DistilBertForQuestionAnswering",
+    "DistilBertForSequenceClassification",
+    "DistilBertForTokenClassification",
+    "DistilBertModel",
+    "DistilBertPreTrainedModel",
+]

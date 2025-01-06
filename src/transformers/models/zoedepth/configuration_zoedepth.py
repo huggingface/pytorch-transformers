@@ -232,3 +232,6 @@ class ZoeDepthConfig(PretrainedConfig):
         self.patch_transformer_hidden_size = patch_transformer_hidden_size
         self.patch_transformer_intermediate_size = patch_transformer_intermediate_size
         self.patch_transformer_num_attention_heads = patch_transformer_num_attention_heads
+
+
+__all__ = ["ZOEDEPTH_PRETRAINED_CONFIG_ARCHIVE_MAP", "ZoeDepthConfig"]

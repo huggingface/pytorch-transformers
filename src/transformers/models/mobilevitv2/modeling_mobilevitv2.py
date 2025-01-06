@@ -1025,3 +1025,11 @@ class MobileViTV2ForSemanticSegmentation(MobileViTV2PreTrainedModel):
             hidden_states=outputs.hidden_states if output_hidden_states else None,
             attentions=None,
         )
+
+
+__all__ = [
+    "MobileViTV2ForImageClassification",
+    "MobileViTV2ForSemanticSegmentation",
+    "MobileViTV2Model",
+    "MobileViTV2PreTrainedModel",
+]

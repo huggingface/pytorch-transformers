@@ -175,3 +175,6 @@ class ProphetNetConfig(PretrainedConfig):
             "This model does not support the setting of `num_hidden_layers`. Please set `num_encoder_layers` and"
             " `num_decoder_layers`."
         )
+
+
+__all__ = ["ProphetNetConfig"]

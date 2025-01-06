@@ -74,7 +74,7 @@ FSDP 是通过包装网络中的每个层来应用的。通常，包装是以嵌
 
 应该使用 `fsdp_state_dict_type: SHARDED_STATE_DICT` 来保存中间检查点，
 因为在排名 0 上保存完整状态字典需要很长时间，通常会导致 `NCCL Timeout` 错误，因为在广播过程中会无限期挂起。
-您可以使用 [`~accelerate.Accelerator.load_state`]` 方法加载分片状态字典以恢复训练。
+您可以使用 [`~accelerate.Accelerator.load_state`] 方法加载分片状态字典以恢复训练。
 
 ```py
 # 包含检查点的目录

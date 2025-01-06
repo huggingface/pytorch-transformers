@@ -18,7 +18,6 @@ from ...utils.import_utils import define_import_structure
 
 
 if TYPE_CHECKING:
-    from .convert_byt5_original_tf_checkpoint_to_pytorch import *
     from .tokenization_byt5 import *
 else:
     import sys

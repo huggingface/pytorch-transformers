@@ -31,3 +31,6 @@ class VideoMAEFeatureExtractor(VideoMAEImageProcessor):
             FutureWarning,
         )
         super().__init__(*args, **kwargs)
+
+
+__all__ = ["VideoMAEFeatureExtractor"]

@@ -1003,3 +1003,6 @@ class TFXGLMForCausalLM(TFXGLMPreTrainedModel, TFCausalLanguageModelingLoss):
             return tf_weight, "model.embed_tokens.weight"
         else:
             return (tf_weight,)
+
+
+__all__ = ["TFXGLMForCausalLM", "TFXGLMModel", "TFXGLMPreTrainedModel"]

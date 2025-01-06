@@ -199,3 +199,6 @@ class LongformerOnnxConfig(OnnxConfig):
         inputs["global_attention_mask"][:, ::2] = 1
 
         return inputs
+
+
+__all__ = ["LongformerConfig", "LongformerOnnxConfig"]

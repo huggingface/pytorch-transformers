@@ -1777,3 +1777,15 @@ class TFXLMRobertaForQuestionAnswering(TFXLMRobertaPreTrainedModel, TFQuestionAn
         if getattr(self, "qa_outputs", None) is not None:
             with tf.name_scope(self.qa_outputs.name):
                 self.qa_outputs.build([None, None, self.config.hidden_size])
+
+
+__all__ = [
+    "TFXLMRobertaForCausalLM",
+    "TFXLMRobertaForMaskedLM",
+    "TFXLMRobertaForMultipleChoice",
+    "TFXLMRobertaForQuestionAnswering",
+    "TFXLMRobertaForSequenceClassification",
+    "TFXLMRobertaForTokenClassification",
+    "TFXLMRobertaModel",
+    "TFXLMRobertaPreTrainedModel",
+]

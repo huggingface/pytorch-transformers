@@ -110,3 +110,6 @@ class ViTMSNConfig(PretrainedConfig):
         self.patch_size = patch_size
         self.num_channels = num_channels
         self.qkv_bias = qkv_bias
+
+
+__all__ = ["ViTMSNConfig"]

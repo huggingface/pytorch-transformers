@@ -156,3 +156,6 @@ class RecurrentGemmaConfig(PretrainedConfig):
     @property
     def layers_block_type(self):
         return (self.block_types * 100)[: self.num_hidden_layers]
+
+
+__all__ = ["RecurrentGemmaConfig"]

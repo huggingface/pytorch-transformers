@@ -2021,3 +2021,13 @@ class ClvpModelForConditionalGeneration(ClvpPreTrainedModel, GenerationMixin):
             text_encoder_hidden_states=text_outputs.hidden_states,
             speech_encoder_hidden_states=speech_outputs.hidden_states,
         )
+
+
+__all__ = [
+    "ClvpModelForConditionalGeneration",
+    "ClvpForCausalLM",
+    "ClvpModel",
+    "ClvpPreTrainedModel",
+    "ClvpEncoder",
+    "ClvpDecoder",
+]

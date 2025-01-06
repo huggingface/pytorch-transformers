@@ -288,3 +288,6 @@ class OmDetTurboConfig(PretrainedConfig):
         self.is_encoder_decoder = is_encoder_decoder
 
         super().__init__(is_encoder_decoder=is_encoder_decoder, **kwargs)
+
+
+__all__ = ["OmDetTurboConfig"]

@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_audio_spectrogram_transformer import *
-    from .convert_audio_spectrogram_transformer_original_to_pytorch import *
     from .feature_extraction_audio_spectrogram_transformer import *
     from .modeling_audio_spectrogram_transformer import *
 else:

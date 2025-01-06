@@ -19,8 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_bark import *
-    from .convert_suno_to_hf import *
-    from .generation_configuration_bark import *
     from .modeling_bark import *
     from .processing_bark import *
 else:

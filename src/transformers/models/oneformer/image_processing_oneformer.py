@@ -1351,3 +1351,6 @@ class OneFormerImageProcessor(BaseImageProcessor):
 
             results.append({"segmentation": segmentation, "segments_info": segments})
         return results
+
+
+__all__ = ["OneFormerImageProcessor"]

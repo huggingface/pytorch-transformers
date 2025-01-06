@@ -477,3 +477,11 @@ class MobileNetV1ForImageClassification(MobileNetV1PreTrainedModel):
             logits=logits,
             hidden_states=outputs.hidden_states,
         )
+
+
+__all__ = [
+    "MobileNetV1ForImageClassification",
+    "MobileNetV1Model",
+    "MobileNetV1PreTrainedModel",
+    "load_tf_weights_in_mobilenet_v1",
+]

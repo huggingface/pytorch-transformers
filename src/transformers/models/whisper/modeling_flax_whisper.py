@@ -1694,3 +1694,11 @@ overwrite_call_docstring(
 append_replace_return_docstrings(
     FlaxWhisperForAudioClassification, output_type=FlaxSequenceClassifierOutput, config_class=_CONFIG_FOR_DOC
 )
+
+
+__all__ = [
+    "FlaxWhisperForConditionalGeneration",
+    "FlaxWhisperModel",
+    "FlaxWhisperPreTrainedModel",
+    "FlaxWhisperForAudioClassification",
+]

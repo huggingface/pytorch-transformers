@@ -31,3 +31,6 @@ class ViltFeatureExtractor(ViltImageProcessor):
             FutureWarning,
         )
         super().__init__(*args, **kwargs)
+
+
+__all__ = ["ViltFeatureExtractor"]

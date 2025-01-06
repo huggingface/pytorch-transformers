@@ -1788,3 +1788,6 @@ class MimiModel(MimiPreTrainedModel):
             encoder_past_key_values=encoder_past_key_values,
             decoder_past_key_values=decoder_past_key_values,
         )
+
+
+__all__ = ["MimiModel", "MimiPreTrainedModel"]

@@ -532,7 +532,7 @@ def eager_attention_forward(
     dim: int,
     output_attentions: Optional[bool] = False,
     **_kwargs,
-) -> Tuple[torch.Tensor, torch.Tensor] | Tuple[torch.Tensor]:
+) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor]]:
     # qkv: [batch_size, seqlen, 3, nheads, headdim]
     cos, sin = module.rotary_emb(qkv, position_ids=position_ids)
     query, key, value = qkv.transpose(3, 1).unbind(dim=2)

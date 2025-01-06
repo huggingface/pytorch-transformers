@@ -272,3 +272,6 @@ class OneFormerConfig(PretrainedConfig):
         self.num_hidden_layers = decoder_layers
 
         super().__init__(**kwargs)
+
+
+__all__ = ["OneFormerConfig"]

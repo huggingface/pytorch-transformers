@@ -163,3 +163,6 @@ class FlavaProcessor(ProcessorMixin):
             FutureWarning,
         )
         return self.image_processor
+
+
+__all__ = ["FlavaProcessor"]

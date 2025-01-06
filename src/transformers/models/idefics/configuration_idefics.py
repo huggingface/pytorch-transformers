@@ -320,3 +320,6 @@ class IdeficsConfig(PretrainedConfig):
         # updates the config object with `kwargs` from from_pretrained, so during the instantiation
         # of this object many attributes have default values and haven't yet been overridden.
         # Do any required checks inside `from_pretrained` once the superclass' `from_pretrained` was run.
+
+
+__all__ = ["IdeficsConfig"]

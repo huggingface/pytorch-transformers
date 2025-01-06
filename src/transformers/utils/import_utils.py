@@ -1159,7 +1159,7 @@ def is_training_run_on_sagemaker():
     return "SAGEMAKER_JOB_NAME" in os.environ
 
 
-def is_soundfile_availble():
+def is_soundfile_available():
     return _soundfile_available
 
 

@@ -719,3 +719,6 @@ class FuyuImageProcessor(BaseImageProcessor):
                 "image_patch_indices_per_subsequence": image_patch_indices_per_subsequence,
             }
         )
+
+
+__all__ = ["FuyuImageProcessor"]

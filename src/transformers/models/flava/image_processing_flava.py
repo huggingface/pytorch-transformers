@@ -698,3 +698,6 @@ class FlavaImageProcessor(BaseImageProcessor):
             data["bool_masked_pos"] = masks
 
         return BatchFeature(data=data, tensor_type=return_tensors)
+
+
+__all__ = ["FlavaImageProcessor"]

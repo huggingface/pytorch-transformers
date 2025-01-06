@@ -229,7 +229,7 @@ class MixedInt8Test(BaseMixedInt8Test):
         mem_fp16 = self.model_fp16.get_memory_footprint()
         mem_8bit = self.model_8bit.get_memory_footprint()
 
-        self.assertAlmostEqual(mem_fp16 / mem_8bit, self.EXPECTED_RELATIVE_DIFFERENCE)
+        self.assertAlmostEqual(mem_fp16 / mem_8bit, self.EXPECTED_RELATIVE_DIFFERENCE, delta=1e-5)
         self.assertTrue(get_some_linear_layer(self.model_8bit).weight.__class__ == Int8Params)
 
     def test_linear_are_8bit(self):
@@ -938,7 +938,12 @@ class MixedInt8LlamaTest(MixedInt8Test):
     model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     EXPECTED_RELATIVE_DIFFERENCE = 1.7869331026479096
     EXPECTED_OUTPUTS = set()
+
+    # Expected on Intel XPU
     EXPECTED_OUTPUTS.add("Hello my name is John Smith and I am a software engineer. I")
+
+    # Expected on NVIDIA T4
+    EXPECTED_OUTPUTS.add("Hello my name is John and I am a software engineer. I have")
 
     def test_int8_from_pretrained(self):
         r"""

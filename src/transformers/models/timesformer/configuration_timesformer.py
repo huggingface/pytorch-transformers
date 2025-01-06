@@ -124,3 +124,6 @@ class TimesformerConfig(PretrainedConfig):
 
         self.attention_type = attention_type
         self.drop_path_rate = drop_path_rate
+
+
+__all__ = ["TimesformerConfig"]

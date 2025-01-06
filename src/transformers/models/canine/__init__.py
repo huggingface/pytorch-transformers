@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_canine import *
-    from .convert_canine_original_tf_checkpoint_to_pytorch import *
     from .modeling_canine import *
     from .tokenization_canine import *
 else:

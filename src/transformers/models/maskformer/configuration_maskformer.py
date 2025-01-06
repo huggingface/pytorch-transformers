@@ -221,3 +221,6 @@ class MaskFormerConfig(PretrainedConfig):
             decoder_config=decoder_config,
             **kwargs,
         )
+
+
+__all__ = ["MaskFormerConfig"]

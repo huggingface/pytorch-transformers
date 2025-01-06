@@ -231,3 +231,6 @@ class JambaConfig(PretrainedConfig):
             raise ValueError(
                 f"{property_} layer offset ({offset}) must be smaller than {property_} layer period ({period})"
             )
+
+
+__all__ = ["JambaConfig"]

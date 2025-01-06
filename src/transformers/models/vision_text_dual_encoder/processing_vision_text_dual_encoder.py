@@ -148,3 +148,6 @@ class VisionTextDualEncoderProcessor(ProcessorMixin):
             FutureWarning,
         )
         return self.image_processor
+
+
+__all__ = ["VisionTextDualEncoderProcessor"]

@@ -519,3 +519,6 @@ class PixtralImageProcessor(BaseImageProcessor):
         # Convert to tensor type outside of BatchFeature to avoid batching the images of different sizes
         images_list = [[convert_to_tensor(image, return_tensors) for image in images] for images in images_list]
         return BatchMixFeature(data={"pixel_values": images_list, "image_sizes": batch_image_sizes}, tensor_type=None)
+
+
+__all__ = ["PixtralImageProcessor"]

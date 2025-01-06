@@ -928,3 +928,6 @@ class MllamaImageProcessor(BaseImageProcessor):
         )
 
         return image, (num_tiles_height, num_tiles_width)
+
+
+__all__ = ["MllamaImageProcessor"]

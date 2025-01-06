@@ -228,3 +228,6 @@ class MptConfig(PretrainedConfig):
         self.use_cache = use_cache
         self.initializer_range = initializer_range
         super().__init__(**kwargs)
+
+
+__all__ = ["MptConfig"]

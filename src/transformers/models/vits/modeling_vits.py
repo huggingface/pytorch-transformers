@@ -1487,3 +1487,6 @@ class VitsModel(VitsPreTrainedModel):
             hidden_states=text_encoder_output.hidden_states,
             attentions=text_encoder_output.attentions,
         )
+
+
+__all__ = ["VitsModel", "VitsPreTrainedModel"]

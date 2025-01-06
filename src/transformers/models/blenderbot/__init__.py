@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_blenderbot import *
-    from .convert_blenderbot_original_pytorch_checkpoint_to_pytorch import *
     from .modeling_blenderbot import *
     from .modeling_flax_blenderbot import *
     from .modeling_tf_blenderbot import *

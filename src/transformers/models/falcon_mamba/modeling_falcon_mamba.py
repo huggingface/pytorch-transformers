@@ -867,3 +867,6 @@ class FalconMambaForCausalLM(FalconMambaPreTrainedModel, GenerationMixin):
             cache_params=falcon_mamba_outputs.cache_params,
             hidden_states=falcon_mamba_outputs.hidden_states,
         )
+
+
+__all__ = ["FalconMambaForCausalLM", "FalconMambaModel", "FalconMambaPreTrainedModel"]

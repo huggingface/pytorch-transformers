@@ -147,3 +147,6 @@ class JetMoeConfig(PretrainedConfig):
         super().__init__(
             bos_token_id=bos_token_id, eos_token_id=eos_token_id, tie_word_embeddings=tie_word_embeddings, **kwargs
         )
+
+
+__all__ = ["JetMoeConfig"]

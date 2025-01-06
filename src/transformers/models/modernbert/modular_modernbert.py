@@ -1472,7 +1472,6 @@ class ModernBertForQuestionAnswering(ModernBertPreTrainedModel):
         self.drop = torch.nn.Dropout(config.classifier_dropout)
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
 
-        # Initialize weights and apply final processing
         self.post_init()
         self._init_weights(self.classifier)
 
@@ -1541,10 +1540,6 @@ class ModernBertForQuestionAnswering(ModernBertPreTrainedModel):
         start_logits = start_logits.squeeze(-1).contiguous()
         end_logits = end_logits.squeeze(-1).contiguous()
 
-        # Debugging statements
-        # print(f"start_logits: {start_logits}")
-        # print(f"end_logits: {end_logits}")
-
         loss = None
         if start_positions is not None and end_positions is not None:
             if len(start_positions.size()) > 1:
@@ -1555,19 +1550,10 @@ class ModernBertForQuestionAnswering(ModernBertPreTrainedModel):
             start_positions = start_positions.clamp(0, ignored_index)
             end_positions = end_positions.clamp(0, ignored_index)
 
-            # Debugging statements
-            # print(f"start_positions: {start_positions}")
-            # print(f"end_positions: {end_positions}")
-
             loss_fct = CrossEntropyLoss(ignore_index=ignored_index)
             start_loss = loss_fct(start_logits, start_positions)
             end_loss = loss_fct(end_logits, end_positions)
             loss = (start_loss + end_loss) / 2
-
-            # Debugging statements
-            # print(f"start_loss: {start_loss}")
-            # print(f"end_loss: {end_loss}")
-            # print(f"loss: {loss}")
 
         if not return_dict:
             output = (start_logits, end_logits) + outputs[1:]

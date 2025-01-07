@@ -135,7 +135,7 @@
       title: Multi-GPU debugging
     - local: perf_train_gpu_many
       title: Parallelism methods
-  - title: Hardware-specific training
+  - title: Hardware
     sections:
     - local: perf_train_gpu_one
       title: GPU
@@ -188,7 +188,7 @@
     title: VPTQ
   - local: quantization/contribute
     title: Contribute
-- title: Deploy to production
+- title: Export to production
   isExpanded: False
   sections:
   - local: serialization
@@ -270,27 +270,25 @@
         title: Video-text-to-text
   - local: run_scripts
     title: Training scripts
-  - local: benchmarks
-    title: Benchmarks
+  - local: glossary
+    title: Glossary
+  - local: philosophy
+    title: Philosophy
   - local: notebooks
     title: Notebooks with examples
   - local: community
     title: Community resources
   - local: troubleshooting
     title: Troubleshoot
-- title: Community
+- title: Contribute
   isExpanded: False
   sections:
   - local: contributing
-    title: How to contribute to Transformers?
+    title: Contribute to Transformers
   - local: testing
-    title: Testing
+    title: Transformers model tests
   - local: pr_checks
-    title: Checks on a Pull Request
-  - local: philosophy
-    title: Philosophy
-  - local: glossary
-    title: Glossary
+    title: Pull request checks
 - title: API
   isExpanded: False
   sections:

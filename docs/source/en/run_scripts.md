@@ -14,21 +14,19 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Train with a script
+# Training scripts
 
-Along with the 🤗 Transformers [notebooks](./notebooks), there are also example scripts demonstrating how to train a model for a task with [PyTorch](https://github.com/huggingface/transformers/tree/main/examples/pytorch), [TensorFlow](https://github.com/huggingface/transformers/tree/main/examples/tensorflow), or [JAX/Flax](https://github.com/huggingface/transformers/tree/main/examples/flax).
+Transformers provides many example training scripts for deep learning frameworks (PyTorch, TensorFlow, Flax) and tasks in [transformers/examples](https://github.com/huggingface/transformers/tree/main/examples). There are additional scripts in [transformers/research projects](https://github.com/huggingface/transformers/tree/main/examples/research_projects) and [transformers/legacy](https://github.com/huggingface/transformers/tree/main/examples/legacy), but these aren't actively maintained and requires a specific version of Transformers.
 
-You will also find scripts we've used in our [research projects](https://github.com/huggingface/transformers/tree/main/examples/research_projects) and [legacy examples](https://github.com/huggingface/transformers/tree/main/examples/legacy) which are mostly community contributed. These scripts are not actively maintained and require a specific version of 🤗 Transformers that will most likely be incompatible with the latest version of the library.
+Example scripts are only examples and you may need to adapt the script to your use-case. To help you with this, most scripts are very transparent in how data is preprocessed, allowing you to edit it as necessary.
 
-The example scripts are not expected to work out-of-the-box on every problem, and you may need to adapt the script to the problem you're trying to solve. To help you with this, most of the scripts fully expose how data is preprocessed, allowing you to edit it as necessary for your use case.
+For any feature you'd like to implement in an example script, please discuss it on the [forum](https://discuss.huggingface.co/) or in an [issue](https://github.com/huggingface/transformers/issues) before submitting a pull request. While we welcome contributions, it is unlikely a pull request that adds more functionality is added at the cost of readability.
 
-For any feature you'd like to implement in an example script, please discuss it on the [forum](https://discuss.huggingface.co/) or in an [issue](https://github.com/huggingface/transformers/issues) before submitting a Pull Request. While we welcome bug fixes, it is unlikely we will merge a Pull Request that adds more functionality at the cost of readability.
-
-This guide will show you how to run an example summarization training script in [PyTorch](https://github.com/huggingface/transformers/tree/main/examples/pytorch/summarization) and [TensorFlow](https://github.com/huggingface/transformers/tree/main/examples/tensorflow/summarization). All examples are expected to work with both frameworks unless otherwise specified.
+This guide will show you how to run an example summarization training script in [PyTorch](https://github.com/huggingface/transformers/tree/main/examples/pytorch/summarization) and [TensorFlow](https://github.com/huggingface/transformers/tree/main/examples/tensorflow/summarization).
 
 ## Setup
 
-To successfully run the latest version of the example scripts, you have to **install 🤗 Transformers from source** in a new virtual environment:
+Install Transformers from source in a new virtual environment to run the latest version of the example script.
 
 ```bash
 git clone https://github.com/huggingface/transformers
@@ -36,48 +34,13 @@ cd transformers
 pip install .
 ```
 
-For older versions of the example scripts, click on the toggle below:
-
-<details>
-  <summary>Examples for older versions of 🤗 Transformers</summary>
-	<ul>
-		<li><a href="https://github.com/huggingface/transformers/tree/v4.5.1/examples">v4.5.1</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v4.4.2/examples">v4.4.2</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v4.3.3/examples">v4.3.3</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v4.2.2/examples">v4.2.2</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v4.1.1/examples">v4.1.1</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v4.0.1/examples">v4.0.1</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v3.5.1/examples">v3.5.1</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v3.4.0/examples">v3.4.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v3.3.1/examples">v3.3.1</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v3.2.0/examples">v3.2.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v3.1.0/examples">v3.1.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v3.0.2/examples">v3.0.2</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.11.0/examples">v2.11.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.10.0/examples">v2.10.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.9.1/examples">v2.9.1</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.8.0/examples">v2.8.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.7.0/examples">v2.7.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.6.0/examples">v2.6.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.5.1/examples">v2.5.1</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.4.0/examples">v2.4.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.3.0/examples">v2.3.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.2.0/examples">v2.2.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.1.0/examples">v2.1.1</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v2.0.0/examples">v2.0.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v1.2.0/examples">v1.2.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v1.1.0/examples">v1.1.0</a></li>
-		<li><a href="https://github.com/huggingface/transformers/tree/v1.0.0/examples">v1.0.0</a></li>
-	</ul>
-</details>
-
-Then switch your current clone of 🤗 Transformers to a specific version, like v3.5.1 for example:
+Run the command below to checkout a script from a specific or older version of Transformers.
 
 ```bash
 git checkout tags/v3.5.1
 ```
 
-After you've setup the correct library version, navigate to the example folder of your choice and install the example specific requirements:
+After you've setup the correct version, navigate to the example folder of your choice and install the example specific requirements.
 
 ```bash
 pip install -r requirements.txt
@@ -85,13 +48,35 @@ pip install -r requirements.txt
 
 ## Run a script
 
-<frameworkcontent>
-<pt>
-The example script downloads and preprocesses a dataset from the 🤗 [Datasets](https://huggingface.co/docs/datasets/) library. Then the script fine-tunes a dataset with the [Trainer](https://huggingface.co/docs/transformers/main_classes/trainer) on an architecture that supports summarization. The following example shows how to fine-tune [T5-small](https://huggingface.co/google-t5/t5-small) on the [CNN/DailyMail](https://huggingface.co/datasets/cnn_dailymail) dataset. The T5 model requires an additional `source_prefix` argument due to how it was trained. This prompt lets T5 know this is a summarization task.
+Start with a smaller dataset by including the `max_train_samples`, `max_eval_samples`, and `max_predict_samples` parameters to truncate the dataset to a maximum number of samples. This helps ensure training works as expected before committing to the entire dataset which can take hours to complete.
+
+> [!WARNING]
+> Not all example scripts support the `max_predict_samples` parameter. Run the command below to check whether a script supports it or not.
+> ```bash
+> examples/pytorch/summarization/run_summarization.py -h
+> ```
+
+The example below fine-tunes [T5-small](https://huggingface.co/google-t5/t5-small) on the [CNN/DailyMail](https://huggingface.co/datasets/abisee/cnn_dailymail) dataset. T5 requires an additional `source_prefix` parameter to prompt it to summarize.
+
+<hfoptions id="script">
+<hfoption id="PyTorch">
+
+The example script downloads and preprocesses a dataset, and then fine-tunes it with [`Trainer`] with a supported model architecture. 
+
+Resuming training from a checkpoint is very useful if training is interrupted because you don't have to start over again. There are two ways to resume training from a checkpoint.
+
+* `--output dir previous_output_dir` resumes training from the latest checkpoint stored in `output_dir`. Remove the `--overwrite_output_dir` parameter if you're using this method.
+* `--resume_from_checkpoint path_to_specific_checkpoint` resumes training from a specific checkpoint folder.
+
+Share your model on the [Hub](https://huggingface.co/) with the `--push_to_hub` parameter. It creates a repository and uploads the model to the folder name specified in `--output_dir`. You could also use the `--push_to_hub_model_id` parameter to specify the repository name.
 
 ```bash
 python examples/pytorch/summarization/run_summarization.py \
     --model_name_or_path google-t5/t5-small \
+    # remove the `max_train_samples`, `max_eval_samples` and `max_predict_samples` if everything works
+    --max_train_samples 50 \
+    --max_eval_samples 50 \
+    --max_predict_samples 50 \
     --do_train \
     --do_eval \
     --dataset_name cnn_dailymail \
@@ -100,83 +85,47 @@ python examples/pytorch/summarization/run_summarization.py \
     --output_dir /tmp/tst-summarization \
     --per_device_train_batch_size=4 \
     --per_device_eval_batch_size=4 \
-    --overwrite_output_dir \
-    --predict_with_generate
+    --push_to_hub \
+    --push_to_hub_model_id finetuned-t5-cnn_dailymail \
+    # remove if using `output_dir previous_output_dir`
+    # --overwrite_output_dir \
+    --output_dir previous_output_dir \
+    # --resume_from_checkpoint path_to_specific_checkpoint \
+    --predict_with_generate \
 ```
-</pt>
-<tf>
-The example script downloads and preprocesses a dataset from the 🤗 [Datasets](https://huggingface.co/docs/datasets/) library. Then the script fine-tunes a dataset using Keras on an architecture that supports summarization. The following example shows how to fine-tune [T5-small](https://huggingface.co/google-t5/t5-small) on the [CNN/DailyMail](https://huggingface.co/datasets/cnn_dailymail) dataset. The T5 model requires an additional `source_prefix` argument due to how it was trained. This prompt lets T5 know this is a summarization task.
 
-```bash
-python examples/tensorflow/summarization/run_summarization.py  \
-    --model_name_or_path google-t5/t5-small \
-    --dataset_name cnn_dailymail \
-    --dataset_config "3.0.0" \
-    --output_dir /tmp/tst-summarization  \
-    --per_device_train_batch_size 8 \
-    --per_device_eval_batch_size 16 \
-    --num_train_epochs 3 \
-    --do_train \
-    --do_eval
-```
-</tf>
-</frameworkcontent>
+For mixed precision and distributed training, include the following parameters and launch training with [torchrun](https://pytorch.org/docs/stable/elastic/run.html).
 
-## Distributed training and mixed precision
-
-The [Trainer](https://huggingface.co/docs/transformers/main_classes/trainer) supports distributed training and mixed precision, which means you can also use it in a script. To enable both of these features:
-
-- Add the `fp16` or `bf16` argument to enable mixed precision. XPU devices only supports `bf16` for mixed precision training.
-- Set the number of GPUs to use with the `nproc_per_node` argument.
+* Add the `fp16` or `bf16` parameters to enable mixed precision training. XPU devices only supports `bf16`.
+* Add the `nproc_per_node` parameter to set number of GPUs to train with.
 
 ```bash
 torchrun \
     --nproc_per_node 8 pytorch/summarization/run_summarization.py \
     --fp16 \
-    --model_name_or_path google-t5/t5-small \
-    --do_train \
-    --do_eval \
-    --dataset_name cnn_dailymail \
-    --dataset_config "3.0.0" \
-    --source_prefix "summarize: " \
-    --output_dir /tmp/tst-summarization \
-    --per_device_train_batch_size=4 \
-    --per_device_eval_batch_size=4 \
-    --overwrite_output_dir \
-    --predict_with_generate
+    ...
+    ...
 ```
 
-TensorFlow scripts utilize a [`MirroredStrategy`](https://www.tensorflow.org/guide/distributed_training#mirroredstrategy) for distributed training, and you don't need to add any additional arguments to the training script. The TensorFlow script will use multiple GPUs by default if they are available.
-
-## Run a script on a TPU
-
-<frameworkcontent>
-<pt>
-Tensor Processing Units (TPUs) are specifically designed to accelerate performance. PyTorch supports TPUs with the [XLA](https://www.tensorflow.org/xla) deep learning compiler (see [here](https://github.com/pytorch/xla/blob/master/README.md) for more details). To use a TPU, launch the `xla_spawn.py` script and use the `num_cores` argument to set the number of TPU cores you want to use.
+PyTorch supports TPUs, hardware designed to accelerate performance, through the [PyTorch/XLA](https://github.com/pytorch/xla/blob/master/README.md) package. Launch the `xla_spawn.py` script and use `num _cores` to set the number of TPU cores to train with.
 
 ```bash
-python xla_spawn.py --num_cores 8 \
-    summarization/run_summarization.py \
+python xla_spawn.py --num_cores 8 pytorch/summarization/run_summarization.py \
     --model_name_or_path google-t5/t5-small \
-    --do_train \
-    --do_eval \
-    --dataset_name cnn_dailymail \
-    --dataset_config "3.0.0" \
-    --source_prefix "summarize: " \
-    --output_dir /tmp/tst-summarization \
-    --per_device_train_batch_size=4 \
-    --per_device_eval_batch_size=4 \
-    --overwrite_output_dir \
-    --predict_with_generate
+    ...
+    ...
 ```
-</pt>
-<tf>
-Tensor Processing Units (TPUs) are specifically designed to accelerate performance. TensorFlow scripts utilize a [`TPUStrategy`](https://www.tensorflow.org/guide/distributed_training#tpustrategy) for training on TPUs. To use a TPU, pass the name of the TPU resource to the `tpu` argument.
+
+</hfoption>
+<hfoption id="TensorFlow">
 
 ```bash
-python run_summarization.py  \
-    --tpu name_of_tpu_resource \
+python examples/tensorflow/summarization/run_summarization.py  \
     --model_name_or_path google-t5/t5-small \
+    # remove the `max_train_samples`, `max_eval_samples` and `max_predict_samples` if everything works
+    --max_train_samples 50 \
+    --max_eval_samples 50 \
+    --max_predict_samples 50 \
     --dataset_name cnn_dailymail \
     --dataset_config "3.0.0" \
     --output_dir /tmp/tst-summarization  \
@@ -184,33 +133,46 @@ python run_summarization.py  \
     --per_device_eval_batch_size 16 \
     --num_train_epochs 3 \
     --do_train \
-    --do_eval
+    --do_eval \
 ```
-</tf>
-</frameworkcontent>
 
-## Run a script with 🤗 Accelerate
+TensorFlow uses the [MirroredStrategy](https://www.tensorflow.org/guide/distributed_training#mirroredstrategy) for distributed training and doesn't require adding any additional parameters. The script uses multiple GPUs by default if they are available.
 
-🤗 [Accelerate](https://huggingface.co/docs/accelerate) is a PyTorch-only library that offers a unified method for training a model on several types of setups (CPU-only, multiple GPUs, TPUs) while maintaining complete visibility into the PyTorch training loop. Make sure you have 🤗 Accelerate installed if you don't already have it:
+For TPU training, TensorFlow scripts use the [TPUStrategy](https://www.tensorflow.org/guide/distributed_training#tpustrategy). Pass the TPU resource name to the `--tpu` parameter.
 
-> Note: As Accelerate is rapidly developing, the git version of accelerate must be installed to run the scripts
+```bash
+python run_summarization.py  \
+    --tpu name_of_tpu_resource \
+    ...
+    ...
+```
+
+</hfoption>
+</hfoptions>
+
+## Accelerate
+
+[Accelerate](https://huggingface.co/docs/accelerate) is designed to simplify distributed training while offering complete visibility into the PyTorch training loop. If you're planning on training with a script with Accelerate, use the `_no_trainer.py` version of the script.
+
+Install Accelerate from source to ensure you have the latest version.
+
 ```bash
 pip install git+https://github.com/huggingface/accelerate
 ```
 
-Instead of the `run_summarization.py` script, you need to use the `run_summarization_no_trainer.py` script. 🤗 Accelerate supported scripts will have a `task_no_trainer.py` file in the folder. Begin by running the following command to create and save a configuration file:
+Run the [accelerate config](https://huggingface.co/docs/accelerate/package_reference/cli#accelerate-config) command to answer a few questions about your training setup. This creates and saves a config file about your system. 
 
 ```bash
 accelerate config
 ```
 
-Test your setup to make sure it is configured correctly:
+You can use [accelerate test](https://huggingface.co/docs/accelerate/package_reference/cli#accelerate-test) to ensure your system is properly configured.
 
 ```bash
 accelerate test
 ```
 
-Now you are ready to launch the training:
+Run [accelerate launch](https://huggingface.co/docs/accelerate/package_reference/cli#accelerate-launch) to start training.
 
 ```bash
 accelerate launch run_summarization_no_trainer.py \
@@ -218,18 +180,18 @@ accelerate launch run_summarization_no_trainer.py \
     --dataset_name cnn_dailymail \
     --dataset_config "3.0.0" \
     --source_prefix "summarize: " \
-    --output_dir ~/tmp/tst-summarization
+    --output_dir ~/tmp/tst-summarization \
 ```
 
-## Use a custom dataset
+## Custom dataset
 
-The summarization script supports custom datasets as long as they are a CSV or JSON Line file. When you use your own dataset, you need to specify several additional arguments:
+The summarization scripts supports custom datasets as long as they are a CSV or JSONL file. When using your own dataset, you need to specify the following additional parameters.
 
-- `train_file` and `validation_file` specify the path to your training and validation files.
-- `text_column` is the input text to summarize.
-- `summary_column` is the target text to output.
+* `train_file` and `validation_file` specify the path to your training and validation files.
+* `text_column` is the input text to summarize.
+* `summary_column` is the target text to output.
 
-A summarization script using a custom dataset would look like this:
+An example command for summarizing a custom dataset is shown below.
 
 ```bash
 python examples/pytorch/summarization/run_summarization.py \
@@ -245,107 +207,5 @@ python examples/pytorch/summarization/run_summarization.py \
     --overwrite_output_dir \
     --per_device_train_batch_size=4 \
     --per_device_eval_batch_size=4 \
-    --predict_with_generate
-```
-
-## Test a script
-
-It is often a good idea to run your script on a smaller number of dataset examples to ensure everything works as expected before committing to an entire dataset which may take hours to complete. Use the following arguments to truncate the dataset to a maximum number of samples:
-
-- `max_train_samples`
-- `max_eval_samples`
-- `max_predict_samples`
-
-```bash
-python examples/pytorch/summarization/run_summarization.py \
-    --model_name_or_path google-t5/t5-small \
-    --max_train_samples 50 \
-    --max_eval_samples 50 \
-    --max_predict_samples 50 \
-    --do_train \
-    --do_eval \
-    --dataset_name cnn_dailymail \
-    --dataset_config "3.0.0" \
-    --source_prefix "summarize: " \
-    --output_dir /tmp/tst-summarization \
-    --per_device_train_batch_size=4 \
-    --per_device_eval_batch_size=4 \
-    --overwrite_output_dir \
-    --predict_with_generate
-```
-
-Not all example scripts support the `max_predict_samples` argument. If you aren't sure whether your script supports this argument, add the `-h` argument to check:
-
-```bash
-examples/pytorch/summarization/run_summarization.py -h
-```
-
-## Resume training from checkpoint
-
-Another helpful option to enable is resuming training from a previous checkpoint. This will ensure you can pick up where you left off without starting over if your training gets interrupted. There are two methods to resume training from a checkpoint.
-
-The first method uses the `output_dir previous_output_dir` argument to resume training from the latest checkpoint stored in `output_dir`. In this case, you should remove `overwrite_output_dir`:
-
-```bash
-python examples/pytorch/summarization/run_summarization.py \
-    --model_name_or_path google-t5/t5-small \
-    --do_train \
-    --do_eval \
-    --dataset_name cnn_dailymail \
-    --dataset_config "3.0.0" \
-    --source_prefix "summarize: " \
-    --output_dir /tmp/tst-summarization \
-    --per_device_train_batch_size=4 \
-    --per_device_eval_batch_size=4 \
-    --output_dir previous_output_dir \
-    --predict_with_generate
-```
-
-The second method uses the `resume_from_checkpoint path_to_specific_checkpoint` argument to resume training from a specific checkpoint folder.
-
-```bash
-python examples/pytorch/summarization/run_summarization.py \
-    --model_name_or_path google-t5/t5-small \
-    --do_train \
-    --do_eval \
-    --dataset_name cnn_dailymail \
-    --dataset_config "3.0.0" \
-    --source_prefix "summarize: " \
-    --output_dir /tmp/tst-summarization \
-    --per_device_train_batch_size=4 \
-    --per_device_eval_batch_size=4 \
-    --overwrite_output_dir \
-    --resume_from_checkpoint path_to_specific_checkpoint \
-    --predict_with_generate
-```
-
-## Share your model
-
-All scripts can upload your final model to the [Model Hub](https://huggingface.co/models). Make sure you are logged into Hugging Face before you begin:
-
-```bash
-huggingface-cli login
-```
-
-Then add the `push_to_hub` argument to the script. This argument will create a repository with your Hugging Face username and the folder name specified in `output_dir`.
-
-To give your repository a specific name, use the `push_to_hub_model_id` argument to add it. The repository will be automatically listed under your namespace.
-
-The following example shows how to upload a model with a specific repository name:
-
-```bash
-python examples/pytorch/summarization/run_summarization.py \
-    --model_name_or_path google-t5/t5-small \
-    --do_train \
-    --do_eval \
-    --dataset_name cnn_dailymail \
-    --dataset_config "3.0.0" \
-    --source_prefix "summarize: " \
-    --push_to_hub \
-    --push_to_hub_model_id finetuned-t5-cnn_dailymail \
-    --output_dir /tmp/tst-summarization \
-    --per_device_train_batch_size=4 \
-    --per_device_eval_batch_size=4 \
-    --overwrite_output_dir \
-    --predict_with_generate
+    --predict_with_generate \
 ```

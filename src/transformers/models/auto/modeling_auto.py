@@ -1393,6 +1393,7 @@ MODEL_FOR_BACKBONE_MAPPING_NAMES = OrderedDict(
         ("bit", "BitBackbone"),
         ("convnext", "ConvNextBackbone"),
         ("convnextv2", "ConvNextV2Backbone"),
+        ("d_fine_resnet", "DFineResNetBackbone"),
         ("dinat", "DinatBackbone"),
         ("dinov2", "Dinov2Backbone"),
         ("dinov2_with_registers", "Dinov2WithRegistersBackbone"),

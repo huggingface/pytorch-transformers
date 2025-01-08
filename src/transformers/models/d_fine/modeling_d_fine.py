@@ -146,7 +146,7 @@ class DFineMultiscaleDeformableAttention(nn.Module):
         self.method = method
 
         self.head_dim = self.d_model // self.n_heads
-        assert self.head_dim * self.n_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
+        assert self.head_dim * self.n_heads == self.d_model, "embed_dim must be divisible by num_heads"
 
         self.sampling_offsets = nn.Linear(self.d_model, self.total_points * 2)
         self.attention_weights = nn.Linear(self.d_model, self.total_points)
@@ -162,10 +162,10 @@ class DFineMultiscaleDeformableAttention(nn.Module):
     def _reset_parameters(self):
         # sampling_offsets
         init.constant_(self.sampling_offsets.weight, 0)
-        thetas = torch.arange(self.num_heads, dtype=torch.float32) * (2.0 * math.pi / self.num_heads)
+        thetas = torch.arange(self.n_heads, dtype=torch.float32) * (2.0 * math.pi / self.n_heads)
         grid_init = torch.stack([thetas.cos(), thetas.sin()], -1)
         grid_init = grid_init / grid_init.abs().max(-1, keepdim=True).values
-        grid_init = grid_init.reshape(self.num_heads, 1, 2).tile([1, sum(self.num_points_list), 1])
+        grid_init = grid_init.reshape(self.n_heads, 1, 2).tile([1, sum(self.num_points_list), 1])
         scaling = torch.concat([torch.arange(1, n + 1) for n in self.num_points_list]).reshape(1, -1, 1)
         grid_init *= scaling
         self.sampling_offsets.bias.data[...] = grid_init.flatten()
@@ -191,16 +191,16 @@ class DFineMultiscaleDeformableAttention(nn.Module):
         bs, Len_q = query.shape[:2]
 
         sampling_offsets: torch.Tensor = self.sampling_offsets(query)
-        sampling_offsets = sampling_offsets.reshape(bs, Len_q, self.num_heads, sum(self.num_points_list), 2)
+        sampling_offsets = sampling_offsets.reshape(bs, Len_q, self.n_heads, sum(self.num_points_list), 2)
 
-        attention_weights = self.attention_weights(query).reshape(bs, Len_q, self.num_heads, sum(self.num_points_list))
+        attention_weights = self.attention_weights(query).reshape(bs, Len_q, self.n_heads, sum(self.num_points_list))
         attention_weights = F.softmax(attention_weights, dim=-1)
 
         if reference_points.shape[-1] == 2:
             offset_normalizer = torch.tensor(value_spatial_shapes)
-            offset_normalizer = offset_normalizer.flip([1]).reshape(1, 1, 1, self.num_levels, 1, 2)
+            offset_normalizer = offset_normalizer.flip([1]).reshape(1, 1, 1, self.n_levels, 1, 2)
             sampling_locations = (
-                reference_points.reshape(bs, Len_q, 1, self.num_levels, 1, 2) + sampling_offsets / offset_normalizer
+                reference_points.reshape(bs, Len_q, 1, self.n_levels, 1, 2) + sampling_offsets / offset_normalizer
             )
         elif reference_points.shape[-1] == 4:
             # reference_points [8, 480, None, 1,  4]
@@ -826,24 +826,6 @@ class DFineRepVggBlock(nn.Module):
         return self.activation(y)
 
 
-class DFineEncoder(nn.Module):
-    def __init__(self, config: DFineConfig):
-        super().__init__()
-
-        self.layers = nn.ModuleList([DFineEncoderLayer(config) for _ in range(config.encoder_layers)])
-
-    def forward(self, src, src_mask=None, pos_embed=None, output_attentions: bool = False) -> torch.Tensor:
-        hidden_states = src
-        for layer in self.layers:
-            hidden_states = layer(
-                hidden_states,
-                attention_mask=src_mask,
-                position_embeddings=pos_embed,
-                output_attentions=output_attentions,
-            )
-        return hidden_states
-
-
 def inverse_sigmoid(x, eps=1e-5):
     x = x.clamp(min=0, max=1)
     x1 = x.clamp(min=eps)
@@ -1063,7 +1045,7 @@ class DFinePreTrainedModel(PreTrainedModel):
         # this could be simplified like calling the base class function first then adding new stuff
         """Initalize the weights
         initialize linear layer biasreturn value according to a given probability value."""
-        if isinstance(module, (DFineMultiscaleDeformableAttention, DFineDecoder)):
+        if isinstance(module, (DFineForObjectDetection, DFineDecoder)):
             if module.class_embed is not None:
                 for layer in module.class_embed:
                     prior_prob = self.config.initializer_bias_prior_prob or 1 / (self.config.num_labels + 1)
@@ -1094,10 +1076,6 @@ class DFinePreTrainedModel(PreTrainedModel):
                 module.sampling_offsets.bias = nn.Parameter(grid_init.view(-1))
             nn.init.constant_(module.attention_weights.weight.data, 0.0)
             nn.init.constant_(module.attention_weights.bias.data, 0.0)
-            nn.init.xavier_uniform_(module.value_proj.weight.data)
-            nn.init.constant_(module.value_proj.bias.data, 0.0)
-            nn.init.xavier_uniform_(module.output_proj.weight.data)
-            nn.init.constant_(module.output_proj.bias.data, 0.0)
 
         if isinstance(module, DFineModel):
             prior_prob = self.config.initializer_bias_prior_prob or 1 / (self.config.num_labels + 1)
@@ -1182,6 +1160,7 @@ class DFineDecoder(DFinePreTrainedModel):
 
     def __init__(self, config: DFineConfig):
         super().__init__(config)
+        self.eval_idx = config.eval_idx if config.eval_idx >= 0 else config.decoder_layers + config.eval_idx
 
         self.dropout = config.dropout
         self.layers = nn.ModuleList(
@@ -1195,7 +1174,6 @@ class DFineDecoder(DFinePreTrainedModel):
         self.class_embed = None
         self.d_model = config.d_model
         self.layer_scale = config.layer_scale
-        self.eval_idx = config.eval_idx if config.eval_idx >= 0 else config.decoder_layers + config.eval_idx
         self.num_head = config.decoder_attention_heads
         self.lqe_layers = nn.ModuleList([LQE(4, 64, 2, config.reg_max) for _ in range(config.decoder_layers)])
 
@@ -2087,6 +2065,24 @@ class SCDown(nn.Module):
         return self.cv2(self.cv1(x))
 
 
+class DFineEncoder(nn.Module):
+    def __init__(self, config: DFineConfig):
+        super().__init__()
+
+        self.layers = nn.ModuleList([DFineEncoderLayer(config) for _ in range(config.encoder_layers)])
+
+    def forward(self, src, src_mask=None, pos_embed=None, output_attentions: bool = False) -> torch.Tensor:
+        hidden_states = src
+        for layer in self.layers:
+            hidden_states = layer(
+                hidden_states,
+                attention_mask=src_mask,
+                position_embeddings=pos_embed,
+                output_attentions=output_attentions,
+            )
+        return hidden_states
+
+
 class DFineHybridEncoder(nn.Module):
     """
     Decoder consisting of a projection layer, a set of `DFineEncoder`, a top-down Feature Pyramid Network
@@ -2097,7 +2093,7 @@ class DFineHybridEncoder(nn.Module):
     """
 
     def __init__(self, config: DFineConfig):
-        super().__init__()
+        nn.Module.__init__(self)
         self.config = config
         self.in_channels = config.encoder_in_channels
         self.feat_strides = config.feat_strides
@@ -2116,27 +2112,13 @@ class DFineHybridEncoder(nn.Module):
         self.fpn_blocks = nn.ModuleList()
         for _ in range(len(self.in_channels) - 1, 0, -1):
             self.lateral_convs.append(
-                DFineConvNormLayer(
-                    config, self.encoder_hidden_dim, self.encoder_hidden_dim, 1, 1, activation=activation_function
-                )
+                DFineConvNormLayer(config, self.encoder_hidden_dim, self.encoder_hidden_dim, 1, 1)
             )
-            self.fpn_blocks.append(DFineCSPRepLayer(config))
+            self.fpn_blocks.append(RepNCSPELAN4(config))
 
         # bottom-up pan
         self.downsample_convs = nn.ModuleList()
         self.pan_blocks = nn.ModuleList()
-        for _ in range(len(self.in_channels) - 1):
-            self.downsample_convs.append(
-                DFineConvNormLayer(
-                    config, self.encoder_hidden_dim, self.encoder_hidden_dim, 3, 2, activation=activation_function
-                )
-            )
-            self.pan_blocks.append(DFineCSPRepLayer(config))
-        for _ in range(len(self.in_channels) - 1, 0, -1):
-            self.lateral_convs.append(
-                DFineConvNormLayer(config, self.encoder_hidden_dim, self.encoder_hidden_dim, 1, 1)
-            )
-            self.fpn_blocks.append(RepNCSPELAN4(config))
         for _ in range(len(self.in_channels) - 1):
             self.downsample_convs.append(
                 nn.Sequential(

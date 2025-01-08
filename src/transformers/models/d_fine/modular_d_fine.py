@@ -19,6 +19,7 @@ from ..rt_detr.modeling_rt_detr import (
     RTDetrModel,
     RTDetrMLPPredictionHead,
     RTDetrDecoderOutput,
+    RTDetrEncoder,
     RTDetrHybridEncoder,
     RTDetrRepVggBlock,
     RTDetrCSPRepLayer,
@@ -149,7 +150,7 @@ class DFineMultiscaleDeformableAttention(nn.Module):
         self.method = method
 
         self.head_dim = self.d_model // self.n_heads
-        assert self.head_dim * self.n_heads == self.embed_dim, "embed_dim must be divisible by num_heads"
+        assert self.head_dim * self.n_heads == self.d_model, "embed_dim must be divisible by num_heads"
 
         self.sampling_offsets = nn.Linear(self.d_model, self.total_points * 2)
         self.attention_weights = nn.Linear(self.d_model, self.total_points)
@@ -165,10 +166,10 @@ class DFineMultiscaleDeformableAttention(nn.Module):
     def _reset_parameters(self):
         # sampling_offsets
         init.constant_(self.sampling_offsets.weight, 0)
-        thetas = torch.arange(self.num_heads, dtype=torch.float32) * (2.0 * math.pi / self.num_heads)
+        thetas = torch.arange(self.n_heads, dtype=torch.float32) * (2.0 * math.pi / self.n_heads)
         grid_init = torch.stack([thetas.cos(), thetas.sin()], -1)
         grid_init = grid_init / grid_init.abs().max(-1, keepdim=True).values
-        grid_init = grid_init.reshape(self.num_heads, 1, 2).tile([1, sum(self.num_points_list), 1])
+        grid_init = grid_init.reshape(self.n_heads, 1, 2).tile([1, sum(self.num_points_list), 1])
         scaling = torch.concat([torch.arange(1, n + 1) for n in self.num_points_list]).reshape(1, -1, 1)
         grid_init *= scaling
         self.sampling_offsets.bias.data[...] = grid_init.flatten()
@@ -194,16 +195,16 @@ class DFineMultiscaleDeformableAttention(nn.Module):
         bs, Len_q = query.shape[:2]
 
         sampling_offsets: torch.Tensor = self.sampling_offsets(query)
-        sampling_offsets = sampling_offsets.reshape(bs, Len_q, self.num_heads, sum(self.num_points_list), 2)
+        sampling_offsets = sampling_offsets.reshape(bs, Len_q, self.n_heads, sum(self.num_points_list), 2)
 
-        attention_weights = self.attention_weights(query).reshape(bs, Len_q, self.num_heads, sum(self.num_points_list))
+        attention_weights = self.attention_weights(query).reshape(bs, Len_q, self.n_heads, sum(self.num_points_list))
         attention_weights = F.softmax(attention_weights, dim=-1)
 
         if reference_points.shape[-1] == 2:
             offset_normalizer = torch.tensor(value_spatial_shapes)
-            offset_normalizer = offset_normalizer.flip([1]).reshape(1, 1, 1, self.num_levels, 1, 2)
+            offset_normalizer = offset_normalizer.flip([1]).reshape(1, 1, 1, self.n_levels, 1, 2)
             sampling_locations = (
-                reference_points.reshape(bs, Len_q, 1, self.num_levels, 1, 2) + sampling_offsets / offset_normalizer
+                reference_points.reshape(bs, Len_q, 1, self.n_levels, 1, 2) + sampling_offsets / offset_normalizer
             )
         elif reference_points.shape[-1] == 4:
             # reference_points [8, 480, None, 1,  4]
@@ -319,7 +320,7 @@ class DFinePreTrainedModel(RTDetrPreTrainedModel):
     def _init_weights(self, module):
         # this could be simplified like calling the base class function first then adding new stuff
         """initialize linear layer biasreturn value according to a given probability value."""
-        if isinstance(module, (DFineMultiscaleDeformableAttention, DFineDecoder)):
+        if isinstance(module, (DFineForObjectDetection, DFineDecoder)):
             if module.class_embed is not None:
                 for layer in module.class_embed:
                     prior_prob = self.config.initializer_bias_prior_prob or 1 / (self.config.num_labels + 1)
@@ -350,11 +351,7 @@ class DFinePreTrainedModel(RTDetrPreTrainedModel):
                 module.sampling_offsets.bias = nn.Parameter(grid_init.view(-1))
             nn.init.constant_(module.attention_weights.weight.data, 0.0)
             nn.init.constant_(module.attention_weights.bias.data, 0.0)
-            nn.init.xavier_uniform_(module.value_proj.weight.data)
-            nn.init.constant_(module.value_proj.bias.data, 0.0)
-            nn.init.xavier_uniform_(module.output_proj.weight.data)
-            nn.init.constant_(module.output_proj.bias.data, 0.0)
-
+            
         if isinstance(module, DFineModel):
             prior_prob = self.config.initializer_bias_prior_prob or 1 / (self.config.num_labels + 1)
             bias = float(-math.log((1 - prior_prob) / prior_prob))
@@ -382,10 +379,10 @@ class DFineDecoder(RTDetrDecoder):
     """
 
     def __init__(self, config: DFineConfig):
+        self.eval_idx = config.eval_idx if config.eval_idx >= 0 else config.decoder_layers + config.eval_idx
         super().__init__(config=config)
         self.d_model = config.d_model
         self.layer_scale = config.layer_scale
-        self.eval_idx = config.eval_idx if config.eval_idx >= 0 else config.decoder_layers + config.eval_idx
         self.num_head = config.decoder_attention_heads
         self.layers = nn.ModuleList(
             [DFineDecoderLayer(config=config) for _ in range(config.decoder_layers)]
@@ -679,11 +676,27 @@ class SCDown(nn.Module):
 
     def forward(self, x):
         return self.cv2(self.cv1(x))
-    
+
+
+class DFineEncoder(RTDetrEncoder):
+    pass
 
 class DFineHybridEncoder(RTDetrHybridEncoder):
     def __init__(self, config: DFineConfig):
-        super().__init__(config=config)
+        nn.Module.__init__(self)
+        self.config = config
+        self.in_channels = config.encoder_in_channels
+        self.feat_strides = config.feat_strides
+        self.encoder_hidden_dim = config.encoder_hidden_dim
+        self.encode_proj_layers = config.encode_proj_layers
+        self.positional_encoding_temperature = config.positional_encoding_temperature
+        self.eval_size = config.eval_size
+        self.out_channels = [self.encoder_hidden_dim for _ in self.in_channels]
+        self.out_strides = self.feat_strides
+        activation_function = config.activation_function
+
+        # encoder transformer
+        self.encoder = nn.ModuleList([DFineEncoder(config) for _ in range(len(self.encode_proj_layers))])
         # top-down fpn
         self.lateral_convs = nn.ModuleList()
         self.fpn_blocks = nn.ModuleList()

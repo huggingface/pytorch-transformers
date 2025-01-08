@@ -282,6 +282,13 @@ class GLPNImageProcessor(metaclass=DummyObject):
         requires_backends(self, ["vision"])
 
 
+class GotOcr2ImageProcessor(metaclass=DummyObject):
+    _backends = ["vision"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["vision"])
+
+
 class GroundingDinoImageProcessor(metaclass=DummyObject):
     _backends = ["vision"]
 

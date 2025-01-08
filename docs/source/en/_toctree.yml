@@ -862,6 +862,8 @@
         title: FLAVA
       - local: model_doc/git
         title: GIT
+      - local: model_doc/got_ocr2
+        title: GOT-OCR2
       - local: model_doc/grounding-dino
         title: Grounding DINO
       - local: model_doc/groupvit

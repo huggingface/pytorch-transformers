@@ -18,7 +18,7 @@ rendered properly in your Markdown viewer.
 
 ## Overview
 
-The [Qwen2-VL](https://qwenlm.github.io/blog/qwen2-vl/) model is a major update to [Qwen-VL](https://arxiv.org/pdf/2308.12966) from the Qwen team at Alibaba Research. 
+The [Qwen2-VL](https://qwenlm.github.io/blog/qwen2-vl/) model is a major update to [Qwen-VL](https://arxiv.org/pdf/2308.12966) from the Qwen team at Alibaba Research.
 
 The abstract from the blog is the following:
 
@@ -231,7 +231,7 @@ In case of limited GPU RAM, one can reduce the resolution as follows:
 
 ```python
 min_pixels = 256*28*28
-max_pixels = 1024*28*28 
+max_pixels = 1024*28*28
 processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-7B-Instruct", min_pixels=min_pixels, max_pixels=max_pixels)
 ```
 This ensures each image gets encoded using a number between 256-1024 tokens. The 28 comes from the fact that the model uses a patch size of 14 and a temporal patch size of 2 (14 x 2 = 28).
@@ -245,7 +245,7 @@ conversation = [
     {
         "role": "user",
         "content": [
-            {"type": "image"}, 
+            {"type": "image"},
             {"type": "text", "text": "Hello, how are you?"}
         ]
     },
@@ -256,10 +256,10 @@ conversation = [
     {
         "role": "user",
         "content": [
-            {"type": "text", "text": "Can you describe these images and video?"}, 
-            {"type": "image"}, 
-            {"type": "image"}, 
-            {"type": "video"}, 
+            {"type": "text", "text": "Can you describe these images and video?"},
+            {"type": "image"},
+            {"type": "image"},
+            {"type": "video"},
             {"type": "text", "text": "These are from my vacation."}
         ]
     },
@@ -300,8 +300,8 @@ To load and run a model using Flash Attention-2, simply add `attn_implementation
 from transformers import Qwen2VLForConditionalGeneration
 
 model = Qwen2VLForConditionalGeneration.from_pretrained(
-    "Qwen/Qwen2-VL-7B-Instruct", 
-    torch_dtype=torch.bfloat16, 
+    "Qwen/Qwen2-VL-7B-Instruct",
+    torch_dtype=torch.bfloat16,
     attn_implementation="flash_attention_2",
 )
 ```

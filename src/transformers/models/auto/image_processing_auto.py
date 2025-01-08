@@ -87,6 +87,7 @@ else:
             ("fuyu", ("FuyuImageProcessor",)),
             ("git", ("CLIPImageProcessor",)),
             ("glpn", ("GLPNImageProcessor",)),
+            ("got_ocr2", ("GotOcr2ImageProcessor",)),
             ("grounding-dino", ("GroundingDinoImageProcessor",)),
             ("groupvit", ("CLIPImageProcessor",)),
             ("hiera", ("BitImageProcessor",)),

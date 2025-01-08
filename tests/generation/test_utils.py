@@ -1616,7 +1616,7 @@ class GenerationTesterMixin:
             # There are a few exception patterns in this test:
             # 1 - Some models can't generate without `input_ids`, when `inputs_embeds` are passed
             requires_inputs_ids = any(
-                model_name in model_class.__name__.lower() for model_name in ["idefics", "qwen2vl"]
+                model_name in model_class.__name__.lower() for model_name in ["idefics", "qwen2vl", "gotocr2"]
             )
             # 2 - Complex `inputs_embeds` computation, i.e. the correct computation of inputs embeds is more complex
             # than calling the embedding layer with `input_ids`. Subcases of this exception:
@@ -1636,7 +1636,7 @@ class GenerationTesterMixin:
                 inputs_dict.pop("pixel_values_images", None)
             #   2.C - No easy fix, let's skip the check that compares the outputs from `input_ids` and `inputs_embeds`
             has_complex_embeds_computation = any(
-                model_name in model_class.__name__.lower() for model_name in ["moshi", "qwen2vl"]
+                model_name in model_class.__name__.lower() for model_name in ["moshi", "qwen2vl", "gotocr2"]
             )
             # 3 - `inputs_dict` doesn't contain `attention_mask`. When `attention_mask` is not passed to generate,
             # we infer it from `input_ids`. The last test case will fail if there is a pad token in the original input.

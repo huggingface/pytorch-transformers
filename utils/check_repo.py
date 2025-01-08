@@ -139,6 +139,7 @@ IGNORE_NON_TESTED = (
         "Qwen2VLModel",  # Building part of bigger (tested) model. Tested implicitly through Qwen2VLForConditionalGeneration.
         "MllamaTextModel",  # Building part of bigger (tested) model. # TODO: add tests
         "MllamaVisionModel",  # Building part of bigger (tested) model. # TODO: add tests
+        "GotOcr2Model",  # Building part of bigger (tested) model. Tested implicitly through GotOcr2ForConditionalGeneration.
     ]
 )
 

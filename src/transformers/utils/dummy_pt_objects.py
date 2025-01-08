@@ -6453,6 +6453,13 @@ class ModernBertForMaskedLM(metaclass=DummyObject):
         requires_backends(self, ["torch"])
 
 
+class ModernBertForQuestionAnswering(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
 class ModernBertForSequenceClassification(metaclass=DummyObject):
     _backends = ["torch"]
 
@@ -6475,13 +6482,6 @@ class ModernBertModel(metaclass=DummyObject):
 
 
 class ModernBertPreTrainedModel(metaclass=DummyObject):
-    _backends = ["torch"]
-
-    def __init__(self, *args, **kwargs):
-        requires_backends(self, ["torch"])
-
-
-class ModernBertForQuestionAnswering(metaclass=DummyObject):
     _backends = ["torch"]
 
     def __init__(self, *args, **kwargs):

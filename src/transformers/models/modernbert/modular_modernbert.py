@@ -1473,26 +1473,6 @@ class ModernBertForQuestionAnswering(ModernBertPreTrainedModel):
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
 
         self.post_init()
-        self._init_weights(self.classifier)
-
-    def _init_weights(self, module):
-        """Initialize the weights using modern best practices"""
-        if isinstance(module, nn.Linear):
-            # Kaiming/He initialization for Linear layers
-            nn.init.kaiming_normal_(module.weight, mode='fan_in', nonlinearity='relu')
-            if module.bias is not None:
-                nn.init.zeros_(module.bias)
-        
-        elif isinstance(module, nn.Embedding):
-            # Xavier/Glorot initialization for embeddings
-            nn.init.xavier_uniform_(module.weight)
-            if module.padding_idx is not None:
-                module.weight.data[module.padding_idx].zero_()
-        
-        elif isinstance(module, nn.LayerNorm):
-            # Standard initialization for LayerNorm
-            nn.init.ones_(module.weight)
-            nn.init.zeros_(module.bias)
 
     @add_start_docstrings_to_model_forward(MODERNBERT_INPUTS_DOCSTRING)
     @add_code_sample_docstrings(

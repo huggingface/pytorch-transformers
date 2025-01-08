@@ -154,6 +154,13 @@ class LlavaOnevisionProcessor(ProcessorMixin):
         if images is not None:
             image_inputs = self.image_processor(images, **output_kwargs["images_kwargs"])
 
+            num_image_tokens = sum([txt.count(self.image_token) for txt in text])
+            num_images = len(image_inputs["pixel_values"])
+            if num_image_tokens != num_images:
+                raise ValueError(
+                    f"The number of image token ({num_image_tokens}) should be the same as in the number of provided images ({num_images})"
+                )
+
             image_sizes = iter(image_inputs["image_sizes"])
             height, width = get_image_size(
                 to_numpy_array(image_inputs["pixel_values"][0][0]),
@@ -163,6 +170,13 @@ class LlavaOnevisionProcessor(ProcessorMixin):
 
         if videos is not None:
             video_inputs = self.video_processor(videos, **output_kwargs["videos_kwargs"])
+
+            num_video_tokens = sum([txt.count(self.video_token) for txt in text])
+            num_videos = len(video_inputs["pixel_values_videos"])
+            if num_video_tokens != num_videos:
+                raise ValueError(
+                    f"The number of video token ({num_video_tokens}) should be the same as in the number of provided videos ({num_videos})"
+                )
 
             one_video = to_numpy_array(video_inputs["pixel_values_videos"][0])
             height, width = get_image_size(one_video[0], channel_dim=output_kwargs["images_kwargs"].get("data_format"))

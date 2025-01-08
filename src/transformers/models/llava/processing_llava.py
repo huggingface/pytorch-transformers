@@ -151,6 +151,13 @@ class LlavaProcessor(ProcessorMixin):
         elif not isinstance(text, list) and not isinstance(text[0], str):
             raise ValueError("Invalid input text. Please provide a string, or a list of strings")
 
+        num_image_tokens = sum([txt.count(self.image_token) for txt in text])
+        num_images = len(image_inputs["pixel_values"]) if image_inputs else 0
+        if num_image_tokens != num_images:
+            raise ValueError(
+                f"The number of image token ({num_image_tokens}) should be the same as in the number of provided images ({num_images})"
+            )
+
         # try to expand inputs in processing if we have the necessary parts
         prompt_strings = text
         if image_inputs.get("pixel_values") is not None:

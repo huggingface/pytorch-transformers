@@ -113,6 +113,7 @@ class Qwen2VLProcessor(ProcessorMixin):
             tokenizer_init_kwargs=self.tokenizer.init_kwargs,
             **kwargs,
         )
+
         if images is not None:
             image_inputs = self.image_processor(images=images, videos=None, **output_kwargs["images_kwargs"])
             image_grid_thw = image_inputs["image_grid_thw"]
@@ -129,6 +130,21 @@ class Qwen2VLProcessor(ProcessorMixin):
 
         if not isinstance(text, list):
             text = [text]
+        elif not isinstance(text, list) and not isinstance(text[0], str):
+            raise ValueError("Invalid input text. Please provide a string, or a list of strings")
+
+        num_image_tokens = sum([txt.count(self.image_token) for txt in text])
+        num_images = len(image_inputs["pixel_values"]) if image_inputs else 0
+        if num_image_tokens != num_images:
+            raise ValueError(
+                f"The number of image token ({num_image_tokens}) should be the same as in the number of provided images ({num_images})"
+            )
+        num_video_tokens = sum([txt.count(self.video_token) for txt in text])
+        num_videos = len(videos_inputs["pixel_values_videos"]) if videos_inputs else 0
+        if num_video_tokens != num_videos:
+            raise ValueError(
+                f"The number of video token ({num_video_tokens}) should be the same as in the number of provided videos ({num_videos})"
+            )
 
         if image_grid_thw is not None:
             merge_length = self.image_processor.merge_size**2

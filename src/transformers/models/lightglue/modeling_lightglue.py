@@ -760,11 +760,6 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             [LightGlueTokenConfidenceLayer(config) for _ in range(config.num_hidden_layers - 1)]
         )
 
-        self.register_buffer(
-            "confidence_thresholds",
-            torch.Tensor([self._get_confidence_threshold(i) for i in range(self.num_layers)]),
-        )
-
         self.post_init()
 
     def _get_confidence_threshold(self, layer_index: int) -> float:
@@ -790,7 +785,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
             # if we should stop the forward pass through the transformer layers for each pair of images.
             keypoint_confidences = keypoint_confidences.masked_fill(mask == 0, 1)
             keypoint_confidences = keypoint_confidences.reshape(batch_size // 2, -1)
-            threshold = self.confidence_thresholds[layer_index]
+            threshold = self._get_confidence_threshold(layer_index)
             ratio_confident = 1.0 - (keypoint_confidences < threshold).float().sum(dim=1) / num_points
             early_stopped_pairs = ratio_confident > self.depth_confidence
         else:
@@ -811,7 +806,7 @@ class LightGlueForKeypointMatching(LightGluePreTrainedModel):
         """mask points which should be removed"""
         keep = scores > (1 - self.width_confidence)
         if confidences is not None:  # Low-confidence points are never pruned.
-            keep |= confidences <= self.confidence_thresholds[layer_index]
+            keep |= confidences <= self._get_confidence_threshold(layer_index)
         return keep
 
     def _do_layer_keypoint_pruning(

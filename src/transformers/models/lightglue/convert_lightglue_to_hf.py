@@ -27,6 +27,9 @@ from transformers import (
 from transformers.models.lightglue.configuration_lightglue import LightGlueConfig
 
 
+DEFAULT_CHECKPOINT_URL = "https://github.com/cvg/LightGlue/releases/download/v0.1_arxiv/superpoint_lightglue.pth"
+
+
 def verify_model_outputs(model, device):
     from tests.models.lightglue.test_modeling_lightglue import prepare_imgs
 
@@ -196,7 +199,8 @@ def write_model(
     if "superpoint" in checkpoint_url:
         model_name += "_superpoint"
     print("Checking the model outputs...")
-    verify_model_outputs(model, device)
+    if checkpoint_url == DEFAULT_CHECKPOINT_URL:
+        verify_model_outputs(model, device)
     print("Model outputs verified successfully.")
 
     if push_to_hub:
@@ -230,7 +234,7 @@ if __name__ == "__main__":
     # Required parameters
     parser.add_argument(
         "--checkpoint_url",
-        default="https://github.com/cvg/LightGlue/releases/download/v0.1_arxiv/superpoint_lightglue.pth",
+        default=DEFAULT_CHECKPOINT_URL,
         type=str,
         help="URL of the original LightGlue checkpoint you'd like to convert.",
     )

@@ -198,8 +198,8 @@ def write_model(
     model_name = "lightglue"
     if "superpoint" in checkpoint_url:
         model_name += "_superpoint"
-    print("Checking the model outputs...")
     if checkpoint_url == DEFAULT_CHECKPOINT_URL:
+        print("Checking the model outputs...")
         verify_model_outputs(model, device)
     print("Model outputs verified successfully.")
 

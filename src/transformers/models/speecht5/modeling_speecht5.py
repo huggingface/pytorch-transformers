@@ -3382,3 +3382,13 @@ class SpeechT5HifiGan(PreTrainedModel):
             waveform = hidden_states.squeeze(1)
 
         return waveform
+
+
+__all__ = [
+    "SpeechT5ForSpeechToText",
+    "SpeechT5ForSpeechToSpeech",
+    "SpeechT5ForTextToSpeech",
+    "SpeechT5Model",
+    "SpeechT5PreTrainedModel",
+    "SpeechT5HifiGan",
+]

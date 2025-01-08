@@ -1714,3 +1714,11 @@ class TFData2VecVisionForSemanticSegmentation(TFData2VecVisionPreTrainedModel):
         if getattr(self, "fpn2", None) is not None:
             with tf.name_scope(self.fpn2[0].name):
                 self.fpn2[0].build([None, None, None, self.config.hidden_size])
+
+
+__all__ = [
+    "TFData2VecVisionForImageClassification",
+    "TFData2VecVisionForSemanticSegmentation",
+    "TFData2VecVisionModel",
+    "TFData2VecVisionPreTrainedModel",
+]

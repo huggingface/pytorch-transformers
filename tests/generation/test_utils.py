@@ -1615,9 +1615,7 @@ class GenerationTesterMixin:
 
             # There are a few exception patterns in this test:
             # 1 - Some models can't generate without `input_ids`, when `inputs_embeds` are passed
-            requires_inputs_ids = any(
-                model_name in model_class.__name__.lower() for model_name in ["idefics", "qwen2vl"]
-            )
+            requires_inputs_ids = any(model_name in model_class.__name__.lower() for model_name in ["idefics"])
             # 2 - Complex `inputs_embeds` computation, i.e. the correct computation of inputs embeds is more complex
             # than calling the embedding layer with `input_ids`. Subcases of this exception:
             #   2.A - Ignore `scale_embedding`, if the model supports it (it is controlled by a model-dependent flag)

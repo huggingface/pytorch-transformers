@@ -44,6 +44,8 @@ class LlavaNextVideoConfig(PretrainedConfig):
             The image token index to encode the image prompt.
         projector_hidden_act (`str`, *optional*, defaults to `"gelu"`):
             The activation function used by the multimodal projector.
+        multimodal_projector_bias (`bool`, *optional*, defaults to `True`):
+            Whether to use bias in the multimodal projector.
         vision_feature_select_strategy (`str`, *optional*, defaults to `"default"`):
             The feature selection strategy used to select the vision feature from the vision backbone.
             Can be one of `"default"` or `"full"`. If `"default"`, the CLS token is removed from the vision features.
@@ -95,6 +97,7 @@ class LlavaNextVideoConfig(PretrainedConfig):
         ignore_index=-100,
         image_token_index=32001,
         projector_hidden_act="gelu",
+        multimodal_projector_bias=True,
         vision_feature_select_strategy="default",
         vision_feature_layer=-2,
         image_grid_pinpoints=None,
@@ -114,6 +117,7 @@ class LlavaNextVideoConfig(PretrainedConfig):
         self.ignore_index = ignore_index
         self.image_token_index = image_token_index
         self.projector_hidden_act = projector_hidden_act
+        self.multimodal_projector_bias = multimodal_projector_bias
 
         if vision_feature_select_strategy not in ["default", "full"]:
             raise ValueError(

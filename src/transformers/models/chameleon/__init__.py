@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_chameleon import *
-    from .convert_chameleon_weights_to_hf import *
     from .image_processing_chameleon import *
     from .modeling_chameleon import *
     from .processing_chameleon import *

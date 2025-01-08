@@ -2136,3 +2136,6 @@ class TFGroupViTModel(TFGroupViTPreTrainedModel):
         if getattr(self, "groupvit", None) is not None:
             with tf.name_scope(self.groupvit.name):
                 self.groupvit.build(None)
+
+
+__all__ = ["TFGroupViTModel", "TFGroupViTPreTrainedModel", "TFGroupViTTextModel", "TFGroupViTVisionModel"]

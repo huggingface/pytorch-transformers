@@ -18,7 +18,9 @@ console = Console()
 
 
 def process_file(modular_file_path, generated_modeling_content, file_type="modeling_", fix_and_overwrite=False):
-    file_path = modular_file_path.replace("modular_", f"{file_type}_")
+    file_name_prefix = file_type.split("*")[0]
+    file_name_suffix = file_type.split("*")[-1] if "*" in file_type else ""
+    file_path = modular_file_path.replace("modular_", f"{file_name_prefix}_").replace(".py", f"{file_name_suffix}.py")
     # Read the actual modeling file
     with open(file_path, "r") as modeling_file:
         content = modeling_file.read()

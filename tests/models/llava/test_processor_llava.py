@@ -50,7 +50,7 @@ class LlavaProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         shutil.rmtree(self.tmpdirname)
 
     def prepare_processor_dict(self):
-        return {"chat_template": "dummy_template"}
+        return {"chat_template": "dummy_template", "patch_size": 3, "vision_feature_select_strategy": "default"}
 
     @unittest.skip(
         "Skip because the model has no processor kwargs except for chat template and"

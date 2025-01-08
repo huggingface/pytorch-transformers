@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
+import json
+import os
 
 import regex as re
 import torch
@@ -27,7 +29,6 @@ from transformers import (
     PixtralImageProcessor,
     PixtralProcessor,
     PixtralVisionConfig,
-    PreTrainedTokenizerFast,
 )
 from transformers.convert_slow_tokenizer import bytes_to_unicode
 
@@ -156,29 +157,18 @@ class MistralConverter:
         return tokenizer
 
 
-def convert_mistral_tokenizer():
-    model_name = "mistralai/Pixtral-12B-2409"
+def convert_mistral_tokenizer(model_file):
+    from transformers import LlamaTokenizer
 
-    tokenizer = MistralTokenizer.from_model(model_name)
-
-    vocab = tokenizer.instruct_tokenizer.tokenizer._tekken_token2id_nospecial
-    all_special = [
-        token.value if hasattr(token, "value") else token
-        for token in tokenizer.instruct_tokenizer.tokenizer._all_special_tokens
-    ]
-    specials_tokens = {token: all_special.index(token) for token in all_special}
-    specials_tokens.update(vocab)
-    vocab = specials_tokens
-
-    tokenizer = PreTrainedTokenizerFast(
-        tokenizer_object=MistralConverter(vocab=vocab, additional_special_tokens=all_special).converted(),
-        bos_token="<s>",
-        unk_token="<unk>",
-        eos_token="</s>",
-    )
-    tokenizer.model_input_names = ["input_ids", "attention_mask"]
-
-    return tokenizer
+    mistral_tokenizer = MistralTokenizer.from_file(model_file)
+    vocab = mistral_tokenizer.instruct_tokenizer.tokenizer.vocab()
+    control_token_ids = mistral_tokenizer.instruct_tokenizer.tokenizer._control_tokens
+    all_special = [vocab[id] for id in control_token_ids]
+    hf_tokenizer = LlamaTokenizer(model_file)
+    # Do I need to exclude tokens that are already special?
+    hf_tokenizer.add_special_tokens({"additional_special_tokens": all_special})
+    hf_tokenizer.model_input_names = ["input_ids", "attention_mask"]
+    return hf_tokenizer
 
 
 def permute_for_rope(value, n_heads, config):
@@ -187,7 +177,7 @@ def permute_for_rope(value, n_heads, config):
     return value.view(n_heads, dim1 // n_heads // 2, 2, dim2).transpose(1, 2).reshape(dim1, dim2)
 
 
-def convert_dictionnary(original_state_dict, vision_config, text_config):
+def convert_dictionary(original_state_dict, vision_config, text_config):
     new_dict = {}
 
     all_keys = "\n" + "\n".join(original_state_dict.keys())
@@ -208,7 +198,6 @@ def convert_dictionnary(original_state_dict, vision_config, text_config):
                 num_attention_heads = _config.num_attention_heads
             if "k_proj" in new_key:
                 num_attention_heads = _config.num_key_value_heads
-            # convert the text model (basically mistral model)
 
         if "q_proj" in new_key or "k_proj" in new_key:
             value = permute_for_rope(value, num_attention_heads, _config)
@@ -217,29 +206,57 @@ def convert_dictionnary(original_state_dict, vision_config, text_config):
     return new_dict
 
 
-def convert_mistral_model(input_dir, output_dir):
-    text_config = MistralConfig(
-        attention_dropout=0.0,
-        bos_token_id=1,
-        eos_token_id=2,
-        head_dim=128,
-        hidden_act="silu",
-        hidden_size=5120,
-        initializer_range=0.02,
-        intermediate_size=14336,
-        max_position_embeddings=1024000,
-        model_type="mistral",
-        num_attention_heads=32,
-        num_hidden_layers=40,
-        num_key_value_heads=8,
-        rms_norm_eps=1e-05,
-        rope_theta=1000000000.0,
-        sliding_window=None,
-        tie_word_embeddings=False,
-        vocab_size=131072,
-    )
+MISTRAL_CONFIG_MAPPING = {
+    "dim": "hidden_size",
+    "hidden_dim": "intermediate_size",
+    "n_kv_heads": "num_key_value_heads",
+    "n_heads": "num_attention_heads",
+    "n_layers": "num_hidden_layers",
+}
 
-    vision_config = PixtralVisionConfig()
+
+def convert_mistral_model(input_dir, output_dir):
+    vision_config = {}
+    if os.path.isfile(f"{input_dir}/params.json"):
+        with open(f"{input_dir}/params.json") as f:
+            param_json = json.load(f)
+        vision_config = param_json.pop("vision_encoder")
+        for k, v in MISTRAL_CONFIG_MAPPING.items():
+            value = param_json.pop(k)
+            param_json[v] = value
+        if "hidden_act" not in vision_config:
+            vision_config["hidden_act"] = "silu"
+        text_config = MistralConfig(
+            **param_json,
+            hidden_act="silu",
+            sliding_window=None,
+            tie_word_embeddings=False,
+            is_composition=True,
+            rms_norm_eps=1e-5,
+        )
+    else:
+        text_config = MistralConfig(
+            attention_dropout=0.0,
+            bos_token_id=1,
+            eos_token_id=2,
+            head_dim=128,
+            hidden_act="silu",
+            hidden_size=5120,
+            initializer_range=0.02,
+            intermediate_size=14336,
+            max_position_embeddings=1024000,
+            model_type="mistral",
+            num_attention_heads=32,
+            num_hidden_layers=40,
+            num_key_value_heads=8,
+            rms_norm_eps=1e-05,
+            rope_theta=1000000000.0,
+            sliding_window=None,
+            tie_word_embeddings=False,
+            vocab_size=131072,
+        )
+    adapter_bias = vision_config.pop("adapter_bias", True)
+    vision_config = PixtralVisionConfig(**vision_config)
     config = LlavaConfig(
         vision_config,
         text_config,
@@ -247,23 +264,24 @@ def convert_mistral_model(input_dir, output_dir):
         image_token_index=10,
         vision_feature_select_strategy="full",
         image_seq_length=1,
+        multimodal_projector_bias=adapter_bias,
     )
     config.architectures = ["LlavaForConditionalGeneration"]
     config.save_pretrained(output_dir)
+    full_original_state_dict = {}
+    safetensors_files = sorted([file for file in os.listdir(input_dir) if file.endswith(".safetensors")])
+    if len(safetensors_files) == 1:
+        full_original_state_dict = safe_load_file(f"{input_dir}/consolidated.safetensors")
+    else:
+        for file in safetensors_files:
+            loaded_dict = safe_load_file(f"{input_dir}/{file}")
+            full_original_state_dict.update(loaded_dict)
 
-    original_state_dict = safe_load_file(f"{input_dir}/consolidated.safetensors")
-    new_dict = convert_dictionnary(original_state_dict, vision_config, text_config)
-
+    new_dict = convert_dictionary(full_original_state_dict, vision_config, text_config)
     with torch.device("meta"):
         model = LlavaForConditionalGeneration(config)
     model.load_state_dict(new_dict, strict=True, assign=True)
-
     model.save_pretrained(output_dir)
-
-    tokenizer = convert_mistral_tokenizer()
-    image_processor = PixtralImageProcessor()
-    processor = PixtralProcessor(tokenizer=tokenizer, image_processor=image_processor, image_token="[IMG]")
-    processor.save_pretrained(output_dir)
 
 
 def main():
@@ -271,14 +289,30 @@ def main():
     parser.add_argument(
         "--input_dir",
         help="Location of LLaMA weights, which contains tokenizer.model and model folders",
+        required=True,
     )
     parser.add_argument(
         "--output_dir",
         help="Location to write HF model and tokenizer",
+        required=True,
+    )
+    parser.add_argument(
+        "--tokenizer_file", help="Location of the specific tokenizer model file to use.", required=True
+    )
+    parser.add_argument(
+        "--chat_template_file",
+        help="Optional file containing a raw chat template. Will be set as the processor's chat template.",
+        required=False,
     )
 
     args = parser.parse_args()
     convert_mistral_model(args.input_dir, args.output_dir)
+    tokenizer = convert_mistral_tokenizer(args.tokenizer_file)
+    image_processor = PixtralImageProcessor()
+    processor = PixtralProcessor(tokenizer=tokenizer, image_processor=image_processor, image_token="[IMG]")
+    if args.chat_template_file:
+        processor.chat_template = open(args.chat_template_file).read()
+    processor.save_pretrained(args.output_dir)
 
 
 if __name__ == "__main__":

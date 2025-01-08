@@ -639,3 +639,6 @@ class WhisperTokenizerFast(PreTrainedTokenizerFast):
         if isinstance(token_ids, np.ndarray):
             token_ids = token_ids.tolist()
         return token_ids
+
+
+__all__ = ["WhisperTokenizerFast"]

@@ -1495,3 +1495,6 @@ overwrite_call_docstring(
     MARIAN_INPUTS_DOCSTRING + FLAX_MARIAN_MT_DOCSTRING,
 )
 append_replace_return_docstrings(FlaxMarianMTModel, output_type=FlaxSeq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
+
+
+__all__ = ["FlaxMarianModel", "FlaxMarianMTModel", "FlaxMarianPreTrainedModel"]

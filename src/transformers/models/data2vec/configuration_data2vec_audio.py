@@ -283,3 +283,6 @@ class Data2VecAudioConfig(PretrainedConfig):
     @property
     def inputs_to_logits_ratio(self):
         return math.prod(self.conv_stride)
+
+
+__all__ = ["Data2VecAudioConfig"]

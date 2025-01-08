@@ -96,6 +96,12 @@ distribution over the entire vocabulary with various strategy-specific adjustmen
 the decoding strategies that support multiple sequence candidates, e.g. variations of beam search and sampling. Decoding
 strategies like greedy search and contrastive search return a single output sequence.
 
+It is also possible to extend `generate()` with external libraries or handcrafted code. The `logits_processor` argument
+allows you to pass custom [`LogitsProcessor`] instances, allowing you to manipulate the next token probability
+distributions. Likewise, the `stopping_criteria` argument lets you set custom [`StoppingCriteria`] to stop text generation.
+The [`logits-processor-zoo`](https://github.com/NVIDIA/logits-processor-zoo) library contains examples of external
+`generate()`-compatible extensions.
+
 ## Save a custom decoding strategy with your model
 
 If you would like to share your fine-tuned model with a specific generation configuration, you can:
@@ -434,6 +440,28 @@ To enable assisted decoding, set the `assistant_model` argument with a model.
 >>> tokenizer.batch_decode(outputs, skip_special_tokens=True)
 ['Alice and Bob are sitting in a bar. Alice is drinking a beer and Bob is drinking a']
 ```
+
+<Tip>
+
+If you're using a `pipeline` object, all you need to do is to pass the assistant checkpoint under `assistant_model`
+
+```python
+>>> from transformers import pipeline
+>>> import torch
+
+>>> pipe = pipeline(
+...     "text-generation",
+...     model="meta-llama/Llama-3.1-8B",
+...     assistant_model="meta-llama/Llama-3.2-1B",  # This extra line is all that's needed, also works with UAD
+...     torch_dtype=torch.bfloat16
+>>> )
+>>> pipe_output = pipe("Once upon a time, ", max_new_tokens=50, do_sample=False)
+>>> pipe_output[0]["generated_text"]
+'Once upon a time, 3D printing was a niche technology that was only'
+```
+
+</Tip>
+
 
 When using assisted decoding with sampling methods, you can use the `temperature` argument to control the randomness,
 just like in multinomial sampling. However, in assisted decoding, reducing the temperature may help improve the latency.

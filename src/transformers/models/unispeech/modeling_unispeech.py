@@ -1897,3 +1897,12 @@ class UniSpeechForSequenceClassification(UniSpeechPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "UniSpeechForCTC",
+    "UniSpeechForPreTraining",
+    "UniSpeechForSequenceClassification",
+    "UniSpeechModel",
+    "UniSpeechPreTrainedModel",
+]

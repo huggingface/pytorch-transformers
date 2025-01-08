@@ -1564,3 +1564,12 @@ def create_position_ids_from_input_ids(input_ids, padding_idx, past_key_values_l
     mask = tf.cast(input_ids != padding_idx, tf.int64)
     incremental_indices = (tf.cumsum(mask, axis=1) + past_key_values_length) * mask
     return incremental_indices + padding_idx
+
+
+__all__ = [
+    "TFEsmForMaskedLM",
+    "TFEsmForSequenceClassification",
+    "TFEsmForTokenClassification",
+    "TFEsmModel",
+    "TFEsmPreTrainedModel",
+]

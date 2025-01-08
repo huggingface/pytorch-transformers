@@ -92,6 +92,7 @@ CONFIG_MAPPING_NAMES = OrderedDict(
         ("depth_anything", "DepthAnythingConfig"),
         ("deta", "DetaConfig"),
         ("detr", "DetrConfig"),
+        ("diffllama", "DiffLlamaConfig"),
         ("dinat", "DinatConfig"),
         ("dinov2", "Dinov2Config"),
         ("dinov2_with_registers", "Dinov2WithRegistersConfig"),
@@ -278,6 +279,7 @@ CONFIG_MAPPING_NAMES = OrderedDict(
         ("t5", "T5Config"),
         ("table-transformer", "TableTransformerConfig"),
         ("tapas", "TapasConfig"),
+        ("textnet", "TextNetConfig"),
         ("time_series_transformer", "TimeSeriesTransformerConfig"),
         ("timesformer", "TimesformerConfig"),
         ("timm_backbone", "TimmBackboneConfig"),
@@ -307,6 +309,8 @@ CONFIG_MAPPING_NAMES = OrderedDict(
         ("vit_msn", "ViTMSNConfig"),
         ("vitdet", "VitDetConfig"),
         ("vitmatte", "VitMatteConfig"),
+        ("vitpose", "VitPoseConfig"),
+        ("vitpose_backbone", "VitPoseBackboneConfig"),
         ("vits", "VitsConfig"),
         ("vivit", "VivitConfig"),
         ("wav2vec2", "Wav2Vec2Config"),
@@ -403,6 +407,7 @@ MODEL_NAMES_MAPPING = OrderedDict(
         ("deta", "DETA"),
         ("detr", "DETR"),
         ("dialogpt", "DialoGPT"),
+        ("diffllama", "DiffLlama"),
         ("dinat", "DiNAT"),
         ("dinov2", "DINOv2"),
         ("dinov2_with_registers", "DINOv2 with Registers"),
@@ -608,6 +613,7 @@ MODEL_NAMES_MAPPING = OrderedDict(
         ("table-transformer", "Table Transformer"),
         ("tapas", "TAPAS"),
         ("tapex", "TAPEX"),
+        ("textnet", "TextNet"),
         ("time_series_transformer", "Time Series Transformer"),
         ("timesformer", "TimeSformer"),
         ("timm_backbone", "TimmBackbone"),
@@ -638,6 +644,8 @@ MODEL_NAMES_MAPPING = OrderedDict(
         ("vit_msn", "ViTMSN"),
         ("vitdet", "VitDet"),
         ("vitmatte", "ViTMatte"),
+        ("vitpose", "VitPose"),
+        ("vitpose_backbone", "VitPoseBackbone"),
         ("vits", "VITS"),
         ("vivit", "ViViT"),
         ("wav2vec2", "Wav2Vec2"),
@@ -1061,7 +1069,12 @@ class AutoConfig:
                 raise ValueError(
                     f"The checkpoint you are trying to load has model type `{config_dict['model_type']}` "
                     "but Transformers does not recognize this architecture. This could be because of an "
-                    "issue with the checkpoint, or because your version of Transformers is out of date."
+                    "issue with the checkpoint, or because your version of Transformers is out of date.\n\n"
+                    "You can update Transformers with the command `pip install --upgrade transformers`. If this "
+                    "does not work, and the checkpoint is very new, then there may not be a release version "
+                    "that supports this model yet. In this case, you can get the most up-to-date code by installing "
+                    "Transformers from source with the command "
+                    "`pip install git+https://github.com/huggingface/transformers.git`"
                 )
             return config_class.from_dict(config_dict, **unused_kwargs)
         else:

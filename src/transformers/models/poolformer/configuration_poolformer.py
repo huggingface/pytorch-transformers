@@ -143,3 +143,6 @@ class PoolFormerOnnxConfig(OnnxConfig):
     @property
     def atol_for_validation(self) -> float:
         return 2e-3
+
+
+__all__ = ["PoolFormerConfig", "PoolFormerOnnxConfig"]

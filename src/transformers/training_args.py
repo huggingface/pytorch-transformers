@@ -476,11 +476,13 @@ class TrainingArguments:
 
         metric_for_best_model (`str`, *optional*):
             Use in conjunction with `load_best_model_at_end` to specify the metric to use to compare two different
-            models. Must be the name of a metric returned by the evaluation with or without the prefix `"eval_"`. Will
-            default to `"loss"` if unspecified and `load_best_model_at_end=True` (to use the evaluation loss).
+            models. Must be the name of a metric returned by the evaluation with or without the prefix `"eval_"`.
 
-            If you set this value, `greater_is_better` will default to `True`. Don't forget to set it to `False` if
-            your metric is better when lower.
+            If not specified, this will default to `"loss"` when either `load_best_model_at_end == True`
+            or `lr_scheduler_type == SchedulerType.REDUCE_ON_PLATEAU` (to use the evaluation loss).
+
+            If you set this value, `greater_is_better` will default to `True` unless the name ends with "loss".
+            Don't forget to set it to `False` if your metric is better when lower.
         greater_is_better (`bool`, *optional*):
             Use in conjunction with `load_best_model_at_end` and `metric_for_best_model` to specify if better models
             should have a greater metric or not. Will default to:
@@ -1636,7 +1638,7 @@ class TrainingArguments:
             self.save_steps = int(self.save_steps)
 
         # Sanity checks for load_best_model_at_end: we require save and eval strategies to be compatible.
-        if self.load_best_model_at_end:
+        if self.load_best_model_at_end and self.save_strategy != SaveStrategy.BEST:
             if self.eval_strategy != self.save_strategy:
                 raise ValueError(
                     "--load_best_model_at_end requires the save and eval strategy to match, but found\n- Evaluation "

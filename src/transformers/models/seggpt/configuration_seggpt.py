@@ -138,3 +138,6 @@ class SegGptConfig(PretrainedConfig):
         self.intermediate_hidden_state_indices = intermediate_hidden_state_indices
         self.beta = beta
         self.mlp_dim = int(hidden_size * 4) if mlp_dim is None else mlp_dim
+
+
+__all__ = ["SegGptConfig"]

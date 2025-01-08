@@ -55,6 +55,8 @@ class LlavaNextConfig(PretrainedConfig):
             Whether the model's input and output word embeddings should be tied.
         image_seq_length (`int`, *optional*, defaults to 576):
             Sequence length of one image embedding.
+        multimodal_projector_bias (`bool`, *optional*, defaults to `True`):
+            Whether to use bias in the multimodal projector.
 
     Example:
 
@@ -92,12 +94,14 @@ class LlavaNextConfig(PretrainedConfig):
         image_grid_pinpoints=None,
         tie_word_embeddings=False,
         image_seq_length=576,
+        multimodal_projector_bias=True,
         **kwargs,
     ):
         self.ignore_index = ignore_index
         self.image_token_index = image_token_index
         self.projector_hidden_act = projector_hidden_act
         self.image_seq_length = image_seq_length
+        self.multimodal_projector_bias = multimodal_projector_bias
 
         if vision_feature_select_strategy not in ["default", "full"]:
             raise ValueError(
@@ -142,3 +146,6 @@ class LlavaNextConfig(PretrainedConfig):
         self.text_config = text_config
 
         super().__init__(tie_word_embeddings=tie_word_embeddings, **kwargs)
+
+
+__all__ = ["LlavaNextConfig"]

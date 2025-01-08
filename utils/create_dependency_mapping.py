@@ -7,10 +7,15 @@ def topological_sort(dependencies):
     new_dependencies = {}
     graph = defaultdict(list)
     for node, deps in dependencies.items():
+        node_name = node.split("/")[-2]
         for dep in deps:
-            if "example" not in node and "auto" not in dep:
-                graph[dep.split(".")[-2]].append(node.split("/")[-2])
-        new_dependencies[node.split("/")[-2]] = node
+            dep_name = dep.split(".")[-2]
+            if dep_name == node_name:
+                # Skip self dependencies for topological sort as they create cycles
+                continue
+            if "example" not in node and "auto" not in dep and node_name not in graph[dep_name]:
+                graph[dep_name].append(node_name)
+        new_dependencies[node_name] = node
 
     # Create a graph and in-degree count for each node
     def filter_one_by_one(filtered_list, reverse):
@@ -54,7 +59,7 @@ def extract_classes_and_imports(file_path):
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             module = node.module if isinstance(node, ast.ImportFrom) else None
-            if module and (".modeling_" in module):
+            if module and (".modeling_" in module or "transformers.models" in module):
                 imports.add(module)
     return imports
 

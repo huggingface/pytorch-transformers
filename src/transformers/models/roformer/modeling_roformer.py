@@ -1543,3 +1543,17 @@ class RoFormerForQuestionAnswering(RoFormerPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "RoFormerForCausalLM",
+    "RoFormerForMaskedLM",
+    "RoFormerForMultipleChoice",
+    "RoFormerForQuestionAnswering",
+    "RoFormerForSequenceClassification",
+    "RoFormerForTokenClassification",
+    "RoFormerLayer",
+    "RoFormerModel",
+    "RoFormerPreTrainedModel",
+    "load_tf_weights_in_roformer",
+]

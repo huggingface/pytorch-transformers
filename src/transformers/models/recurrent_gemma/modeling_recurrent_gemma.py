@@ -903,3 +903,6 @@ class RecurrentGemmaForCausalLM(RecurrentGemmaPreTrainedModel, GenerationMixin):
                 k_state = k_state.index_select(0, beam_idx.to(k_state.device))
                 v_state = v_state.index_select(0, beam_idx.to(v_state.device))
         return None
+
+
+__all__ = ["RecurrentGemmaForCausalLM", "RecurrentGemmaModel", "RecurrentGemmaPreTrainedModel"]

@@ -158,16 +158,8 @@ class VideoLlavaProcessor(ProcessorMixin):
             raise ValueError("Invalid input text. Please provide a string, or a list of strings")
 
         prompt_strings = text
-        if encoded_images is not None and (self.patch_size is None or self.vision_feature_select_strategy is None):
-            logger.warning_once(
-                "Expanding inputs for image tokens in Video-LLaVa should be done in processing. "
-                "Please add `patch_size` and `vision_feature_select_strategy` to the model's processing config or set "
-                "directly with `processor.patch_size = {{patch_size}}` and processor.vision_feature_select_strategy = "
-                "{{vision_feature_select_strategy}}`. Using processors without these attributes in the config is "
-                "deprecated and will throw an error in v4.50."
-            )
-        # Replace the image/video tokens with the expanded token sequence
-        elif encoded_images is not None:
+
+        if encoded_images is not None:
             if "pixel_values_images" in encoded_images.keys():
                 height, width = get_image_size(to_numpy_array(encoded_images.get("pixel_values_images")[0]))
                 num_frames = 1
@@ -187,7 +179,7 @@ class VideoLlavaProcessor(ProcessorMixin):
             ) + self.num_additional_image_tokens
             num_video_tokens = num_image_tokens * num_frames
             if self.vision_feature_select_strategy == "default":
-                num_image_tokens -= self.num_additional_image_tokens
+                num_image_tokens -= 1
 
             prompt_strings = []
             for sample in text:
@@ -228,3 +220,6 @@ class VideoLlavaProcessor(ProcessorMixin):
         tokenizer_input_names = self.tokenizer.model_input_names
         image_processor_input_names = self.image_processor.model_input_names
         return list(dict.fromkeys(tokenizer_input_names + image_processor_input_names))
+
+
+__all__ = ["VideoLlavaProcessor"]

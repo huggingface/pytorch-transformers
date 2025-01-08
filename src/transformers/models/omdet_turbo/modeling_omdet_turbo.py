@@ -1788,3 +1788,6 @@ class OmDetTurboForObjectDetection(OmDetTurboPreTrainedModel):
             encoder_hidden_states=encoder_outputs.hidden_states,
             encoder_attentions=encoder_outputs.attentions,
         )
+
+
+__all__ = ["OmDetTurboForObjectDetection", "OmDetTurboPreTrainedModel"]

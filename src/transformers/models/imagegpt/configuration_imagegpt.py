@@ -194,3 +194,6 @@ class ImageGPTOnnxConfig(OnnxConfig):
         inputs = dict(preprocessor(images=input_image, return_tensors=framework))
 
         return inputs
+
+
+__all__ = ["ImageGPTConfig", "ImageGPTOnnxConfig"]

@@ -2444,3 +2444,6 @@ overwrite_call_docstring(
 append_replace_return_docstrings(
     FlaxLongT5ForConditionalGeneration, output_type=FlaxSeq2SeqLMOutput, config_class=_CONFIG_FOR_DOC
 )
+
+
+__all__ = ["FlaxLongT5ForConditionalGeneration", "FlaxLongT5Model", "FlaxLongT5PreTrainedModel"]

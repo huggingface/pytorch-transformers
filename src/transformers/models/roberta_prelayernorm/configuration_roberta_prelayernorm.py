@@ -152,3 +152,6 @@ class RobertaPreLayerNormOnnxConfig(OnnxConfig):
                 ("attention_mask", dynamic_axis),
             ]
         )
+
+
+__all__ = ["RobertaPreLayerNormConfig", "RobertaPreLayerNormOnnxConfig"]

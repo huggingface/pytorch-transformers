@@ -173,48 +173,38 @@ class LlavaNextVideoProcessor(ProcessorMixin):
         elif not isinstance(text, list) and not isinstance(text[0], str):
             raise ValueError("Invalid input text. Please provide a string, or a list of strings")
 
-        if self.patch_size is None or self.vision_feature_select_strategy is None:
-            logger.warning_once(
-                "Expanding inputs for image/video tokens in LLaVa-NeXT-Video should be done in processing. "
-                "Please add `patch_size`, `num_additional_image_tokens` and `vision_feature_select_strategy` to the model's processing config or set directly "
-                "with `processor.patch_size = {{patch_size}}`, `processor.num_additional_image_tokens = {{num_additional_image_tokens}}` "
-                "and processor.vision_feature_select_strategy = {{vision_feature_select_strategy}}`. "
-                "Using processors without these attributes in the config is deprecated and will throw an error in v4.47."
-            )
-        else:
-            # images expand taking into account num_of_patches in each image
-            if image_inputs:
-                image_sizes = iter(image_inputs["image_sizes"])
-                height, width = get_image_size(to_numpy_array(image_inputs["pixel_values"][0][0]))
-                prompt_strings = []
-                for sample in text:
-                    while self.image_token in sample:
-                        image_size = next(image_sizes)
-                        if not isinstance(image_size, (list, tuple)):
-                            # cast to list to avoid numerical precision errors when calculating unpadding
-                            image_size = image_size.tolist()
-                        orig_height, orig_width = image_size
-                        num_image_tokens = self._get_number_of_features(orig_height, orig_width, height, width)
-                        if self.vision_feature_select_strategy == "default":
-                            num_image_tokens -= self.num_additional_image_tokens
-                        sample = sample.replace(self.image_token, "<placeholder>" * num_image_tokens, 1)
-                    prompt_strings.append(sample)
-                text = [sample.replace("<placeholder>", self.image_token) for sample in prompt_strings]
+        if image_inputs:
+            image_sizes = iter(image_inputs["image_sizes"])
+            height, width = get_image_size(to_numpy_array(image_inputs["pixel_values"][0][0]))
+            prompt_strings = []
+            for sample in text:
+                while self.image_token in sample:
+                    image_size = next(image_sizes)
+                    if not isinstance(image_size, (list, tuple)):
+                        # cast to list to avoid numerical precision errors when calculating unpadding
+                        image_size = image_size.tolist()
+                    orig_height, orig_width = image_size
+                    num_image_tokens = self._get_number_of_features(orig_height, orig_width, height, width)
+                    if self.vision_feature_select_strategy == "default":
+                        num_image_tokens -= 1
+                    sample = sample.replace(self.image_token, "<placeholder>" * num_image_tokens, 1)
+                prompt_strings.append(sample)
+            text = [sample.replace("<placeholder>", self.image_token) for sample in prompt_strings]
 
-            # videos are easier, simply get frames and multiply
-            if videos_inputs:
-                one_video = to_numpy_array(videos_inputs.get("pixel_values_videos")[0])
-                height, width = get_image_size(one_video[0])
-                num_frames = one_video.shape[0]  # frame dim is always after batch dim
+        # videos are easier, simply get frames and multiply
+        if videos_inputs:
+            one_video = to_numpy_array(videos_inputs.get("pixel_values_videos")[0])
+            height, width = get_image_size(one_video[0])
+            num_frames = one_video.shape[0]  # frame dim is always after batch dim
 
-                # no `self.num_additional_image_tokens` added because video always has a default feature selection strategy
-                num_image_tokens = (height // self.patch_size) * (width // self.patch_size)
-                num_video_tokens = num_image_tokens // 4 * num_frames  # divide by 4 needed for avg pooling layer
-                prompt_strings = []
-                for sample in text:
-                    sample = sample.replace(self.video_token, self.video_token * num_video_tokens)
-                    prompt_strings.append(sample)
-                text = prompt_strings
+            # no `self.num_additional_image_tokens` added because video always has a default feature selection strategy
+            num_image_tokens = (height // self.patch_size) * (width // self.patch_size)
+            num_video_tokens = num_image_tokens // 4 * num_frames  # divide by 4 needed for avg pooling layer
+            prompt_strings = []
+            for sample in text:
+                sample = sample.replace(self.video_token, self.video_token * num_video_tokens)
+                prompt_strings.append(sample)
+            text = prompt_strings
 
         text_inputs = self.tokenizer(
             text,

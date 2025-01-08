@@ -1650,3 +1650,12 @@ class TFLxmertForPreTraining(TFLxmertPreTrainedModel):
         if getattr(self, "answer_head", None) is not None:
             with tf.name_scope(self.answer_head.name):
                 self.answer_head.build(None)
+
+
+__all__ = [
+    "TFLxmertForPreTraining",
+    "TFLxmertMainLayer",
+    "TFLxmertModel",
+    "TFLxmertPreTrainedModel",
+    "TFLxmertVisualFeatureEncoder",
+]

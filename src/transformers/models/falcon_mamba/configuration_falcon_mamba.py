@@ -157,3 +157,6 @@ class FalconMambaConfig(PretrainedConfig):
         self.mixer_rms_eps = mixer_rms_eps
 
         super().__init__(bos_token_id=bos_token_id, eos_token_id=eos_token_id, pad_token_id=pad_token_id, **kwargs)
+
+
+__all__ = ["FalconMambaConfig"]

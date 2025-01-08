@@ -241,3 +241,6 @@ class VitsTokenizer(PreTrainedTokenizer):
             f.write(json.dumps(self.encoder, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
         return (vocab_file,)
+
+
+__all__ = ["VitsTokenizer"]

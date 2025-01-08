@@ -174,8 +174,9 @@ class ProcessorTesterMixin:
             self.skipTest(f"image_processor attribute not present in {self.processor_class}")
         processor_components = self.prepare_components()
         processor_components["tokenizer"] = self.get_component("tokenizer", max_length=117, padding="max_length")
+        processor_kwargs = self.prepare_processor_dict()
 
-        processor = self.processor_class(**processor_components)
+        processor = self.processor_class(**processor_components, **processor_kwargs)
         self.skip_processor_without_typed_kwargs(processor)
         input_str = self.prepare_text_inputs()
         image_input = self.prepare_image_inputs()
@@ -195,8 +196,9 @@ class ProcessorTesterMixin:
             "image_processor", do_rescale=True, rescale_factor=-1
         )
         processor_components["tokenizer"] = self.get_component("tokenizer", max_length=117, padding="max_length")
+        processor_kwargs = self.prepare_processor_dict()
 
-        processor = self.processor_class(**processor_components)
+        processor = self.processor_class(**processor_components, **processor_kwargs)
         self.skip_processor_without_typed_kwargs(processor)
 
         input_str = self.prepare_text_inputs()
@@ -210,8 +212,9 @@ class ProcessorTesterMixin:
             self.skipTest(f"image_processor attribute not present in {self.processor_class}")
         processor_components = self.prepare_components()
         processor_components["tokenizer"] = self.get_component("tokenizer", padding="longest")
+        processor_kwargs = self.prepare_processor_dict()
 
-        processor = self.processor_class(**processor_components)
+        processor = self.processor_class(**processor_components, **processor_kwargs)
         self.skip_processor_without_typed_kwargs(processor)
         input_str = self.prepare_text_inputs()
         image_input = self.prepare_image_inputs()
@@ -228,8 +231,9 @@ class ProcessorTesterMixin:
             "image_processor", do_rescale=True, rescale_factor=1
         )
         processor_components["tokenizer"] = self.get_component("tokenizer", max_length=117, padding="max_length")
+        processor_kwargs = self.prepare_processor_dict()
 
-        processor = self.processor_class(**processor_components)
+        processor = self.processor_class(**processor_components, **processor_kwargs)
         self.skip_processor_without_typed_kwargs(processor)
 
         input_str = self.prepare_text_inputs()
@@ -242,7 +246,8 @@ class ProcessorTesterMixin:
         if "image_processor" not in self.processor_class.attributes:
             self.skipTest(f"image_processor attribute not present in {self.processor_class}")
         processor_components = self.prepare_components()
-        processor = self.processor_class(**processor_components)
+        processor_kwargs = self.prepare_processor_dict()
+        processor = self.processor_class(**processor_components, **processor_kwargs)
         self.skip_processor_without_typed_kwargs(processor)
 
         input_str = self.prepare_text_inputs()
@@ -264,7 +269,8 @@ class ProcessorTesterMixin:
         if "image_processor" not in self.processor_class.attributes:
             self.skipTest(f"image_processor attribute not present in {self.processor_class}")
         processor_components = self.prepare_components()
-        processor = self.processor_class(**processor_components)
+        processor_kwargs = self.prepare_processor_dict()
+        processor = self.processor_class(**processor_components, **processor_kwargs)
         self.skip_processor_without_typed_kwargs(processor)
 
         input_str = self.prepare_text_inputs(batch_size=2)
@@ -289,7 +295,8 @@ class ProcessorTesterMixin:
         if "image_processor" not in self.processor_class.attributes:
             self.skipTest(f"image_processor attribute not present in {self.processor_class}")
         processor_components = self.prepare_components()
-        processor = self.processor_class(**processor_components)
+        processor_kwargs = self.prepare_processor_dict()
+        processor = self.processor_class(**processor_components, **processor_kwargs)
         self.skip_processor_without_typed_kwargs(processor)
 
         input_str = [self.prepare_text_inputs()]
@@ -307,7 +314,8 @@ class ProcessorTesterMixin:
         if "image_processor" not in self.processor_class.attributes:
             self.skipTest(f"image_processor attribute not present in {self.processor_class}")
         processor_components = self.prepare_components()
-        processor = self.processor_class(**processor_components)
+        processor_kwargs = self.prepare_processor_dict()
+        processor = self.processor_class(**processor_components, **processor_kwargs)
         self.skip_processor_without_typed_kwargs(processor)
 
         input_str = self.prepare_text_inputs()
@@ -330,7 +338,8 @@ class ProcessorTesterMixin:
         if "image_processor" not in self.processor_class.attributes:
             self.skipTest(f"image_processor attribute not present in {self.processor_class}")
         processor_components = self.prepare_components()
-        processor = self.processor_class(**processor_components)
+        processor_kwargs = self.prepare_processor_dict()
+        processor = self.processor_class(**processor_components, **processor_kwargs)
         self.skip_processor_without_typed_kwargs(processor)
         input_str = self.prepare_text_inputs()
         image_input = self.prepare_image_inputs()

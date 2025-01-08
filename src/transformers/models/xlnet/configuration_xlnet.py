@@ -235,3 +235,6 @@ class XLNetConfig(PretrainedConfig):
         raise NotImplementedError(
             f"The model {self.model_type} is one of the few models that has no sequence length limit."
         )
+
+
+__all__ = ["XLNetConfig"]

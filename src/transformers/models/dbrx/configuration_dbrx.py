@@ -227,3 +227,6 @@ class DbrxConfig(PretrainedConfig):
             raise ValueError("tie_word_embeddings is not supported for DBRX models.")
 
         super().__init__(tie_word_embeddings=tie_word_embeddings, **kwargs)
+
+
+__all__ = ["DbrxConfig"]

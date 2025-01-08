@@ -2712,3 +2712,12 @@ class LEDForQuestionAnswering(LEDPreTrainedModel):
             encoder_attentions=outputs.encoder_attentions,
             encoder_global_attentions=outputs.encoder_global_attentions,
         )
+
+
+__all__ = [
+    "LEDForConditionalGeneration",
+    "LEDForQuestionAnswering",
+    "LEDForSequenceClassification",
+    "LEDModel",
+    "LEDPreTrainedModel",
+]

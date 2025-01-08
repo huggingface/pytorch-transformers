@@ -1262,3 +1262,15 @@ class XLMForMultipleChoice(XLMPreTrainedModel):
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,
         )
+
+
+__all__ = [
+    "XLMForMultipleChoice",
+    "XLMForQuestionAnswering",
+    "XLMForQuestionAnsweringSimple",
+    "XLMForSequenceClassification",
+    "XLMForTokenClassification",
+    "XLMModel",
+    "XLMPreTrainedModel",
+    "XLMWithLMHeadModel",
+]

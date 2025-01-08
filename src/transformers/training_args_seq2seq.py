@@ -30,12 +30,6 @@ logger = logging.getLogger(__name__)
 class Seq2SeqTrainingArguments(TrainingArguments):
     """
     Args:
-        sortish_sampler (`bool`, *optional*, defaults to `False`):
-            Whether to use a *sortish sampler* or not. Only possible if the underlying datasets are *Seq2SeqDataset*
-            for now but will become generally available in the near future.
-
-            It sorts the inputs according to lengths in order to minimize the padding size, with a bit of randomness
-            for the training set.
         predict_with_generate (`bool`, *optional*, defaults to `False`):
             Whether to use generate to calculate generative metrics (ROUGE, BLEU).
         generation_max_length (`int`, *optional*):

@@ -145,38 +145,14 @@
     title: (번역중) Getting started
   - local: quantization/bitsandbytes
     title: bitsandbytes
-  - local: in_translation
-    title: (번역중) GPTQ
+  - local: quantization/gptq
+    title: GPTQ
   - local: quantization/awq
     title: AWQ
   - local: in_translation
     title: (번역중) AQLM
   - local: in_translation
     title: (번역중) VPTQ 
-  - local: in_translation
-    title: (번역중) Quanto
-  - local: in_translation
-    title: (번역중) EETQ
-  - local: in_translation
-    title: (번역중) HQQ
-  - local: in_translation
-    title: (번역중) Optimum
-  - local: in_translation
-    title: (번역중) Contribute new quantization method
-  title: (번역중) 경량화 메소드
-- sections:
-  - local: in_translation
-    title: (번역중) Getting started
-  - local: in_translation
-    title: (번역중) bitsandbytes
-  - local: quantization/gptq
-    title: GPTQ
-  - local: in_translation
-    title: (번역중) AWQ
-  - local: in_translation
-    title: (번역중) AQLM
-  - local: in_translation
-    title: (번역중) VPTQ
   - local: quantization/quanto
     title: Quanto
   - local: quantization/eetq
@@ -692,8 +668,8 @@
       sections:
       - local: in_translation
         title: (번역중) ALIGN
-      - local: in_translation
-        title: (번역중) AltCLIP
+      - local: model_doc/altclip
+        title: AltCLIP
       - local: model_doc/blip-2
         title: BLIP-2
       - local: model_doc/blip

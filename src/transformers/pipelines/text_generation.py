@@ -1,5 +1,6 @@
 import enum
-import warnings
+import itertools
+import types
 from typing import Dict
 
 from ..utils import add_end_docstrings, is_tf_available, is_torch_available
@@ -192,12 +193,13 @@ class TextGenerationPipeline(Pipeline):
 
         if stop_sequence is not None:
             stop_sequence_ids = self.tokenizer.encode(stop_sequence, add_special_tokens=False)
-            if len(stop_sequence_ids) > 1:
-                warnings.warn(
-                    "Stopping on a multiple token sequence is not yet supported on transformers. The first token of"
-                    " the stop sequence will be used as the stop sequence string in the interim."
-                )
-            generate_kwargs["eos_token_id"] = stop_sequence_ids[0]
+            generate_kwargs["eos_token_id"] = stop_sequence_ids
+
+        if self.assistant_model is not None:
+            forward_params["assistant_model"] = self.assistant_model
+        if self.assistant_tokenizer is not None:
+            forward_params["tokenizer"] = self.tokenizer
+            forward_params["assistant_tokenizer"] = self.assistant_tokenizer
 
         return preprocess_params, forward_params, postprocess_params
 
@@ -260,16 +262,27 @@ class TextGenerationPipeline(Pipeline):
               ids of the generated text.
         """
         if isinstance(
-            text_inputs, (list, tuple, KeyDataset) if is_torch_available() else (list, tuple)
-        ) and isinstance(text_inputs[0], (list, tuple, dict)):
-            # We have one or more prompts in list-of-dicts format, so this is chat mode
-            if isinstance(text_inputs[0], dict):
-                return super().__call__(Chat(text_inputs), **kwargs)
+            text_inputs,
+            (list, tuple, types.GeneratorType, KeyDataset)
+            if is_torch_available()
+            else (list, tuple, types.GeneratorType),
+        ):
+            if isinstance(text_inputs, types.GeneratorType):
+                text_inputs, _ = itertools.tee(text_inputs)
+                text_inputs, first_item = (x for x in text_inputs), next(_)
             else:
-                chats = [Chat(chat) for chat in text_inputs]  # 🐈 🐈 🐈
-                return super().__call__(chats, **kwargs)
-        else:
-            return super().__call__(text_inputs, **kwargs)
+                first_item = text_inputs[0]
+            if isinstance(first_item, (list, tuple, dict)):
+                # We have one or more prompts in list-of-dicts format, so this is chat mode
+                if isinstance(first_item, dict):
+                    return super().__call__(Chat(text_inputs), **kwargs)
+                else:
+                    chats = (Chat(chat) for chat in text_inputs)  # 🐈 🐈 🐈
+                    if isinstance(text_inputs, types.GeneratorType):
+                        return super().__call__(chats, **kwargs)
+                    else:
+                        return super().__call__(list(chats), **kwargs)
+        return super().__call__(text_inputs, **kwargs)
 
     def preprocess(
         self,

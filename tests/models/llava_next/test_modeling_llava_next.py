@@ -396,8 +396,10 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
         )
         original_input_ids = torch.load(filepath, map_location="cpu")
         # replace -200 by image_token_index (since we use token ID = 32000 for the image token)
-        original_input_ids[original_input_ids == -200] = model.config.image_token_index
-        assert original_input_ids[0].tolist() == inputs.input_ids[0].tolist()
+        # remove image token indices because HF impl expands image tokens `image_seq_length` times
+        original_input_ids = original_input_ids[original_input_ids != -200]
+        observed_input_ids = inputs.input_ids[inputs.input_ids != model.config.image_token_index]
+        assert original_input_ids[0].tolist() == observed_input_ids[0].tolist()
 
         filepath = hf_hub_download(
             repo_id="nielsr/test-image",
@@ -414,7 +416,7 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor(
             [[-4.7695, -4.5664, -0.2788], [-10.6172, -10.8828, -2.5273], [-6.7383, -7.2422, -0.6694]],
-            dtype=torch.float32,
+            dtype=torch.float16,
             device=torch_device,
         )
         assert torch.allclose(output.logits[0, :3, :3], expected_slice, atol=1e-3)
@@ -518,11 +520,11 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor(
             [[-0.1287, -0.1294, -0.1284], [-0.2744, -0.2698, -0.2671], [-0.1071, -0.1091, -0.1056]],
-            dtype=torch.float32,
+            dtype=torch.float16,
             device=torch_device,
         )
         assert torch.allclose(output.logits[0, -3:, -3:], expected_slice, atol=1e-3)
-        assert torch.allclose(output.loss, torch.tensor(7.0206, device=torch_device), atol=1e-3)
+        assert torch.allclose(output.loss, torch.tensor(7.0206, dtype=torch.float16, device=torch_device), atol=1e-3)
 
         # verify generation
         output = model.generate(**inputs, max_new_tokens=50)
@@ -603,80 +605,6 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
 
     @slow
     @require_bitsandbytes
-    def test_expansion_in_processing_multiimage(self):
-        model_id = "llava-hf/llava-v1.6-mistral-7b-hf"
-        model = LlavaNextForConditionalGeneration.from_pretrained(model_id, load_in_4bit=True)
-        processor = AutoProcessor.from_pretrained(model_id)
-
-        prompt = "USER: <image><image>\nDescribe the similarity between the two images:\nASSISTANT:"
-        image_file = "http://images.cocodataset.org/val2017/000000039769.jpg"
-        raw_image = Image.open(requests.get(image_file, stream=True).raw)
-        deer_image = Image.open(
-            requests.get(
-                "https://4.img-dpreview.com/files/p/TS560x560~forums/56876524/03975b28741443319e9a94615e35667e",
-                stream=True,
-            ).raw
-        )
-
-        # check processing with expansion of inputs
-        processor.vision_feature_select_strategy = "default"
-        processor.patch_size = 14
-        processor.num_additional_image_tokens = 1
-        inputs_expanded = processor(text=prompt, images=[raw_image, deer_image], return_tensors="pt").to(
-            torch_device, torch.float16
-        )
-        self.assertTrue(inputs_expanded.input_ids.shape[-1] == 3969)
-
-        # check processing without expansion of inputs (legacy behavior)
-        processor.vision_feature_select_strategy = None
-        processor.patch_size = None
-        processor.num_additional_image_tokens = None
-        inputs = processor(text=prompt, images=[raw_image, deer_image], return_tensors="pt").to(
-            torch_device, torch.float16
-        )
-        self.assertTrue(inputs.input_ids.shape[-1] == 23)
-
-        # generate exactly 20 tokens
-        output = model.generate(**inputs, min_new_tokens=20, max_new_tokens=20)
-        output_expanded = model.generate(**inputs_expanded, min_new_tokens=20, max_new_tokens=20)
-
-        # check that both inputs are handled correctly and generate the same output
-        self.assertListEqual(output_expanded[:, -20:].tolist(), output[:, -20:].tolist())
-
-    @slow
-    @require_bitsandbytes
-    def test_expansion_in_processing(self):
-        model_id = "llava-hf/llava-v1.6-mistral-7b-hf"
-        model = LlavaNextForConditionalGeneration.from_pretrained(model_id, load_in_4bit=True)
-        processor = AutoProcessor.from_pretrained(model_id)
-
-        prompt = "USER: <image>\nDescribe the image:\nASSISTANT:"
-        image_file = "http://images.cocodataset.org/val2017/000000039769.jpg"
-        raw_image = Image.open(requests.get(image_file, stream=True).raw)
-
-        # check processing with expansion of inputs
-        processor.vision_feature_select_strategy = "default"
-        processor.patch_size = 14
-        processor.num_additional_image_tokens = 1
-        inputs_expanded = processor(images=raw_image, text=prompt, return_tensors="pt").to(torch_device, torch.float16)
-        self.assertTrue(inputs_expanded.input_ids.shape[-1] == 2356)
-
-        # check processing without expansion of inputs (legacy behavior)
-        processor.vision_feature_select_strategy = None
-        processor.patch_size = None
-        processor.num_additional_image_tokens = None
-        inputs = processor(images=raw_image, text=prompt, return_tensors="pt").to(torch_device, torch.float16)
-        self.assertTrue(inputs.input_ids.shape[-1] == 17)
-
-        # generate exactly 20 tokens
-        output = model.generate(**inputs, min_new_tokens=20, max_new_tokens=20)
-        output_expanded = model.generate(**inputs_expanded, min_new_tokens=20, max_new_tokens=20)
-
-        # check that both inputs are handled correctly and generate the same output
-        self.assertListEqual(output_expanded[:, -20:].tolist(), output[:, -20:].tolist())
-
-    @slow
-    @require_bitsandbytes
     def test_small_model_integration_test_full_vision_state_selection(self):
         model = LlavaNextForConditionalGeneration.from_pretrained(
             "llava-hf/llava-v1.6-mistral-7b-hf",
@@ -685,7 +613,7 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
         # test that changing `strategy` won't error out
         model.vision_feature_select_strategy = "full"
 
-        inputs = self.processor(self.prompt, self.image, return_tensors="pt")
+        inputs = self.processor(self.prompt, self.image, return_tensors="pt").to(model.device)
 
         # verify generation
         output = model.generate(**inputs, max_new_tokens=30)

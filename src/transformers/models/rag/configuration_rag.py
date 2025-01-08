@@ -181,3 +181,6 @@ class RagConfig(PretrainedConfig):
             [`EncoderDecoderConfig`]: An instance of a configuration object
         """
         return cls(question_encoder=question_encoder_config.to_dict(), generator=generator_config.to_dict(), **kwargs)
+
+
+__all__ = ["RagConfig"]

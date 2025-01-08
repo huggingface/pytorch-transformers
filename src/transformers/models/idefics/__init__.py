@@ -1,4 +1,4 @@
-# Copyright 2022 The HuggingFace Team. All rights reserved.
+# Copyright 2024 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,87 +13,18 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import (
-    OptionalDependencyNotAvailable,
-    _LazyModule,
-    is_tf_available,
-    is_torch_available,
-    is_vision_available,
-)
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
-
-_import_structure = {"configuration_idefics": ["IdeficsConfig"]}
-
-try:
-    if not is_vision_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["image_processing_idefics"] = ["IdeficsImageProcessor"]
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_idefics"] = [
-        "IdeficsForVisionText2Text",
-        "IdeficsModel",
-        "IdeficsPreTrainedModel",
-    ]
-    _import_structure["processing_idefics"] = ["IdeficsProcessor"]
-
-try:
-    if not is_tf_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_tf_idefics"] = [
-        "TFIdeficsForVisionText2Text",
-        "TFIdeficsModel",
-        "TFIdeficsPreTrainedModel",
-    ]
 
 if TYPE_CHECKING:
-    from .configuration_idefics import IdeficsConfig
-
-    try:
-        if not is_vision_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .image_processing_idefics import IdeficsImageProcessor
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_idefics import (
-            IdeficsForVisionText2Text,
-            IdeficsModel,
-            IdeficsPreTrainedModel,
-        )
-        from .processing_idefics import IdeficsProcessor
-
-    try:
-        if not is_tf_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_tf_idefics import (
-            TFIdeficsForVisionText2Text,
-            TFIdeficsModel,
-            TFIdeficsPreTrainedModel,
-        )
-
+    from .configuration_idefics import *
+    from .image_processing_idefics import *
+    from .modeling_idefics import *
+    from .modeling_tf_idefics import *
+    from .processing_idefics import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

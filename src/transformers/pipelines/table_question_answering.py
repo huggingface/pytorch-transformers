@@ -358,6 +358,13 @@ class TableQuestionAnsweringPipeline(Pipeline):
         forward_params = {}
         if sequential is not None:
             forward_params["sequential"] = sequential
+
+        if self.assistant_model is not None:
+            forward_params["assistant_model"] = self.assistant_model
+        if self.assistant_tokenizer is not None:
+            forward_params["tokenizer"] = self.tokenizer
+            forward_params["assistant_tokenizer"] = self.assistant_tokenizer
+
         return preprocess_params, forward_params, {}
 
     def preprocess(self, pipeline_input, sequential=None, padding=True, truncation=None):

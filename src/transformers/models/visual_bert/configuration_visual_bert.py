@@ -130,3 +130,6 @@ class VisualBertConfig(PretrainedConfig):
         self.layer_norm_eps = layer_norm_eps
         self.bypass_transformer = bypass_transformer
         self.special_visual_initialize = special_visual_initialize
+
+
+__all__ = ["VisualBertConfig"]

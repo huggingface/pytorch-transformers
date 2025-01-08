@@ -1382,3 +1382,12 @@ class LayoutLMv3ForSequenceClassification(LayoutLMv3PreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "LayoutLMv3ForQuestionAnswering",
+    "LayoutLMv3ForSequenceClassification",
+    "LayoutLMv3ForTokenClassification",
+    "LayoutLMv3Model",
+    "LayoutLMv3PreTrainedModel",
+]

@@ -1633,3 +1633,6 @@ class TFSwinForImageClassification(TFSwinPreTrainedModel, TFSequenceClassificati
             if hasattr(self.classifier, "name"):
                 with tf.name_scope(self.classifier.name):
                     self.classifier.build([None, None, self.swin.num_features])
+
+
+__all__ = ["TFSwinForImageClassification", "TFSwinForMaskedImageModeling", "TFSwinModel", "TFSwinPreTrainedModel"]

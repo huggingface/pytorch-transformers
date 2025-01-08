@@ -253,7 +253,7 @@ class PixtralProcessorTest(ProcessorTesterMixin, unittest.TestCase):
             "USER: [IMG]\nWhat's the content of the image? ASSISTANT:",
         ] * 5
         processor.tokenizer.pad_token = "</s>"
-        image_inputs = [self.image_0] * 5
+        image_inputs = [[self.image_0]] * 5
 
         # Make small for checking image token expansion
         processor.image_processor.size = {"longest_edge": 30}

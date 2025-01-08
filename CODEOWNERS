@@ -1,0 +1,26 @@
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence,
+# @global-owner1 and @global-owner2 will be requested for
+# review when someone opens a pull request.
+*       @Rocketknight1 # if no one is pinged based on the other rules, he will do the dispatch
+**.md @stevhliu
+docs/ @stevhliu
+/benchmark/ @McPatate
+/src/transformers/models/*/*processing* @molbap @yonigozlan @qubvel
+/src/transformers/models/*/image_processing* @qubvel
+/src/transformers/models/*/image_processing_*_fast* @yonigozlan
+/src/transformers/models/*/*_modeling* @Rocketknight1
+/src/transformers/**/*_tokenization* @ArthurZucker
+/src/transformers/generation/ @gante
+trainer.py @muellerzr @SunMarc
+/src/transformers/pipeline @Rocketknight1 @yonigozlan
+/src/transformers/integrations @SunMarc @MekkCyber @muellerzr
+/src/transformers/quantizers @SunMarc @MekkCyber
+/src/transformers/tests @ydshieh
+/src/transformers/models/auto @ArthurZucker
+/src/transformers/utils @ArthurZucker @Rocketknight1
+/docker @ydshieh @ArthurZucker
+/src/transformers/loss @ArthurZucker
+/src/transformers/onnx @michaelbenayoun
+/.circleci/config.yml @ArthurZucker @ydshieh
+/utils/tests_fetcher.py @ydshieh

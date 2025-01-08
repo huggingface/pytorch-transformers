@@ -1110,3 +1110,15 @@ class NystromformerForQuestionAnswering(NystromformerPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "NystromformerForMaskedLM",
+    "NystromformerForMultipleChoice",
+    "NystromformerForQuestionAnswering",
+    "NystromformerForSequenceClassification",
+    "NystromformerForTokenClassification",
+    "NystromformerLayer",
+    "NystromformerModel",
+    "NystromformerPreTrainedModel",
+]

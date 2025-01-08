@@ -230,3 +230,6 @@ class PatchTSMixerConfig(PretrainedConfig):
         self.unmasked_channel_indices = unmasked_channel_indices
         self.norm_eps = norm_eps
         super().__init__(**kwargs)
+
+
+__all__ = ["PatchTSMixerConfig"]

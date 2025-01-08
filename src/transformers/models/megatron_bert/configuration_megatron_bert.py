@@ -124,3 +124,6 @@ class MegatronBertConfig(PretrainedConfig):
         self.layer_norm_eps = layer_norm_eps
         self.position_embedding_type = position_embedding_type
         self.use_cache = use_cache
+
+
+__all__ = ["MegatronBertConfig"]

@@ -251,3 +251,6 @@ class Mask2FormerConfig(PretrainedConfig):
             backbone_config=backbone_config,
             **kwargs,
         )
+
+
+__all__ = ["Mask2FormerConfig"]

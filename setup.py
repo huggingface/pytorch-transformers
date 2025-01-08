@@ -182,7 +182,7 @@ _deps = [
     "tiktoken",
     "timm<=1.0.11",
     "tokenizers>=0.21,<0.22",
-    "torch",
+    "torch>=2.0",
     "torchaudio",
     "torchvision",
     "pyctcdecode>=0.4.0",

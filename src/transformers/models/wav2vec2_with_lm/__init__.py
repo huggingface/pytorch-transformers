@@ -1,4 +1,4 @@
-# Copyright 2021 The HuggingFace Team. All rights reserved.
+# Copyright 2024 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@
 from typing import TYPE_CHECKING
 
 from ...utils import _LazyModule
-
-
-_import_structure = {"processing_wav2vec2_with_lm": ["Wav2Vec2ProcessorWithLM"]}
+from ...utils.import_utils import define_import_structure
 
 
 if TYPE_CHECKING:
-    from .processing_wav2vec2_with_lm import Wav2Vec2ProcessorWithLM
+    from .processing_wav2vec2_with_lm import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

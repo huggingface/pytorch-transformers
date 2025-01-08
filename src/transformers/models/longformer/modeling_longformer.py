@@ -2322,3 +2322,15 @@ class LongformerForMultipleChoice(LongformerPreTrainedModel):
             attentions=outputs.attentions,
             global_attentions=outputs.global_attentions,
         )
+
+
+__all__ = [
+    "LongformerForMaskedLM",
+    "LongformerForMultipleChoice",
+    "LongformerForQuestionAnswering",
+    "LongformerForSequenceClassification",
+    "LongformerForTokenClassification",
+    "LongformerModel",
+    "LongformerPreTrainedModel",
+    "LongformerSelfAttention",
+]

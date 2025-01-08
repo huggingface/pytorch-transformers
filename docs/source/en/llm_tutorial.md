@@ -265,8 +265,9 @@ While the autoregressive generation process is relatively straightforward, makin
 
 ### Related libraries
 
-1. [`optimum`](https://github.com/huggingface/optimum), an extension of 🤗 Transformers that optimizes for specific hardware devices.
+1. [`optimum`](https://github.com/huggingface/optimum), an extension of 🤗 Transformers that optimizes for specific hardware devices;
 2. [`outlines`](https://github.com/outlines-dev/outlines), a library where you can constrain text generation (e.g. to generate JSON files);
-3. [`SynCode`](https://github.com/uiuc-focal-lab/syncode), a library for context-free grammar guided generation. (e.g. JSON, SQL, Python)
+3. [`SynCode`](https://github.com/uiuc-focal-lab/syncode), a library for context-free grammar guided generation (e.g. JSON, SQL, Python);
 4. [`text-generation-inference`](https://github.com/huggingface/text-generation-inference), a production-ready server for LLMs;
 5. [`text-generation-webui`](https://github.com/oobabooga/text-generation-webui), a UI for text generation;
+6. [`logits-processor-zoo`](https://github.com/NVIDIA/logits-processor-zoo), containing additional options to control text generation with 🤗 Transformers. See our related [blog post](https://huggingface.co/blog/logits-processor-zoo).

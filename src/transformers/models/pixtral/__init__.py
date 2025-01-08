@@ -13,81 +13,18 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import (
-    OptionalDependencyNotAvailable,
-    _LazyModule,
-    is_torch_available,
-    is_torchvision_available,
-    is_vision_available,
-)
-
-
-_import_structure = {
-    "configuration_pixtral": ["PixtralVisionConfig"],
-    "processing_pixtral": ["PixtralProcessor"],
-}
-
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_pixtral"] = [
-        "PixtralVisionModel",
-        "PixtralPreTrainedModel",
-    ]
-
-try:
-    if not is_vision_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["image_processing_pixtral"] = ["PixtralImageProcessor"]
-
-try:
-    if not is_torchvision_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["image_processing_pixtral_fast"] = ["PixtralImageProcessorFast"]
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
 
 if TYPE_CHECKING:
-    from .configuration_pixtral import PixtralVisionConfig
-    from .processing_pixtral import PixtralProcessor
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_pixtral import (
-            PixtralPreTrainedModel,
-            PixtralVisionModel,
-        )
-
-    try:
-        if not is_vision_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .image_processing_pixtral import PixtralImageProcessor
-
-    try:
-        if not is_torchvision_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .image_processing_pixtral_fast import PixtralImageProcessorFast
-
+    from .configuration_pixtral import *
+    from .image_processing_pixtral import *
+    from .image_processing_pixtral_fast import *
+    from .modeling_pixtral import *
+    from .processing_pixtral import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

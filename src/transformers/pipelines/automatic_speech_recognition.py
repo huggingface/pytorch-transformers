@@ -348,6 +348,12 @@ class AutomaticSpeechRecognitionPipeline(ChunkPipeline):
                 raise ValueError("Only Whisper can return language for now.")
             postprocess_params["return_language"] = return_language
 
+        if self.assistant_model is not None:
+            forward_params["assistant_model"] = self.assistant_model
+        if self.assistant_tokenizer is not None:
+            forward_params["tokenizer"] = self.tokenizer
+            forward_params["assistant_tokenizer"] = self.assistant_tokenizer
+
         return preprocess_params, forward_params, postprocess_params
 
     def preprocess(self, inputs, chunk_length_s=0, stride_length_s=None):

@@ -299,6 +299,9 @@ def check_attribute_being_used(config_class, attributes, default_value, source_s
         "unk_index",
         "mask_index",
         "image_token_index",  # for VLMs
+        "video_token_index",
+        "image_seq_length",
+        "video_seq_length",
         "image_size",
         "use_cache",
         "out_features",

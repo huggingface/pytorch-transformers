@@ -27,7 +27,7 @@ from ...test_processing_common import ProcessorTesterMixin
 
 
 if is_vision_available():
-    from transformers import CLIPImageProcessor
+    from transformers import LlavaNextImageProcessor
 
 
 @require_vision
@@ -37,7 +37,7 @@ class LlavaNextProcessorTest(ProcessorTesterMixin, unittest.TestCase):
     def setUp(self):
         self.tmpdirname = tempfile.mkdtemp()
 
-        image_processor = CLIPImageProcessor()
+        image_processor = LlavaNextImageProcessor()
         tokenizer = LlamaTokenizerFast.from_pretrained("huggyllama/llama-7b")
         processor_kwargs = self.prepare_processor_dict()
         processor = LlavaNextProcessor(image_processor, tokenizer, **processor_kwargs)
@@ -50,7 +50,7 @@ class LlavaNextProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         return LlavaNextProcessor.from_pretrained(self.tmpdirname, **kwargs).image_processor
 
     def prepare_processor_dict(self):
-        return {"chat_template": "dummy_template"}
+        return {"chat_template": "dummy_template", "patch_size": 3, "vision_feature_select_strategy": "default"}
 
     @unittest.skip(
         "Skip because the model has no processor kwargs except for chat template and"

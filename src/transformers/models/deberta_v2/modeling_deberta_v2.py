@@ -1506,3 +1506,14 @@ class DebertaV2ForMultipleChoice(DebertaV2PreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "DebertaV2ForMaskedLM",
+    "DebertaV2ForMultipleChoice",
+    "DebertaV2ForQuestionAnswering",
+    "DebertaV2ForSequenceClassification",
+    "DebertaV2ForTokenClassification",
+    "DebertaV2Model",
+    "DebertaV2PreTrainedModel",
+]

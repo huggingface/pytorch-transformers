@@ -125,19 +125,19 @@ def prepare_video_inputs(
     assert not (numpify and torchify), "You cannot specify both numpy and PyTorch tensors at the same time"
 
     video_inputs = []
-    for i in range(batch_size):
+    for _ in range(batch_size):
         if equal_resolution:
             width = height = max_resolution
         else:
             width, height = np.random.choice(np.arange(min_resolution, max_resolution), 2)
-            video = prepare_video(
-                num_frames=num_frames,
-                num_channels=num_channels,
-                width=width,
-                height=height,
-                numpify=numpify,
-                torchify=torchify,
-            )
+        video = prepare_video(
+            num_frames=num_frames,
+            num_channels=num_channels,
+            width=width,
+            height=height,
+            numpify=numpify,
+            torchify=torchify,
+        )
         video_inputs.append(video)
 
     return video_inputs

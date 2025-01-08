@@ -3061,6 +3061,7 @@ class ModelTesterMixin:
             with torch.no_grad():
                 _ = model(**self._prepare_for_class(inputs_dict, model_class))
 
+    @require_torch_gpu
     @require_torch_multi_gpu
     def test_model_parallelization(self):
         if not self.test_model_parallel:
@@ -3123,6 +3124,7 @@ class ModelTesterMixin:
             gc.collect()
             torch.cuda.empty_cache()
 
+    @require_torch_gpu
     @require_torch_multi_gpu
     def test_model_parallel_equal_results(self):
         if not self.test_model_parallel:

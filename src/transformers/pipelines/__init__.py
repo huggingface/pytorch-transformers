@@ -494,7 +494,7 @@ def get_task(model: str, token: Optional[str] = None, **deprecated_kwargs) -> st
         raise RuntimeError(
             f"The model {model} does not seem to have a correct `pipeline_tag` set to infer the task automatically"
         )
-    if getattr(info, "library_name", "transformers") != "transformers":
+    if getattr(info, "library_name", "transformers") not in {"transformers", "timm"}:
         raise RuntimeError(f"This model is meant to be used with {info.library_name} not with transformers")
     task = info.pipeline_tag
     return task

@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_clipseg import *
-    from .convert_clipseg_original_pytorch_to_hf import *
     from .modeling_clipseg import *
     from .processing_clipseg import *
 else:

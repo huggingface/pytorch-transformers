@@ -1331,3 +1331,14 @@ class TFFlaubertForMultipleChoice(TFFlaubertPreTrainedModel, TFMultipleChoiceLos
         if getattr(self, "logits_proj", None) is not None:
             with tf.name_scope(self.logits_proj.name):
                 self.logits_proj.build([None, None, self.config.num_labels])
+
+
+__all__ = [
+    "TFFlaubertForMultipleChoice",
+    "TFFlaubertForQuestionAnsweringSimple",
+    "TFFlaubertForSequenceClassification",
+    "TFFlaubertForTokenClassification",
+    "TFFlaubertModel",
+    "TFFlaubertPreTrainedModel",
+    "TFFlaubertWithLMHeadModel",
+]

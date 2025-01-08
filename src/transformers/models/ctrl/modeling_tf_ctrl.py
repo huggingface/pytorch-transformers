@@ -926,3 +926,6 @@ class TFCTRLForSequenceClassification(TFCTRLPreTrainedModel, TFSequenceClassific
         if getattr(self, "transformer", None) is not None:
             with tf.name_scope(self.transformer.name):
                 self.transformer.build(None)
+
+
+__all__ = ["TFCTRLForSequenceClassification", "TFCTRLLMHeadModel", "TFCTRLModel", "TFCTRLPreTrainedModel"]

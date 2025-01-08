@@ -529,7 +529,7 @@ class Idefics2ImageProcessor(BaseImageProcessor):
         # All transformations expect numpy arrays.
         images_list = [[to_numpy_array(image) for image in images] for images in images_list]
 
-        if is_scaled_image(images_list[0][0]) and do_rescale:
+        if do_rescale and is_scaled_image(images_list[0][0]):
             logger.warning_once(
                 "It looks like you are trying to rescale already rescaled images. If the input"
                 " images have pixel values between 0 and 1, set `do_rescale=False` to avoid rescaling them again."
@@ -595,3 +595,6 @@ class Idefics2ImageProcessor(BaseImageProcessor):
             data["pixel_attention_mask"] = np.array(pixel_attention_mask) if do_pad else pixel_attention_mask
 
         return BatchFeature(data=data, tensor_type=return_tensors)
+
+
+__all__ = ["Idefics2ImageProcessor"]

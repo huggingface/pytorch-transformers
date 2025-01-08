@@ -227,6 +227,7 @@ def hp_params(trial):
 
 def run_hp_search_optuna(trainer, n_trials: int, direction: str, **kwargs) -> BestRun:
     import optuna
+    from accelerate.utils.memory import release_memory
 
     if trainer.args.process_index == 0:
 
@@ -251,6 +252,11 @@ def run_hp_search_optuna(trainer, n_trials: int, direction: str, **kwargs) -> Be
             if getattr(trainer, "objective", None) is None:
                 metrics = trainer.evaluate()
                 trainer.objective = trainer.compute_objective(metrics)
+
+            # Free GPU memory
+            trainer.model_wrapped, trainer.model = release_memory(trainer.model_wrapped, trainer.model)
+            trainer.accelerator.clear()
+
             return trainer.objective
 
         timeout = kwargs.pop("timeout", None)

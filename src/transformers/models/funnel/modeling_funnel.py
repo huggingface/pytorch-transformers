@@ -1592,3 +1592,17 @@ class FunnelForQuestionAnswering(FunnelPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "FunnelBaseModel",
+    "FunnelForMaskedLM",
+    "FunnelForMultipleChoice",
+    "FunnelForPreTraining",
+    "FunnelForQuestionAnswering",
+    "FunnelForSequenceClassification",
+    "FunnelForTokenClassification",
+    "FunnelModel",
+    "FunnelPreTrainedModel",
+    "load_tf_weights_in_funnel",
+]

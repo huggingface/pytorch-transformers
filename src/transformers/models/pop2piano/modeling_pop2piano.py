@@ -1476,3 +1476,6 @@ class Pop2PianoForConditionalGeneration(Pop2PianoPreTrainedModel, GenerationMixi
 
             reordered_decoder_past = reordered_decoder_past + (reordered_layer_past_states,)
         return reordered_decoder_past
+
+
+__all__ = ["Pop2PianoForConditionalGeneration", "Pop2PianoPreTrainedModel"]

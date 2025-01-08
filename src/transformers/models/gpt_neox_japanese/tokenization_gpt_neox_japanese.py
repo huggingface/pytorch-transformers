@@ -349,3 +349,6 @@ class SubWordJapaneseTokenizer:
             words.append(bytearray(byte_tokens).decode("utf-8", errors="replace"))
         text = "".join(words)
         return text
+
+
+__all__ = ["GPTNeoXJapaneseTokenizer"]

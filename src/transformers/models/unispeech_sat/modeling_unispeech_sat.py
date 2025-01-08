@@ -2229,3 +2229,14 @@ class UniSpeechSatForXVector(UniSpeechSatPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "UniSpeechSatForAudioFrameClassification",
+    "UniSpeechSatForCTC",
+    "UniSpeechSatForPreTraining",
+    "UniSpeechSatForSequenceClassification",
+    "UniSpeechSatForXVector",
+    "UniSpeechSatModel",
+    "UniSpeechSatPreTrainedModel",
+]

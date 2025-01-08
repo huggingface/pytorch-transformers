@@ -19,6 +19,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from ...configuration_utils import PretrainedConfig
 from ...utils.backbone_utils import BackboneConfigMixin, get_aligned_output_features_output_indices
 
@@ -69,10 +70,6 @@ class Dinov2WithRegistersConfig(BackboneConfigMixin, PretrainedConfig):
             Whether to use the SwiGLU feedforward neural network.
         num_register_tokens (`int`, *optional*, defaults to 4):
             Number of register tokens to use.
-        interpolate_antialias (`bool`, *optional*, defaults to `True`):
-            Whether to use antialiasing when interpolating the image patches.
-        interpolate_offset (`float`, *optional*, defaults to 0.0):
-            Offset to use when interpolating the image patches.
         out_features (`List[str]`, *optional*):
             If used as backbone, list of features to output. Can be any of `"stem"`, `"stage1"`, `"stage2"`, etc.
             (depending on how many stages the model has). If unset and `out_indices` is set, will default to the
@@ -105,7 +102,7 @@ class Dinov2WithRegistersConfig(BackboneConfigMixin, PretrainedConfig):
     >>> configuration = model.config
     ```"""
 
-    model_type = "dinov2-with-registers-base"
+    model_type = "dinov2_with_registers"
 
     def __init__(
         self,
@@ -126,8 +123,6 @@ class Dinov2WithRegistersConfig(BackboneConfigMixin, PretrainedConfig):
         drop_path_rate=0.0,
         use_swiglu_ffn=False,
         num_register_tokens=4,
-        interpolate_antialias=True,
-        interpolate_offset=0.0,
         out_features=None,
         out_indices=None,
         apply_layernorm=True,
@@ -153,8 +148,6 @@ class Dinov2WithRegistersConfig(BackboneConfigMixin, PretrainedConfig):
         self.drop_path_rate = drop_path_rate
         self.use_swiglu_ffn = use_swiglu_ffn
         self.num_register_tokens = num_register_tokens
-        self.interpolate_antialias = interpolate_antialias
-        self.interpolate_offset = interpolate_offset
         self.stage_names = ["stem"] + [f"stage{idx}" for idx in range(1, num_hidden_layers + 1)]
         self._out_features, self._out_indices = get_aligned_output_features_output_indices(
             out_features=out_features, out_indices=out_indices, stage_names=self.stage_names

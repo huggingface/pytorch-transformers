@@ -360,3 +360,6 @@ def get_default_vocab_list():
         "<null_1>",
         "<mask>",
     )
+
+
+__all__ = ["EsmConfig"]

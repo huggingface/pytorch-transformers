@@ -92,7 +92,7 @@ class AudioClassificationPipeline(Pipeline):
 
     def __init__(self, *args, **kwargs):
         # Default, might be overriden by the model.config.
-        kwargs["top_k"] = 5
+        kwargs["top_k"] = kwargs.get("top_k", 5)
         super().__init__(*args, **kwargs)
 
         if self.framework != "pt":

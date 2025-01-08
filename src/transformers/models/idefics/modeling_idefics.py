@@ -747,7 +747,7 @@ class IdeficsDecoderLayer(nn.Module):
 
 
 class IdeficsGatedCrossAttentionLayer(nn.Module):
-    def __init__(self, config: IdeficsConfig):
+    def __init__(self, config: IdeficsConfig, layer_idx: int = None):
         super().__init__()
         self.hidden_size = config.hidden_size
         self.cross_attn = IdeficsAttention(
@@ -757,6 +757,7 @@ class IdeficsGatedCrossAttentionLayer(nn.Module):
             dropout=config.dropout,
             config=config,
             qk_layer_norms=config.qk_layer_norms,
+            layer_idx=layer_idx,
         )
         self.mlp = IdeficsMLP(
             hidden_size=self.hidden_size,
@@ -1048,7 +1049,7 @@ class IdeficsModel(IdeficsPreTrainedModel):
         self.cross_layer_interval = config.cross_layer_interval
         num_cross_layers = config.num_hidden_layers // self.cross_layer_interval
         self.gated_cross_attn_layers = nn.ModuleList(
-            [IdeficsGatedCrossAttentionLayer(config) for _ in range(num_cross_layers)]
+            [IdeficsGatedCrossAttentionLayer(config, layer_idx=i) for i in range(num_cross_layers)]
         )
         self.gradient_checkpointing = False
 
@@ -1747,3 +1748,6 @@ class IdeficsForVisionText2Text(IdeficsPreTrainedModel, GenerationMixin):
         for layer_past in past:
             reordered_past += (tuple(past_state.index_select(0, beam_idx) for past_state in layer_past),)
         return reordered_past
+
+
+__all__ = ["IdeficsForVisionText2Text", "IdeficsModel", "IdeficsPreTrainedModel"]

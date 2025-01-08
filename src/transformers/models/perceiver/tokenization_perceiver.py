@@ -195,3 +195,6 @@ class PerceiverTokenizer(PreTrainedTokenizer):
     # PerceiverTokenizer has no vocab file
     def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str]:
         return ()
+
+
+__all__ = ["PerceiverTokenizer"]

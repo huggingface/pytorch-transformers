@@ -330,6 +330,7 @@ IGNORE_NON_AUTO_CONFIGURED = PRIVATE_MODELS.copy() + [
     "SiglipVisionModel",
     "SiglipTextModel",
     "ChameleonVQVAE",  # no autoclass for VQ-VAE models
+    "VitPoseForPoseEstimation",
     "CLIPTextModel",
     "MoshiForConditionalGeneration",  # no auto class for speech-to-speech
 ]
@@ -993,6 +994,8 @@ UNDOCUMENTED_OBJECTS = [
     "logging",  # External module
     "requires_backends",  # Internal function
     "AltRobertaModel",  # Internal module
+    "VitPoseBackbone",  # Internal module
+    "VitPoseBackboneConfig",  # Internal module
 ]
 
 # This list should be empty. Objects in it should get their own doc page.
@@ -1020,6 +1023,7 @@ SHOULD_HAVE_THEIR_OWN_PAGE = [
     "ResNetBackbone",
     "SwinBackbone",
     "Swinv2Backbone",
+    "TextNetBackbone",
     "TimmBackbone",
     "TimmBackboneConfig",
     "VitDetBackbone",
@@ -1107,7 +1111,7 @@ def check_public_method_exists(documented_methods_map):
         try:
             obj_class = getattr(submodule, class_name)
         except AttributeError:
-            failures.append(f"Could not parse {submodule_name}. Are the required dependencies installed?")
+            failures.append(f"Could not parse {class_name}. Are the required dependencies installed?")
             continue
 
         # Checks that all explicitly documented methods are defined in the class

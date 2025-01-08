@@ -1034,3 +1034,12 @@ class TFSegformerForSemanticSegmentation(TFSegformerPreTrainedModel):
         if getattr(self, "decode_head", None) is not None:
             with tf.name_scope(self.decode_head.name):
                 self.decode_head.build(None)
+
+
+__all__ = [
+    "TFSegformerDecodeHead",
+    "TFSegformerForImageClassification",
+    "TFSegformerForSemanticSegmentation",
+    "TFSegformerModel",
+    "TFSegformerPreTrainedModel",
+]

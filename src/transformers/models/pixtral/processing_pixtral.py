@@ -22,7 +22,7 @@ from ...feature_extraction_utils import BatchFeature
 from ...image_utils import ImageInput, is_valid_image, load_image
 from ...processing_utils import ProcessingKwargs, ProcessorMixin, Unpack, _validate_images_text_input_order
 from ...tokenization_utils_base import PreTokenizedInput, TextInput
-from ...utils import is_torch_device, is_torch_dtype, is_torch_tensor, logging, requires_backends
+from ...utils import is_torch_device, is_torch_dtype, logging, requires_backends
 
 
 logger = logging.get_logger(__name__)
@@ -66,10 +66,24 @@ class BatchMixFeature(BatchFeature):
         Returns:
             [`BatchFeature`]: The same instance after modification.
         """
+
+        def _recursive_to(obj, device, *args, **kwargs):
+            # Lists can be nested, so keep digging until we hit tensors
+            if isinstance(obj, list):
+                return [_recursive_to(o, device, *args, **kwargs) for o in obj]
+            # We cast only floating point tensors to avoid issues with tokenizers casting `LongTensor` to `FloatTensor`
+            elif isinstance(obj, torch.Tensor) and torch.is_floating_point(obj):
+                # cast and send to device
+                return obj.to(*args, **kwargs)
+            elif isinstance(obj, torch.Tensor) and device is not None:
+                # only send to device, don't cast
+                return obj.to(device=device)
+            else:
+                return obj
+
         requires_backends(self, ["torch"])
         import torch  # noqa
 
-        new_data = {}
         device = kwargs.get("device")
         # Check if the args are a device or a dtype
         if device is None and len(args) > 0:
@@ -83,21 +97,8 @@ class BatchMixFeature(BatchFeature):
             else:
                 # it's something else
                 raise ValueError(f"Attempting to cast a BatchFeature to type {str(arg)}. This is not supported.")
-        # We cast only floating point tensors to avoid issues with tokenizers casting `LongTensor` to `FloatTensor`
-        for k, v in self.items():
-            # check if v is a floating point
-            if isinstance(v, list):
-                new_data[k] = [
-                    element.to(*args, **kwargs) for sample in v for element in sample if is_torch_tensor(element)
-                ]
-            elif isinstance(v, torch.Tensor) and torch.is_floating_point(v):
-                # cast and send to device
-                new_data[k] = v.to(*args, **kwargs)
-            elif isinstance(v, torch.Tensor) and device is not None:
-                new_data[k] = v.to(device=device)
-            else:
-                new_data[k] = v
-        self.data = new_data
+
+        self.data = {k: _recursive_to(v, device, *args, **kwargs) for k, v in self.data.items()}
         return self
 
 
@@ -204,12 +205,21 @@ class PixtralProcessor(ProcessorMixin):
 
         if images is not None:
             if is_image_or_image_url(images):
-                images = [[images]]
-            elif isinstance(images, list) and is_image_or_image_url(images[0]):
-                if isinstance(text, list):
-                    images = [[im] for im in images]
+                if isinstance(text, str) or isinstance(text, list) and len(text) == 1:
+                    # If there's a single sample, the image must belong to it
+                    images = [[images]]
                 else:
+                    raise ValueError(
+                        "You have supplied multiple text samples, but `images` is not a nested list. When processing multiple samples, `images` should be a list of lists of images, one list per sample."
+                    )
+            elif isinstance(images, list) and is_image_or_image_url(images[0]):
+                if isinstance(text, str) or isinstance(text, list) and len(text) == 1:
+                    # If there's a single sample, all images must belong to it
                     images = [images]
+                else:
+                    raise ValueError(
+                        "You have supplied multiple text samples, but `images` is not a nested list. When processing multiple samples, `images` should be a list of lists of images, one list per sample."
+                    )
             elif isinstance(images, list) and isinstance(images[0], list) and is_image_or_image_url(images[0][0]):
                 pass
             else:
@@ -281,3 +291,6 @@ class PixtralProcessor(ProcessorMixin):
         tokenizer_input_names = self.tokenizer.model_input_names
         image_processor_input_names = self.image_processor.model_input_names
         return list(dict.fromkeys(tokenizer_input_names + image_processor_input_names))
+
+
+__all__ = ["PixtralProcessor"]

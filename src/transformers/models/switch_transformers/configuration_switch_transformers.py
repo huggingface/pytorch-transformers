@@ -180,3 +180,6 @@ class SwitchTransformersConfig(PretrainedConfig):
             is_encoder_decoder=is_encoder_decoder,
             **kwargs,
         )
+
+
+__all__ = ["SwitchTransformersConfig"]

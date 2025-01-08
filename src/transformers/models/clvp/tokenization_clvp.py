@@ -362,3 +362,6 @@ class ClvpTokenizer(PreTrainedTokenizer):
                 index += 1
 
         return vocab_file, merge_file
+
+
+__all__ = ["ClvpTokenizer"]

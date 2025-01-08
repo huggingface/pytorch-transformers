@@ -188,3 +188,6 @@ class PLBartOnnxConfig(OnnxConfigWithPast):
                     ("encoder_last_hidden_state", {0: "batch", 1: "sequence"}),
                 ]
             )
+
+
+__all__ = ["PLBartConfig"]

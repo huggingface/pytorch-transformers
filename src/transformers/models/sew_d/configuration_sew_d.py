@@ -286,3 +286,6 @@ class SEWDConfig(PretrainedConfig):
         output = super().to_dict()
         output["hidden_dropout"] = output.pop("_hidden_dropout")
         return output
+
+
+__all__ = ["SEWDConfig"]

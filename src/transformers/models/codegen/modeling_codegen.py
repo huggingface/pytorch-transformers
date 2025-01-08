@@ -809,3 +809,6 @@ class CodeGenForCausalLM(CodeGenPreTrainedModel, GenerationMixin):
             tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past)
             for layer_past in past_key_values
         )
+
+
+__all__ = ["CodeGenForCausalLM", "CodeGenModel", "CodeGenPreTrainedModel"]

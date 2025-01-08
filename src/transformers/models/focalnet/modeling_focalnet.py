@@ -1027,3 +1027,12 @@ class FocalNetBackbone(FocalNetPreTrainedModel, BackboneMixin):
             hidden_states=outputs.hidden_states if output_hidden_states else None,
             attentions=None,
         )
+
+
+__all__ = [
+    "FocalNetForImageClassification",
+    "FocalNetForMaskedImageModeling",
+    "FocalNetBackbone",
+    "FocalNetModel",
+    "FocalNetPreTrainedModel",
+]

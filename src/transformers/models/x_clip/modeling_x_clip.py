@@ -1675,3 +1675,6 @@ class XCLIPModel(XCLIPPreTrainedModel):
             vision_model_output=vision_outputs,
             mit_output=mit_outputs,
         )
+
+
+__all__ = ["XCLIPModel", "XCLIPPreTrainedModel", "XCLIPTextModel", "XCLIPVisionModel"]

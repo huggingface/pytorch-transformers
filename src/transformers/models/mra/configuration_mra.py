@@ -132,3 +132,6 @@ class MraConfig(PretrainedConfig):
         self.approx_mode = approx_mode
         self.initial_prior_first_n_blocks = initial_prior_first_n_blocks
         self.initial_prior_diagonal_n_blocks = initial_prior_diagonal_n_blocks
+
+
+__all__ = ["MraConfig"]

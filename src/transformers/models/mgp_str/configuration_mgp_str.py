@@ -132,3 +132,6 @@ class MgpstrConfig(PretrainedConfig):
         self.drop_path_rate = drop_path_rate
         self.output_a3_attentions = output_a3_attentions
         self.initializer_range = initializer_range
+
+
+__all__ = ["MgpstrConfig"]

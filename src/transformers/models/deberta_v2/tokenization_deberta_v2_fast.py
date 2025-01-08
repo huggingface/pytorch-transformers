@@ -218,3 +218,6 @@ class DebertaV2TokenizerFast(PreTrainedTokenizerFast):
             copyfile(self.vocab_file, out_vocab_file)
 
         return (out_vocab_file,)
+
+
+__all__ = ["DebertaV2TokenizerFast"]

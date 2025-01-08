@@ -2082,3 +2082,16 @@ class XLNetForQuestionAnswering(XLNetPreTrainedModel):
                     hidden_states=transformer_outputs.hidden_states,
                     attentions=transformer_outputs.attentions,
                 )
+
+
+__all__ = [
+    "XLNetForMultipleChoice",
+    "XLNetForQuestionAnswering",
+    "XLNetForQuestionAnsweringSimple",
+    "XLNetForSequenceClassification",
+    "XLNetForTokenClassification",
+    "XLNetLMHeadModel",
+    "XLNetModel",
+    "XLNetPreTrainedModel",
+    "load_tf_weights_in_xlnet",
+]

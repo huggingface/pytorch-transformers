@@ -22,7 +22,7 @@ from transformers.models.qwen2_vl.image_processing_qwen2_vl import smart_resize
 from transformers.testing_utils import require_torch, require_vision
 from transformers.utils import is_torch_available, is_vision_available
 
-from ...test_image_processing_common import ImageProcessingTestMixin, prepare_image_inputs
+from ...test_image_processing_common import ImageProcessingTestMixin, prepare_image_inputs, prepare_video_inputs
 
 
 if is_torch_available():
@@ -40,6 +40,7 @@ class Qwen2VLImageProcessingTester:
         parent,
         batch_size=7,
         num_channels=3,
+        num_frames=10,
         min_resolution=56,
         max_resolution=1024,
         min_pixels=56 * 56,
@@ -58,6 +59,7 @@ class Qwen2VLImageProcessingTester:
         self.min_resolution = min_resolution
         self.max_resolution = max_resolution
         self.num_channels = num_channels
+        self.num_frames = num_frames
         self.image_mean = OPENAI_CLIP_MEAN
         self.image_std = OPENAI_CLIP_STD
         self.min_pixels = min_pixels
@@ -94,6 +96,18 @@ class Qwen2VLImageProcessingTester:
             torchify=torchify,
         )
         return [[image] for image in images]
+
+    def prepare_video_inputs(self, equal_resolution=False, numpify=False, torchify=False):
+        return prepare_video_inputs(
+            batch_size=self.batch_size,
+            num_channels=self.num_channels,
+            num_frames=self.num_frames,
+            min_resolution=self.min_resolution,
+            max_resolution=self.max_resolution,
+            equal_resolution=equal_resolution,
+            numpify=numpify,
+            torchify=torchify,
+        )
 
 
 @require_torch
@@ -247,3 +261,26 @@ class Qwen2VLImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         # Image processor should return same pixel values, independently of ipnut format
         self.assertTrue((encoded_images_nested == encoded_images).all())
         self.assertTrue((image_grid_thws_nested == expected_image_grid_thws).all())
+
+    def test_video_inputs(self):
+        image_processing = self.image_processing_class(**self.image_processor_dict)
+        expected_dims_by_frames = {1: 34300, 2: 34300, 3: 68600, 4: 68600, 5: 102900, 6: 102900}
+
+        for num_frames, expected_dims in expected_dims_by_frames.items():
+            image_processor_tester = Qwen2VLImageProcessingTester(self, num_frames=num_frames)
+            video_inputs = image_processor_tester.prepare_video_inputs(equal_resolution=True)
+            prcocess_out = image_processing(None, videos=video_inputs, return_tensors="pt")
+            encoded_video = prcocess_out.pixel_values_videos
+            expected_output_video_shape = (expected_dims, 1176)
+            self.assertEqual(tuple(encoded_video.shape), expected_output_video_shape)
+
+    def test_custom_patch_size(self):
+        image_processing = self.image_processing_class(**self.image_processor_dict)
+
+        for patch_size in (1, 3, 5, 7):
+            image_processor_tester = Qwen2VLImageProcessingTester(self, patch_size=patch_size)
+            video_inputs = image_processor_tester.prepare_video_inputs(equal_resolution=True)
+            prcocess_out = image_processing(None, videos=video_inputs, return_tensors="pt")
+            encoded_video = prcocess_out.pixel_values_videos
+            expected_output_video_shape = (171500, 1176)
+            self.assertEqual(tuple(encoded_video.shape), expected_output_video_shape)

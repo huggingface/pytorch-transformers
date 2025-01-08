@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_bart import *
-    from .convert_bart_original_pytorch_checkpoint_to_pytorch import *
     from .modeling_bart import *
     from .modeling_flax_bart import *
     from .modeling_tf_bart import *

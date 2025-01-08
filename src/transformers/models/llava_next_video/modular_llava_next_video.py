@@ -58,6 +58,8 @@ class LlavaNextVideoConfig(PretrainedConfig):
             The image token index to encode the image prompt.
         projector_hidden_act (`str`, *optional*, defaults to `"gelu"`):
             The activation function used by the multimodal projector.
+        multimodal_projector_bias (`bool`, *optional*, defaults to `True`):
+            Whether to use bias in the multimodal projector.
         vision_feature_select_strategy (`str`, *optional*, defaults to `"default"`):
             The feature selection strategy used to select the vision feature from the vision backbone.
             Can be one of `"default"` or `"full"`. If `"default"`, the CLS token is removed from the vision features.
@@ -109,6 +111,7 @@ class LlavaNextVideoConfig(PretrainedConfig):
         ignore_index=-100,
         image_token_index=32001,
         projector_hidden_act="gelu",
+        multimodal_projector_bias=True,
         vision_feature_select_strategy="default",
         vision_feature_layer=-2,
         image_grid_pinpoints=None,
@@ -128,6 +131,7 @@ class LlavaNextVideoConfig(PretrainedConfig):
         self.ignore_index = ignore_index
         self.image_token_index = image_token_index
         self.projector_hidden_act = projector_hidden_act
+        self.multimodal_projector_bias = multimodal_projector_bias
 
         if vision_feature_select_strategy not in ["default", "full"]:
             raise ValueError(
@@ -431,25 +435,9 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextForConditionalGeneration):
                 "and must specify either one"
             )
 
-        legacy_processing = False
         if inputs_embeds is None:
             inputs_embeds = self.get_input_embeddings()(input_ids)
 
-            # if the number of image/video tokens is more than image embeddings seq length, then prob we expanded it in processing
-            # not very reliable, but we don't expect one to actually pass 500+ images for one prompt
-            img_token_not_enough = (input_ids == self.config.image_token_index).sum(
-                1
-            ).max() < self.config.image_seq_length
-            video_token_not_enough = (input_ids == self.config.video_token_index).sum(
-                1
-            ).max() < self.config.video_seq_length
-            inputs_not_expanded = (img_token_not_enough and pixel_values is not None) or (
-                video_token_not_enough and pixel_values_videos is not None
-            )
-            pixels_present = input_ids.shape[-1] == 1 and (pixel_values is not None or pixel_values_videos is not None)
-            legacy_processing = inputs_not_expanded or pixels_present
-
-        image_features = feature_lens = None
         if pixel_values is not None and pixel_values.size(0) > 0:
             image_features = self.get_image_features(
                 pixel_values,
@@ -464,7 +452,17 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextForConditionalGeneration):
                 image_newline=self.image_newline,
             )
 
-        video_features = video_feature_lens = None
+            n_image_tokens = (input_ids == self.config.image_token_index).sum().item()
+            n_image_features = image_features.shape[0]
+            if n_image_tokens != n_image_features:
+                raise ValueError(
+                    f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
+                )
+            special_image_mask = (input_ids == self.config.image_token_index).unsqueeze(-1)
+            special_image_mask = special_image_mask.expand_as(inputs_embeds).to(inputs_embeds.device)
+            image_features = image_features.to(inputs_embeds.device, inputs_embeds.dtype)
+            inputs_embeds = inputs_embeds.masked_scatter(special_image_mask, image_features)
+
         if pixel_values_videos is not None and pixel_values_videos.size(0) > 0:
             video_features = self.get_video_features(
                 pixel_values_videos,
@@ -476,95 +474,16 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextForConditionalGeneration):
             video_features = torch.cat(video_features, dim=0)
             video_feature_lens = torch.tensor(video_feature_lens, dtype=torch.long, device=video_features.device)
 
-        if legacy_processing:
-            logger.warning_once(
-                "Expanding inputs for image.video tokens in LLaVa-NeXT-Video should be done in processing. "
-                "Please add `patch_size` and `vision_feature_select_strategy` to the model's processing config or set directly "
-                "with `processor.patch_size = {{patch_size}}` and processor.vision_feature_select_strategy = {{vision_feature_select_strategy}}`. "
-                "Using processors without these attributes in the config is deprecated and will throw an error in v4.47."
-            )
-            if input_ids.shape[1] != 1:
-                iterator = (
-                    (image_features, feature_lens, self.config.image_token_index),
-                    (video_features, video_feature_lens, self.config.video_token_index),
+            n_video_tokens = (input_ids == self.config.video_token_index).sum().item()
+            n_video_features = video_features.shape[0]
+            if n_video_tokens != n_video_features:
+                raise ValueError(
+                    f"Video features and video tokens do not match: tokens: {n_video_tokens}, features {n_video_features}"
                 )
-                for features, lens, special_token in iterator:
-                    if features is not None:
-                        (
-                            inputs_embeds,
-                            attention_mask,
-                            position_ids,
-                            labels,
-                            input_ids,
-                        ) = self._merge_input_ids_with_image_features(
-                            features,
-                            lens,
-                            inputs_embeds,
-                            input_ids,
-                            attention_mask,
-                            position_ids,
-                            labels=labels,
-                            image_token_index=special_token,
-                        )
-                cache_position = torch.arange(attention_mask.shape[1], device=attention_mask.device)
-            else:
-                # Retrieve the first layer to inspect the logits and mask out the hidden states that are set to 0
-                first_layer_past_key_value = past_key_values[0][0][:, :, :, 0]
-                # Sum all dimensions of head_dim (-2) to avoid random errors such as: https://github.com/huggingface/transformers/pull/28032#issuecomment-1863691941
-                batch_index, non_attended_tokens = torch.where(first_layer_past_key_value.float().sum(-2) == 0)
-                # Get the target length
-                target_length = input_ids.shape[1]
-                past_length = first_layer_past_key_value.shape[-1]
-                extended_attention_mask = torch.ones(
-                    (attention_mask.shape[0], past_length),
-                    dtype=attention_mask.dtype,
-                    device=attention_mask.device,
-                )
-                # Filter out only the tokens that can be un-attended, this can happen
-                # if one uses Llava + Fused modules where the cache on the
-                # first iteration is already big enough, or if one passes custom cache
-                valid_indices = non_attended_tokens < extended_attention_mask.size(-1)
-                new_batch_index = batch_index[valid_indices]
-                new_non_attended_tokens = non_attended_tokens[valid_indices]
-                # Zero-out the places where we don't need to attend
-                extended_attention_mask[new_batch_index, new_non_attended_tokens] = 0
-                attention_mask = torch.cat((extended_attention_mask, attention_mask[:, -target_length:]), dim=1)
-                position_ids = torch.sum(attention_mask, dim=1).unsqueeze(-1) - 1
-                cache_position = torch.arange(attention_mask.shape[1], device=attention_mask.device)[-target_length:]
-
-        # TODO: @raushan retain only the new behavior after v4.47
-        else:
-            if image_features is not None:
-                n_image_tokens = (input_ids == self.config.image_token_index).sum().item()
-                n_image_features = image_features.shape[0]
-
-                if n_image_tokens != n_image_features:
-                    raise ValueError(
-                        f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
-                    )
-                special_image_mask = (
-                    (input_ids == self.config.image_token_index)
-                    .unsqueeze(-1)
-                    .expand_as(inputs_embeds)
-                    .to(inputs_embeds.device)
-                )
-                image_features = image_features.to(inputs_embeds.device, inputs_embeds.dtype)
-                inputs_embeds = inputs_embeds.masked_scatter(special_image_mask, image_features)
-            if video_features is not None:
-                n_video_tokens = (input_ids == self.config.video_token_index).sum().item()
-                n_video_features = video_features.shape[0]
-                if n_video_tokens != n_video_features:
-                    raise ValueError(
-                        f"Video features and video tokens do not match: tokens: {n_video_tokens}, features {n_video_features}"
-                    )
-                special_image_mask = (
-                    (input_ids == self.config.video_token_index)
-                    .unsqueeze(-1)
-                    .expand_as(inputs_embeds)
-                    .to(inputs_embeds.device)
-                )
-                video_features = video_features.to(inputs_embeds.device, inputs_embeds.dtype)
-                inputs_embeds = inputs_embeds.masked_scatter(special_image_mask, video_features)
+            special_image_mask = (input_ids == self.config.video_token_index).unsqueeze(-1)
+            special_image_mask = special_image_mask.expand_as(inputs_embeds).to(inputs_embeds.device)
+            video_features = video_features.to(inputs_embeds.device, inputs_embeds.dtype)
+            inputs_embeds = inputs_embeds.masked_scatter(special_image_mask, video_features)
 
         outputs = self.language_model(
             attention_mask=attention_mask,

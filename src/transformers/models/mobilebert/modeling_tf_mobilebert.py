@@ -1964,3 +1964,17 @@ class TFMobileBertForTokenClassification(TFMobileBertPreTrainedModel, TFTokenCla
         if getattr(self, "classifier", None) is not None:
             with tf.name_scope(self.classifier.name):
                 self.classifier.build([None, None, self.config.hidden_size])
+
+
+__all__ = [
+    "TFMobileBertForMaskedLM",
+    "TFMobileBertForMultipleChoice",
+    "TFMobileBertForNextSentencePrediction",
+    "TFMobileBertForPreTraining",
+    "TFMobileBertForQuestionAnswering",
+    "TFMobileBertForSequenceClassification",
+    "TFMobileBertForTokenClassification",
+    "TFMobileBertMainLayer",
+    "TFMobileBertModel",
+    "TFMobileBertPreTrainedModel",
+]

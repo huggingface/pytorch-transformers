@@ -239,3 +239,6 @@ class PerceiverOnnxConfig(OnnxConfig):
             raise ValueError(
                 "Unable to generate dummy inputs for the model. Please provide a tokenizer or a preprocessor."
             )
+
+
+__all__ = ["PerceiverConfig", "PerceiverOnnxConfig"]

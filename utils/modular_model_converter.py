@@ -1059,6 +1059,7 @@ TYPE_TO_FILE_TYPE = {
     "Tokenizer": "tokenization",
     "Processor": "processing",
     "ImageProcessor": "image_processing",
+    "ImageProcessorFast": "image_processing*_fast",  # "*" indicates where to insert the model name before the "_fast" suffix
     "FeatureExtractor": "feature_extractor",
     "ProcessorKwargs": "processing",
     "ImagesKwargs": "processing",
@@ -1658,11 +1659,16 @@ def convert_modular_file(modular_file):
 
 def save_modeling_file(modular_file, converted_file):
     for file_type in converted_file.keys():
+        file_name_prefix = file_type.split("*")[0]
+        file_name_suffix = file_type.split("*")[-1] if "*" in file_type else ""
+        new_file_name = modular_file.replace("modular_", f"{file_name_prefix}_").replace(
+            ".py", f"{file_name_suffix}.py"
+        )
         non_comment_lines = len(
             [line for line in converted_file[file_type][0].strip().split("\n") if not line.strip().startswith("#")]
         )
         if len(converted_file[file_type][0].strip()) > 0 and non_comment_lines > 0:
-            with open(modular_file.replace("modular_", f"{file_type}_"), "w", encoding="utf-8") as f:
+            with open(new_file_name, "w", encoding="utf-8") as f:
                 f.write(converted_file[file_type][0])
         else:
             non_comment_lines = len(
@@ -1670,7 +1676,7 @@ def save_modeling_file(modular_file, converted_file):
             )
             if len(converted_file[file_type][1].strip()) > 0 and non_comment_lines > 0:
                 logger.warning("The modeling code contains errors, it's written without formatting")
-                with open(modular_file.replace("modular_", f"{file_type}_"), "w", encoding="utf-8") as f:
+                with open(new_file_name, "w", encoding="utf-8") as f:
                     f.write(converted_file[file_type][1])
 
 

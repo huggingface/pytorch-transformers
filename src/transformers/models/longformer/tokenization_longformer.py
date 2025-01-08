@@ -397,3 +397,6 @@ class LongformerTokenizer(PreTrainedTokenizer):
         if (is_split_into_words or add_prefix_space) and (len(text) > 0 and not text[0].isspace()):
             text = " " + text
         return (text, kwargs)
+
+
+__all__ = ["LongformerTokenizer"]

@@ -502,3 +502,6 @@ class SuperPointForKeypointDetection(SuperPointPreTrainedModel):
             mask=mask,
             hidden_states=hidden_states,
         )
+
+
+__all__ = ["SuperPointForKeypointDetection", "SuperPointPreTrainedModel"]

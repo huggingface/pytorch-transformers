@@ -85,3 +85,6 @@ class SuperPointConfig(PretrainedConfig):
         self.initializer_range = initializer_range
 
         super().__init__(**kwargs)
+
+
+__all__ = ["SuperPointConfig"]

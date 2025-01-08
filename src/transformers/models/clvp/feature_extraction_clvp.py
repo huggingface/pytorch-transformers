@@ -236,3 +236,6 @@ class ClvpFeatureExtractor(SequenceFeatureExtractor):
             padded_inputs["input_features"] = input_features
 
         return padded_inputs.convert_to_tensors(return_tensors)
+
+
+__all__ = ["ClvpFeatureExtractor"]

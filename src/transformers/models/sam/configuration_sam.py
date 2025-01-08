@@ -314,3 +314,6 @@ class SamConfig(PretrainedConfig):
         self.prompt_encoder_config = SamPromptEncoderConfig(**prompt_encoder_config)
         self.mask_decoder_config = SamMaskDecoderConfig(**mask_decoder_config)
         self.initializer_range = initializer_range
+
+
+__all__ = ["SamConfig", "SamMaskDecoderConfig", "SamPromptEncoderConfig", "SamVisionConfig"]

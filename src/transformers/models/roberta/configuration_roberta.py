@@ -150,3 +150,6 @@ class RobertaOnnxConfig(OnnxConfig):
                 ("attention_mask", dynamic_axis),
             ]
         )
+
+
+__all__ = ["RobertaConfig", "RobertaOnnxConfig"]

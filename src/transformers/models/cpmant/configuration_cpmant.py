@@ -117,3 +117,6 @@ class CpmAntConfig(PretrainedConfig):
         self.use_cache = use_cache
         self.vocab_size = vocab_size
         self.init_std = init_std
+
+
+__all__ = ["CpmAntConfig"]

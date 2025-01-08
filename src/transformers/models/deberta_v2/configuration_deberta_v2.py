@@ -193,3 +193,6 @@ class DebertaV2OnnxConfig(OnnxConfig):
         if self._config.type_vocab_size == 0 and "token_type_ids" in dummy_inputs:
             del dummy_inputs["token_type_ids"]
         return dummy_inputs
+
+
+__all__ = ["DebertaV2Config", "DebertaV2OnnxConfig"]

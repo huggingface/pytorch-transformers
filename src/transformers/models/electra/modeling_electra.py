@@ -1660,3 +1660,17 @@ class ElectraForCausalLM(ElectraPreTrainedModel, GenerationMixin):
                 tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past),
             )
         return reordered_past
+
+
+__all__ = [
+    "ElectraForCausalLM",
+    "ElectraForMaskedLM",
+    "ElectraForMultipleChoice",
+    "ElectraForPreTraining",
+    "ElectraForQuestionAnswering",
+    "ElectraForSequenceClassification",
+    "ElectraForTokenClassification",
+    "ElectraModel",
+    "ElectraPreTrainedModel",
+    "load_tf_weights_in_electra",
+]

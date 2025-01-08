@@ -618,6 +618,13 @@ class Swin2SRImageProcessor(metaclass=DummyObject):
         requires_backends(self, ["vision"])
 
 
+class TextNetImageProcessor(metaclass=DummyObject):
+    _backends = ["vision"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["vision"])
+
+
 class TvpImageProcessor(metaclass=DummyObject):
     _backends = ["vision"]
 
@@ -682,6 +689,13 @@ class ViTImageProcessor(metaclass=DummyObject):
 
 
 class VitMatteImageProcessor(metaclass=DummyObject):
+    _backends = ["vision"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["vision"])
+
+
+class VitPoseImageProcessor(metaclass=DummyObject):
     _backends = ["vision"]
 
     def __init__(self, *args, **kwargs):

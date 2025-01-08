@@ -4286,3 +4286,17 @@ class SeamlessM4TModel(SeamlessM4TPreTrainedModel):
                 tuple(past_state.index_select(0, beam_idx) for past_state in layer_past[:2]) + layer_past[2:],
             )
         return reordered_past
+
+
+__all__ = [
+    "SeamlessM4TForTextToSpeech",
+    "SeamlessM4TForSpeechToSpeech",
+    "SeamlessM4TForTextToText",
+    "SeamlessM4TForSpeechToText",
+    "SeamlessM4TModel",
+    "SeamlessM4TPreTrainedModel",
+    "SeamlessM4TCodeHifiGan",
+    "SeamlessM4THifiGan",
+    "SeamlessM4TTextToUnitForConditionalGeneration",
+    "SeamlessM4TTextToUnitModel",
+]

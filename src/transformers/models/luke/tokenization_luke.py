@@ -1726,3 +1726,6 @@ class LukeTokenizer(PreTrainedTokenizer):
             f.write(json.dumps(self.entity_vocab, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
         return vocab_file, merge_file, entity_vocab_file
+
+
+__all__ = ["LukeTokenizer"]

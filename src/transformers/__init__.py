@@ -402,6 +402,7 @@ _import_structure = {
     "models.depth_anything": ["DepthAnythingConfig"],
     "models.detr": ["DetrConfig"],
     "models.dialogpt": [],
+    "models.diffllama": ["DiffLlamaConfig"],
     "models.dinat": ["DinatConfig"],
     "models.dinov2": ["Dinov2Config"],
     "models.dinov2_with_registers": ["Dinov2WithRegistersConfig"],
@@ -2143,6 +2144,16 @@ else:
             "DetrForSegmentation",
             "DetrModel",
             "DetrPreTrainedModel",
+        ]
+    )
+    _import_structure["models.diffllama"].extend(
+        [
+            "DiffLlamaForCausalLM",
+            "DiffLlamaForQuestionAnswering",
+            "DiffLlamaForSequenceClassification",
+            "DiffLlamaForTokenClassification",
+            "DiffLlamaModel",
+            "DiffLlamaPreTrainedModel",
         ]
     )
     _import_structure["models.dinat"].extend(
@@ -5369,6 +5380,7 @@ if TYPE_CHECKING:
     )
     from .models.depth_anything import DepthAnythingConfig
     from .models.detr import DetrConfig
+    from .models.diffllama import DiffLlamaConfig
     from .models.dinat import DinatConfig
     from .models.dinov2 import Dinov2Config
     from .models.dinov2_with_registers import Dinov2WithRegistersConfig
@@ -7016,6 +7028,14 @@ if TYPE_CHECKING:
             DetrForSegmentation,
             DetrModel,
             DetrPreTrainedModel,
+        )
+        from .models.diffllama import (
+            DiffLlamaForCausalLM,
+            DiffLlamaForQuestionAnswering,
+            DiffLlamaForSequenceClassification,
+            DiffLlamaForTokenClassification,
+            DiffLlamaModel,
+            DiffLlamaPreTrainedModel,
         )
         from .models.dinat import (
             DinatBackbone,

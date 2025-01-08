@@ -34,6 +34,37 @@ The abstract from the paper is the following:
 
 `Qwen2-Audio-7B` and `Qwen2-Audio-7B-Instruct` can be found on the [Huggingface Hub](https://huggingface.co/Qwen)
 
+### Inference
+
+```python
+from io import BytesIO
+from urllib.request import urlopen
+import librosa
+from transformers import AutoProcessor, Qwen2AudioForConditionalGeneration
+
+model = Qwen2AudioForConditionalGeneration.from_pretrained("Qwen/Qwen2-Audio-7B", trust_remote_code=True, device_map="auto")
+processor = AutoProcessor.from_pretrained("Qwen/Qwen2-Audio-7B", trust_remote_code=True)
+
+prompt = "<|audio_bos|><|AUDIO|><|audio_eos|>Generate the caption in English:"
+url = "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Audio/glass-breaking-151256.mp3"
+audio, sr = librosa.load(BytesIO(urlopen(url).read()), sr=processor.feature_extractor.sampling_rate)
+inputs = processor(text=prompt, audios=audio, return_tensors="pt").to(model.device)
+
+generate_ids = model.generate(**inputs, max_length=256)
+generate_ids = generate_ids[:, inputs.input_ids.size(1):]
+
+response = processor.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+
+# We can also omit the audio_bos and audio_eos tokens
+prompt = "<|AUDIO|>Generate the caption in English:"
+inputs = processor(text=prompt, audios=audio, return_tensors="pt").to(model.device)
+
+generate_ids = model.generate(**inputs, max_length=256)
+generate_ids = generate_ids[:, inputs.input_ids.size(1):]
+
+response = processor.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+```
+
 In the following, we demonstrate how to use `Qwen2-Audio-7B-Instruct` for the inference, supporting both voice chat and audio analysis modes. Note that we have used the ChatML format for dialog, in this demo we show how to leverage `apply_chat_template` for this purpose.
 
 ### Voice Chat Inference

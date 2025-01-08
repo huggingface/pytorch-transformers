@@ -1400,3 +1400,6 @@ class ZoeDepthForDepthEstimation(ZoeDepthPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = ["ZoeDepthForDepthEstimation", "ZoeDepthPreTrainedModel"]

@@ -1568,3 +1568,6 @@ class HieraBackbone(HieraPreTrainedModel, BackboneMixin):
             hidden_states=outputs[1] if output_hidden_states else None,
             attentions=outputs[2] if output_attentions else None,
         )
+
+
+__all__ = ["HieraForImageClassification", "HieraForPreTraining", "HieraBackbone", "HieraModel", "HieraPreTrainedModel"]

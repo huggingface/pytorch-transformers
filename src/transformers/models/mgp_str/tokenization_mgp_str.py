@@ -99,3 +99,6 @@ class MgpstrTokenizer(PreTrainedTokenizer):
             f.write(json.dumps(self.vocab, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
         return (vocab_file,)
+
+
+__all__ = ["MgpstrTokenizer"]

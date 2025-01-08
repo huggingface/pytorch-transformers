@@ -2750,3 +2750,6 @@ class MusicgenForConditionalGeneration(PreTrainedModel, GenerationMixin):
             attention_mask=attention_mask,
             guidance_scale=1.0,
         )
+
+
+__all__ = ["MusicgenForConditionalGeneration", "MusicgenForCausalLM", "MusicgenModel", "MusicgenPreTrainedModel"]

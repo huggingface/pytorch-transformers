@@ -1628,3 +1628,6 @@ class M2M100ForConditionalGeneration(M2M100PreTrainedModel, GenerationMixin):
                 tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past),
             )
         return reordered_past
+
+
+__all__ = ["M2M100ForConditionalGeneration", "M2M100Model", "M2M100PreTrainedModel"]

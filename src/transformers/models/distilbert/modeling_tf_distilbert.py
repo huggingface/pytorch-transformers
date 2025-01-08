@@ -1133,3 +1133,15 @@ class TFDistilBertForQuestionAnswering(TFDistilBertPreTrainedModel, TFQuestionAn
         if getattr(self, "qa_outputs", None) is not None:
             with tf.name_scope(self.qa_outputs.name):
                 self.qa_outputs.build([None, None, self.config.dim])
+
+
+__all__ = [
+    "TFDistilBertForMaskedLM",
+    "TFDistilBertForMultipleChoice",
+    "TFDistilBertForQuestionAnswering",
+    "TFDistilBertForSequenceClassification",
+    "TFDistilBertForTokenClassification",
+    "TFDistilBertMainLayer",
+    "TFDistilBertModel",
+    "TFDistilBertPreTrainedModel",
+]

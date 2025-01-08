@@ -1092,3 +1092,6 @@ class TFOPTForCausalLM(TFOPTPreTrainedModel, TFCausalLanguageModelingLoss):
         if getattr(self, "model", None) is not None:
             with tf.name_scope(self.model.name):
                 self.model.build(None)
+
+
+__all__ = ["TFOPTForCausalLM", "TFOPTModel", "TFOPTPreTrainedModel"]

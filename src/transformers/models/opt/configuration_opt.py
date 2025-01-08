@@ -141,3 +141,6 @@ class OPTConfig(PretrainedConfig):
         # with checkpoints that have been fine-tuned before transformers v4.20.1
         # see https://github.com/facebookresearch/metaseq/pull/164
         self._remove_final_layer_norm = _remove_final_layer_norm
+
+
+__all__ = ["OPTConfig"]

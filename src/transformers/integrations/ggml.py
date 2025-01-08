@@ -25,244 +25,12 @@ from tokenizers import Tokenizer, decoders, normalizers, pre_tokenizers, process
 from tokenizers.models import BPE, Unigram
 
 from .. import AddedToken
-from ..convert_slow_tokenizer import GPT2Converter, LlamaConverter, Qwen2Converter, T5Converter
+from ..convert_slow_tokenizer import GemmaConverter, GPT2Converter, LlamaConverter, Qwen2Converter, T5Converter
 from ..utils import logging
 from ..utils.logging import tqdm
 
 
 logger = logging.get_logger(__name__)
-
-
-GGUF_TENSOR_MAPPING = {
-    "llama": {
-        "token_embd": "model.embed_tokens",
-        "blk": "model.layers",
-        "ffn_up": "mlp.up_proj",
-        "ffn_down": "mlp.down_proj",
-        "ffn_gate": "mlp.gate_proj",
-        "ffn_norm": "post_attention_layernorm",
-        "attn_norm": "input_layernorm",
-        "attn_q": "self_attn.q_proj",
-        "attn_v": "self_attn.v_proj",
-        "attn_k": "self_attn.k_proj",
-        "attn_output": "self_attn.o_proj",
-        "output.weight": "lm_head.weight",
-        "output_norm": "model.norm",
-    },
-    "mistral": {
-        "token_embd": "model.embed_tokens",
-        "blk": "model.layers",
-        "ffn_up": "mlp.up_proj",
-        "ffn_down": "mlp.down_proj",
-        "ffn_gate": "mlp.gate_proj",
-        "ffn_norm": "post_attention_layernorm",
-        "attn_norm": "input_layernorm",
-        "attn_q": "self_attn.q_proj",
-        "attn_v": "self_attn.v_proj",
-        "attn_k": "self_attn.k_proj",
-        "attn_output": "self_attn.o_proj",
-        "output.weight": "lm_head.weight",
-        "output_norm": "model.norm",
-    },
-    "qwen2": {
-        "token_embd": "model.embed_tokens",
-        "blk": "model.layers",
-        "ffn_up": "mlp.up_proj",
-        "ffn_down": "mlp.down_proj",
-        "ffn_gate": "mlp.gate_proj",
-        "ffn_norm": "post_attention_layernorm",
-        "attn_norm": "input_layernorm",
-        "attn_q": "self_attn.q_proj",
-        "attn_v": "self_attn.v_proj",
-        "attn_k": "self_attn.k_proj",
-        "attn_output": "self_attn.o_proj",
-        "output.weight": "lm_head.weight",
-        "output_norm": "model.norm",
-    },
-    "qwen2moe": {
-        "token_embd": "model.embed_tokens",
-        "blk": "model.layers",
-        "ffn_up_exps": "mlp.experts",
-        "ffn_up_shexp": "mlp.shared_expert.up_proj",
-        "ffn_down_exps": "mlp.experts",
-        "ffn_down_shexp": "mlp.shared_expert.down_proj",
-        "ffn_norm": "post_attention_layernorm",
-        "ffn_gate_inp.weight": "mlp.gate.weight",
-        "ffn_gate_exps": "mlp.experts",
-        "ffn_gate_shexp": "mlp.shared_expert.gate_proj",
-        "ffn_gate_inp_shexp": "mlp.shared_expert_gate",
-        "attn_norm": "input_layernorm",
-        "attn_q": "self_attn.q_proj",
-        "attn_v": "self_attn.v_proj",
-        "attn_k": "self_attn.k_proj",
-        "attn_output": "self_attn.o_proj",
-        "output.weight": "lm_head.weight",
-        "output_norm": "model.norm",
-    },
-    "phi3": {
-        "token_embd": "model.embed_tokens",
-        "blk": "model.layers",
-        "ffn_up": "mlp.gate_up_proj",
-        "ffn_down": "mlp.down_proj",
-        "ffn_gate": "mlp.gate_up_proj",
-        "ffn_norm": "post_attention_layernorm",
-        "attn_norm": "input_layernorm",
-        "attn_qkv": "self_attn.qkv_proj",
-        "attn_output": "self_attn.o_proj",
-        "output.weight": "lm_head.weight",
-        "output_norm": "model.norm",
-    },
-    "bloom": {
-        "token_embd.weight": "transformer.word_embeddings.weight",
-        "token_embd_norm": "transformer.word_embeddings_layernorm",
-        "blk": "transformer.h",
-        "ffn_up": "mlp.dense_h_to_4h",
-        "ffn_down": "mlp.dense_4h_to_h",
-        "ffn_norm": "post_attention_layernorm",
-        "attn_norm": "input_layernorm",
-        "attn_qkv": "self_attention.query_key_value",
-        "attn_output": "self_attention.dense",
-        "output.weight": "lm_head.weight",
-        "output_norm": "transformer.ln_f",
-    },
-    "falcon7b": {
-        "token_embd": "word_embeddings",
-        "blk": "h",
-        "ffn_up": "mlp.dense_h_to_4h",
-        "ffn_down": "mlp.dense_4h_to_h",
-        "attn_norm": "input_layernorm",
-        "attn_qkv": "self_attention.query_key_value",
-        "attn_output": "self_attention.dense",
-        ".output.": ".lm_head.",
-        "output_norm": "ln_f",
-    },
-    "falcon40b": {
-        "token_embd": "word_embeddings",
-        "blk": "h",
-        "ffn_up": "mlp.dense_h_to_4h",
-        "ffn_down": "mlp.dense_4h_to_h",
-        ".attn_norm.": ".ln_mlp.",
-        "attn_norm_2": "ln_attn",
-        "attn_qkv": "self_attention.query_key_value",
-        "attn_output": "self_attention.dense",
-        ".output.": ".lm_head.",
-        "output_norm": "ln_f",
-    },
-    "t5": {
-        "token_embd": "shared",
-        "dec.blk.{bid}.attn_q": "decoder.block.{bid}.layer.0.SelfAttention.q",
-        "dec.blk.{bid}.attn_k": "decoder.block.{bid}.layer.0.SelfAttention.k",
-        "dec.blk.{bid}.attn_v": "decoder.block.{bid}.layer.0.SelfAttention.v",
-        "dec.blk.{bid}.attn_o": "decoder.block.{bid}.layer.0.SelfAttention.o",
-        "dec.blk.{bid}.attn_rel_b": "decoder.block.{bid}.layer.0.SelfAttention.relative_attention_bias",
-        "dec.blk.{bid}.attn_norm": "decoder.block.{bid}.layer.0.layer_norm",
-        "dec.blk.{bid}.cross_attn_q": "decoder.block.{bid}.layer.1.EncDecAttention.q",
-        "dec.blk.{bid}.cross_attn_k": "decoder.block.{bid}.layer.1.EncDecAttention.k",
-        "dec.blk.{bid}.cross_attn_v": "decoder.block.{bid}.layer.1.EncDecAttention.v",
-        "dec.blk.{bid}.cross_attn_o": "decoder.block.{bid}.layer.1.EncDecAttention.o",
-        "dec.blk.{bid}.cross_attn_norm": "decoder.block.{bid}.layer.1.layer_norm",
-        "dec.blk.{bid}.ffn_gate": "decoder.block.{bid}.layer.2.DenseReluDense.wi_0",
-        "dec.blk.{bid}.ffn_up": "decoder.block.{bid}.layer.2.DenseReluDense.wi_1",
-        "dec.blk.{bid}.ffn_down": "decoder.block.{bid}.layer.2.DenseReluDense.wo",
-        "dec.blk.{bid}.ffn_norm": "decoder.block.{bid}.layer.2.layer_norm",
-        "dec.output_norm": "decoder.final_layer_norm",
-        "enc.blk.{bid}.attn_q": "encoder.block.{bid}.layer.0.SelfAttention.q",
-        "enc.blk.{bid}.attn_k": "encoder.block.{bid}.layer.0.SelfAttention.k",
-        "enc.blk.{bid}.attn_v": "encoder.block.{bid}.layer.0.SelfAttention.v",
-        "enc.blk.{bid}.attn_o": "encoder.block.{bid}.layer.0.SelfAttention.o",
-        "enc.blk.{bid}.attn_rel_b": "encoder.block.{bid}.layer.0.SelfAttention.relative_attention_bias",
-        "enc.blk.{bid}.attn_norm": "encoder.block.{bid}.layer.0.layer_norm",
-        "enc.blk.{bid}.ffn_gate": "encoder.block.{bid}.layer.1.DenseReluDense.wi_0",
-        "enc.blk.{bid}.ffn_up": "encoder.block.{bid}.layer.1.DenseReluDense.wi_1",
-        "enc.blk.{bid}.ffn_down": "encoder.block.{bid}.layer.1.DenseReluDense.wo",
-        "enc.blk.{bid}.ffn_norm": "encoder.block.{bid}.layer.1.layer_norm",
-        "enc.output_norm": "encoder.final_layer_norm",
-        "output.weight": "lm_head.weight",
-    },
-    "t5encoder": {
-        "token_embd": "shared",
-        "enc.blk.{bid}.attn_q": "encoder.block.{bid}.layer.0.SelfAttention.q",
-        "enc.blk.{bid}.attn_k": "encoder.block.{bid}.layer.0.SelfAttention.k",
-        "enc.blk.{bid}.attn_v": "encoder.block.{bid}.layer.0.SelfAttention.v",
-        "enc.blk.{bid}.attn_o": "encoder.block.{bid}.layer.0.SelfAttention.o",
-        "enc.blk.{bid}.attn_rel_b": "encoder.block.{bid}.layer.0.SelfAttention.relative_attention_bias",
-        "enc.blk.{bid}.attn_norm": "encoder.block.{bid}.layer.0.layer_norm",
-        "enc.blk.{bid}.ffn_gate": "encoder.block.{bid}.layer.1.DenseReluDense.wi_0",
-        "enc.blk.{bid}.ffn_up": "encoder.block.{bid}.layer.1.DenseReluDense.wi_1",
-        "enc.blk.{bid}.ffn_down": "encoder.block.{bid}.layer.1.DenseReluDense.wo",
-        "enc.blk.{bid}.ffn_norm": "encoder.block.{bid}.layer.1.layer_norm",
-        "enc.output_norm": "encoder.final_layer_norm",
-    },
-    "stablelm": {
-        "token_embd": "model.embed_tokens",
-        "blk": "model.layers",
-        "ffn_up": "mlp.up_proj",
-        "ffn_down": "mlp.down_proj",
-        "ffn_gate": "mlp.gate_proj",
-        "ffn_norm": "post_attention_layernorm",
-        "attn_norm": "input_layernorm",
-        "attn_q": "self_attn.q_proj",
-        "attn_v": "self_attn.v_proj",
-        "attn_k": "self_attn.k_proj",
-        "attn_output": "self_attn.o_proj",
-        "output.weight": "lm_head.weight",
-        "output_norm": "model.norm",
-    },
-    "gpt2": {
-        "token_embd": "transformer.wte",
-        "blk": "transformer.h",
-        "position_embd": "transformer.wpe",
-        "output_norm": "transformer.ln_f",
-        "attn_norm": "ln_1",
-        "attn_qkv": "attn.c_attn",
-        "attn_output.weight": "attn.c_proj.weight",
-        "attn_output.bias": "attn.c_proj.bias",
-        "ffn_norm": "ln_2",
-        "ffn_up": "mlp.c_fc",
-        "ffn_down": "mlp.c_proj",
-    },
-    "starcoder2": {
-        "token_embd": "model.embed_tokens",
-        "blk": "model.layers",
-        "ffn_up": "mlp.c_fc",
-        "ffn_down": "mlp.c_proj",
-        "ffn_norm": "post_attention_layernorm",
-        "attn_norm": "input_layernorm",
-        "attn_q": "self_attn.q_proj",
-        "attn_v": "self_attn.v_proj",
-        "attn_k": "self_attn.k_proj",
-        "attn_output": "self_attn.o_proj",
-        "output.weight": "lm_head.weight",
-        "output_norm": "model.norm",
-    },
-    "mamba": {
-        "token_embd": "backbone.embeddings",
-        "blk": "backbone.layers",
-        "ssm_a": "mixer.A_log",
-        "ssm_conv1d": "mixer.conv1d",
-        "ssm_in": "mixer.in_proj",
-        "ssm_out": "mixer.out_proj",
-        "ssm_x": "mixer.x_proj",
-        "ssm_dt": "mixer.dt_proj",
-        "attn_norm": "norm",
-        "output_norm": "backbone.norm_f",
-        "output.weight": "lm_head.weight",
-    },
-    "nemotron": {
-        "token_embd": "model.embed_tokens",
-        "blk": "model.layers",
-        "ffn_up": "mlp.up_proj",
-        "ffn_down": "mlp.down_proj",
-        "ffn_norm": "post_attention_layernorm",
-        "attn_norm": "input_layernorm",
-        "attn_q": "self_attn.q_proj",
-        "attn_v": "self_attn.v_proj",
-        "attn_k": "self_attn.k_proj",
-        "attn_output": "self_attn.o_proj",
-        "output.weight": "lm_head.weight",
-        "output_norm": "model.norm",
-    },
-}
 
 
 GGUF_CONFIG_MAPPING = {
@@ -421,6 +189,18 @@ GGUF_CONFIG_MAPPING = {
         "attention.head_count": "num_attention_heads",
         "attention.head_count_kv": "num_key_value_heads",
         "attention.layer_norm_rms_epsilon": "norm_eps",
+        "vocab_size": "vocab_size",
+    },
+    "gemma2": {
+        "context_length": "max_position_embeddings",
+        "block_count": "num_hidden_layers",
+        "feed_forward_length": "intermediate_size",
+        "embedding_length": "hidden_size",
+        "rope.dimension_count": None,
+        "rope.freq_base": "rope_theta",
+        "attention.head_count": "num_attention_heads",
+        "attention.head_count_kv": "num_key_value_heads",
+        "attention.layer_norm_rms_epsilon": "rms_norm_eps",
         "vocab_size": "vocab_size",
     },
 }
@@ -807,6 +587,71 @@ class GGUFT5Converter(T5Converter):
         return tokenizer
 
 
+class GGUFGemmaConverter(GemmaConverter):
+    def __init__(self, tokenizer_dict):
+        # set dummy data to avoid unnecessary merges calculation
+        tokenizer_dict["merges"] = ["dummy text"]
+
+        self.proto = GGUFTokenizerSkeleton(tokenizer_dict)
+        self.original_tokenizer = self.proto
+        self.additional_kwargs = {}
+
+    def vocab(self, proto):
+        original_vocab = list(zip(proto.tokens, proto.scores))
+        updated_vocab = []
+
+        for token, score in original_vocab:
+            if token == "<0x09>":
+                updated_vocab.append(("\t", score))
+            elif " " in token and len(token.strip()) == 0:
+                underscores = "▁" * len(token)
+                updated_vocab.append((underscores, score))
+            else:
+                updated_vocab.append((token, score))
+
+        return updated_vocab
+
+    def normalizer(self, proto):
+        return normalizers.Replace(" ", "▁")
+
+    def decoder(self, replacement, add_prefix_space):
+        sequence = [
+            decoders.Replace("▁", " "),
+            decoders.ByteFallback(),
+            decoders.Fuse(),
+        ]
+
+        if add_prefix_space:
+            sequence += [decoders.Strip(content=" ", left=1)]
+        return decoders.Sequence(sequence)
+
+    def converted(self) -> Tokenizer:
+        vocab_scores = self.vocab(self.proto)
+        tokenizer = Tokenizer(
+            Unigram(
+                vocab_scores,
+                unk_id=self.proto.unk_token_id,
+                byte_fallback=self.handle_byte_fallback,
+            )
+        )
+
+        normalizer = self.normalizer(self.proto)
+        if normalizer is not None:
+            tokenizer.normalizer = normalizer
+
+        replacement = "▁"
+        add_prefix_space = True
+        if hasattr(self.original_tokenizer, "add_prefix_space"):
+            add_prefix_space = self.original_tokenizer.add_prefix_space
+
+        tokenizer.decoder = self.decoder(replacement, add_prefix_space)
+        pre_tokenizer = self.pre_tokenizer(replacement, add_prefix_space)
+        if pre_tokenizer is not None:
+            tokenizer.pre_tokenizer = pre_tokenizer
+
+        return tokenizer
+
+
 GGUF_TO_FAST_CONVERTERS = {
     "llama": GGUFLlamaConverter,
     "qwen2": GGUFQwen2Converter,
@@ -820,6 +665,7 @@ GGUF_TO_FAST_CONVERTERS = {
     "t5": GGUFT5Converter,
     "mamba": GGUFGPTConverter,
     "nemotron": GGUFGPTConverter,
+    "gemma2": GGUFGemmaConverter,
 }
 
 

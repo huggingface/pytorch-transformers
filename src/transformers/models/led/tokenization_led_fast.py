@@ -325,3 +325,6 @@ class LEDTokenizerFast(PreTrainedTokenizerFast):
                     raise ValueError("Invalid padding strategy:" + str(self.padding_side))
 
         return encoded_inputs
+
+
+__all__ = ["LEDTokenizerFast"]

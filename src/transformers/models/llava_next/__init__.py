@@ -13,60 +13,17 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import OptionalDependencyNotAvailable, _LazyModule, is_torch_available, is_vision_available
-
-
-_import_structure = {
-    "configuration_llava_next": ["LlavaNextConfig"],
-    "processing_llava_next": ["LlavaNextProcessor"],
-}
-
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_llava_next"] = [
-        "LlavaNextForConditionalGeneration",
-        "LlavaNextPreTrainedModel",
-    ]
-
-try:
-    if not is_vision_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["image_processing_llava_next"] = ["LlavaNextImageProcessor"]
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
 
 if TYPE_CHECKING:
-    from .configuration_llava_next import LlavaNextConfig
-    from .processing_llava_next import LlavaNextProcessor
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_llava_next import (
-            LlavaNextForConditionalGeneration,
-            LlavaNextPreTrainedModel,
-        )
-
-    try:
-        if not is_vision_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .image_processing_llava_next import LlavaNextImageProcessor
-
-
+    from .configuration_llava_next import *
+    from .image_processing_llava_next import *
+    from .modeling_llava_next import *
+    from .processing_llava_next import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

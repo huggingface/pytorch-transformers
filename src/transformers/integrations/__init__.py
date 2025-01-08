@@ -57,7 +57,6 @@ _import_structure = {
     "fsdp": ["is_fsdp_managed_module"],
     "ggml": [
         "GGUF_CONFIG_MAPPING",
-        "GGUF_TENSOR_MAPPING",
         "GGUF_TOKENIZER_MAPPING",
         "_gguf_parse_value",
         "load_dequant_gguf_tensor",
@@ -161,7 +160,6 @@ if TYPE_CHECKING:
     from .fsdp import is_fsdp_managed_module
     from .ggml import (
         GGUF_CONFIG_MAPPING,
-        GGUF_TENSOR_MAPPING,
         GGUF_TOKENIZER_MAPPING,
         _gguf_parse_value,
         load_dequant_gguf_tensor,

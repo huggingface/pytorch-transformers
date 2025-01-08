@@ -793,3 +793,6 @@ overwrite_call_docstring(FlaxDinov2ForImageClassification, FLAX_VISION_CLASSIFIC
 append_replace_return_docstrings(
     FlaxDinov2ForImageClassification, output_type=FlaxSequenceClassifierOutput, config_class=Dinov2Config
 )
+
+
+__all__ = ["FlaxDinov2ForImageClassification", "FlaxDinov2Model", "FlaxDinov2PreTrainedModel"]

@@ -199,3 +199,6 @@ class LayoutLMv2Processor(ProcessorMixin):
             FutureWarning,
         )
         return self.image_processor
+
+
+__all__ = ["LayoutLMv2Processor"]

@@ -1892,3 +1892,11 @@ class Pix2StructForConditionalGeneration(Pix2StructPreTrainedModel, GenerationMi
             encoder_hidden_states=encoder_outputs.hidden_states,
             encoder_attentions=encoder_outputs.attentions,
         )
+
+
+__all__ = [
+    "Pix2StructPreTrainedModel",
+    "Pix2StructForConditionalGeneration",
+    "Pix2StructVisionModel",
+    "Pix2StructTextModel",
+]

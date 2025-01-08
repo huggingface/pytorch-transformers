@@ -185,3 +185,6 @@ class Idefics3Config(PretrainedConfig):
         self.scale_factor = scale_factor
 
         super().__init__(**kwargs, pad_token_id=pad_token_id, tie_word_embeddings=tie_word_embeddings)
+
+
+__all__ = ["Idefics3Config", "Idefics3VisionConfig"]

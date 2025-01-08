@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_beit import *
-    from .convert_beit_unilm_to_pytorch import *
     from .feature_extraction_beit import *
     from .image_processing_beit import *
     from .modeling_beit import *

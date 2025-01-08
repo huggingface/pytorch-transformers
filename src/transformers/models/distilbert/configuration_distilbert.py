@@ -136,3 +136,6 @@ class DistilBertOnnxConfig(OnnxConfig):
                 ("attention_mask", dynamic_axis),
             ]
         )
+
+
+__all__ = ["DistilBertConfig", "DistilBertOnnxConfig"]

@@ -1868,3 +1868,14 @@ class TFDebertaV2ForMultipleChoice(TFDebertaV2PreTrainedModel, TFMultipleChoiceL
         if getattr(self, "classifier", None) is not None:
             with tf.name_scope(self.classifier.name):
                 self.classifier.build([None, None, self.output_dim])
+
+
+__all__ = [
+    "TFDebertaV2ForMaskedLM",
+    "TFDebertaV2ForQuestionAnswering",
+    "TFDebertaV2ForMultipleChoice",
+    "TFDebertaV2ForSequenceClassification",
+    "TFDebertaV2ForTokenClassification",
+    "TFDebertaV2Model",
+    "TFDebertaV2PreTrainedModel",
+]

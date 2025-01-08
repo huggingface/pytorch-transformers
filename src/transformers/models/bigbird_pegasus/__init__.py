@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_bigbird_pegasus import *
-    from .convert_bigbird_pegasus_tf_to_pytorch import *
     from .modeling_bigbird_pegasus import *
 else:
     import sys

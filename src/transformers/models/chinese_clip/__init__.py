@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_chinese_clip import *
-    from .convert_chinese_clip_original_pytorch_to_hf import *
     from .feature_extraction_chinese_clip import *
     from .image_processing_chinese_clip import *
     from .modeling_chinese_clip import *

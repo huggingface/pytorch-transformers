@@ -188,3 +188,6 @@ class Owlv2Processor(ProcessorMixin):
         the docstring of this method for more information.
         """
         return self.tokenizer.decode(*args, **kwargs)
+
+
+__all__ = ["Owlv2Processor"]

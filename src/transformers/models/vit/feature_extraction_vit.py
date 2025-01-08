@@ -31,3 +31,6 @@ class ViTFeatureExtractor(ViTImageProcessor):
             FutureWarning,
         )
         super().__init__(*args, **kwargs)
+
+
+__all__ = ["ViTFeatureExtractor"]

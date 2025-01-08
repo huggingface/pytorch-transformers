@@ -40,15 +40,32 @@ class Qwen2AudioProcessor(ProcessorMixin):
         chat_template (`Optional[str]`, *optional*):
                 The Jinja template to use for formatting the conversation. If not provided, the default chat template
                 is used.
+        audio_token (`str`, *optional*, defaults to `"<|AUDIO|>"`):
+            The token to use for audio tokens.
+        audio_bos_token (`str`, *optional*, defaults to `"<|audio_bos|>"`):
+            The token to use for audio bos tokens.
+        audio_eos_token (`str`, *optional*, defaults to `"<|audio_eos|>"`):
+            The token to use for audio eos tokens.
     """
 
     attributes = ["feature_extractor", "tokenizer"]
     feature_extractor_class = "WhisperFeatureExtractor"
     tokenizer_class = "AutoTokenizer"
 
-    def __init__(self, feature_extractor=None, tokenizer=None, chat_template=None):
+    def __init__(
+        self,
+        feature_extractor=None,
+        tokenizer=None,
+        chat_template=None,
+        audio_token="<|AUDIO|>",
+        audio_bos_token="<|audio_bos|>",
+        audio_eos_token="<|audio_eos|>",
+    ):
         if chat_template is None:
             chat_template = self.default_chat_template
+        self.audio_token = tokenizer.audio_token if hasattr(tokenizer, "audio_token") else audio_token
+        self.audio_bos_token = tokenizer.audio_bos_token if hasattr(tokenizer, "audio_bos_token") else audio_bos_token
+        self.audio_eos_token = tokenizer.audio_eos_token if hasattr(tokenizer, "audio_eos_token") else audio_eos_token
         super().__init__(feature_extractor, tokenizer, chat_template=chat_template)
 
     def __call__(
@@ -88,7 +105,18 @@ class Qwen2AudioProcessor(ProcessorMixin):
 
         if text is None:
             raise ValueError("You need to specify either a `text` input to process.")
-        inputs = self.tokenizer(text, padding=padding, **kwargs)
+        elif isinstance(text, str):
+            text = [text]
+        elif not isinstance(text, list) and not isinstance(text[0], str):
+            raise ValueError("Invalid input text. Please provide a string, or a list of strings")
+
+        # ensure we have as much audios as audio tokens
+        num_audio_tokens = sum(sample.count(self.audio_token) for sample in text)
+        num_audios = 1 if type(audios) == np.ndarray else len(audios)
+        if num_audio_tokens != num_audios:
+            raise ValueError(
+                f"Found {num_audio_tokens} {self.audio_token} token{'s' if num_audio_tokens > 1 else ''} in provided text but received {num_audios} audio{'s' if num_audios > 1 else ''}"
+            )
 
         if audios is not None:
             audio_inputs = self.feature_extractor(
@@ -97,6 +125,46 @@ class Qwen2AudioProcessor(ProcessorMixin):
             audio_inputs["feature_attention_mask"] = audio_inputs.pop(
                 "attention_mask"
             )  # rename attention_mask to prevent conflicts later on
+
+            expanded_text = []
+            audio_lengths = audio_inputs["feature_attention_mask"].sum(-1).tolist()
+
+            for sample in text:
+                replace_str = []
+                while self.audio_token in sample:
+                    audio_length = audio_lengths.pop(0)
+                    input_length = (audio_length - 1) // 2 + 1
+                    num_audio_tokens = (input_length - 2) // 2 + 1
+
+                    expanded_audio_token = self.audio_token * num_audio_tokens
+
+                    audio_token_start_idx = sample.find(self.audio_token)
+                    audio_token_end_idx = audio_token_start_idx + len(self.audio_token)
+
+                    has_bos = (
+                        sample[audio_token_start_idx - len(self.audio_bos_token) : audio_token_start_idx]
+                        == self.audio_bos_token
+                    )
+                    has_eos = (
+                        sample[audio_token_end_idx : audio_token_end_idx + len(self.audio_eos_token)]
+                        == self.audio_eos_token
+                    )
+
+                    # Check if this audio token is surrounded by bos/eos tokens
+                    if not has_bos and not has_eos:
+                        expanded_audio_token = self.audio_bos_token + expanded_audio_token + self.audio_eos_token
+
+                    replace_str.append(expanded_audio_token)
+                    sample = sample.replace(self.audio_token, "<placeholder>", 1)
+
+                while "<placeholder>" in sample:
+                    sample = sample.replace("<placeholder>", replace_str.pop(0), 1)
+                expanded_text.append(sample)
+            text = expanded_text
+
+        inputs = self.tokenizer(text, padding=padding, **kwargs)
+
+        if audios is not None:
             inputs.update(audio_inputs)
 
         return BatchFeature(data={**inputs})
@@ -175,3 +243,6 @@ class Qwen2AudioProcessor(ProcessorMixin):
             "{% endif %}"
         )
         # fmt: on
+
+
+__all__ = ["Qwen2AudioProcessor"]

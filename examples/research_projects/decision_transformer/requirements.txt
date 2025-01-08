@@ -92,7 +92,7 @@ itsdangerous==2.1.1
 jax==0.3.4
 jaxlib==0.3.2
 jedi==0.18.1
-Jinja2==3.1.4
+Jinja2==3.1.5
 jinja2-time==0.2.0
 jmespath==0.10.0
 joblib==1.2.0

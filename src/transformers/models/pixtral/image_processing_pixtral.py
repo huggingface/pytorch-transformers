@@ -473,7 +473,7 @@ class PixtralImageProcessor(BaseImageProcessor):
         # All transformations expect numpy arrays.
         images_list = [[to_numpy_array(image) for image in images] for images in images_list]
 
-        if is_scaled_image(images_list[0][0]) and do_rescale:
+        if do_rescale and is_scaled_image(images_list[0][0]):
             logger.warning_once(
                 "It looks like you are trying to rescale already rescaled images. If the input"
                 " images have pixel values between 0 and 1, set `do_rescale=False` to avoid rescaling them again."
@@ -519,3 +519,6 @@ class PixtralImageProcessor(BaseImageProcessor):
         # Convert to tensor type outside of BatchFeature to avoid batching the images of different sizes
         images_list = [[convert_to_tensor(image, return_tensors) for image in images] for images in images_list]
         return BatchMixFeature(data={"pixel_values": images_list, "image_sizes": batch_image_sizes}, tensor_type=None)
+
+
+__all__ = ["PixtralImageProcessor"]

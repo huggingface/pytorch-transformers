@@ -1007,3 +1007,6 @@ class LlavaNextForConditionalGeneration(LlavaNextPreTrainedModel, GenerationMixi
             model_inputs["image_sizes"] = image_sizes
 
         return model_inputs
+
+
+__all__ = ["LlavaNextForConditionalGeneration", "LlavaNextPreTrainedModel"]

@@ -1233,3 +1233,13 @@ class TFGPT2ForSequenceClassification(TFGPT2PreTrainedModel, TFSequenceClassific
         if getattr(self, "transformer", None) is not None:
             with tf.name_scope(self.transformer.name):
                 self.transformer.build(None)
+
+
+__all__ = [
+    "TFGPT2DoubleHeadsModel",
+    "TFGPT2ForSequenceClassification",
+    "TFGPT2LMHeadModel",
+    "TFGPT2MainLayer",
+    "TFGPT2Model",
+    "TFGPT2PreTrainedModel",
+]

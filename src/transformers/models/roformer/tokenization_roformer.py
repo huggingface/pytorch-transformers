@@ -535,3 +535,6 @@ class RoFormerTokenizer(PreTrainedTokenizer):
                 writer.write(token + "\n")
                 index += 1
         return (vocab_file,)
+
+
+__all__ = ["RoFormerTokenizer"]

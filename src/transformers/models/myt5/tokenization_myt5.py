@@ -375,3 +375,6 @@ class MyT5Tokenizer(PreTrainedTokenizer):
         with open(vocab_file, "w", encoding="utf-8") as writer:
             writer.write(json.dumps(self.byte_maps, indent=2, ensure_ascii=False))
         return (vocab_file,)
+
+
+__all__ = ["MyT5Tokenizer"]

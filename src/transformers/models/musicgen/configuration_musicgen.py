@@ -242,3 +242,6 @@ class MusicgenConfig(PretrainedConfig):
     # This is a property because you might want to change the codec model on the fly
     def sampling_rate(self):
         return self.audio_encoder.sampling_rate
+
+
+__all__ = ["MusicgenConfig", "MusicgenDecoderConfig"]

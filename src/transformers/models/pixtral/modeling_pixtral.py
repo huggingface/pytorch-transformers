@@ -507,3 +507,6 @@ class PixtralVisionModel(PixtralPreTrainedModel):
             [p.shape[-2] * p.shape[-1] for p in patch_embeds_list], patch_embeds
         )
         return self.transformer(patch_embeds, attention_mask, position_embedding)
+
+
+__all__ = ["PixtralVisionModel", "PixtralPreTrainedModel"]

@@ -855,3 +855,13 @@ class OpenAIGPTForSequenceClassification(OpenAIGPTPreTrainedModel):
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,
         )
+
+
+__all__ = [
+    "OpenAIGPTDoubleHeadsModel",
+    "OpenAIGPTForSequenceClassification",
+    "OpenAIGPTLMHeadModel",
+    "OpenAIGPTModel",
+    "OpenAIGPTPreTrainedModel",
+    "load_tf_weights_in_openai_gpt",
+]

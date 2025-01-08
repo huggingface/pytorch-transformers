@@ -1769,3 +1769,12 @@ append_call_sample_docstring(
     FlaxSeq2SeqQuestionAnsweringModelOutput,
     _CONFIG_FOR_DOC,
 )
+
+
+__all__ = [
+    "FlaxMBartForConditionalGeneration",
+    "FlaxMBartForQuestionAnswering",
+    "FlaxMBartForSequenceClassification",
+    "FlaxMBartModel",
+    "FlaxMBartPreTrainedModel",
+]

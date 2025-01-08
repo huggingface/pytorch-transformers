@@ -365,3 +365,6 @@ class MllamaConfig(PretrainedConfig):
             self.text_config = text_config
 
         super().__init__(**kwargs)
+
+
+__all__ = ["MllamaConfig"]

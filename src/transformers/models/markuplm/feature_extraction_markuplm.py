@@ -181,3 +181,6 @@ class MarkupLMFeatureExtractor(FeatureExtractionMixin):
         encoded_inputs = BatchFeature(data=data, tensor_type=None)
 
         return encoded_inputs
+
+
+__all__ = ["MarkupLMFeatureExtractor"]

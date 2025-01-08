@@ -211,3 +211,6 @@ class UdopProcessor(ProcessorMixin):
     @property
     def model_input_names(self):
         return ["pixel_values", "input_ids", "bbox", "attention_mask"]
+
+
+__all__ = ["UdopProcessor"]

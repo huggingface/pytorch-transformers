@@ -31,3 +31,6 @@ class OwlViTFeatureExtractor(OwlViTImageProcessor):
             FutureWarning,
         )
         super().__init__(*args, **kwargs)
+
+
+__all__ = ["OwlViTFeatureExtractor"]

@@ -102,3 +102,6 @@ class TFGPT2Tokenizer(keras.layers.Layer):
                 )
 
         return {"attention_mask": attention_mask, "input_ids": input_ids}
+
+
+__all__ = ["TFGPT2Tokenizer"]

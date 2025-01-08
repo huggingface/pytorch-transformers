@@ -861,3 +861,6 @@ class TFSwiftFormerForImageClassification(TFSwiftFormerPreTrainedModel):
             with tf.name_scope(self.dist_head.name):
                 self.dist_head.build(self.config.embed_dims[-1])
         self.built = True
+
+
+__all__ = ["TFSwiftFormerForImageClassification", "TFSwiftFormerModel", "TFSwiftFormerPreTrainedModel"]

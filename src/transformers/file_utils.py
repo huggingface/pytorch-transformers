@@ -105,7 +105,7 @@ from .utils import (
     is_sentencepiece_available,
     is_seqio_available,
     is_sklearn_available,
-    is_soundfile_availble,
+    is_soundfile_available,
     is_spacy_available,
     is_speech_available,
     is_tensor,

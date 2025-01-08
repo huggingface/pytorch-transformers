@@ -653,3 +653,6 @@ class Wav2Vec2ProcessorWithLM(ProcessorMixin):
         yield
         self.current_processor = self.feature_extractor
         self._in_target_context_manager = False
+
+
+__all__ = ["Wav2Vec2ProcessorWithLM"]

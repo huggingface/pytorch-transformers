@@ -126,3 +126,6 @@ class DPRConfig(PretrainedConfig):
         self.layer_norm_eps = layer_norm_eps
         self.projection_dim = projection_dim
         self.position_embedding_type = position_embedding_type
+
+
+__all__ = ["DPRConfig"]

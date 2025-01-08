@@ -2429,6 +2429,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
             tokenizer_config["extra_special_tokens"] = self.extra_special_tokens
             tokenizer_config.update(self.extra_special_tokens)
 
+        saved_raw_chat_template = False
         if self.chat_template is not None:
             if isinstance(self.chat_template, dict):
                 # Chat template dicts are saved to the config as lists of dicts with fixed key names.
@@ -2439,6 +2440,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
             elif kwargs.get("save_raw_chat_template", False):
                 with open(chat_template_file, "w", encoding="utf-8") as f:
                     f.write(self.chat_template)
+                saved_raw_chat_template = True
                 logger.info(f"chat template saved in {chat_template_file}")
                 if "chat_template" in tokenizer_config:
                     tokenizer_config.pop("chat_template")  # To ensure it doesn't somehow end up in the config too
@@ -2498,6 +2500,8 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         logger.info(f"Special tokens file saved in {special_tokens_map_file}")
 
         file_names = (tokenizer_config_file, special_tokens_map_file)
+        if saved_raw_chat_template:
+            file_names += (chat_template_file,)
 
         save_files = self._save_pretrained(
             save_directory=save_directory,

@@ -148,3 +148,6 @@ class XLMRobertaXLOnnxConfig(OnnxConfig):
                 ("attention_mask", dynamic_axis),
             ]
         )
+
+
+__all__ = ["XLMRobertaXLConfig", "XLMRobertaXLOnnxConfig"]

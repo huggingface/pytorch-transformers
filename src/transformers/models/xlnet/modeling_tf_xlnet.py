@@ -1807,3 +1807,15 @@ class TFXLNetForQuestionAnsweringSimple(TFXLNetPreTrainedModel, TFQuestionAnswer
         if getattr(self, "qa_outputs", None) is not None:
             with tf.name_scope(self.qa_outputs.name):
                 self.qa_outputs.build([None, None, self.config.hidden_size])
+
+
+__all__ = [
+    "TFXLNetForMultipleChoice",
+    "TFXLNetForQuestionAnsweringSimple",
+    "TFXLNetForSequenceClassification",
+    "TFXLNetForTokenClassification",
+    "TFXLNetLMHeadModel",
+    "TFXLNetMainLayer",
+    "TFXLNetModel",
+    "TFXLNetPreTrainedModel",
+]

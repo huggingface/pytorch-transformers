@@ -141,3 +141,6 @@ class CvtConfig(PretrainedConfig):
         self.stride_q = stride_q
         self.initializer_range = initializer_range
         self.layer_norm_eps = layer_norm_eps
+
+
+__all__ = ["CvtConfig"]

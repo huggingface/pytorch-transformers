@@ -352,3 +352,6 @@ class MBart50Tokenizer(PreTrainedTokenizer):
         self.cur_lang_code_id = self.lang_code_to_id[tgt_lang]
         self.prefix_tokens = [self.cur_lang_code_id]
         self.suffix_tokens = [self.eos_token_id]
+
+
+__all__ = ["MBart50Tokenizer"]

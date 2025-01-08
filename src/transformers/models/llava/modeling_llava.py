@@ -618,3 +618,6 @@ class LlavaForConditionalGeneration(LlavaPreTrainedModel, GenerationMixin):
             model_inputs["pixel_values"] = pixel_values
 
         return model_inputs
+
+
+__all__ = ["LlavaForConditionalGeneration", "LlavaPreTrainedModel"]

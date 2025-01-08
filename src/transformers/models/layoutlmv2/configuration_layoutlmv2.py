@@ -217,3 +217,6 @@ class LayoutLMv2Config(PretrainedConfig):
             setattr(to_set, attributes[-1], v)
 
         return detectron2_config
+
+
+__all__ = ["LayoutLMv2Config"]

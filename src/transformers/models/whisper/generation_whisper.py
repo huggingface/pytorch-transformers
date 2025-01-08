@@ -480,8 +480,8 @@ class WhisperGenerationMixin(GenerationMixin):
                 `return_segments` is set True. In this case the generation outputs of each segment is added to each
                 segment.
             force_unique_generate_call (`bool`, *optional*):
-                Whether to force a unique call to the underlying GenerationMixin's [~generation.GenerationMixin.generate] method. This is useful for assisted decoding and testing purposes to ensure
-                that only one call to [~generation.GenerationMixin.generate] is made and therefore decoder input token ids and eos token ids are returned.
+                Whether to force a unique call to the underlying GenerationMixin's [`~generation.GenerationMixin.generate`] method. This is useful for assisted decoding and testing purposes to ensure
+                that only one call to [`~generation.GenerationMixin.generate`] is made and therefore decoder input token ids and eos token ids are returned.
             kwargs (`Dict[str, Any]`, *optional*):
                 Ad hoc parametrization of `generate_config` and/or additional model-specific kwargs that will be
                 forwarded to the `forward` function of the model. If the model is an encoder-decoder model, encoder
@@ -503,10 +503,10 @@ class WhisperGenerationMixin(GenerationMixin):
                 - `start`: the start timestamp of the segment.
                 - `end`: the end timestamp of the segment.
                 - `tokens`: the tokens of the segment, excluding the decoder input ids and end of sequence id.
-                - `idxs`: the start (included) and end (excluded) indices of the `tokens` of the segment in the underlying call to GenerationMixin's [~generation.GenerationMixin.generate] (present in `result`).
-                - `result`: the result of the underlying call to GenerationMixin's [~generation.GenerationMixin.generate].
+                - `idxs`: the start (included) and end (excluded) indices of the `tokens` of the segment in the underlying call to GenerationMixin's [`~generation.GenerationMixin.generate`] (present in `result`).
+                - `result`: the result of the underlying call to GenerationMixin's [`~generation.GenerationMixin.generate`].
 
-                When `return_timestamps=True`, `return_dict_in_generate=True` applies to each call of the underlying GenerationMixin's [~generation.GenerationMixin.generate], with outputs stored in `result` of each `segment`.
+                When `return_timestamps=True`, `return_dict_in_generate=True` applies to each call of the underlying GenerationMixin's [`~generation.GenerationMixin.generate`], with outputs stored in `result` of each `segment`.
 
         Example:
 
@@ -543,7 +543,7 @@ class WhisperGenerationMixin(GenerationMixin):
         ```
 
         - *Shortform transcription*: If passed mel input features are <= 30 seconds, there are two possibilities:
-            - `return_timestamps=False`: the whole audio will be transcribed with a single call to GenerationMixin's [~generation.GenerationMixin.generate].
+            - `return_timestamps=False`: the whole audio will be transcribed with a single call to GenerationMixin's [`~generation.GenerationMixin.generate`].
             - `return_timestamps=True`: the audio will be transcribed using the same logic as long-form transcription.
 
         ```python

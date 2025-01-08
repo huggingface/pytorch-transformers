@@ -183,3 +183,6 @@ class FastSpeech2ConformerTokenizer(PreTrainedTokenizer):
                 "You need to install g2p-en to use FastSpeech2ConformerTokenizer. "
                 "See https://pypi.org/project/g2p-en/ for installation."
             )
+
+
+__all__ = ["FastSpeech2ConformerTokenizer"]

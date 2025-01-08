@@ -1010,3 +1010,12 @@ class DeiTForImageClassificationWithTeacher(DeiTPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "DeiTForImageClassification",
+    "DeiTForImageClassificationWithTeacher",
+    "DeiTForMaskedImageModeling",
+    "DeiTModel",
+    "DeiTPreTrainedModel",
+]

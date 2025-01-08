@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_big_bird import *
-    from .convert_bigbird_original_tf_checkpoint_to_pytorch import *
     from .modeling_big_bird import *
     from .modeling_flax_big_bird import *
     from .tokenization_big_bird import *

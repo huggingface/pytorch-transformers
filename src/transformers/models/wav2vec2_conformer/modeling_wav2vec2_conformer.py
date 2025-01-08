@@ -2115,3 +2115,14 @@ class Wav2Vec2ConformerForXVector(Wav2Vec2ConformerPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "Wav2Vec2ConformerForAudioFrameClassification",
+    "Wav2Vec2ConformerForCTC",
+    "Wav2Vec2ConformerForPreTraining",
+    "Wav2Vec2ConformerForSequenceClassification",
+    "Wav2Vec2ConformerForXVector",
+    "Wav2Vec2ConformerModel",
+    "Wav2Vec2ConformerPreTrainedModel",
+]

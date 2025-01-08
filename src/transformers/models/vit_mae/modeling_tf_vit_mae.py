@@ -1370,3 +1370,6 @@ class TFViTMAEForPreTraining(TFViTMAEPreTrainedModel):
         if getattr(self, "decoder", None) is not None:
             with tf.name_scope(self.decoder.name):
                 self.decoder.build(None)
+
+
+__all__ = ["TFViTMAEForPreTraining", "TFViTMAEModel", "TFViTMAEPreTrainedModel"]

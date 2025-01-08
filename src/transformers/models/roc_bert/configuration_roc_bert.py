@@ -158,3 +158,6 @@ class RoCBertConfig(PretrainedConfig):
         self.position_embedding_type = position_embedding_type
         self.classifier_dropout = classifier_dropout
         super().__init__(pad_token_id=pad_token_id, **kwargs)
+
+
+__all__ = ["RoCBertConfig"]

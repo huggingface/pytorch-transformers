@@ -2030,3 +2030,13 @@ class PatchTSTForRegression(PatchTSTPreTrainedModel):
         # samples: [bs x num_samples x num_targets]
         samples = torch.stack(samples, dim=1).view(-1, num_parallel_samples, self.config.num_targets)
         return SamplePatchTSTOutput(sequences=samples)
+
+
+__all__ = [
+    "PatchTSTModel",
+    "PatchTSTPreTrainedModel",
+    "PatchTSTForPrediction",
+    "PatchTSTForPretraining",
+    "PatchTSTForRegression",
+    "PatchTSTForClassification",
+]

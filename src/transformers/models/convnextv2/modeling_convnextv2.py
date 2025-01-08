@@ -569,3 +569,6 @@ class ConvNextV2Backbone(ConvNextV2PreTrainedModel, BackboneMixin):
             hidden_states=hidden_states if output_hidden_states else None,
             attentions=None,
         )
+
+
+__all__ = ["ConvNextV2ForImageClassification", "ConvNextV2Model", "ConvNextV2PreTrainedModel", "ConvNextV2Backbone"]

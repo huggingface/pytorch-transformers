@@ -508,3 +508,6 @@ class MgpstrForSceneTextRecognition(MgpstrPreTrainedModel):
             attentions=mgp_outputs.attentions,
             a3_attentions=all_a3_attentions,
         )
+
+
+__all__ = ["MgpstrModel", "MgpstrPreTrainedModel", "MgpstrForSceneTextRecognition"]

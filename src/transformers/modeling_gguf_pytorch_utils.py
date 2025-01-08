@@ -22,7 +22,6 @@ from tqdm import tqdm
 
 from .integrations import (
     GGUF_CONFIG_MAPPING,
-    GGUF_TENSOR_MAPPING,
     GGUF_TOKENIZER_MAPPING,
     _gguf_parse_value,
 )
@@ -47,12 +46,11 @@ GGUF_TO_TRANSFORMERS_MAPPING = {
         "general": {"file_type": "file_type", "quantization_version": "quantization_version"},
     },
     "config": GGUF_CONFIG_MAPPING,
-    "tensors": GGUF_TENSOR_MAPPING,
     "tokenizer": {"tokenizer": GGUF_TOKENIZER_MAPPING["tokenizer"]},
     "tokenizer_config": {"tokenizer": GGUF_TOKENIZER_MAPPING["tokenizer_config"]},
 }
 
-GGUF_SUPPORTED_ARCHITECTURES = list(GGUF_TO_TRANSFORMERS_MAPPING["tensors"].keys())
+GGUF_SUPPORTED_ARCHITECTURES = list(GGUF_TO_TRANSFORMERS_MAPPING["config"].keys())
 
 
 class GGUFTensor(NamedTuple):
@@ -121,21 +119,10 @@ class Qwen2MoeTensorProcessor(TensorProcessor):
     ):
         # Original merge implementation
         # https://github.com/ggerganov/llama.cpp/blob/master/convert_hf_to_gguf.py#L1994-L2022
-        exp_name = ""
-        if "ffn_gate_exps" in name:
-            exp_name = "gate_proj"
-        elif "ffn_down_exps" in name:
-            exp_name = "down_proj"
-        elif "ffn_up_exps" in name:
-            exp_name = "up_proj"
-        else:
-            raise ValueError(f"Cannot map expert tensor {name} in Qwen2Moe architecture.")
-        for tensor_name in tensor_key_mapping:
-            if tensor_name in name:
-                name = name.replace(tensor_name, tensor_key_mapping[tensor_name])
+        name = tensor_key_mapping[name]
         w_counter = self.config.get("num_experts", 60)
         for i in range(0, w_counter):
-            temp_name = name.replace(".weight", f".{i}.{exp_name}.weight")
+            temp_name = name.replace("mlp.experts.", f"mlp.experts.{i}.")
             exp_weight = weights[i]
             parsed_parameters["tensors"][temp_name] = torch.from_numpy(np.copy(exp_weight))
 
@@ -223,10 +210,6 @@ class MambaTensorProcessor(TensorProcessor):
         super().__init__(config=config)
 
     def process(self, weights, name, **kwargs):
-        if "ssm_d" in name and "bias" not in name and "weight" not in name:
-            # ssm_d has conflicts with ssm_dt in name checking
-            # we have to explicitly check that name is exactly ssm_d
-            name = name.replace("ssm_d", "mixer.D")
         if "ssm_conv1d.weight" in name:
             # for compatibility tensor ssm_conv1d must be (5120, 1, 4]) dim,
             # quantized one is (5120, 4)
@@ -238,6 +221,18 @@ class MambaTensorProcessor(TensorProcessor):
         return GGUFTensor(weights, name, {})
 
 
+class Gemma2TensorProcessor(TensorProcessor):
+    def __init__(self, config=None):
+        super().__init__(config=config)
+
+    # ref: https://github.com/ggerganov/llama.cpp/blob/d79d8f39b4da6deca4aea8bf130c6034c482b320/convert_hf_to_gguf.py#L3191
+    # ref: https://github.com/huggingface/transformers/blob/fc37f38915372c15992b540dfcbbe00a916d4fc6/src/transformers/models/gemma/modeling_gemma.py#L89
+    def process(self, weights, name, **kwargs):
+        if "norm.weight" in name:
+            weights = weights - 1
+        return GGUFTensor(weights, name, {})
+
+
 TENSOR_PROCESSORS = {
     "llama": LlamaTensorProcessor,
     "qwen2moe": Qwen2MoeTensorProcessor,
@@ -246,6 +241,7 @@ TENSOR_PROCESSORS = {
     "t5encoder": T5TensorProcessor,
     "gpt2": GPT2TensorProcessor,
     "mamba": MambaTensorProcessor,
+    "gemma2": Gemma2TensorProcessor,
 }
 
 
@@ -254,7 +250,84 @@ def read_field(reader, field):
     return [_gguf_parse_value(value.parts[_data_index], value.types) for _data_index in value.data]
 
 
-def load_gguf_checkpoint(gguf_checkpoint_path, return_tensors=False):
+# modified from https://github.com/vllm-project/vllm/blob/v0.6.4.post1/vllm/model_executor/model_loader/loader.py#L1115-L1147
+def get_gguf_hf_weights_map(
+    hf_model,
+    model_type: Optional[str] = None,
+    num_layers: Optional[int] = None,
+    qual_name: str = "",
+):
+    """
+    GGUF uses this naming convention for their tensors from HF checkpoint:
+    `blk.N.BB.weight` and `blk.N.BB.bias`
+    where N signifies the block number of a layer, and BB signifies the
+    attention/mlp layer components.
+    See "Standardized tensor names" in
+    https://github.com/ggerganov/ggml/blob/master/docs/gguf.md for details.
+    """
+    if is_gguf_available() and is_torch_available():
+        from gguf import MODEL_ARCH_NAMES, get_tensor_name_map
+    else:
+        logger.error(
+            "Loading a GGUF checkpoint in PyTorch, requires both PyTorch and GGUF>=0.10.0 to be installed. Please see "
+            "https://pytorch.org/ and https://github.com/ggerganov/llama.cpp/tree/master/gguf-py for installation instructions."
+        )
+        raise ImportError("Please install torch and gguf>=0.10.0 to load a GGUF checkpoint in PyTorch.")
+
+    model_type = hf_model.config.model_type if model_type is None else model_type
+    num_layers = hf_model.config.num_hidden_layers if num_layers is None else num_layers
+    # hack: ggufs have a different name for cohere
+    if model_type == "cohere":
+        model_type = "command-r"
+    if model_type == "qwen2_moe":
+        model_type = "qwen2moe"
+    arch = None
+    for key, value in MODEL_ARCH_NAMES.items():
+        if value == model_type:
+            arch = key
+            break
+    if arch is None:
+        raise NotImplementedError(
+            f"Unknown gguf model_type: {model_type} in gguf-py. "
+            "This might because you're using an outdated version of gguf-py package, "
+            "you can install `gguf` package from source refer to "
+            "https://github.com/ggerganov/llama.cpp/tree/master/gguf-py#development"
+        )
+    name_map = get_tensor_name_map(arch, num_layers)
+
+    # Use a dummy conversion to get the mapping, because
+    # hf => gguf and gguf => hf mappings are reversed
+    gguf_to_hf_name_map = {}
+    state_dict = hf_model.state_dict()
+    for hf_name in state_dict.keys():
+        # An exception for qwen2moe model, where the expert layers are packed
+        if model_type == "qwen2moe" and "mlp.experts." in hf_name:
+            hf_name = re.sub(r"mlp.experts.\d+.", "mlp.experts.", hf_name)
+
+        name, suffix = hf_name, ""
+        if hf_name.endswith(".weight") or hf_name.endswith(".bias"):
+            name, suffix = hf_name.rsplit(".", 1)
+            suffix = "." + suffix
+
+        gguf_name = name_map.get_name(name)
+        if gguf_name is None:
+            continue
+
+        gguf_to_hf_name_map[gguf_name + suffix] = qual_name + hf_name
+
+    # Some model like Bloom converted from BloomModel instead of BloomForCausalLM
+    # Therefore, we need to check submodule as well to get a correct mapping
+    if named_children := hf_model.named_children():
+        for name, child in named_children:
+            sub_map = get_gguf_hf_weights_map(child, model_type, num_layers, qual_name=f"{qual_name}{name}.")
+            # Ignore the keys that are already in the main map to avoid overwriting
+            sub_map = {k: v for k, v in sub_map.items() if k not in gguf_to_hf_name_map}
+            gguf_to_hf_name_map.update(sub_map)
+
+    return gguf_to_hf_name_map
+
+
+def load_gguf_checkpoint(gguf_checkpoint_path, return_tensors=False, model_to_load=None):
     """
     Load a GGUF file and return a dictionary of parsed parameters containing tensors, the parsed
     tokenizer and config attributes.
@@ -310,20 +383,8 @@ def load_gguf_checkpoint(gguf_checkpoint_path, return_tensors=False):
         parsed_parameters["config"]["use_qkv_bias"] = qkv_bias
         parsed_parameters["config"]["use_parallel_residual"] = not use_parallel_residual
 
-    model_size = ""
-    # extract the number of params from file name as architectures can differ ;
-    # eg. for falcon : `...falcon-7b-...`
-    if "falcon" in architecture:
-        gguf_file_name = gguf_checkpoint_path.split("/")[-1].lower()
-        m = re.search(r"-\d+b-", gguf_file_name)  # regex to catch `-7b-`
-        if m is None:
-            raise ValueError(
-                f"From file name, cannot determine the number of parameters for {architecture} architecture"
-            )
-        model_size = m.group().strip("-")  # only keeps `7b`
-
-    if architecture + model_size not in GGUF_SUPPORTED_ARCHITECTURES:
-        raise ValueError(f"Architecture {architecture + model_size} not supported")
+    if architecture not in GGUF_SUPPORTED_ARCHITECTURES:
+        raise ValueError(f"GGUF model with architecture {architecture} is not supported yet.")
 
     # Handle tie_word_embeddings, if lm_head.weight is not present in tensors,
     # tie_word_embeddings is true otherwise false
@@ -375,7 +436,9 @@ def load_gguf_checkpoint(gguf_checkpoint_path, return_tensors=False):
             )
 
     if return_tensors:
-        tensor_key_mapping = GGUF_TO_TRANSFORMERS_MAPPING["tensors"][architecture + model_size]
+        parsed_parameters["tensors"] = {}
+
+        tensor_key_mapping = get_gguf_hf_weights_map(model_to_load)
         config = parsed_parameters.get("config", {})
 
         ProcessorClass = TENSOR_PROCESSORS.get(architecture, TensorProcessor)
@@ -394,16 +457,12 @@ def load_gguf_checkpoint(gguf_checkpoint_path, return_tensors=False):
 
             weights = result.weights
             name = result.name
-            bid = result.metadata.get("bid")
 
-            if name is None:
+            if name not in tensor_key_mapping:
                 continue
 
-            for tensor_name in tensor_key_mapping:
-                if tensor_name.format(bid=bid) in name:
-                    name = name.replace(tensor_name.format(bid=bid), tensor_key_mapping[tensor_name].format(bid=bid))
+            name = tensor_key_mapping[name]
 
-            # Use copy to avoid errors with numpy and pytorch
             parsed_parameters["tensors"][name] = torch.from_numpy(np.copy(weights))
 
     if len(reader_keys) > 0:

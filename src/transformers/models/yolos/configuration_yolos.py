@@ -173,3 +173,6 @@ class YolosOnnxConfig(OnnxConfig):
     @property
     def default_onnx_opset(self) -> int:
         return 12
+
+
+__all__ = ["YolosConfig", "YolosOnnxConfig"]

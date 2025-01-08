@@ -288,3 +288,6 @@ class LayoutLMv3OnnxConfig(OnnxConfig):
         )
 
         return inputs
+
+
+__all__ = ["LayoutLMv3Config", "LayoutLMv3OnnxConfig"]

@@ -1430,3 +1430,6 @@ class TableTransformerMLPPredictionHead(nn.Module):
         for i, layer in enumerate(self.layers):
             x = nn.functional.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
         return x
+
+
+__all__ = ["TableTransformerForObjectDetection", "TableTransformerModel", "TableTransformerPreTrainedModel"]

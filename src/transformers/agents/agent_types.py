@@ -19,7 +19,7 @@ import uuid
 
 import numpy as np
 
-from ..utils import is_soundfile_availble, is_torch_available, is_vision_available, logging
+from ..utils import is_soundfile_available, is_torch_available, is_vision_available, logging
 
 
 logger = logging.get_logger(__name__)
@@ -36,7 +36,7 @@ if is_torch_available():
 else:
     Tensor = object
 
-if is_soundfile_availble():
+if is_soundfile_available():
     import soundfile as sf
 
 
@@ -179,7 +179,7 @@ class AgentAudio(AgentType, str):
     def __init__(self, value, samplerate=16_000):
         super().__init__(value)
 
-        if not is_soundfile_availble():
+        if not is_soundfile_available():
             raise ImportError("soundfile must be installed in order to handle audio.")
 
         self._path = None

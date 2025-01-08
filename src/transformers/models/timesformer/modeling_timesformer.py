@@ -811,3 +811,6 @@ class TimesformerForVideoClassification(TimesformerPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = ["TimesformerModel", "TimesformerForVideoClassification", "TimesformerPreTrainedModel"]

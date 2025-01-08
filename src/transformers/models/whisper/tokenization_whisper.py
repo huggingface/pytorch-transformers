@@ -1390,3 +1390,6 @@ def _merge_punctuations(words, tokens, indices, prepended, appended):
     words[:] = [word for word in words if word]
     tokens[:] = [token for token in tokens if token]
     indices[:] = [idx for idx in indices if idx]
+
+
+__all__ = ["WhisperTokenizer"]

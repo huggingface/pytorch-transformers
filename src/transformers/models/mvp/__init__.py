@@ -1,4 +1,4 @@
-# Copyright 2022 The HuggingFace Team. All rights reserved.
+# Copyright 2024 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,65 +13,17 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import OptionalDependencyNotAvailable, _LazyModule, is_tokenizers_available, is_torch_available
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
-
-_import_structure = {
-    "configuration_mvp": ["MvpConfig", "MvpOnnxConfig"],
-    "tokenization_mvp": ["MvpTokenizer"],
-}
-
-try:
-    if not is_tokenizers_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["tokenization_mvp_fast"] = ["MvpTokenizerFast"]
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_mvp"] = [
-        "MvpForCausalLM",
-        "MvpForConditionalGeneration",
-        "MvpForQuestionAnswering",
-        "MvpForSequenceClassification",
-        "MvpModel",
-        "MvpPreTrainedModel",
-    ]
 
 if TYPE_CHECKING:
-    from .configuration_mvp import MvpConfig, MvpOnnxConfig
-    from .tokenization_mvp import MvpTokenizer
-
-    try:
-        if not is_tokenizers_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .tokenization_mvp_fast import MvpTokenizerFast
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_mvp import (
-            MvpForCausalLM,
-            MvpForConditionalGeneration,
-            MvpForQuestionAnswering,
-            MvpForSequenceClassification,
-            MvpModel,
-            MvpPreTrainedModel,
-        )
-
+    from .configuration_mvp import *
+    from .modeling_mvp import *
+    from .tokenization_mvp import *
+    from .tokenization_mvp_fast import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

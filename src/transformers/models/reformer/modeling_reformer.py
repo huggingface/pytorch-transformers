@@ -2683,3 +2683,15 @@ class ReformerForQuestionAnswering(ReformerPreTrainedModel):
             hidden_states=reformer_outputs.hidden_states,
             attentions=reformer_outputs.attentions,
         )
+
+
+__all__ = [
+    "ReformerAttention",
+    "ReformerForMaskedLM",
+    "ReformerForQuestionAnswering",
+    "ReformerForSequenceClassification",
+    "ReformerLayer",
+    "ReformerModel",
+    "ReformerModelWithLMHead",
+    "ReformerPreTrainedModel",
+]

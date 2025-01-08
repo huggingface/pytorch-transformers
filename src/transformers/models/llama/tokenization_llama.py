@@ -408,3 +408,6 @@ class LlamaTokenizer(PreTrainedTokenizer):
             output += [1] * len(bos_token_id + token_ids_1 + eos_token_id)
 
         return output
+
+
+__all__ = ["LlamaTokenizer"]

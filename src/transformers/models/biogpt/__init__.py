@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_biogpt import *
-    from .convert_biogpt_original_pytorch_checkpoint_to_pytorch import *
     from .modeling_biogpt import *
     from .tokenization_biogpt import *
 else:

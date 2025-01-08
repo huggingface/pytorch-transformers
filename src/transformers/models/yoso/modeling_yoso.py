@@ -1306,3 +1306,15 @@ class YosoForQuestionAnswering(YosoPreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = [
+    "YosoForMaskedLM",
+    "YosoForMultipleChoice",
+    "YosoForQuestionAnswering",
+    "YosoForSequenceClassification",
+    "YosoForTokenClassification",
+    "YosoLayer",
+    "YosoModel",
+    "YosoPreTrainedModel",
+]

@@ -618,3 +618,6 @@ class PaliGemmaForConditionalGeneration(PaliGemmaPreTrainedModel, GenerationMixi
             )
             model_inputs["attention_mask"] = causal_mask
         return model_inputs
+
+
+__all__ = ["PaliGemmaForConditionalGeneration", "PaliGemmaPreTrainedModel"]

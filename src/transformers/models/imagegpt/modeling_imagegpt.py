@@ -1163,3 +1163,12 @@ class ImageGPTForImageClassification(ImageGPTPreTrainedModel):
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,
         )
+
+
+__all__ = [
+    "ImageGPTForCausalImageModeling",
+    "ImageGPTForImageClassification",
+    "ImageGPTModel",
+    "ImageGPTPreTrainedModel",
+    "load_tf_weights_in_imagegpt",
+]

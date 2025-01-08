@@ -236,3 +236,6 @@ class CpmTokenizerFast(PreTrainedTokenizerFast):
         text = super()._decode(*args, **kwargs)
         text = text.replace(" ", "").replace("\u2582", " ").replace("\u2583", "\n")
         return text
+
+
+__all__ = ["CpmTokenizerFast"]

@@ -13,55 +13,16 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import OptionalDependencyNotAvailable, _LazyModule, is_torch_available, is_vision_available
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
-
-_import_structure = {"configuration_seggpt": ["SegGptConfig", "SegGptOnnxConfig"]}
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_seggpt"] = [
-        "SegGptModel",
-        "SegGptPreTrainedModel",
-        "SegGptForImageSegmentation",
-    ]
-
-try:
-    if not is_vision_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["image_processing_seggpt"] = ["SegGptImageProcessor"]
 
 if TYPE_CHECKING:
-    from .configuration_seggpt import SegGptConfig, SegGptOnnxConfig
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_seggpt import (
-            SegGptForImageSegmentation,
-            SegGptModel,
-            SegGptPreTrainedModel,
-        )
-
-    try:
-        if not is_vision_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .image_processing_seggpt import SegGptImageProcessor
-
+    from .configuration_seggpt import *
+    from .image_processing_seggpt import *
+    from .modeling_seggpt import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

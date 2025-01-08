@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import importlib
 import inspect
 import warnings
@@ -525,3 +526,64 @@ class PeftAdapterMixin:
             offload_dir=offload_folder,
             **dispatch_model_kwargs,
         )
+
+    def delete_adapter(self, adapter_names: Union[List[str], str]) -> None:
+        """
+        Delete an adapter's LoRA layers from the underlying model.
+
+        Args:
+            adapter_names (`Union[List[str], str]`):
+                The name(s) of the adapter(s) to delete.
+
+        Example:
+
+        ```py
+        from diffusers import AutoPipelineForText2Image
+        import torch
+
+        pipeline = AutoPipelineForText2Image.from_pretrained(
+            "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16
+        ).to("cuda")
+        pipeline.load_lora_weights(
+            "jbilcke-hf/sdxl-cinematic-1", weight_name="pytorch_lora_weights.safetensors", adapter_names="cinematic"
+        )
+        pipeline.delete_adapters("cinematic")
+        ```
+        """
+
+        check_peft_version(min_version=MIN_PEFT_VERSION)
+
+        if not self._hf_peft_config_loaded:
+            raise ValueError("No adapter loaded. Please load an adapter first.")
+
+        from peft.tuners.tuners_utils import BaseTunerLayer
+
+        if isinstance(adapter_names, str):
+            adapter_names = [adapter_names]
+
+        # Check that all adapter names are present in the config
+        missing_adapters = [name for name in adapter_names if name not in self.peft_config]
+        if missing_adapters:
+            raise ValueError(
+                f"The following adapter(s) are not present and cannot be deleted: {', '.join(missing_adapters)}"
+            )
+
+        for adapter_name in adapter_names:
+            for module in self.modules():
+                if isinstance(module, BaseTunerLayer):
+                    if hasattr(module, "delete_adapter"):
+                        module.delete_adapter(adapter_name)
+                    else:
+                        raise ValueError(
+                            "The version of PEFT you are using is not compatible, please use a version that is greater than 0.6.1"
+                        )
+
+            # For transformers integration - we need to pop the adapter from the config
+            if getattr(self, "_hf_peft_config_loaded", False) and hasattr(self, "peft_config"):
+                self.peft_config.pop(adapter_name, None)
+
+        # In case all adapters are deleted, we need to delete the config
+        # and make sure to set the flag to False
+        if len(self.peft_config) == 0:
+            del self.peft_config
+            self._hf_peft_config_loaded = False

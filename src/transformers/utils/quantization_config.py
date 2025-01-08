@@ -1485,10 +1485,10 @@ class TorchAoConfig(QuantizationConfigMixin):
     def _get_torchao_quant_type_to_method(self):
         if is_torchao_available():
             from torchao.quantization import (
+                autoquant,
                 int4_weight_only,
                 int8_dynamic_activation_int8_weight,
                 int8_weight_only,
-                autoquant,
             )
 
             return {

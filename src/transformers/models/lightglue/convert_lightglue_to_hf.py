@@ -110,6 +110,11 @@ def add_keypoint_detector_state_dict(lightglue_state_dict):
 
 def split_weights(state_dict):
     for i in range(9):
+        # Remove unused r values
+        log_assignment_r_key = f"log_assignment.{i}.r"
+        if state_dict.get(log_assignment_r_key, None) is not None:
+            state_dict.pop(log_assignment_r_key)
+
         Wqkv_weight = state_dict.pop(f"transformer_layers.{i}.self_attention_block.Wqkv.weight")
         Wqkv_bias = state_dict.pop(f"transformer_layers.{i}.self_attention_block.Wqkv.bias")
         Wqkv_weight = Wqkv_weight.reshape(256, 3, 256)
@@ -177,11 +182,11 @@ def write_model(
     state_dict = split_weights(state_dict)
     state_dict = add_keypoint_detector_state_dict(state_dict)
 
-    print("Loading the checkpoint in a SuperGlue model...")
+    print("Loading the checkpoint in a LightGlue model...")
     device = "cuda"
     with torch.device(device):
         model = LightGlueForKeypointMatching(config)
-    model.load_state_dict(state_dict, strict=False)
+    model.load_state_dict(state_dict)
     print("Checkpoint loaded successfully...")
     del model.config._name_or_path
 

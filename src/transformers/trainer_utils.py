@@ -42,8 +42,18 @@ from .utils import (
     is_torch_xla_available,
     is_torch_xpu_available,
     requires_backends,
+    ADAPTER_CONFIG_NAME,
+    ADAPTER_SAFE_WEIGHTS_NAME,
+    ADAPTER_WEIGHTS_NAME,
+    CONFIG_NAME,
+    SAFE_WEIGHTS_INDEX_NAME,
+    SAFE_WEIGHTS_NAME,
+    WEIGHTS_INDEX_NAME,
+    WEIGHTS_NAME,
 )
 
+FSDP_MODEL_NAME = "pytorch_model_fsdp"
+TRAINER_STATE_NAME = "trainer_state.json"
 
 if is_torch_available():
     import torch
@@ -209,6 +219,15 @@ PREFIX_CHECKPOINT_DIR = "checkpoint"
 _re_checkpoint = re.compile(r"^" + PREFIX_CHECKPOINT_DIR + r"\-(\d+)$")
 
 
+def is_valid_checkpoint_dir(folder):
+    return any(
+        os.path.isfile(os.path.join(folder, f))
+        for f in [ WEIGHTS_NAME, SAFE_WEIGHTS_NAME, WEIGHTS_INDEX_NAME, SAFE_WEIGHTS_NAME, SAFE_WEIGHTS_INDEX_NAME, ADAPTER_WEIGHTS_NAME, ADAPTER_SAFE_WEIGHTS_NAME , f"{FSDP_MODEL_NAME}.bin"]
+    ) and all(
+        os.path.isfile(os.path.join(folder, f))
+        for f in [ CONFIG_NAME, TRAINER_STATE_NAME, ]
+    )
+
 def get_last_checkpoint(folder):
     content = os.listdir(folder)
     checkpoints = [
@@ -218,8 +237,11 @@ def get_last_checkpoint(folder):
     ]
     if len(checkpoints) == 0:
         return
-    return os.path.join(folder, max(checkpoints, key=lambda x: int(_re_checkpoint.search(x).groups()[0])))
 
+    for checkpoint in sorted(checkpoints, key=lambda x: int(_re_checkpoint.search(x).groups()[0]), reverse=True):
+      if is_valid_checkpoint_dir(checkpoint):
+        break
+    return os.path.join(folder, checkpoint)
 
 class IntervalStrategy(ExplicitEnum):
     NO = "no"

@@ -106,6 +106,7 @@ body:
       label: Reproduction
       description: |
         Please provide a code sample that reproduces the problem you ran into. It can be a Colab link or just a code snippet.
+        Please include relevant config information with your code, for example your Trainers, TRL, Peft, and DeepSpeed configs.
         If you have code snippets, error messages, stack traces please provide them here as well.
         Important! Use code tags to correctly format your code. See https://help.github.com/en/github/writing-on-github/creating-and-highlighting-code-blocks#syntax-highlighting
         Do not use screenshots, as they are hard to read and (more importantly) don't allow others to copy-and-paste your code.

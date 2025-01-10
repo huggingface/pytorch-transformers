@@ -153,6 +153,7 @@ except importlib.metadata.PackageNotFoundError:
     _is_optimum_quanto_available = False
 # For compressed_tensors, only check spec to allow compressed_tensors-nightly package
 _compressed_tensors_available = importlib.util.find_spec("compressed_tensors") is not None
+_deepspeed_available = _is_package_available("deepspeed")
 _pandas_available = _is_package_available("pandas")
 _peft_available = _is_package_available("peft")
 _phonemizer_available = _is_package_available("phonemizer")
@@ -1029,6 +1030,10 @@ def is_compressed_tensors_available():
 
 def is_auto_gptq_available():
     return _auto_gptq_available
+
+
+def is_deepspeed_available():
+    return _deepspeed_available
 
 
 def is_eetq_available():

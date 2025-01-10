@@ -131,6 +131,7 @@ from .import_utils import (
     is_cv2_available,
     is_cython_available,
     is_datasets_available,
+    is_deepspeed_available,
     is_detectron2_available,
     is_eetq_available,
     is_essentia_available,

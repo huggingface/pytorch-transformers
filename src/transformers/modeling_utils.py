@@ -4431,7 +4431,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
             archive_file = (
                 resolved_archive_file[0] if isinstance(resolved_archive_file, (list, tuple)) else resolved_archive_file
             )
-            is_safetensors = archive_file.endswith(".safetensors")
+            is_safetensors = archive_file is not None and archive_file.endswith(".safetensors")
             if offload_folder is None and not is_safetensors:
                 raise ValueError(
                     "The current `device_map` had weights offloaded to the disk. Please provide an `offload_folder`"

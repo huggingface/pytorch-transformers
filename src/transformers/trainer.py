@@ -1632,28 +1632,44 @@ class Trainer:
             optimizer_cls = AdamW4bit
             optimizer_kwargs.update(adam_kwargs)
         elif args.optim in [
+            OptimizerNames.SCHEDULE_FREE_RADAM,
             OptimizerNames.SCHEDULE_FREE_ADAMW,
             OptimizerNames.SCHEDULE_FREE_SGD,
         ]:
             if not is_schedulefree_available():
                 raise ImportError(
-                    "You need to install `schedulefree` in order to use schedulefree optimizers"
-                    " install it with `pip install schedulefree`"
+                    "You need to install `schedulefree` in order to use schedulefree optimizers. "
+                    "Install it with `pip install schedulefree.`"
                 )
             if not is_accelerate_available("0.30.0"):
                 raise ImportError("You need to have `accelerate>=0.30.0` to be able to use schedulefree optimizers")
             from schedulefree import AdamWScheduleFree, SGDScheduleFree
 
             additional_optim_kwargs = {}
-            if args.optim == OptimizerNames.SCHEDULE_FREE_ADAMW:
+            require_warmup = True
+
+            if args.optim == OptimizerNames.SCHEDULE_FREE_RADAM:
+                if not is_schedulefree_available("1.4.0"):
+                    raise ImportError(
+                        "You need to install `schedulefree>=1.4.0` in order to use RAdamScheduleFree optimizer. "
+                        "Install it with `pip install schedulefree.`"
+                    )
+                from schedulefree import RAdamScheduleFree
+
+                optimizer_cls = RAdamScheduleFree
+                additional_optim_kwargs = adam_kwargs
+                require_warmup = False
+            elif args.optim == OptimizerNames.SCHEDULE_FREE_ADAMW:
                 optimizer_cls = AdamWScheduleFree
                 additional_optim_kwargs = adam_kwargs
             elif args.optim == OptimizerNames.SCHEDULE_FREE_SGD:
                 optimizer_cls = SGDScheduleFree
             else:
                 raise ValueError("Invalid schedulefree optimizer")
+
             additional_optim_kwargs["weight_decay"] = args.weight_decay
-            additional_optim_kwargs["warmup_steps"] = args.warmup_steps
+            if require_warmup:
+                additional_optim_kwargs["warmup_steps"] = args.warmup_steps
             additional_optim_kwargs.update(
                 {
                     "weight_lr_power": float(optim_args.get("weight_lr_power", 2.0)),

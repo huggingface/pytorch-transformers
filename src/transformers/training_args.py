@@ -181,6 +181,7 @@ class OptimizerNames(ExplicitEnum):
     LOMO = "lomo"
     ADALOMO = "adalomo"
     GROKADAMW = "grokadamw"
+    SCHEDULE_FREE_RADAM = "schedule_free_radam"
     SCHEDULE_FREE_ADAMW = "schedule_free_adamw"
     SCHEDULE_FREE_SGD = "schedule_free_sgd"
 

@@ -544,13 +544,17 @@ trainer = Trainer(
 trainer.train()
 ```
 
-This script demonstrates how to fine-tune the `google/gemma-2b` model on the IMDB dataset using the GrokAdamW optimizer. The `TrainingArguments` are configured to use GrokAdamW, and the dataset is passed to the `Trainer` for training.
+This script demonstrates how to fine-tune the [google/gemma-2b](https://huggingface.co/google/gemma-2b) model on the IMDB dataset using the GrokAdamW optimizer. The `TrainingArguments` are configured to use GrokAdamW, and the dataset is passed to the `Trainer` for training.
 
-### Schedule Free Optimizer
+### Schedule-Free Optimizer
 
-The Schedule Free optimizers have been introduced in [The Road Less Scheduled](https://hf.co/papers/2405.15682).
+The Schedule-Free optimizers have been introduced in [The Road Less Scheduled](https://hf.co/papers/2405.15682).
+Supported optimizers for Schedule-Free are `schedule_free_radam`, `schedule_free_adamw` and `schedule_free_sgd`. First install schedulefree from pypi `pip install schedulefree`.
+
 Schedule-Free learning replaces the momentum of the base optimizer with a combination of averaging and interpolation, to completely remove the need to anneal the learning rate with a traditional schedule.
-Supported optimizers for SFO are `"schedule_free_adamw"` and `"schedule_free_sgd"`. First install schedulefree from pypi `pip install schedulefree`.
+Additionally, neither `warmup_steps` nor `warmup_ratio` parameters are required when using `schedule_free_radam`.
+
+By default, we recommend setting `lr_scheduler_type="constant"` in the `TrainingArguments`. Setting other `lr_scheduler_type` would also work, but combining Schedule-Free with other learning rate schedules is not well-studied both in research and in practice, as it may affect the optimizer's intended behavior and performance guarantees.
 
 Below is a simple script to demonstrate how to fine-tune [google/gemma-2b](https://huggingface.co/google/gemma-2b) on IMDB dataset in full precision:
 
@@ -566,7 +570,8 @@ args = TrainingArguments(
     output_dir="./test-schedulefree",
     max_steps=1000,
     per_device_train_batch_size=4,
-    optim="schedule_free_adamw",
+    optim="schedule_free_radam",
+    lr_scheduler_type="constant",
     gradient_checkpointing=True,
     logging_strategy="steps",
     logging_steps=1,

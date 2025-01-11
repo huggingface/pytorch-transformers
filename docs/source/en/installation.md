@@ -24,7 +24,7 @@ Transformers works with [PyTorch](https://pytorch.org/get-started/locally/), [Te
 
 ## Virtual environment
 
-A virtual environment can help you manage different projects and avoid compatibility issues between dependencies. Take a look at the [Install packages in a virtual environment using pip and venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/) guide if you're unfamiliar with Python virtual environments.
+A virtual environment helps manage different projects and avoids compatibility issues between dependencies. Take a look at the [Install packages in a virtual environment using pip and venv](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/) guide if you're unfamiliar with Python virtual environments.
 
 Create a virtual environment in your project directory.
 
@@ -79,7 +79,7 @@ pip install 'transformers[torch]'
 </hfoption>
 <hfoption id="TensorFlow">
 
-For M1 ARM-based hardware, you need to install CMake and pkg-config first.
+For Apple M1 hardware, you need to install CMake and pkg-config first.
 
 ```bash
 brew install cmake
@@ -102,7 +102,7 @@ pip install 'transformers[flax]'
 </hfoption>
 </hfoptions>
 
-Test whether your install was successful with the following command to quickly inference with a pretrained model. It should return a label and score for the provided text.
+Test whether the install was successful with the following command. It should return a label and score for the provided text.
 
 ```bash
 python -c "from transformers import pipeline; print(pipeline('sentiment-analysis')('hugging face is the best'))"
@@ -111,7 +111,7 @@ python -c "from transformers import pipeline; print(pipeline('sentiment-analysis
 
 ### Source install
 
-Installing from source installs the *latest* version rather than a *stable* version of the library. This ensures you get the most up-to-date changes in the library, which is useful for experimenting with the latest features or fixing a bug that hasn't been officially released in the stable version yet.
+Installing from source installs the *latest* version rather than the *stable* version of the library. It ensures you have the most up-to-date changes in Transformers and it's useful for experimenting with the latest features or fixing a bug that hasn't been officially released in the stable version yet.
 
 The downside is that the latest version may not always be stable. If you encounter any problems, please open a [GitHub Issue](https://github.com/huggingface/transformers/issues) so we can fix it as soon as possible.
 
@@ -121,7 +121,7 @@ Install from source with the following command.
 pip install git+https://github.com/huggingface/transformers
 ```
 
-Check if the install was successful with the command below to quickly inference with a pretrained model. It should return a label and score for the provided text.
+Check if the install was successful with the command below. It should return a label and score for the provided text.
 
 ```bash
 python -c "from transformers import pipeline; print(pipeline('sentiment-analysis')('hugging face is the best'))"
@@ -156,19 +156,17 @@ git pull
 conda install conda-forge::transformers
 ```
 
-## Setup
+## Set up
 
-After installation, you can configure the Transformers cache location or setup the library for offline usage if you want.
+After installation, you can configure the Transformers cache location or set up the library for offline usage.
 
 ### Cache directory
 
 When you load a pretrained model with [`~PreTrainedModel.from_pretrained`], the model is downloaded from the Hub and locally cached.
 
-Every time you load a model, it checks whether the cached model is up-to-date. If it's the same, then the local model is loaded. If it's not the same, the newer model is downloaded and cached. This ensures you always have the latest model version.
+Every time you load a model, it checks whether the cached model is up-to-date. If it's the same, then the local model is loaded. If it's not the same, the newer model is downloaded and cached.
 
-The default directory given by the shell environment variable `TRANSFORMERS_CACHE` is `~/.cache/huggingface/hub`.
-
-On Windows, the default directory is given by `C:\Users\username\.cache\huggingface\hub`.
+The default directory given by the shell environment variable `TRANSFORMERS_CACHE` is `~/.cache/huggingface/hub`. On Windows, the default directory is `C:\Users\username\.cache\huggingface\hub`.
 
 Cache a model in a different directory by changing the path in the following shell environment variables (listed by priority).
 
@@ -180,7 +178,7 @@ Older versions of Transformers uses the shell environment variables `PYTORCH_TRA
 
 ### Offline mode
 
-To use Transformers in an offline or firewalled environment requires having the downloaded and cached files ahead of time. Download a model repository from the Hub with the [`~huggingface_hub.snapshot_download`] method.
+To use Transformers in an offline or firewalled environment requires the downloaded and cached files ahead of time. Download a model repository from the Hub with the [`~huggingface_hub.snapshot_download`] method.
 
 > [!TIP]
 > Refer to the [Download files from the Hub](https://hf.co/docs/huggingface_hub/guides/download) guide for more options for downloading files from the Hub. You can download files from specific revisions, download from the CLI, and even filter which files to download from a repository.
@@ -198,7 +196,7 @@ HF_HUB_OFFLINE=1 \
 python examples/pytorch/language-modeling/run_clm.py --model_name_or_path meta-llama/Llama-2-7b-hf --dataset_name wikitext ...
 ```
 
-Another option for only loading cached files is to set the `local_files_only` parameter to `True` in [`~PreTrainedModel.from_pretrained`].
+Another option for only loading cached files is to set `local_files_only=True` in [`~PreTrainedModel.from_pretrained`].
 
 ```py
 from transformers import LlamaForCausalLM

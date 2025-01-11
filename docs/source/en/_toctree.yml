@@ -12,15 +12,15 @@
   - title: Models
     sections:
     - local: models
-      title: Load
+      title: Loading
     - local: custom_models
-      title: Create a custom model
+      title: Customizing models
     - local: how_to_hack_models
-      title: Customize model components
+      title: Customizing model components
     - local: model_sharing
-      title: Share
+      title: Sharing
     - local: add_new_model
-      title: Add a new model
+      title: Adding a new model
     - local: modular_transformers
       title: Modular transformers
     - local: task_summary

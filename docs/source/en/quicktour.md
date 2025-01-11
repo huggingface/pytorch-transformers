@@ -18,21 +18,19 @@ rendered properly in your Markdown viewer.
 
 [[open-in-colab]]
 
-Get up and running with Transformers, a library of pretrained models!
+Transformers is designed to be fast and easy to use so that everyone can start learning or building with transformer models.
 
-There are only three classes to instantiate any model and two APIs for inference or training. By limiting the number of user-facing abstractions, Transformers is easier to learn and faster to use.
-
-Whether you're a developer or a machine learning engineer, this quickstart introduces you to Transformers' key features and shows you how easy it is to:
+The number of user-facing abstractions is limited to only three classes for instantiating a model, and two APIs for inference or training. This quickstart introduces you to Transformers' key features and shows you how to:
 
 - load a pretrained model
-- run inference with the [`Pipeline`] API
-- train a model with the [`Trainer`] API
+- run inference with [`Pipeline`]
+- fine-tune a model with [`Trainer`]
 
-## Setup
+## Set up
 
-To start, we recommend creating a Hugging Face [account](https://hf.co/join). This allows you to host and access version controlled models, datasets, and [Spaces](https://hf.co/spaces) on the [Hugging Face Hub](https://hf.co/docs/hub/index), a collaborative platform for discovery and building.
+To start, we recommend creating a Hugging Face [account](https://hf.co/join). An account lets you host and access version controlled models, datasets, and [Spaces](https://hf.co/spaces) on the Hugging Face [Hub](https://hf.co/docs/hub/index), a collaborative platform for discovery and building.
 
-Create a [User Access Token](https://hf.co/docs/hub/security-tokens#user-access-tokens) and login to your account.
+Create a [User Access Token](https://hf.co/docs/hub/security-tokens#user-access-tokens) and log in to your account.
 
 ```py
 from huggingface_hub import notebook_login
@@ -40,7 +38,7 @@ from huggingface_hub import notebook_login
 notebook_login()
 ```
 
-Make sure your preferred machine learning framework is installed.
+Install a machine learning framework.
 
 <hfoptions id="installation">
 <hfoption id="PyTorch">
@@ -59,7 +57,7 @@ Make sure your preferred machine learning framework is installed.
 </hfoption>
 </hfoptions>
 
-Install an up-to-date version of Transformers and some additional libraries from the Hugging Face ecosystem for accessing datasets and vision models, evaluating training, and optimizing training for large models.
+Then install an up-to-date version of Transformers and some additional libraries from the Hugging Face ecosystem for accessing datasets and vision models, evaluating training, and optimizing training for large models.
 
 ```bash
 !pip install -U transformers datasets evaluate accelerate timm
@@ -72,34 +70,37 @@ Each pretrained model inherits from three base classes.
 | **Class** | **Description** |
 |---|---|
 | [`PretrainedConfig`] | A file that specifies a models attributes such as the number of attention heads or vocabulary size. |
-| [`PreTrainedModel`] | A model (or architecture) defined by the model attributes from the configuration file. A pretrained model only returns the raw hidden states. For a specific task, use the appropriate model head to convert the raw hidden states into a meaningful result (e.g., [`LlamaModel`] versus [`LlamaForCausalLM`]). |
+| [`PreTrainedModel`] | A model (or architecture) defined by the model attributes from the configuration file. A pretrained model only returns the raw hidden states. For a specific task, use the appropriate model head to convert the raw hidden states into a meaningful result (for example, [`LlamaModel`] versus [`LlamaForCausalLM`]). |
 | Preprocessor | A class for converting raw inputs (text, images, audio, multimodal) into numerical inputs to the model. For example, [`PreTrainedTokenizer`] converts text into tensors and [`ImageProcessingMixin`] converts pixels into tensors. |
 
 We recommend using the [AutoClass](./model_doc/auto) API to load models and preprocessors because it automatically infers the appropriate architecture for each task and machine learning framework based on the name or path to the pretrained weights and configuration file.
 
-Use the [`~PreTrainedModel.from_pretrained`] method to load the weights and configuration file from the Hub into the model and preprocessor class.
+Use [`~PreTrainedModel.from_pretrained`] to load the weights and configuration file from the Hub into the model and preprocessor class.
 
 <hfoptions id="base-classes">
 <hfoption id="PyTorch">
 
-When you load a model, especially a large language model (LLM), setting `device_map="auto"` automatically allocates the model weights to your fastest device(s) first which is typically the GPU.
+When you load a model, configure the following parameters to ensure the model is optimally loaded.
+
+- `device_map="auto"` automatically allocates the model weights to your fastest device first, which is typically the GPU.
+- `torch_dtype="auto"` directly initializes the model weights in the data type they're stored in, which can help avoid loading the weights twice (PyTorch loads weights in torch.float32 by default).
 
 ```py
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", device_map="auto")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", torch_dtype="auto", device_map="auto")
 tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
 ```
 
-Tokenize the text and return PyTorch tensors with the tokenizer. To accelerate inference, move the model to a GPU if it's available.
+Tokenize the text and return PyTorch tensors with the tokenizer. Move the model to a GPU if it's available to accelerate inference.
 
 ```py
-model_inputs = tokenizer(["Hugging Face is a"], return_tensors="pt").to("cuda")
+model_inputs = tokenizer(["The secret to baking a good cake is "], return_tensors="pt").to("cuda")
 ```
 
 The model is now ready for inference or training.
 
-For inference, pass the tokenized inputs to the [`~GenerationMixin.generate`] API to generate text. Decode the token ids back into text with the [`~PreTrainedTokenizerBase.batch_decode`] method.
+For inference, pass the tokenized inputs to [`~GenerationMixin.generate`] to generate text. Decode the token ids back into text with [`~PreTrainedTokenizerBase.batch_decode`].
 
 ```py
 generated_ids = model.generate(**model_inputs, max_length=30)
@@ -120,12 +121,12 @@ tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2-xl")
 Tokenize the text and return TensorFlow tensors with the tokenizer.
 
 ```py
-model_inputs = tokenizer(["Hugging Face is a"], return_tensors="tf")
+model_inputs = tokenizer(["The secret to baking a good cake is "], return_tensors="tf")
 ```
 
 The model is now ready for inference or training.
 
-For inference, call the [`~GenerationMixin.generate`] API to generate text and the [`~PreTrainedTokenizerBase.batch_decode`] method to convert the token ids back into text.
+For inference, pass the tokenized inputs to [`~GenerationMixin.generate`] to generate text. Decode the token ids back into text with [`~PreTrainedTokenizerBase.batch_decode`].
 
 ```py
 generated_ids = model.generate(**model_inputs, max_length=30)
@@ -136,21 +137,22 @@ tokenizer.batch_decode(generated_ids)[0]
 </hfoption>
 </hfoptions>
 
-For training, skip ahead to the [Trainer API](#trainer-api) section.
+> [!TIP]
+> Skip ahead to the [Trainer](#trainer-api) section to learn how to fine-tune a model.
 
 ## Pipeline
 
-The [`Pipeline`] is the most convenient way to inference with a pretrained model. It supports many tasks such as text generation, image segmentation, automatic speech recognition, document question answering, and more.
+The [`Pipeline`] class is the most convenient way to inference with a pretrained model. It supports many tasks such as text generation, image segmentation, automatic speech recognition, document question answering, and more.
 
 > [!TIP]
-> Check out the [Pipeline](./main_classes/pipelines) API reference for a complete list of available tasks.
+> Refer to the [Pipeline](./main_classes/pipelines) API reference for a complete list of available tasks.
 
-Create a [`Pipeline`] object and select a task. By default, the [`Pipeline`] downloads and caches a default pretrained model for a given task. To choose a specific model, pass the model name to the `model` parameter.
+Create a [`Pipeline`] object and select a task. By default, [`Pipeline`] downloads and caches a default pretrained model for a given task. Pass the model name to the `model` parameter to choose a specific model.
 
 <hfoptions id="pipeline-tasks">
 <hfoption id="text generation">
 
-Set `device="cuda"`, if it's available, to accelerate inference with a GPU.
+Set `device="cuda"` to accelerate inference with a GPU.
 
 ```py
 from transformers import pipeline
@@ -158,7 +160,7 @@ from transformers import pipeline
 pipeline = pipeline("text-generation", model="meta-llama/Llama-2-7b-hf", device="cuda")
 ```
 
-Prompt the [`Pipeline`] with some initial text to generate more text.
+Prompt [`Pipeline`] with some initial text to generate more text.
 
 ```py
 pipeline("The secret to baking a good cake is ", max_length=50)
@@ -176,7 +178,7 @@ from transformers import pipeline
 pipeline = pipeline("image-segmentation", model="facebook/detr-resnet-50-panoptic", device="cuda")
 ```
 
-Pass an image (a URL or local path to the image) to the [`Pipeline`].
+Pass an image - a URL or local path to the image - to [`Pipeline`].
 
 <div class="flex justify-center">
    <img src="https://huggingface.co/datasets/Narsil/image_dummy/raw/main/parrots.png"/>
@@ -201,7 +203,7 @@ from transformers import pipeline
 pipeline = pipeline("automatic-speech-recognition", model="openai/whisper-large-v3", device="cuda")
 ```
 
-Pass an audio file to the [`Pipeline`].
+Pass an audio file to [`Pipeline`].
 
 ```py
 pipeline("https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac")
@@ -213,9 +215,9 @@ pipeline("https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac")
 
 ## Trainer
 
-The [`Trainer`] is an optimized training and evaluation loop for PyTorch models. It abstracts away a lot of the standard boilerplate usually involved in manually writing a training loop. You can start training faster and focus on training design choices. You only need a model, dataset, a preprocessor, and a data collator to build batches of data from the dataset.
+[`Trainer`] is a complete training and evaluation loop for PyTorch models. It abstracts away a lot of the boilerplate usually involved in manually writing a training loop, so you can start training faster and focus on training design choices. You only need a model, dataset, a preprocessor, and a data collator to build batches of data from the dataset.
 
-Customize the training process with the [`TrainingArguments`] class. It provides many options for training, evaluation, and more. The training process can be as complex or simple as you want or need. Experiment with training hyperparameters and features like batch size, learning rate, mixed precision, torch.compile, and more. Or if you prefer, just use the default settings to quickly produce a baseline.
+Use the [`TrainingArguments`] class to customize the training process. It provides many options for training, evaluation, and more. Experiment with training hyperparameters and features like batch size, learning rate, mixed precision, torch.compile, and more to meet your training needs. You could also use the default training parameters to quickly produce a baseline.
 
 Load a model, tokenizer, and dataset for training.
 
@@ -236,7 +238,7 @@ def tokenize_dataset(dataset):
 dataset = dataset.map(tokenize_dataset, batched=True)
 ```
 
-Load a data collator to create batches of data, and pass the tokenizer to it.
+Load a data collator to create batches of data and pass the tokenizer to it.
 
 ```py
 from transformers import DataCollatorWithPadding
@@ -244,7 +246,7 @@ from transformers import DataCollatorWithPadding
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 ```
 
-Next, create an instance of [`TrainingArguments`] with the training features and hyperparameters you want.
+Next, set up [`TrainingArguments`] with the training features and hyperparameters.
 
 ```py
 from transformers import TrainingArguments
@@ -259,7 +261,7 @@ training_args = TrainingArguments(
 )
 ```
 
-Finally, pass all these separate components to [`Trainer`] and call the [`~Trainer.train`] method to start.
+Finally, pass all these separate components to [`Trainer`] and call [`~Trainer.train`] to start.
 
 ```py
 from transformers import Trainer
@@ -276,7 +278,7 @@ trainer = Trainer(
 trainer.train()
 ```
 
-Use the [`~Trainer.push_to_hub`] method to share your model and tokenizer to the Hub.
+Share your model and tokenizer to the Hub with [`~Trainer.push_to_hub`].
 
 ```py
 trainer.push_to_hub()
@@ -287,7 +289,7 @@ Congratulations, you just trained your first model with Transformers!
 ### TensorFlow
 
 > [!WARNING]
-> Not all pretrained models are available in TensorFlow. Check which ones are implemented in [Supported models and frameworks](./index#supported-models-and-frameworks).
+> Not all pretrained models are available in TensorFlow. Refer to a models API doc to check whether a TensorFlow implementation is supported.
 
 [`Trainer`] doesn't work with TensorFlow models, but you can still train a Transformers model implemented in TensorFlow with [Keras](https://keras.io/). Transformers TensorFlow models are a standard [tf.keras.Model](https://www.tensorflow.org/api_docs/python/tf/keras/Model), which is compatible with Keras' [compile](https://keras.io/api/models/model_training_apis/#compile-method) and [fit](https://keras.io/api/models/model_training_apis/#fit-method) methods.
 
@@ -327,12 +329,10 @@ model.fit(tf_dataset)
 
 ## Next steps
 
-Great work on completing the quickstart!
+Now that you have a better understanding of Transformers and what it offers, it's time to keep exploring and learning what interests you the most.
 
-Now that you have a better understanding of the library and what it offers, it's time to keep exploring and learning what interests you the most.
-
-- Base classes: Learn more about the base classes, and the configuration, model and processor classes that inherit from it. This will help you understand how to create your own custom models, preprocess different types of inputs (audio, images, multimodal), and how to share your model.
-- Inference: Explore the [`Pipeline`] API further, inference with LLMs, chatting with LLMs, agents, and how to optimize inference with your machine learning framework and hardware.
-- Training: Study the [`Trainer`] API in more detail, as well as distributed training and optimizing training on specific hardware.
-- Quantization: Reduce memory and storage requirements with quantization and speed up inference by representing weights with fewer bits.
-- Resources: Looking for end-to-end recipes for how to train and inference with a model for a specific task? Check out the task recipes!
+- **Base classes**: Learn more about the configuration, model and processor classes. This will help you understand how to create and customize models, preprocess different types of inputs (audio, images, multimodal), and how to share your model.
+- **Inference**: Explore the [`Pipeline`] further, inference and chatting with LLMs, agents, and how to optimize inference with your machine learning framework and hardware.
+- **Training**: Study the [`Trainer`] in more detail, as well as distributed training and optimizing training on specific hardware.
+- **Quantization**: Reduce memory and storage requirements with quantization and speed up inference by representing weights with fewer bits.
+- **Resources**: Looking for end-to-end recipes for how to train and inference with a model for a specific task? Check out the task recipes!

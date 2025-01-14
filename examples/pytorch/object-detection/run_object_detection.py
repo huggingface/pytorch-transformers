@@ -20,7 +20,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 import albumentations as A
 import numpy as np
@@ -57,6 +57,17 @@ require_version("datasets>=2.0.0", "To fix: pip install -r examples/pytorch/obje
 class ModelOutput:
     logits: torch.Tensor
     pred_boxes: torch.Tensor
+
+
+def nested_cpu(tensors):
+    if isinstance(tensors, (list, tuple)):
+        return type(tensors)(nested_cpu(t) for t in tensors)
+    elif isinstance(tensors, Mapping):
+        return type(tensors)({k: nested_cpu(t) for k, t in tensors.items()})
+    elif isinstance(tensors, torch.Tensor):
+        return tensors.cpu().detach()
+    else:
+        return tensors
 
 
 def format_image_annotations_as_coco(
@@ -111,7 +122,7 @@ def convert_bbox_yolo_to_pascal(boxes: torch.Tensor, image_size: Tuple[int, int]
 
     # convert to absolute coordinates
     height, width = image_size
-    boxes = boxes * torch.tensor([[width, height, width, height]])
+    boxes = boxes * torch.tensor([[width, height, width, height]], device=boxes.device)
 
     return boxes
 
@@ -157,76 +168,109 @@ def collate_fn(batch: List[BatchFeature]) -> Mapping[str, Union[torch.Tensor, Li
     return data
 
 
-@torch.no_grad()
-def compute_metrics(
-    evaluation_results: EvalPrediction,
-    image_processor: AutoImageProcessor,
-    threshold: float = 0.0,
-    id2label: Optional[Mapping[int, str]] = None,
-) -> Mapping[str, float]:
+class Evaluator:
     """
-    Compute mean average mAP, mAR and their variants for the object detection task.
-
-    Args:
-        evaluation_results (EvalPrediction): Predictions and targets from evaluation.
-        threshold (float, optional): Threshold to filter predicted boxes by confidence. Defaults to 0.0.
-        id2label (Optional[dict], optional): Mapping from class id to class name. Defaults to None.
-
-    Returns:
-        Mapping[str, float]: Metrics in a form of dictionary {<metric_name>: <metric_value>}
+    Compute metrics for the object-detection task.
     """
 
-    predictions, targets = evaluation_results.predictions, evaluation_results.label_ids
+    def __init__(
+        self,
+        image_processor: AutoImageProcessor,
+        id2label: Mapping[int, str],
+        threshold: float = 0.0,
+    ):
+        """
+        Initialize evaluator with image processor, id2label mapping and threshold for filtering predictions.
 
-    # For metric computation we need to provide:
-    #  - targets in a form of list of dictionaries with keys "boxes", "labels"
-    #  - predictions in a form of list of dictionaries with keys "boxes", "scores", "labels"
+        Args:
+            image_processor (AutoImageProcessor): Image processor for
+                `post_process_instance_segmentation` method.
+            id2label (Mapping[int, str]): Mapping from class id to class name.
+            threshold (float): Threshold to filter predicted boxes by confidence. Defaults to 0.0.
+        """
+        self.image_processor = image_processor
+        self.id2label = id2label
+        self.threshold = threshold
+        self.metric = self.get_metric()
 
-    image_sizes = []
-    post_processed_targets = []
-    post_processed_predictions = []
+    def get_metric(self):
+        metric = MeanAveragePrecision(iou_type="bbox", box_format="xyxy", class_metrics=True)
+        return metric
 
-    # Collect targets in the required format for metric computation
-    for batch in targets:
-        # collect image sizes, we will need them for predictions post processing
-        batch_image_sizes = torch.tensor([x["orig_size"] for x in batch])
-        image_sizes.append(batch_image_sizes)
-        # collect targets in the required format for metric computation
-        # boxes were converted to YOLO format needed for model training
-        # here we will convert them to Pascal VOC format (x_min, y_min, x_max, y_max)
-        for image_target in batch:
-            boxes = torch.tensor(image_target["boxes"])
-            boxes = convert_bbox_yolo_to_pascal(boxes, image_target["orig_size"])
-            labels = torch.tensor(image_target["class_labels"])
+    def reset_metric(self):
+        self.metric.reset()
+
+    def postprocess_target_batch(self, target_batch) -> List[Dict[str, torch.Tensor]]:
+        """Collect targets in a form of list of dictionaries with keys "boxes", "labels"."""
+        post_processed_targets = []
+        for sample in target_batch:
+            boxes = convert_bbox_yolo_to_pascal(sample["boxes"], sample["orig_size"])
+            labels = sample["class_labels"]
             post_processed_targets.append({"boxes": boxes, "labels": labels})
+        return post_processed_targets
 
-    # Collect predictions in the required format for metric computation,
-    # model produce boxes in YOLO format, then image_processor convert them to Pascal VOC format
-    for batch, target_sizes in zip(predictions, image_sizes):
-        batch_logits, batch_boxes = batch[1], batch[2]
-        output = ModelOutput(logits=torch.tensor(batch_logits), pred_boxes=torch.tensor(batch_boxes))
-        post_processed_output = image_processor.post_process_object_detection(
-            output, threshold=threshold, target_sizes=target_sizes
+    def get_target_sizes(self, target_batch) -> torch.Tensor:
+        target_sizes = torch.stack([x["orig_size"] for x in target_batch])
+        return target_sizes
+
+    def postprocess_prediction_batch(self, prediction_batch, target_sizes) -> List[Dict[str, torch.Tensor]]:
+        """Collect predictions in a form of list of dictionaries with keys "boxes", "labels", "scores"."""
+        batch_logits, batch_boxes = prediction_batch[1], prediction_batch[2]
+        output = ModelOutput(logits=batch_logits, pred_boxes=batch_boxes)
+        post_processed_predictions = self.image_processor.post_process_object_detection(
+            output, threshold=self.threshold, target_sizes=target_sizes
         )
-        post_processed_predictions.extend(post_processed_output)
+        return post_processed_predictions
 
-    # Compute metrics
-    metric = MeanAveragePrecision(box_format="xyxy", class_metrics=True)
-    metric.update(post_processed_predictions, post_processed_targets)
-    metrics = metric.compute()
+    @torch.no_grad()
+    def __call__(self, evaluation_results: EvalPrediction, compute_result: bool = False) -> Mapping[str, float]:
+        """
+        Update metrics with current evaluation results and return metrics if `compute_result` is True.
 
-    # Replace list of per class metrics with separate metric for each class
-    classes = metrics.pop("classes")
-    map_per_class = metrics.pop("map_per_class")
-    mar_100_per_class = metrics.pop("mar_100_per_class")
-    for class_id, class_map, class_mar in zip(classes, map_per_class, mar_100_per_class):
-        class_name = id2label[class_id.item()] if id2label is not None else class_id.item()
-        metrics[f"map_{class_name}"] = class_map
-        metrics[f"mar_100_{class_name}"] = class_mar
+        Args:
+            evaluation_results (EvalPrediction): Predictions and targets from evaluation.
+            compute_result (bool): Whether to compute and return metrics.
 
-    metrics = {k: round(v.item(), 4) for k, v in metrics.items()}
+        Returns:
+            Mapping[str, float]: Metrics in a form of dictionary {<metric_name>: <metric_value>}
+        """
+        prediction_batch = evaluation_results.predictions
+        target_batch = evaluation_results.label_ids
 
-    return metrics
+        # For metric computation we need to provide:
+        #  - targets in a form of list of dictionaries with keys "boxes", "labels"
+        #  - predictions in a form of list of dictionaries with keys "boxes", "labels", "scores"
+        target_sizes = self.get_target_sizes(target_batch)
+        post_processed_targets = self.postprocess_target_batch(target_batch)
+        post_processed_predictions = self.postprocess_prediction_batch(prediction_batch, target_sizes)
+
+        # move tensors to CPU
+        post_processed_targets = nested_cpu(post_processed_targets)
+        post_processed_predictions = nested_cpu(post_processed_predictions)
+
+        # Compute metrics
+        self.metric.update(post_processed_predictions, post_processed_targets)
+
+        if not compute_result:
+            return
+
+        metrics = self.metric.compute()
+
+        # Replace list of per class metrics with separate metric for each class
+        classes = metrics.pop("classes")
+        map_per_class = metrics.pop("map_per_class")
+        mar_100_per_class = metrics.pop("mar_100_per_class")
+        for class_id, class_map, class_mar in zip(classes, map_per_class, mar_100_per_class):
+            class_name = self.id2label[class_id.item()] if self.id2label is not None else class_id.item()
+            metrics[f"map_{class_name}"] = class_map
+            metrics[f"mar_100_{class_name}"] = class_mar
+
+        metrics = {k: round(v.item(), 4) for k, v in metrics.items()}
+
+        # Reset metric for next evaluation
+        self.reset_metric()
+
+        return metrics
 
 
 @dataclass
@@ -295,7 +339,7 @@ class ModelArguments:
     )
     image_processor_name: str = field(default=None, metadata={"help": "Name or path of preprocessor config."})
     ignore_mismatched_sizes: bool = field(
-        default=False,
+        default=True,
         metadata={
             "help": "Whether or not to raise an error if some of the weights from the checkpoint do not have the same size as the weights of the model (if for instance, you are instantiating a model with 10 labels from a checkpoint with 3 labels)."
         },
@@ -333,6 +377,11 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    # Defaults for object detection task
+    training_args.remove_unused_columns = False
+    training_args.eval_do_concat_batches = False
+    training_args.batch_eval_metrics = True
 
     # # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -479,9 +528,7 @@ def main():
     # Model training and evaluation with Trainer API
     # ------------------------------------------------------------------------------------------------
 
-    eval_compute_metrics_fn = partial(
-        compute_metrics, image_processor=image_processor, id2label=id2label, threshold=0.0
-    )
+    eval_compute_metrics_fn = Evaluator(image_processor, id2label=id2label, threshold=0.0)
 
     trainer = Trainer(
         model=model,

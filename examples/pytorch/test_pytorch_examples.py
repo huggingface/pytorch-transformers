@@ -634,6 +634,7 @@ class ExamplesTests(TestCasePlus):
             --remove_unused_columns False
             --overwrite_output_dir True
             --eval_do_concat_batches False
+            --batch_eval_metrics True
             --max_steps 10
             --learning_rate=1e-6
             --per_device_train_batch_size=2

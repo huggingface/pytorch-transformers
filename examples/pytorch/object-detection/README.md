@@ -49,9 +49,7 @@ python run_object_detection.py \
     --dataloader_prefetch_factor 2 \
     --per_device_train_batch_size 8 \
     --gradient_accumulation_steps 1 \
-    --remove_unused_columns false \
-    --eval_do_concat_batches false \
-    --ignore_mismatched_sizes true \
+
     --metric_for_best_model eval_map \
     --greater_is_better true \
     --load_best_model_at_end true \

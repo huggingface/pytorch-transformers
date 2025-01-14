@@ -18,12 +18,15 @@ import gc
 import importlib
 import json
 import math
+import multiprocessing
 import os
+import queue
 import random
 import re
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from functools import partial
 from itertools import product
@@ -340,6 +343,20 @@ class RegressionModelConfig(PretrainedConfig):
         self.double_output = double_output
         self.random_torch = random_torch
         self.hidden_size = 1
+
+
+class QueueIterableDataset(IterableDataset):
+    def __init__(self, q):
+        self.q = q
+
+    def __iter__(self):
+        while True:
+            try:
+                item = self.q.get_nowait()
+                print(item)
+                yield {"label_ids": item}
+            except queue.Empty:
+                break
 
 
 if is_torch_available():
@@ -1743,6 +1760,83 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         self.assertEqual(second_dataloader.dataset, second_dataloader_repeated.dataset)
         self.assertEqual(first_dataloader, first_dataloader_repeated)
         self.assertEqual(second_dataloader, second_dataloader_repeated)
+
+    def test_dataloader_prefetch_iterable_occurs(self):
+        """Test that prefetching works correctly with iterable datasets."""
+
+        # Create a multiprocessing queue and fill it with 5 elements,
+        # 4 of these should be fetched ahead of time after getting the first batch
+        q = multiprocessing.Queue()
+        for i in range(5):
+            q.put(torch.tensor([i]))
+
+        # Create dataset and model
+        dataset = QueueIterableDataset(q)
+        model = RegressionModel()
+
+        # Configure trainer with 2 workers and prefetch_factor=1
+        training_args = TrainingArguments(
+            output_dir="./test-prefetch",
+            per_device_train_batch_size=1,
+            dataloader_num_workers=2,
+            dataloader_prefetch_factor=1,
+            max_steps=4,
+            report_to="none",
+        )
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=dataset,
+        )
+
+        # Get the dataloader and fetch one batch
+        dataloader = trainer.get_train_dataloader()
+        next(iter(dataloader))
+        time.sleep(1)  # Wait for workers to prefetch the next batch
+
+        # The queue should have 1 remaining element after the first batch is fetched
+        self.assertTrue(q.get_nowait().item() == 4)
+        with self.assertRaises(queue.Empty):
+            q.get_nowait()
+
+    def test_dataloader_prefetch_iterable_will_exhaust_dataset(self):
+        """
+        The same as test_dataloader_prefetch_iterable_occurs but now
+        we confirm that setting a higher prefetch factor will result in the
+        queue dataset being empty after the first batch is fetched.
+        """
+        q = multiprocessing.Queue()
+        for i in range(6):  # 6 elements rather than 5
+            q.put(torch.tensor([i]))
+
+        # Create dataset and model
+        dataset = QueueIterableDataset(q)
+        model = RegressionModel()
+
+        training_args = TrainingArguments(
+            output_dir="./test-prefetch",
+            per_device_train_batch_size=1,
+            dataloader_num_workers=2,
+            dataloader_prefetch_factor=3,  # 3 rather than 1 above
+            max_steps=4,
+            report_to="none",
+        )
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=dataset,
+        )
+
+        # Get the dataloader and fetch one batch
+        dataloader = trainer.get_train_dataloader()
+        next(iter(dataloader))
+        time.sleep(1)  # Wait for workers to prefetch the next batch
+
+        # The queue should now be empty since the workers prefetched all remaining elements
+        with self.assertRaises(queue.Empty):
+            q.get_nowait()
 
     @require_liger_kernel
     def test_use_liger_kernel_patching(self):

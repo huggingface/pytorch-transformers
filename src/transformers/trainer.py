@@ -955,16 +955,53 @@ class Trainer:
         )
         return remove_columns_collator
 
-    def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
-        if self.train_dataset is None or not has_length(self.train_dataset):
+    def _get_dataloader(
+        self,
+        dataset: Dataset,
+        get_sampler_func: Callable[[Dataset], Optional[torch.utils.data.Sampler]],
+        batch_size: int,
+        description: str,
+        seed_workers: bool,
+    ) -> DataLoader:
+        data_collator = self.data_collator
+
+        if is_datasets_available() and isinstance(dataset, datasets.Dataset):
+            dataset = self._remove_unused_columns(dataset, description=description)
+        else:
+            data_collator = self._get_collator_with_removed_columns(data_collator, description=description)
+
+        dataloader_params = {
+            "dataset": dataset,
+            "batch_size": batch_size,
+            "collate_fn": data_collator,
+            "num_workers": self.args.dataloader_num_workers,
+            "pin_memory": self.args.dataloader_pin_memory,
+            "persistent_workers": self.args.dataloader_persistent_workers,
+            "prefetch_factor": self.args.dataloader_prefetch_factor,
+        }
+
+        if seed_workers:
+            dataloader_params["worker_init_fn"] = seed_worker
+
+        if not isinstance(dataset, torch.utils.data.IterableDataset):
+            dataloader_params["sampler"] = get_sampler_func(dataset)
+            dataloader_params["drop_last"] = self.args.dataloader_drop_last
+
+        # accelerator.free_memory() will destroy the references, so
+        # we need to return the unprepared version here in case someone
+        # needs them. We prepare in the get_{train/eval/test}_dataloader functions.
+        return DataLoader(**dataloader_params)
+
+    def _get_train_sampler(self, train_dataset: Dataset) -> Optional[torch.utils.data.Sampler]:
+        if train_dataset is None or not has_length(train_dataset):
             return None
 
         # Build the sampler.
         if self.args.group_by_length:
-            if is_datasets_available() and isinstance(self.train_dataset, datasets.Dataset):
+            if is_datasets_available() and isinstance(train_dataset, datasets.Dataset):
                 lengths = (
-                    self.train_dataset[self.args.length_column_name]
-                    if self.args.length_column_name in self.train_dataset.column_names
+                    train_dataset[self.args.length_column_name]
+                    if self.args.length_column_name in train_dataset.column_names
                     else None
                 )
             else:
@@ -974,13 +1011,13 @@ class Trainer:
             )
             return LengthGroupedSampler(
                 self.args.train_batch_size * self.args.gradient_accumulation_steps,
-                dataset=self.train_dataset,
+                dataset=train_dataset,
                 lengths=lengths,
                 model_input_name=model_input_name,
             )
 
         else:
-            return RandomSampler(self.train_dataset)
+            return RandomSampler(train_dataset)
 
     def get_train_dataloader(self) -> DataLoader:
         """
@@ -994,28 +1031,15 @@ class Trainer:
         if self.train_dataset is None:
             raise ValueError("Trainer: training requires a train_dataset.")
 
-        train_dataset = self.train_dataset
-        data_collator = self.data_collator
-        if is_datasets_available() and isinstance(train_dataset, datasets.Dataset):
-            train_dataset = self._remove_unused_columns(train_dataset, description="training")
-        else:
-            data_collator = self._get_collator_with_removed_columns(data_collator, description="training")
-
-        dataloader_params = {
-            "batch_size": self._train_batch_size,
-            "collate_fn": data_collator,
-            "num_workers": self.args.dataloader_num_workers,
-            "pin_memory": self.args.dataloader_pin_memory,
-            "persistent_workers": self.args.dataloader_persistent_workers,
-        }
-
-        if not isinstance(train_dataset, torch.utils.data.IterableDataset):
-            dataloader_params["sampler"] = self._get_train_sampler()
-            dataloader_params["drop_last"] = self.args.dataloader_drop_last
-            dataloader_params["worker_init_fn"] = seed_worker
-            dataloader_params["prefetch_factor"] = self.args.dataloader_prefetch_factor
-
-        return self.accelerator.prepare(DataLoader(train_dataset, **dataloader_params))
+        return self.accelerator.prepare(
+            self._get_dataloader(
+                dataset=self.train_dataset,
+                get_sampler_func=self._get_train_sampler,
+                batch_size=self._train_batch_size,
+                description="training",
+                seed_workers=not isinstance(self.train_dataset, torch.utils.data.IterableDataset),
+            )
+        )
 
     def _get_eval_sampler(self, eval_dataset: Dataset) -> Optional[torch.utils.data.Sampler]:
         if eval_dataset is None or not has_length(eval_dataset):
@@ -1090,34 +1114,22 @@ class Trainer:
             if eval_dataset is not None
             else self.eval_dataset
         )
-        data_collator = self.data_collator
 
-        if is_datasets_available() and isinstance(eval_dataset, datasets.Dataset):
-            eval_dataset = self._remove_unused_columns(eval_dataset, description="evaluation")
-        else:
-            data_collator = self._get_collator_with_removed_columns(data_collator, description="evaluation")
-
-        dataloader_params = {
-            "batch_size": self.args.eval_batch_size,
-            "collate_fn": data_collator,
-            "num_workers": self.args.dataloader_num_workers,
-            "pin_memory": self.args.dataloader_pin_memory,
-            "persistent_workers": self.args.dataloader_persistent_workers,
-        }
-
-        if not isinstance(eval_dataset, torch.utils.data.IterableDataset):
-            dataloader_params["sampler"] = self._get_eval_sampler(eval_dataset)
-            dataloader_params["drop_last"] = self.args.dataloader_drop_last
-            dataloader_params["prefetch_factor"] = self.args.dataloader_prefetch_factor
+        eval_dataloader = self._get_dataloader(
+            dataset=eval_dataset,
+            get_sampler_func=self._get_eval_sampler,
+            batch_size=self.args.eval_batch_size,
+            description="evaluation",
+            seed_workers=False,
+        )
 
         # accelerator.free_memory() will destroy the references, so
         # we need to store the non-prepared version
-        eval_dataloader = DataLoader(eval_dataset, **dataloader_params)
         if self.args.dataloader_persistent_workers:
-            if hasattr(self, "_eval_dataloaders"):
-                self._eval_dataloaders[dataloader_key] = eval_dataloader
-            else:
-                self._eval_dataloaders = {dataloader_key: eval_dataloader}
+            if not hasattr(self, "_eval_dataloaders"):
+                self._eval_dataloaders = {}
+
+            self._eval_dataloaders[dataloader_key] = eval_dataloader
 
         return self.accelerator.prepare(eval_dataloader)
 
@@ -1132,28 +1144,15 @@ class Trainer:
                 The test dataset to use. If it is a [`~datasets.Dataset`], columns not accepted by the
                 `model.forward()` method are automatically removed. It must implement `__len__`.
         """
-        data_collator = self.data_collator
-
-        if is_datasets_available() and isinstance(test_dataset, datasets.Dataset):
-            test_dataset = self._remove_unused_columns(test_dataset, description="test")
-        else:
-            data_collator = self._get_collator_with_removed_columns(data_collator, description="test")
-
-        dataloader_params = {
-            "batch_size": self.args.eval_batch_size,
-            "collate_fn": data_collator,
-            "num_workers": self.args.dataloader_num_workers,
-            "pin_memory": self.args.dataloader_pin_memory,
-            "persistent_workers": self.args.dataloader_persistent_workers,
-        }
-
-        if not isinstance(test_dataset, torch.utils.data.IterableDataset):
-            dataloader_params["sampler"] = self._get_eval_sampler(test_dataset)
-            dataloader_params["drop_last"] = self.args.dataloader_drop_last
-            dataloader_params["prefetch_factor"] = self.args.dataloader_prefetch_factor
-
-        # We use the same batch_size as for eval.
-        return self.accelerator.prepare(DataLoader(test_dataset, **dataloader_params))
+        return self.accelerator.prepare(
+            self._get_dataloader(
+                dataset=test_dataset,
+                get_sampler_func=self._get_eval_sampler,
+                batch_size=self.args.eval_batch_size,
+                description="test",
+                seed_workers=False,
+            )
+        )
 
     def create_optimizer_and_scheduler(self, num_training_steps: int):
         """

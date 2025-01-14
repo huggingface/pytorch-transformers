@@ -1746,6 +1746,7 @@ class TimeSeriesTransformerForPrediction(TimeSeriesTransformerPreTrainedModel):
         repeated_enc_last_hidden = enc_last_hidden.repeat_interleave(repeats=num_parallel_samples, dim=0)
 
         future_samples = []
+        future_params = {name: [] for name in self.parameter_projection.args_dim}
 
         # greedy decoding
         for k in range(self.config.prediction_length):
@@ -1771,13 +1772,20 @@ class TimeSeriesTransformerForPrediction(TimeSeriesTransformerPreTrainedModel):
                 (repeated_past_values, (next_sample - repeated_loc) / repeated_scale), dim=1
             )
             future_samples.append(next_sample)
+            for key, param in zip(self.parameter_projection.args_dim, params):
+                future_params[key].append(param)
 
         concat_future_samples = torch.cat(future_samples, dim=1)
+        concat_future_params = {key: torch.cat(params, dim=1) for key, params in future_params.items()}
+        scaling_params = {"loc": loc, "scale": scale}
 
         return SampleTSPredictionOutput(
             sequences=concat_future_samples.reshape(
                 (-1, num_parallel_samples, self.config.prediction_length) + self.target_shape,
-            )
+            ),
+            params=concat_future_params,
+            distribution=self.config.distribution_output,
+            scaling_params=scaling_params,
         )
 
 

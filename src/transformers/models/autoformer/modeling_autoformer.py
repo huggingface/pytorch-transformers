@@ -2144,9 +2144,13 @@ class AutoformerForPrediction(AutoformerPreTrainedModel):
         params = self.output_params(decoder_last_hidden + trend)
         distr = self.output_distribution(params, loc=repeated_loc, scale=repeated_scale)
         future_samples = distr.sample()
+        scaling_params = {"loc": loc, "scale": scale}
 
         return SampleTSPredictionOutput(
             sequences=future_samples.reshape(
                 (-1, num_parallel_samples, self.config.prediction_length) + self.target_shape,
-            )
+            ),
+            params=dict(zip(self.distribution_output.args_dim, params)),
+            distribution=self.config.distribution_output,
+            scaling_params=scaling_params,
         )

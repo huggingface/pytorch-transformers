@@ -1711,9 +1711,15 @@ class SampleTSPredictionOutput(ModelOutput):
     Args:
         sequences (`torch.FloatTensor` of shape `(batch_size, num_samples, prediction_length)` or `(batch_size, num_samples, prediction_length, input_size)`):
             Sampled values from the chosen distribution.
+        params (`dict[str, torch.FloatTensor]`): Parameters of the forecasted distribution.
+        distribution (`str`): Name of the forecasted distribution.
+        scaling_params: (`dict[str, torch.FloatTensor]`): The distribution affine transformation parameters.
     """
 
     sequences: torch.FloatTensor = None
+    params: dict[str, torch.FloatTensor] = None
+    distribution: str = None
+    scaling_params: dict[str, torch.FloatTensor] = None
 
 
 @dataclass

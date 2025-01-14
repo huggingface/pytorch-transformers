@@ -27,6 +27,7 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
+from ...cache_utils import Cache, DynamicCache, StaticCache  # noqa: F401
 from ...generation import GenerationMixin
 from ...modeling_attn_mask_utils import _prepare_4d_attention_mask_for_sdpa, _prepare_4d_causal_attention_mask_for_sdpa
 from ...modeling_outputs import (
@@ -270,12 +271,13 @@ class GPT2Attention(nn.Module):
     def forward(
         self,
         hidden_states: Optional[Tuple[torch.FloatTensor]],
-        layer_past: Optional[Tuple[torch.Tensor]] = None,
+        past_key_value: Optional[Cache] = None,
+        cache_position: Optional[torch.LongTensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        use_cache: Optional[bool] = False,
+        # use_cache: Optional[bool] = False,  TODO delete
         output_attentions: Optional[bool] = False,
         **kwargs,
     ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]], ...]:
@@ -299,15 +301,19 @@ class GPT2Attention(nn.Module):
         key_states = key_states.reshape(shape_kv).transpose(1, 2)
         value_states = value_states.reshape(shape_kv).transpose(1, 2)
 
-        if layer_past is not None:
-            past_key, past_value = layer_past
-            key_states = torch.cat((past_key, key_states), dim=-2)
-            value_states = torch.cat((past_value, value_states), dim=-2)
+        # if layer_past is not None:  TODO delete
+        #     past_key, past_value = layer_past
+        #     key_states = torch.cat((past_key, key_states), dim=-2)
+        #     value_states = torch.cat((past_value, value_states), dim=-2)
 
-        if use_cache is True:
-            present = (key_states, value_states)
-        else:
-            present = None
+        if past_key_value is not None:
+            cache_kwargs = {"cache_position": cache_position}
+            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs=cache_kwargs)
+
+        # if use_cache is True:  TODO delete
+        #     present = (key_states, value_states)
+        # else:
+        #     present = None
 
         is_cross_attention = encoder_hidden_states is not None
         is_causal = attention_mask is None and query_states.shape[-2] > 1 and not is_cross_attention
@@ -348,7 +354,7 @@ class GPT2Attention(nn.Module):
         attn_output = self.c_proj(attn_output)
         attn_output = self.resid_dropout(attn_output)
 
-        outputs = (attn_output, present)
+        outputs = (attn_output,)
         if output_attentions:
             outputs += (attn_weights,)
 
@@ -391,7 +397,8 @@ class GPT2Block(nn.Module):
     def forward(
         self,
         hidden_states: Optional[Tuple[torch.FloatTensor]],
-        layer_past: Optional[Tuple[torch.Tensor]] = None,
+        past_key_value: Optional[Cache] = None,
+        cache_position: Optional[torch.LongTensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
@@ -403,7 +410,8 @@ class GPT2Block(nn.Module):
         hidden_states = self.ln_1(hidden_states)
         attn_outputs = self.attn(
             hidden_states,
-            layer_past=layer_past,
+            past_key_value=past_key_value,
+            cache_position=cache_position,
             attention_mask=attention_mask,
             head_mask=head_mask,
             use_cache=use_cache,
@@ -442,12 +450,12 @@ class GPT2Block(nn.Module):
         # residual connection
         hidden_states = residual + feed_forward_hidden_states
 
-        if use_cache:
-            outputs = (hidden_states,) + outputs
-        else:
-            outputs = (hidden_states,) + outputs[1:]
+        # if use_cache:  # TODO delete
+        #     outputs = (hidden_states,) + outputs
+        # else:
+        outputs = (hidden_states,) + outputs[1:]
 
-        return outputs  # hidden_states, present, (attentions, cross_attentions)
+        return outputs  # hidden_states, (attentions, cross_attentions)
 
 
 class GPT2PreTrainedModel(PreTrainedModel):
@@ -465,6 +473,8 @@ class GPT2PreTrainedModel(PreTrainedModel):
     _skip_keys_device_placement = "past_key_values"
     _supports_flash_attn_2 = True
     _supports_sdpa = True
+    _supports_cache_class = True
+    _supports_static_cache = True
 
     def __init__(self, *inputs, **kwargs):
         super().__init__(*inputs, **kwargs)
@@ -569,10 +579,24 @@ GPT2_INPUTS_DOCSTRING = r"""
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
-        past_key_values (`Tuple[Tuple[torch.Tensor]]` of length `config.n_layers`):
-            Contains precomputed hidden-states (key and values in the attention blocks) as computed by the model (see
-            `past_key_values` output below). Can be used to speed up sequential decoding. The `input_ids` which have
-            their past given to this model should not be passed as `input_ids` as they have already been computed.
+        past_key_values (`Cache` or `tuple(tuple(torch.FloatTensor))`, *optional*):
+            Pre-computed hidden-states (key and values in the self-attention blocks and in the cross-attention
+            blocks) that can be used to speed up sequential decoding. This typically consists in the `past_key_values`
+            returned by the model at a previous stage of decoding, when `use_cache=True` or `config.use_cache=True`.
+
+            Two formats are allowed:
+            - a [`~cache_utils.Cache`] instance, see our
+            [kv cache guide](https://huggingface.co/docs/transformers/en/kv_cache);
+            - Tuple of `tuple(torch.FloatTensor)` of length `config.n_layers`, with each tuple having 2 tensors of
+            shape `(batch_size, num_heads, sequence_length, embed_size_per_head)`). This is also known as the legacy
+            cache format.
+
+            The model will output the same cache format that is fed as input. If no `past_key_values` are passed, the
+            legacy cache format will be returned.
+
+            If `past_key_values` are used, the user can optionally input only the last `input_ids` (those that don't
+            have their past key value states given to this model) of shape `(batch_size, 1)` instead of all `input_ids`
+            of shape `(batch_size, sequence_length)`.
         attention_mask (`torch.FloatTensor` of shape `(batch_size, sequence_length)`, *optional*):
             Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
 
@@ -621,6 +645,10 @@ GPT2_INPUTS_DOCSTRING = r"""
             more detail.
         return_dict (`bool`, *optional*):
             Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
+        cache_position (`torch.LongTensor` of shape `(sequence_length)`, *optional*):
+            Indices depicting the position of the input sequence tokens in the sequence. Contrarily to `position_ids`,
+            this tensor is not affected by padding. It is used to update the cache in the correct position and to infer
+            the complete sequence length.
 """
 PARALLELIZE_DOCSTRING = r"""
     This is an experimental feature and is a subject to change at a moment's notice.
@@ -768,7 +796,8 @@ class GPT2Model(GPT2PreTrainedModel):
     def forward(
         self,
         input_ids: Optional[torch.LongTensor] = None,
-        past_key_values: Optional[Tuple[Tuple[torch.Tensor]]] = None,
+        past_key_values: Optional[Union[Tuple[Tuple[torch.Tensor]], Cache]] = None,
+        cache_position: Optional[torch.LongTensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
         token_type_ids: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
@@ -777,6 +806,7 @@ class GPT2Model(GPT2PreTrainedModel):
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
         use_cache: Optional[bool] = None,
+        return_legacy_cache: Optional[bool] = True,  # TODO implement
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
@@ -806,14 +836,22 @@ class GPT2Model(GPT2PreTrainedModel):
         if token_type_ids is not None:
             token_type_ids = token_type_ids.view(-1, input_shape[-1])
 
-        if past_key_values is None:
-            past_length = 0
-            past_key_values = tuple([None] * len(self.h))
-        else:
-            past_length = past_key_values[0][0].size(-2)
+        if use_cache and past_key_values is None:
+            past_key_values = DynamicCache()
+
+        if cache_position is None:
+            past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
+            cache_position = torch.arange(
+                past_seen_tokens, past_seen_tokens + inputs_embeds.shape[1], device=inputs_embeds.device
+            )
+            # past_length = 0
+            # past_key_values = tuple([None] * len(self.h))  # TODO DELETE
         if position_ids is None:
-            position_ids = torch.arange(past_length, input_shape[-1] + past_length, dtype=torch.long, device=device)
-            position_ids = position_ids.unsqueeze(0)
+            position_ids = cache_position.unsqueeze(0)
+
+        # if position_ids is None:
+        #     position_ids = torch.arange(past_length, input_shape[-1] + past_length, dtype=torch.long, device=device)  TODO delete
+        #     position_ids = position_ids.unsqueeze(0)
 
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
@@ -821,6 +859,8 @@ class GPT2Model(GPT2PreTrainedModel):
         hidden_states = inputs_embeds + position_embeds
 
         # Attention mask.
+        _past_length = past_key_values.seen_tokens if past_key_values is not None else 0  # TODO improve this
+
         _use_sdpa = self._attn_implementation == "sdpa" and output_attentions is False and head_mask is None
         attention_mask = attention_mask.view(batch_size, -1) if attention_mask is not None else None
         if self._attn_implementation == "flash_attention_2":
@@ -830,7 +870,7 @@ class GPT2Model(GPT2PreTrainedModel):
                 attention_mask=attention_mask,
                 input_shape=(batch_size, input_shape[-1]),
                 inputs_embeds=inputs_embeds,
-                past_key_values_length=past_length,
+                past_key_values_length=_past_length,
             )
         else:
             if attention_mask is not None:
@@ -886,18 +926,17 @@ class GPT2Model(GPT2PreTrainedModel):
                 )
                 use_cache = False
 
-        presents = () if use_cache else None
+        # presents = () if use_cache else None  # TODO delete
         all_self_attentions = () if output_attentions else None
         all_cross_attentions = () if output_attentions and self.config.add_cross_attention else None
         all_hidden_states = () if output_hidden_states else None
-        for i in range(len(self.h)):
-            block, layer_past = self.h[i], past_key_values[i]
+        for i, block in enumerate(self.h):
             # Model parallel
             if self.model_parallel:
                 torch.cuda.set_device(hidden_states.device)
-                # Ensure layer_past is on same device as hidden_states (might not be correct)
-                if layer_past is not None:
-                    layer_past = tuple(past_state.to(hidden_states.device) for past_state in layer_past)
+                # Ensure layer_past is on same device as hidden_states (might not be correct)  TODO delete
+                # if layer_past is not None:
+                #     layer_past = tuple(past_state.to(hidden_states.device) for past_state in layer_past)
                 # Ensure that attention_mask is always on the same device as hidden_states
                 if attention_mask is not None:
                     attention_mask = attention_mask.to(hidden_states.device)
@@ -921,7 +960,7 @@ class GPT2Model(GPT2PreTrainedModel):
             else:
                 outputs = block(
                     hidden_states,
-                    layer_past=layer_past,
+                    past_key_value=past_key_values,
                     attention_mask=attention_mask,
                     head_mask=head_mask[i],
                     encoder_hidden_states=encoder_hidden_states,
@@ -931,8 +970,8 @@ class GPT2Model(GPT2PreTrainedModel):
                 )
 
             hidden_states = outputs[0]
-            if use_cache is True:
-                presents = presents + (outputs[1],)
+            # if use_cache is True:  TODO delete
+            #     presents = presents + (outputs[1],)
 
             if output_attentions:
                 all_self_attentions = all_self_attentions + (outputs[2 if use_cache else 1],)
@@ -951,6 +990,9 @@ class GPT2Model(GPT2PreTrainedModel):
         # Add last hidden state
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
+
+        # TODO implement cache return, conversion of past_key_values into presents if return_legacy_cache
+        presents = None  # plug
 
         if not return_dict:
             return tuple(
@@ -1037,6 +1079,7 @@ class GPT2LMHeadModel(GPT2PreTrainedModel, GenerationMixin):
         self,
         input_ids: Optional[torch.LongTensor] = None,
         past_key_values: Optional[Tuple[Tuple[torch.Tensor]]] = None,
+        cache_position: Optional[torch.LongTensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
         token_type_ids: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
@@ -1062,6 +1105,7 @@ class GPT2LMHeadModel(GPT2PreTrainedModel, GenerationMixin):
             input_ids,
             past_key_values=past_key_values,
             attention_mask=attention_mask,
+            cache_position=cache_position,
             token_type_ids=token_type_ids,
             position_ids=position_ids,
             head_mask=head_mask,

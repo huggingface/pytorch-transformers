@@ -211,6 +211,11 @@ class AutoTokenizerTest(unittest.TestCase):
         self.assertIsInstance(tokenizer2, tokenizer.__class__)
         self.assertEqual(tokenizer2.vocab_size, 12)
 
+    def test_PreTrainedTokenizerFast_inferred(self):
+        # Model does not have a fast tokenizer or PreTrainedTokenizerFast specified in config but can still load fast
+        tokenizer = AutoTokenizer.from_pretrained("google/siglip-base-patch16-224", use_fast=True)
+        self.assertEqual(type(tokenizer), PreTrainedTokenizerFast)
+
     def test_auto_tokenizer_fast_no_slow(self):
         tokenizer = AutoTokenizer.from_pretrained("Salesforce/ctrl")
         # There is no fast CTRL so this always gives us a slow tokenizer.

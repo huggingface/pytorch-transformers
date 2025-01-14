@@ -211,6 +211,23 @@ class GenerationConfigTest(unittest.TestCase):
             GenerationConfig(foo="bar")
         self.assertEqual(len(captured_warnings), 0)
 
+        # generation parameters that are not related to logit processors
+        with self.assertRaises(ValueError):
+            GenerationConfig(dola_layers="dummy")
+
+        with self.assertRaises(ValueError):
+            GenerationConfig(dola_layers=[-1, 3])
+
+        with self.assertRaises(ValueError):
+            GenerationConfig(dola_layers="dummy")
+
+        with self.assertRaises(ValueError):
+            GenerationConfig(num_return_sequences=0)
+
+        with warnings.catch_warnings(record=True) as captured_warnings:
+            GenerationConfig(pad_token_id=-1)
+        self.assertEqual(len(captured_warnings), 1)
+
     def test_refuse_to_save(self):
         """Tests that we refuse to save a generation config that fails validation."""
 
@@ -258,6 +275,18 @@ class GenerationConfigTest(unittest.TestCase):
 
         config = GenerationConfig()
         self.assertEqual(config.get_generation_mode(assistant_model="foo"), GenerationMode.ASSISTED_GENERATION)
+
+        config = GenerationConfig(dola_layers="high")
+        self.assertEqual(config.get_generation_mode(), GenerationMode.DOLA_GENERATION)
+
+        config = GenerationConfig(num_beams=2, do_sample=True)
+        self.assertEqual(config.get_generation_mode(), GenerationMode.BEAM_SAMPLE)
+
+        config = GenerationConfig(num_beams=2, constraints=["dummy"])
+        self.assertEqual(config.get_generation_mode(), GenerationMode.CONSTRAINED_BEAM_SEARCH)
+
+        config = GenerationConfig(num_beams=4, num_beam_groups=2, diversity_penalty=1.0)
+        self.assertEqual(config.get_generation_mode(), GenerationMode.GROUP_BEAM_SEARCH)
 
 
 class GenerationConfigSerializationTest(unittest.TestCase):
@@ -522,13 +551,13 @@ class GenerationConfigSerializationTest(unittest.TestCase):
         """Tests that GenerationConfig is serialized and ForcedBOSTokenLogitsProcessor is initialized with bos_token_id"""
         bos_token_id = 0
 
-        generation_config = GenerationConfig(bos_token_id=bos_token_id)
+        generation_config = GenerationConfig(forced_bos_token_id=bos_token_id)
         with tempfile.TemporaryDirectory("test-generation-config") as tmp_dir:
             generation_config.save_pretrained(tmp_dir)
             new_config = GenerationConfig.from_pretrained(tmp_dir)
-        self.assertEqual(new_config.bos_token_id, bos_token_id)
+        self.assertEqual(new_config.forced_bos_token_id, bos_token_id)
 
-        logits_processor = ForcedBOSTokenLogitsProcessor(bos_token_id=new_config.bos_token_id)
+        logits_processor = ForcedBOSTokenLogitsProcessor(bos_token_id=new_config.forced_bos_token_id)
         self.assertEqual(logits_processor.bos_token_id, bos_token_id)
 
     def test_serialize_generation_eos_token_id(self):
@@ -536,14 +565,14 @@ class GenerationConfigSerializationTest(unittest.TestCase):
         eos_token_id = 0
         max_length = 5
 
-        generation_config = GenerationConfig(eos_token_id=eos_token_id)
+        generation_config = GenerationConfig(forced_eos_token_id=eos_token_id)
         with tempfile.TemporaryDirectory("test-generation-config") as tmp_dir:
             generation_config.save_pretrained(tmp_dir)
             new_config = GenerationConfig.from_pretrained(tmp_dir)
-        self.assertEqual(new_config.eos_token_id, eos_token_id)
+        self.assertEqual(new_config.forced_eos_token_id, eos_token_id)
 
         logits_processor = ForcedEOSTokenLogitsProcessor(
-            max_length=max_length, eos_token_id=new_config.eos_token_id, device=torch_device
+            max_length=max_length, eos_token_id=new_config.forced_eos_token_id, device=torch_device
         )
         self.assertEqual(logits_processor.eos_token_id, eos_token_id)
 
@@ -627,6 +656,34 @@ class GenerationConfigSerializationTest(unittest.TestCase):
 
         cfg = UnbatchedClassifierFreeGuidanceLogitsProcessor(new_config.guidance_scale, {}, input_ids)
         self.assertEqual(cfg.guidance_scale, guidance_scale)
+
+    def test_serialize_num_return_sequences_with_beam_search(self):
+        """Tests that GenerationConfig serializes and deserializes num_return_sequences correctly with beam search."""
+        num_return_sequences = 2
+        num_beams = 2
+        generation_config = GenerationConfig(num_return_sequences=num_return_sequences, num_beams=num_beams)
+        with tempfile.TemporaryDirectory("test-generation-config") as tmp_dir:
+            generation_config.save_pretrained(tmp_dir)
+            new_config = GenerationConfig.from_pretrained(tmp_dir)
+        self.assertEqual(new_config.num_return_sequences, num_return_sequences)
+        self.assertEqual(new_config.num_beams, num_beams)
+
+    @parameterized.expand(
+        [
+            ("pad_token_id", 0),
+            ("stop_strings", [".", "end"]),
+            ("dola_layers", "high"),
+        ]
+    )
+    def test_serialize_generation_parameters(self, param_name, param_value):
+        """Tests that GenerationConfig parameters are serialized and deserialized correctly."""
+        generation_config = GenerationConfig(**{param_name: param_value})
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            generation_config.save_pretrained(tmp_dir)
+            new_config = GenerationConfig.from_pretrained(tmp_dir)
+
+        self.assertEqual(getattr(new_config, param_name), param_value)
 
     def test_serialize_generation_watermarking_config(self):
         """Tests that GenerationConfig is serialized and WatermarkLogitsProcessor is initialized with WatermarkingConfig parameters"""

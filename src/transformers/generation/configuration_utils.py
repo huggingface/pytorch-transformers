@@ -22,6 +22,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, is_dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
+import numpy as np
+
 from .. import __version__
 from ..configuration_utils import PretrainedConfig
 from ..utils import (
@@ -278,10 +280,10 @@ class GenerationConfig(PushToHubMixin):
             A list of pairs of integers which indicates a mapping from generation indices to token indices that will be
             forced before sampling. For example, `[[1, 123]]` means the second generated token will always be a token
             of index 123.
-        sequence_bias (`Dict[Tuple[int], float]`, *optional*)):
-            Dictionary that maps a sequence of tokens to its bias term. Positive biases increase the odds of the
-            sequence being selected, while negative biases do the opposite. Check
-            [`~generation.SequenceBiasLogitsProcessor`] for further documentation and examples.
+        sequence_bias (`List[List[List[int], float]]`, *optional*)):
+            List of pairs that contain a non-empty list of token ids and a float bias , e.g, `[[[32, 69], -1.7], [[92], 0.2]]`.
+            Positive biases increase the odds of the sequence being selected, while negative biases do the opposite.
+            Check [`~generation.SequenceBiasLogitsProcessor`] for further documentation and examples.
         token_healing (`bool`, *optional*, defaults to `False`):
             Heal tail tokens of prompts by replacing them with their appropriate extensions.
             This enhances the quality of completions for prompts affected by greedy tokenization bias.
@@ -598,16 +600,212 @@ class GenerationConfig(PushToHubMixin):
         """
 
         # Validation of individual attributes
+        pos_int_args = [
+            "top_k",
+            "bos_token_id",
+            "max_new_tokens",
+            "min_new_tokens",
+            "max_length",
+            "min_length",
+            "no_repeat_ngram_size",
+            "encoder_no_repeat_ngram_size",
+        ]
+
+        probability_args = ["top_p", "typical_p", "min_p", "epsilon_cutoff", "eta_cutoff"]
+
+        float_pos_args = [
+            "temperature",
+            "penalty_alpha",
+            "diversity_penalty",
+            "max_time",
+            "repetition_penalty",
+            "encoder_repetition_penalty",
+        ]
+
+        at_least_one_args = ["num_return_sequences", "num_beams", "num_beam_groups"]
+
+        int_or_list_int_args = [
+            "suppress_tokens",
+            "begin_suppress_tokens",
+            "forced_eos_token_id",
+            "eos_token_id",
+            "decoder_start_token_id",
+            "forced_bos_token_id",
+        ]
+
+        nested_lists_args = ["bad_words_ids", "force_words_ids"]
+
+        for arg in pos_int_args:
+            value = getattr(self, arg)
+            if value is not None and (not isinstance(value, int) or value < 0):
+                raise ValueError(f"`{arg}` must be a positive integer, but got {value}.")
+
+        for arg in probability_args:
+            value = getattr(self, arg)
+            if value is not None and (not isinstance(value, float) or not (0.0 <= value <= 1.0)):
+                raise ValueError(f"`{arg}` must be a float within the range [0, 1], but got {value}.")
+
+        for arg in float_pos_args:
+            value = getattr(self, arg)
+            if value is not None and (not isinstance(value, float) or value < 0):
+                raise ValueError(f"`{arg}` must be a positive float, but got {value}.")
+
+        for arg in at_least_one_args:
+            value = getattr(self, arg)
+            if value is not None and (not isinstance(value, int) or (value < 1)):
+                raise ValueError(f"`{arg}` must be integer of 1 or greater, but got {value}.")
+
+        for arg in int_or_list_int_args:
+            value = getattr(self, arg)
+            if value is not None and not (
+                isinstance(value, int) or (isinstance(value, list) and all(isinstance(e, int) for e in value))
+            ):
+                raise ValueError(f"`{arg}` must be either an integer or a list of integers, but got {value}.")
+
+        if not isinstance(self.length_penalty, float):
+            raise ValueError(
+                f"`length_penalty` must be a float (positive or negative), but got {self.length_penalty}."
+            )
+
         if self.early_stopping not in {True, False, "never"}:
-            raise ValueError(f"`early_stopping` must be a boolean or 'never', but is {self.early_stopping}.")
-        if self.max_new_tokens is not None and self.max_new_tokens <= 0:
-            raise ValueError(f"`max_new_tokens` must be greater than 0, but is {self.max_new_tokens}.")
+            raise ValueError(f"`early_stopping` must be a boolean or 'never', but got {self.early_stopping}.")
+
         if self.pad_token_id is not None and self.pad_token_id < 0:
             warnings.warn(
                 f"`pad_token_id` should be positive but got {self.pad_token_id}. This will cause errors when batch "
                 "generating, if there is padding. Please set `pad_token_id` explicitly as "
                 "`model.generation_config.pad_token_id=PAD_TOKEN_ID` to avoid errors in generation"
             )
+
+        if self.stop_strings is not None:
+            stop_strings = self.stop_strings
+            if not (
+                isinstance(stop_strings, str)
+                or (isinstance(stop_strings, list) and all(isinstance(e, str) for e in stop_strings))
+            ):
+                raise ValueError(
+                    f"`stop_strings` must be either an string or a list of strings, but got {stop_strings}."
+                )
+
+        if self.guidance_scale is not None:
+            if not isinstance(self.guidance_scale, float) or self.guidance_scale <= 1.0:
+                raise ValueError(
+                    f"`guidance_scale` must be a float greater than 1 to enable classifier free guidance (CFG), but got {self.guidance_scale}."
+                )
+
+        if self.exponential_decay_length_penalty is not None:
+            value = self.exponential_decay_length_penalty
+            if isinstance(value, list):
+                value = tuple(value)
+            if not isinstance(value, tuple) or len(value) != 2:
+                raise ValueError(
+                    f"`exponential_decay_length_penalty` must be a tuple of two elements (int, float), but got {value}."
+                )
+            if not isinstance(value[0], int) or value[0] < 0:
+                raise ValueError(
+                    f"The first element of `exponential_decay_length_penalty` is `start_index`, must be a positive integer, but got {value[0]}."
+                )
+            if not isinstance(value[1], float) or value[1] < 0:
+                raise ValueError(
+                    f"The second element of `exponential_decay_length_penalty` is `decay_factor`, must be a positive float, but got {value[1]}."
+                )
+
+        if self.dola_layers is not None:
+            dola_layers = self.dola_layers
+            if isinstance(dola_layers, str):
+                if dola_layers not in {"low", "high"}:
+                    raise ValueError(
+                        f"`dola_layers` must be 'low' or 'high' when provided as a string, but got '{dola_layers}'."
+                    )
+            elif isinstance(dola_layers, list):
+                if not all(isinstance(layer, int) and layer >= 0 for layer in dola_layers):
+                    raise ValueError(f"`dola_layers` must be a list of positive integers, but got {dola_layers}.")
+            else:
+                raise ValueError(
+                    f"`dola_layers` must be either a string ('low', 'high') or a list of positive integers, but got {dola_layers}."
+                )
+
+        for arg in nested_lists_args:
+            value = getattr(self, arg)
+            if value is not None:
+                if not isinstance(value, list) or len(value) == 0:
+                    raise ValueError(f"`{arg}` must be a non-empty list, but got {value}.")
+
+                if arg == "bad_words_ids":
+                    if any(
+                        not isinstance(inner_list, list)
+                        or any(not isinstance(token_id, (int, np.integer)) or token_id < 0 for token_id in inner_list)
+                        for inner_list in value
+                    ):
+                        raise ValueError(
+                            f"Each element in `{arg}` must be a list of positive integers, but got {value}."
+                        )
+
+                elif arg == "force_words_ids":
+                    if any(
+                        not isinstance(inner_list, list)
+                        or not (
+                            all(
+                                isinstance(sub_list, list) and all(isinstance(token_id, int) for token_id in sub_list)
+                                for sub_list in inner_list
+                            )
+                            or all(isinstance(token_id, int) for token_id in inner_list)
+                        )
+                        for inner_list in value
+                    ):
+                        raise ValueError(
+                            f"`{arg}` must be either a `List[List[List[int]]]` or `List[List[int]]`, but got {value}."
+                        )
+
+        if self.sequence_bias is not None:
+            if (
+                not isinstance(self.sequence_bias, list)
+                and not isinstance(self.sequence_bias, dict)  # for BC
+                or len(self.sequence_bias) == 0
+            ):
+                raise ValueError(
+                    f"`sequence_bias` must be a non-empty list of lists of token ids and a float bias in the format `List[List[List[int], float]]`, e.g. `[[[32, 69], -1.7], [[92], 0.2]]`, but got {self.sequence_bias}."
+                )
+
+            if isinstance(self.sequence_bias, list):
+                for inner_list in self.sequence_bias:
+                    if not isinstance(inner_list, list) or len(inner_list) != 2:
+                        raise ValueError(
+                            f"Each element in `sequence_bias` must be a list of two elements [List[int], float], but got {inner_list}."
+                        )
+
+                    sequence_ids, bias = inner_list[0], inner_list[1]
+                    if (
+                        not isinstance(sequence_ids, list)
+                        or len(sequence_ids) == 0
+                        or any(
+                            not isinstance(token_id, (int, np.integer)) or token_id < 0 for token_id in sequence_ids
+                        )
+                    ):
+                        raise ValueError(
+                            f"The first element of each inner list in `sequence_bias` must be a non-empty list of positive integers, but got {sequence_ids}."
+                        )
+
+                    if not isinstance(bias, float):
+                        raise ValueError(
+                            f"The second element of each inner list in `sequence_bias` must be a float, but got {bias}."
+                        )
+
+            elif isinstance(self.sequence_bias, dict):
+                for sequence_ids, bias in self.sequence_bias.items():
+                    if (
+                        not isinstance(sequence_ids, tuple)
+                        or len(sequence_ids) == 0
+                        or any(
+                            not isinstance(token_id, (int, np.integer)) or token_id < 0 for token_id in sequence_ids
+                        )
+                    ):
+                        raise ValueError(
+                            f"Each key in `sequence_bias` must be a non-empty tuple of positive integers, but got {sequence_ids}."
+                        )
+
+                    if not isinstance(bias, float):
+                        raise ValueError(f"The value for each key in `sequence_bias` must be a float, but got {bias}.")
 
         # Validation of attribute relations:
         fix_location = ""

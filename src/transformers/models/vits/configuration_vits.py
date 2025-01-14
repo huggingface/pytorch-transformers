@@ -194,6 +194,10 @@ class VitsConfig(PretrainedConfig):
         noise_scale=0.667,
         noise_scale_duration=0.8,
         sampling_rate=16_000,
+        istft_decoder=None,
+        subbands=None,
+        gen_istft_n_fft=None,
+        gen_istft_hop_size=None,
         **kwargs,
     ):
         self.vocab_size = vocab_size
@@ -240,6 +244,10 @@ class VitsConfig(PretrainedConfig):
         self.noise_scale = noise_scale
         self.noise_scale_duration = noise_scale_duration
         self.sampling_rate = sampling_rate
+        self.istft_decoder = istft_decoder
+        self.subbands = subbands
+        self.gen_istft_n_fft = gen_istft_n_fft
+        self.gen_istft_hop_size = gen_istft_hop_size
 
         if len(upsample_kernel_sizes) != len(upsample_rates):
             raise ValueError(

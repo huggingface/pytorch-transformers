@@ -21,6 +21,7 @@ from typing import Any, Optional, Tuple, Union
 import numpy as np
 import torch
 import torch.utils.checkpoint
+from scipy.signal import get_window, kaiser
 from torch import nn
 
 from ...activations import ACT2FN
@@ -574,6 +575,311 @@ class VitsHifiGan(nn.Module):
         hidden_states = self.conv_post(hidden_states)
         waveform = torch.tanh(hidden_states)
         return waveform
+
+
+class VitsISTFT(nn.Module):
+    def __init__(self, config: VitsConfig):
+        super().__init__()
+        self.config = config
+        self.gen_istft_n_fft = config.gen_istft_n_fft
+        self.gen_istft_hop_size = config.gen_istft_hop_size
+        self.post_n_fft = config.gen_istft_n_fft
+
+        if config.istft_decoder in ["ms_istft", "mb_istft"]:
+            self.subbands = config.subbands
+            if config.istft_decoder == "mb_istft":
+                self.pqmf = PQMF(subbands=self.subbands)
+            else:
+                updown_filter = torch.zeros((self.subbands, self.subbands, self.subbands)).float()
+                for k in range(self.subbands):
+                    updown_filter[k, k, 0] = 1.0
+                self.register_buffer("updown_filter", updown_filter)
+
+                self.multistream_conv_post = nn.Conv1d(
+                    4, 1, kernel_size=63, bias=False, padding=self.get_padding(63, 1)
+                )
+
+        self.num_kernels = len(config.resblock_kernel_sizes)
+        self.num_upsamples = len(config.upsample_rates)
+        self.conv_pre = nn.Conv1d(
+            config.flow_size,
+            config.upsample_initial_channel,
+            kernel_size=7,
+            stride=1,
+            padding=3,
+        )
+
+        self.upsampler = nn.ModuleList()
+        for i, (upsample_rate, kernel_size) in enumerate(zip(config.upsample_rates, config.upsample_kernel_sizes)):
+            self.upsampler.append(
+                nn.ConvTranspose1d(
+                    config.upsample_initial_channel // (2**i),
+                    config.upsample_initial_channel // (2 ** (i + 1)),
+                    kernel_size=kernel_size,
+                    stride=upsample_rate,
+                    padding=(kernel_size - upsample_rate) // 2,
+                )
+            )
+
+        self.resblocks = nn.ModuleList()
+        for i in range(len(self.upsampler)):
+            channels = config.upsample_initial_channel // (2 ** (i + 1))
+            for kernel_size, dilation in zip(config.resblock_kernel_sizes, config.resblock_dilation_sizes):
+                self.resblocks.append(HifiGanResidualBlock(channels, kernel_size, dilation, config.leaky_relu_slope))
+
+        if config.istft_decoder == "istft":
+            self.conv_post = nn.Conv1d(channels, self.post_n_fft + 2, kernel_size=7, stride=1, padding=3, bias=True)
+        elif config.istft_decoder in ["ms_istft", "mb_istft"]:
+            self.conv_post = nn.Conv1d(
+                channels, self.subbands * (self.post_n_fft + 2), kernel_size=7, stride=1, padding=3, bias=True
+            )
+
+        self.reflection_pad = nn.ReflectionPad1d((1, 0))
+        self.stft = TorchSTFT(
+            filter_length=self.gen_istft_n_fft, hop_length=self.gen_istft_hop_size, win_length=self.gen_istft_n_fft
+        )
+
+        if config.speaker_embedding_size != 0:
+            self.cond = nn.Conv1d(config.speaker_embedding_size, config.upsample_initial_channel, 1)
+
+    def get_padding(self, kernel_size, dilation=1):
+        return int((kernel_size * dilation - dilation) / 2)
+
+    def apply_weight_norm(self):
+        weight_norm = nn.utils.weight_norm
+        if hasattr(nn.utils.parametrizations, "weight_norm"):
+            weight_norm = nn.utils.parametrizations.weight_norm
+
+        for layer in self.upsampler:
+            weight_norm(layer)
+        for layer in self.resblocks:
+            layer.apply_weight_norm()
+        weight_norm(self.conv_pre)
+        weight_norm(self.conv_post)
+
+        if self.config.istft_decoder == "ms_istft":
+            weight_norm(self.multistream_conv_post)
+
+    def remove_weight_norm(self):
+        for layer in self.upsampler:
+            nn.utils.remove_weight_norm(layer)
+        for layer in self.resblocks:
+            layer.remove_weight_norm()
+        nn.utils.remove_weight_norm(self.conv_pre)
+        nn.utils.remove_weight_norm(self.conv_post)
+
+        if self.config.istft_decoder == "ms_istft":
+            nn.utils.remove_weight_norm(self.multistream_conv_post)
+
+    def forward(
+        self, spectrogram: torch.FloatTensor, global_conditioning: Optional[torch.FloatTensor] = None
+    ) -> torch.FloatTensor:
+        r"""
+        Converts a spectrogram into a speech waveform.
+
+        Args:
+            spectrogram (`torch.FloatTensor` of shape `(batch_size, config.spectrogram_bins, sequence_length)`):
+                Tensor containing the spectrograms.
+            global_conditioning (`torch.FloatTensor` of shape `(batch_size, config.speaker_embedding_size, 1)`, *optional*):
+                Tensor containing speaker embeddings, for multispeaker models.
+
+        Returns:
+            `torch.FloatTensor`: Tensor of shape shape `(batch_size, 1, num_frames)` containing the speech waveform.
+        """
+        hidden_states = self.conv_pre(spectrogram)
+
+        if global_conditioning is not None:
+            hidden_states = hidden_states + self.cond(global_conditioning)
+
+        for i in range(self.num_upsamples):
+            hidden_states = nn.functional.leaky_relu(hidden_states, self.config.leaky_relu_slope)
+            hidden_states = self.upsampler[i](hidden_states)
+
+            res_state = self.resblocks[i * self.num_kernels](hidden_states)
+            for j in range(1, self.num_kernels):
+                res_state += self.resblocks[i * self.num_kernels + j](hidden_states)
+            hidden_states = res_state / self.num_kernels
+
+        hidden_states = nn.functional.leaky_relu(hidden_states)
+        hidden_states = self.reflection_pad(hidden_states)
+        hidden_states = self.conv_post(hidden_states)
+
+        if self.config.istft_decoder == "istft":
+            spec = torch.exp(hidden_states[:, : self.post_n_fft // 2 + 1, :])
+            phase = math.pi * torch.sin(hidden_states[:, self.post_n_fft // 2 + 1 :, :])
+            waveform = self.stft.inverse(spec, phase)
+
+        elif self.config.istft_decoder in ["mb_istft", "ms_istft"]:
+            hidden_states = torch.reshape(
+                hidden_states,
+                (
+                    hidden_states.shape[0],
+                    self.subbands,
+                    hidden_states.shape[1] // self.subbands,
+                    hidden_states.shape[-1],
+                ),
+            )
+            spec = torch.exp(hidden_states[:, :, : self.post_n_fft // 2 + 1, :])
+            phase = math.pi * torch.sin(hidden_states[:, :, self.post_n_fft // 2 + 1 :, :])
+
+            waveform_mb = self.stft.inverse(
+                torch.reshape(spec, (spec.shape[0] * self.subbands, self.gen_istft_n_fft // 2 + 1, spec.shape[-1])),
+                torch.reshape(phase, (phase.shape[0] * self.subbands, self.gen_istft_n_fft // 2 + 1, phase.shape[-1])),
+            )
+            waveform_mb = torch.reshape(waveform_mb, (hidden_states.shape[0], self.subbands, 1, waveform_mb.shape[-1]))
+            waveform_mb = waveform_mb.squeeze(-2)
+
+            if self.config.istft_decoder == "mb_istft":
+                waveform = self.pqmf.synthesis(waveform_mb)
+            else:
+                waveform_mb = torch.nn.functional.conv_transpose1d(
+                    waveform_mb, self.updown_filter * self.subbands, stride=self.subbands
+                )
+                waveform = self.multistream_conv_post(waveform_mb)
+
+        return waveform
+
+
+class PQMF(torch.nn.Module):
+    """PQMF module.
+    This module is based on `Near-perfect-reconstruction pseudo-QMF banks`_.
+    .. _`Near-perfect-reconstruction pseudo-QMF banks`:
+        https://ieeexplore.ieee.org/document/258122
+    """
+
+    def __init__(self, subbands=4, taps=62, cutoff_ratio=0.15, beta=9.0):
+        """Initilize PQMF module.
+        Args:
+            subbands (int): The number of subbands.
+            taps (int): The number of filter taps.
+            cutoff_ratio (float): Cut-off frequency ratio.
+            beta (float): Beta coefficient for kaiser window.
+        """
+        super(PQMF, self).__init__()
+
+        # define filter coefficient
+        h_proto = self.design_prototype_filter(taps, cutoff_ratio, beta)
+        h_analysis = np.zeros((subbands, len(h_proto)))
+        h_synthesis = np.zeros((subbands, len(h_proto)))
+        for k in range(subbands):
+            h_analysis[k] = (
+                2
+                * h_proto
+                * np.cos(
+                    (2 * k + 1) * (np.pi / (2 * subbands)) * (np.arange(taps + 1) - ((taps - 1) / 2))
+                    + (-1) ** k * np.pi / 4
+                )
+            )
+            h_synthesis[k] = (
+                2
+                * h_proto
+                * np.cos(
+                    (2 * k + 1) * (np.pi / (2 * subbands)) * (np.arange(taps + 1) - ((taps - 1) / 2))
+                    - (-1) ** k * np.pi / 4
+                )
+            )
+
+        # convert to tensor
+        analysis_filter = torch.from_numpy(h_analysis).float().unsqueeze(1)
+        synthesis_filter = torch.from_numpy(h_synthesis).float().unsqueeze(0)
+
+        # register coefficients as beffer
+        self.register_buffer("analysis_filter", analysis_filter)
+        self.register_buffer("synthesis_filter", synthesis_filter)
+
+        # filter for downsampling & upsampling
+        updown_filter = torch.zeros((subbands, subbands, subbands)).float()
+        for k in range(subbands):
+            updown_filter[k, k, 0] = 1.0
+        self.register_buffer("updown_filter", updown_filter)
+        self.subbands = subbands
+
+        # keep padding info
+        self.pad_fn = torch.nn.ConstantPad1d(taps // 2, 0.0)
+
+    def design_prototype_filter(self, taps=62, cutoff_ratio=0.15, beta=9.0):
+        """Design prototype filter for PQMF.
+        This method is based on `A Kaiser window approach for the design of prototype
+        filters of cosine modulated filterbanks`_.
+        Args:
+            taps (int): The number of filter taps.
+            cutoff_ratio (float): Cut-off frequency ratio.
+            beta (float): Beta coefficient for kaiser window.
+        Returns:
+            ndarray: Impluse response of prototype filter (taps + 1,).
+        .. _`A Kaiser window approach for the design of prototype filters of cosine modulated filterbanks`:
+            https://ieeexplore.ieee.org/abstract/document/681427
+        """
+        # check the arguments are valid
+        assert taps % 2 == 0, "The number of taps mush be even number."
+        assert 0.0 < cutoff_ratio < 1.0, "Cutoff ratio must be > 0.0 and < 1.0."
+
+        # make initial filter
+        omega_c = np.pi * cutoff_ratio
+        with np.errstate(invalid="ignore"):
+            h_i = np.sin(omega_c * (np.arange(taps + 1) - 0.5 * taps)) / (np.pi * (np.arange(taps + 1) - 0.5 * taps))
+        h_i[taps // 2] = np.cos(0) * cutoff_ratio  # fix nan due to indeterminate form
+
+        # apply kaiser window
+        w = kaiser(taps + 1, beta)
+        h = h_i * w
+
+        return h
+
+    def analysis(self, x):
+        """Analysis with PQMF.
+        Args:
+            x (Tensor): Input tensor (B, 1, T).
+        Returns:
+            Tensor: Output tensor (B, subbands, T // subbands).
+        """
+        x = torch.nn.functional.conv1d(self.pad_fn(x), self.analysis_filter)
+        return torch.nn.functional.conv1d(x, self.updown_filter, stride=self.subbands)
+
+    def synthesis(self, x):
+        """Synthesis with PQMF.
+        Args:
+            x (Tensor): Input tensor (B, subbands, T // subbands).
+        Returns:
+            Tensor: Output tensor (B, 1, T).
+        """
+        # NOTE(kan-bayashi): Power will be dreased so here multipy by # subbands.
+        #   Not sure this is the correct way, it is better to check again.
+        # TODO(kan-bayashi): Understand the reconstruction procedure
+        x = torch.nn.functional.conv_transpose1d(x, self.updown_filter * self.subbands, stride=self.subbands)
+        return torch.nn.functional.conv1d(self.pad_fn(x), self.synthesis_filter)
+
+
+class TorchSTFT(torch.nn.Module):
+    def __init__(self, filter_length=800, hop_length=200, win_length=800, window="hann"):
+        super().__init__()
+        self.filter_length = filter_length
+        self.hop_length = hop_length
+        self.win_length = win_length
+        self.window = torch.from_numpy(get_window(window, win_length, fftbins=True).astype(np.float32))
+
+    def transform(self, input_data):
+        forward_transform = torch.stft(
+            input_data, self.filter_length, self.hop_length, self.win_length, window=self.window, return_complex=True
+        )
+
+        return torch.abs(forward_transform), torch.angle(forward_transform)
+
+    def inverse(self, magnitude, phase):
+        inverse_transform = torch.istft(
+            magnitude * torch.exp(phase * 1j),
+            self.filter_length,
+            self.hop_length,
+            self.win_length,
+            window=self.window.to(magnitude.device),
+        )
+
+        return inverse_transform.unsqueeze(-2)  # unsqueeze to stay consistent with conv_transpose1d implementation
+
+    def forward(self, input_data):
+        self.magnitude, self.phase = self.transform(input_data)
+        reconstruction = self.inverse(self.magnitude, self.phase)
+        return reconstruction
 
 
 class VitsResidualCouplingLayer(nn.Module):
@@ -1335,7 +1641,11 @@ class VitsModel(VitsPreTrainedModel):
         self.config = config
         self.text_encoder = VitsTextEncoder(config)
         self.flow = VitsResidualCouplingBlock(config)
-        self.decoder = VitsHifiGan(config)
+
+        if config.istft_decoder in ["istft", "mb_istft", "ms_istft"]:
+            self.decoder = VitsISTFT(config)
+        else:
+            self.decoder = VitsHifiGan(config)
 
         if config.use_stochastic_duration_prediction:
             self.duration_predictor = VitsStochasticDurationPredictor(config)

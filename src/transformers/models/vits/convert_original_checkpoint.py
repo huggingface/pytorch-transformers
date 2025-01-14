@@ -132,6 +132,7 @@ MAPPING_GENERATOR = {
     "dec.resblocks.*.convs2.1": "decoder.resblocks.*.convs2.1",
     "dec.resblocks.*.convs2.2": "decoder.resblocks.*.convs2.2",
     "dec.conv_post": "decoder.conv_post",
+    "dec.multistream_conv_post": "decoder.multistream_conv_post",
     "dec.cond": "decoder.cond",  # num_speakers > 1
 }
 MAPPING_POSTERIOR_ENCODER = {
@@ -224,6 +225,7 @@ def recursively_load_weights(fairseq_dict, hf_model):
                     key = suffix
 
             if key in name:
+                print(key, name)
                 is_used = True
                 if mapped_key.endswith(".*"):
                     layer_index = name.split(key)[-1].split(".")[0]
@@ -270,6 +272,7 @@ def convert_checkpoint(
     vocab_path=None,
     language=None,
     num_speakers=None,
+    istft_decoder=None,
     sampling_rate=None,
     repo_id=None,
 ):
@@ -287,6 +290,21 @@ def convert_checkpoint(
 
     if sampling_rate:
         config.sampling_rate = sampling_rate
+
+    if istft_decoder:
+        if istft_decoder == "istft":
+            config.istft_decoder = istft_decoder
+            config.gen_istft_hop_size = 4
+            config.gen_istft_n_fft = 16
+            config.upsample_rates = [8, 8]
+            config.upsample_kernel_sizes = [16, 16]
+        elif istft_decoder in ["mb_istft", "ms_istft"]:
+            config.istft_decoder = istft_decoder
+            config.gen_istft_hop_size = 4
+            config.gen_istft_n_fft = 16
+            config.upsample_rates = [4, 4]
+            config.upsample_kernel_sizes = [16, 16]
+            config.subbands = 4
 
     if checkpoint_path is None:
         logger.info(f"***Converting model: facebook/mms-tts {language}***")
@@ -347,6 +365,13 @@ def convert_checkpoint(
     model.decoder.apply_weight_norm()
 
     orig_checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
+    if istft_decoder in ["mb_istft", "ms_istft"]:
+        orig_checkpoint["model"]["dec.conv_post.bias"] = orig_checkpoint["model"]["dec.subband_conv_post.bias"]
+        orig_checkpoint["model"]["dec.conv_post.weight_g"] = orig_checkpoint["model"]["dec.subband_conv_post.weight_g"]
+        orig_checkpoint["model"]["dec.conv_post.weight_v"] = orig_checkpoint["model"]["dec.subband_conv_post.weight_v"]
+        del orig_checkpoint["model"]["dec.subband_conv_post.bias"]
+        del orig_checkpoint["model"]["dec.subband_conv_post.weight_g"]
+        del orig_checkpoint["model"]["dec.subband_conv_post.weight_v"]
     recursively_load_weights(orig_checkpoint["model"], model)
 
     model.decoder.remove_weight_norm()
@@ -368,6 +393,14 @@ if __name__ == "__main__":
     parser.add_argument("--language", default=None, type=str, help="Tokenizer language (three-letter code)")
     parser.add_argument("--num_speakers", default=None, type=int, help="Number of speakers")
     parser.add_argument(
+        "--istft_decoder",
+        default=None,
+        type=str,
+        choices=["istft", "ms_istft", "mb_istft"],
+        help="ISTFT decoder options for vits",
+    )
+
+    parser.add_argument(
         "--sampling_rate", default=None, type=int, help="Sampling rate on which the model was trained."
     )
     parser.add_argument(
@@ -385,6 +418,7 @@ if __name__ == "__main__":
         args.vocab_path,
         args.language,
         args.num_speakers,
+        args.istft_decoder,
         args.sampling_rate,
         args.push_to_hub,
     )

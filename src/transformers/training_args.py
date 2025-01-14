@@ -2250,7 +2250,7 @@ class TrainingArguments:
                         "Either you do not have an MPS-enabled device on this machine or MacOS version is not 12.3+ "
                         "or current PyTorch install was not built with MPS enabled."
                     )
-            if self.use_cpu:
+            elif self.use_cpu:
                 device = torch.device("cpu")
             elif is_torch_mps_available():
                 device = torch.device("mps")

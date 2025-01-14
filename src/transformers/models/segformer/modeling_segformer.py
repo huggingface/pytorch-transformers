@@ -450,7 +450,7 @@ class SegformerPreTrainedModel(PreTrainedModel):
     config_class = SegformerConfig
     base_model_prefix = "segformer"
     main_input_name = "pixel_values"
-
+    _no_split_modules = []
     def _init_weights(self, module):
         """Initialize the weights"""
         if isinstance(module, (nn.Linear, nn.Conv2d)):

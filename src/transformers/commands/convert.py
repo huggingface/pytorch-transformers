@@ -11,8 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from argparse import ArgumentParser, Namespace
+import os
 
 from ..utils import logging
 from . import BaseTransformersCLICommand
@@ -83,6 +83,14 @@ class ConvertCommand(BaseTransformersCLICommand):
         self._finetuning_task_name = finetuning_task_name
 
     def run(self):
+        # Check if checkpoint path exists
+        if not os.path.exists(self._tf_checkpoint):
+            raise FileNotFoundError(f"TensorFlow checkpoint path {self._tf_checkpoint} does not exist.")
+        
+        # Check if output path exists
+        output_dir = os.path.dirname(self._pytorch_dump_output)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
         if self._model_type == "albert":
             try:
                 from ..models.albert.convert_albert_original_tf_checkpoint_to_pytorch import (
@@ -162,4 +170,7 @@ class ConvertCommand(BaseTransformersCLICommand):
 
             convert_rembert_tf_checkpoint_to_pytorch(self._tf_checkpoint, self._config, self._pytorch_dump_output)
         else:
-            raise ValueError("--model_type should be selected in the list [bert, gpt, gpt2, t5, xlnet, xlm, lxmert]")
+            raise ValueError(f"--model_type should be selected from the list {list(conversion_functions.keys())}")
+        self._logger.info(f"Conversion completed successfully. Model saved to {self._pytorch_dump_output}.")
+        except ImportError:
+            raise ImportError(IMPORT_ERROR_MESSAGE)

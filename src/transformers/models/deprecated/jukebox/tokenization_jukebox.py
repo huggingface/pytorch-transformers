@@ -315,11 +315,23 @@ class JukeboxTokenizer(PreTrainedTokenizer):
 
             if not is_tensor(inputs):
                 inputs = as_tensor(inputs)
-        except:  # noqa E722
+        except NameError as e:
+            if 'NumPy' in str(e):
+                logger.warning("Ensure that the correct version of NumPy is installed.")
+            raise NameError(f"A NameError has ocurred: {e}") from e
+        except RuntimeError as e:
+                raise RuntimeError(f"""
+                A runtime error has ocurred: {e}
+                This could be due to numpy version mismatches, check your version
+                against the transformers accepted numpy verions.
+                """) from e
+        except ValueError as e:   # noqa E722
             raise ValueError(
                 "Unable to create tensor, you should probably activate truncation and/or padding "
                 "with 'padding=True' 'truncation=True' to have batched tensors with the same length."
-            )
+            ) from e
+        except Exception as e:
+            raise Exception(f"Something went wrong that was not a runtime or value error: {e}") from e
 
         return inputs
 

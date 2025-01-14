@@ -193,13 +193,24 @@ class BatchFeature(UserDict):
                     tensor = as_tensor(value)
 
                     self[key] = tensor
-            except:  # noqa E722
+
+            except NameError as e:
+                if 'NumPy' in str(e):
+                    logger.warning("Ensure that the correct version of NumPy is installed.")
+                raise NameError(f"A NameError has ocurred: {e}") from e
+            except RuntimeError as e:
+                raise RuntimeError(f"""
+                A runtime error has ocurred: {e}
+                This could be due to numpy version mismatches, check your version
+                against the transformers accepted numpy verions.
+                """) from e
+            except ValueError as e:  # noqa E722
                 if key == "overflowing_values":
-                    raise ValueError("Unable to create tensor returning overflowing values of different lengths. ")
+                    raise ValueError("Unable to create tensor returning overflowing values of different lengths. ") from e
                 raise ValueError(
                     "Unable to create tensor, you should probably activate padding "
                     "with 'padding=True' to have batched tensors with the same length."
-                )
+                ) from e
 
         return self
 

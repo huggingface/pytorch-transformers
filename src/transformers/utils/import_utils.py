@@ -546,9 +546,28 @@ def is_torch_fp16_available_on_device(device):
         layer_norm = torch.nn.LayerNorm(embedding_dim, dtype=torch.float16, device=device)
         _ = layer_norm(embedding)
 
-    except:  # noqa: E722
-        # TODO: more precise exception matching, if possible.
-        # most backends should return `RuntimeError` however this is not guaranteed.
+    except NameError as e:
+        logger.error("NameError encountered:", e)
+        if 'torch' in str(e):
+            logger.error("Ensure that PyTorch is imported with 'import torch'.")
+        elif 'device' in str(e):
+            logger.error("Define the 'device' variable (e.g., 'device = \"cpu\"' or 'device = \"cuda\"').")
+        return False
+    except RuntimeError as e:
+        logger.error("RuntimeError encountered:", e)
+        if 'BFloat16' in str(e):
+            logger.error("The torch.bfloat16 dtype might not be supported on this device. Try using torch.float32.")
+        elif 'CUDA' in str(e) and 'assert triggered' in str(e):
+            logger.error("CUDA error: Check if your GPU supports CUDA and is available. Use 'torch.cuda.is_available()' to confirm.")
+        return False
+    except TypeError as e:
+        logger.error("TypeError encountered:", e)
+        logger.error("This could be due to an unsupported operation or an unsupported dtype.")
+        return False
+    except Exception as e:
+        # Catch any other exception that wasn't anticipated
+        logger.error("An unexpected error occurred:", e)
+        logger.error("Error type:", type(e).__name__)
         return False
 
     return True
@@ -567,9 +586,29 @@ def is_torch_bf16_available_on_device(device):
     try:
         x = torch.zeros(2, 2, dtype=torch.bfloat16).to(device)
         _ = x @ x
-    except:  # noqa: E722
-        # TODO: more precise exception matching, if possible.
-        # most backends should return `RuntimeError` however this is not guaranteed.
+
+    except NameError as e:
+        logger.error("NameError encountered:", e)
+        if 'torch' in str(e):
+            logger.error("Ensure that PyTorch is imported with 'import torch'.")
+        elif 'device' in str(e):
+            logger.error("Define the 'device' variable (e.g., 'device = \"cpu\"' or 'device = \"cuda\"').")
+        return False
+    except RuntimeError as e:
+        logger.error("RuntimeError encountered:", e)
+        if 'BFloat16' in str(e):
+            logger.error("The torch.bfloat16 dtype might not be supported on this device. Try using torch.float32.")
+        elif 'CUDA' in str(e) and 'assert triggered' in str(e):
+            logger.error("CUDA error: Check if your GPU supports CUDA and is available. Use 'torch.cuda.is_available()' to confirm.")
+        return False
+    except TypeError as e:
+        logger.error("TypeError encountered:", e)
+        logger.error("This could be due to an unsupported operation or an unsupported dtype.")
+        return False
+    except Exception as e:
+        # Catch any other exception that wasn't anticipated
+        logger.error("An unexpected error occurred:", e)
+        logger.error("Error type:", type(e).__name__)
         return False
 
     return True

@@ -6,8 +6,11 @@ from tensorflow_text import BertTokenizer as BertTokenizerLayer
 from tensorflow_text import FastBertTokenizer, ShrinkLongestTrimmer, case_fold_utf8, combine_segments, pad_model_inputs
 
 from ...modeling_tf_utils import keras
+from ...utils import logging
 from .tokenization_bert import BertTokenizer
 
+
+logger = logging.get_logger(__name__)
 
 class TFBertTokenizer(keras.layers.Layer):
     """
@@ -160,7 +163,8 @@ class TFBertTokenizer(keras.layers.Layer):
         """
         try:
             tokenizer = BertTokenizer.from_pretrained(pretrained_model_name_or_path, *init_inputs, **kwargs)
-        except:  # noqa: E722
+        except NameError as e:  # noqa: E722
+            logger.info(f"BertTokenizerFast has not been imported, importing now: {e}")
             from .tokenization_bert_fast import BertTokenizerFast
 
             tokenizer = BertTokenizerFast.from_pretrained(pretrained_model_name_or_path, *init_inputs, **kwargs)

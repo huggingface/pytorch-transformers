@@ -60,14 +60,14 @@ class AqlmConfigTest(unittest.TestCase):
             "in_group_size": 32,
             "num_codebooks": 8,
             "nbits_per_codebook": 8,
-            "linear_weights_not_to_quantize": ["lm_head.weight"],
+            "modules_to_not_convert": ["lm_head.weight"],
         }
         quantization_config = AqlmConfig.from_dict(dict)
 
         self.assertEqual(dict["in_group_size"], quantization_config.in_group_size)
         self.assertEqual(dict["num_codebooks"], quantization_config.num_codebooks)
         self.assertEqual(dict["nbits_per_codebook"], quantization_config.nbits_per_codebook)
-        self.assertEqual(dict["linear_weights_not_to_quantize"], quantization_config.linear_weights_not_to_quantize)
+        self.assertEqual(dict["modules_to_not_convert"], quantization_config.modules_to_not_convert)
 
 
 @slow
@@ -129,12 +129,12 @@ class AqlmTest(unittest.TestCase):
 
         self.assertEqual(nb_linears, nb_aqlm_linear)
 
-        # Try with `linear_weights_not_to_quantize`
+        # Try with `modules_to_not_convert`
         with init_empty_weights():
             model = OPTForCausalLM(config)
 
         model, _ = replace_with_aqlm_linear(
-            model, quantization_config=quantization_config, linear_weights_not_to_quantize=["lm_head.weight"]
+            model, quantization_config=quantization_config, modules_to_not_convert=["lm_head.weight"]
         )
         nb_aqlm_linear = 0
         for module in model.modules():

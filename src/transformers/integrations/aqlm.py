@@ -23,7 +23,7 @@ if is_torch_available():
 def replace_with_aqlm_linear(
     model,
     quantization_config=None,
-    linear_weights_not_to_quantize=None,
+    modules_to_not_convert=None,
     current_key_name=None,
     has_been_replaced=False,
 ):
@@ -37,7 +37,7 @@ def replace_with_aqlm_linear(
             The model to convert, can be any `torch.nn.Module` instance.
         quantization_config (`AqlmConfig`):
             The quantization config object that contains the quantization parameters.
-        linear_weights_not_to_quantize (`list[str]`, *optional*):
+        modules_to_not_convert (`list[str]`, *optional*):
             A list of nn.Linear weights to not convert. If a parameter path is in the list (e.g. `lm_head.weight`), the corresponding module will not be
             converted.
         current_key_name (`list`, *optional*):
@@ -54,8 +54,8 @@ def replace_with_aqlm_linear(
             f"AQLM requires Accelerate to be installed: `pip install 'accelerate>={ACCELERATE_MIN_VERSION}'`"
         )
 
-    if linear_weights_not_to_quantize is None:
-        linear_weights_not_to_quantize = []
+    if modules_to_not_convert is None:
+        modules_to_not_convert = []
 
     from accelerate import init_empty_weights
     from aqlm import QuantizedLinear
@@ -66,8 +66,8 @@ def replace_with_aqlm_linear(
         current_key_name.append(name)
 
         if isinstance(module, nn.Linear):
-            # Check if the current key is not in the `linear_weights_not_to_quantize`
-            if ".".join(current_key_name) + ".weight" not in linear_weights_not_to_quantize:
+            # Check if the current key is not in the `modules_to_not_convert`
+            if ".".join(current_key_name) + ".weight" not in modules_to_not_convert:
                 with init_empty_weights():
                     in_features = module.in_features
                     out_features = module.out_features
@@ -91,7 +91,7 @@ def replace_with_aqlm_linear(
             _, has_been_replaced = replace_with_aqlm_linear(
                 module,
                 quantization_config=quantization_config,
-                linear_weights_not_to_quantize=linear_weights_not_to_quantize,
+                modules_to_not_convert=modules_to_not_convert,
                 current_key_name=current_key_name,
                 has_been_replaced=has_been_replaced,
             )

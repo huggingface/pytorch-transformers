@@ -833,6 +833,9 @@ class GPT2Model(GPT2PreTrainedModel):
         if use_cache and past_key_values is None:
             past_key_values = DynamicCache()
 
+        if inputs_embeds is None:
+            inputs_embeds = self.wte(input_ids)
+
         if cache_position is None:
             past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
             cache_position = torch.arange(
@@ -841,8 +844,6 @@ class GPT2Model(GPT2PreTrainedModel):
         if position_ids is None:
             position_ids = cache_position.unsqueeze(0)
 
-        if inputs_embeds is None:
-            inputs_embeds = self.wte(input_ids)
         position_embeds = self.wpe(position_ids)
         hidden_states = inputs_embeds + position_embeds
 
@@ -951,6 +952,7 @@ class GPT2Model(GPT2PreTrainedModel):
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
 
+        next_cache = past_key_values if use_cache else None
         if return_legacy_cache:
             next_cache = past_key_values.to_legacy_cache()
         if not return_dict:

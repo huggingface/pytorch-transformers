@@ -340,7 +340,7 @@ def model_download_tool(task: str) -> str:
     Args:
         task: The task for which
     """
-    model = next(iter(list_models(filter="text-classification", sort="downloads", direction=-1)))
+    model = next(iter(list_models(filter=task, sort="downloads", direction=-1)))
     return model.id
 ```
 

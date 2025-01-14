@@ -909,6 +909,9 @@ def load_balancing_loss_func(
     Returns:
         The auxiliary loss.
     """
+
+    is_single_token = gate_logits[0].shape[0] == 1
+                
     if gate_logits is None or not isinstance(gate_logits, tuple):
         return 0
 
@@ -930,15 +933,26 @@ def load_balancing_loss_func(
         router_prob_per_expert = torch.mean(routing_weights, dim=0)
     else:
         batch_size, sequence_length = attention_mask.shape
+       
+        
         num_hidden_layers = concatenated_gate_logits.shape[0] // (batch_size * sequence_length)
-
+        
         # Compute the mask that masks all padding tokens as 0 with the same shape of expert_mask
-        expert_attention_mask = (
-            attention_mask[None, :, :, None, None]
-            .expand((num_hidden_layers, batch_size, sequence_length, top_k, num_experts))
-            .reshape(-1, top_k, num_experts)
-            .to(compute_device)
-        )
+        if not is_single_token:
+            expert_attention_mask = (
+                attention_mask[None, :, :, None, None]
+                .expand((num_hidden_layers, batch_size, sequence_length, top_k, num_experts))
+                .reshape(-1, top_k, num_experts)
+                .to(compute_device)
+            )
+        else:
+            expert_attention_mask = (
+                attention_mask[None, :, -1:, None, None]
+                .expand((len(gate_logits), 1,1, top_k, num_experts))
+                .reshape(-1, top_k, num_experts)
+                .to(compute_device)
+            )
+        
 
         # Compute the percentage of tokens routed to each experts
         tokens_per_expert = torch.sum(expert_mask.float() * expert_attention_mask, dim=0) / torch.sum(
@@ -946,13 +960,21 @@ def load_balancing_loss_func(
         )
 
         # Compute the mask that masks all padding tokens as 0 with the same shape of tokens_per_expert
-        router_per_expert_attention_mask = (
-            attention_mask[None, :, :, None]
-            .expand((num_hidden_layers, batch_size, sequence_length, num_experts))
-            .reshape(-1, num_experts)
-            .to(compute_device)
-        )
-
+        if not is_single_token:
+            router_per_expert_attention_mask = (
+                attention_mask[None, :, :, None]
+                .expand((num_hidden_layers, batch_size, sequence_length, num_experts))
+                .reshape(-1, num_experts)
+                .to(compute_device)
+            )
+        else:
+            router_per_expert_attention_mask = (
+                attention_mask[None, :, -1:, None]
+                .expand((len(gate_logits), 1, 1, num_experts))
+                .reshape(-1, num_experts)
+                .to(compute_device)
+            )
+        
         # Compute the average probability of routing to these experts
         router_prob_per_expert = torch.sum(routing_weights * router_per_expert_attention_mask, dim=0) / torch.sum(
             router_per_expert_attention_mask, dim=0

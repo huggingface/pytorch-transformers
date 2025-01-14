@@ -88,7 +88,6 @@ class PaliGemmaConfig(PretrainedConfig):
     ):
         self._ignore_index = ignore_index
         self.image_token_index = image_token_index
-        self._vocab_size = vocab_size
         self.projection_dim = projection_dim
         self.hidden_size = hidden_size
         self.vision_config = vision_config

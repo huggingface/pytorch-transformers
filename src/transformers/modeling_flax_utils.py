@@ -67,18 +67,26 @@ if is_safetensors_available():
 logger = logging.get_logger(__name__)
 
 
-def quick_gelu(x):
-    return x * jax.nn.sigmoid(1.702 * x)
-
-
 ACT2FN = {
     "gelu": partial(nn.gelu, approximate=False),
-    "relu": nn.relu,
-    "silu": nn.swish,
-    "swish": nn.swish,
-    "gelu_new": partial(nn.gelu, approximate=True),
-    "quick_gelu": quick_gelu,
+    "gelu_10": lambda x: jnp.clip(nn.gelu(x, approximate=False), a_min=-10.0, a_max=10.0),
+    "gelu_fast": lambda x: 0.5 * x * (1.0 + nn.tanh(x * 0.7978845608 * (1.0 + 0.044715 * x * x))),
+    "gelu_new": lambda x: 0.5 * x * (1.0 + nn.tanh((2.0 / jnp.pi) ** 0.5 * (x + 0.044715 * jnp.power(x, 3.0)))),
+    "gelu_python": lambda x: x * 0.5 * (1.0 + jax.scipy.special.erf(x / 2.0**0.5)),
     "gelu_pytorch_tanh": partial(nn.gelu, approximate=True),
+    "gelu_accurate": lambda x: 0.5 * x * (1 + nn.tanh((2 / jnp.pi) ** 0.5 * (x + 0.044715 * jnp.power(x, 3)))),
+    "laplace": lambda x: 0.5 * (1.0 + jax.scipy.special.erf(jnp.divide(x - 0.707107, 0.282095 * 2.0**0.5))),
+    "leaky_relu": nn.leaky_relu,
+    "linear": lambda x: x,
+    "mish": lambda x: x * nn.tanh(nn.softplus(x)),
+    "quick_gelu": lambda x: x * nn.sigmoid(1.702 * x),
+    "relu": nn.relu,
+    "relu2": lambda x: jnp.square(nn.relu(x)),
+    "relu6": nn.relu6,
+    "sigmoid": nn.sigmoid,
+    "silu": nn.silu,
+    "swish": nn.swish,
+    "tanh": nn.tanh,
 }
 
 

@@ -1149,3 +1149,34 @@ class FlaxModelTesterMixin:
             # ensure that the outputs remain precisely equal
             for output, remat_output in zip(outputs, remat_outputs):
                 self.assertTrue((output == remat_output).all())
+
+    def test_activation_fns(self):
+        # Assuming Torch activation functions of `activations.ACT2FN` as a base, compares Flax implementations
+        # to produce equal/close results.
+
+        import jax.numpy as jnp
+        import torch
+
+        from transformers.activations import ACT2FN as TORCH_ACT2FN
+        from transformers.modeling_flax_utils import ACT2FN as FLAX_ACT2FN
+
+        limit_left = -10.0
+        limit_right = 10.0
+        x = np.linspace(limit_left, limit_right, 500)
+
+        for fn_name in TORCH_ACT2FN.keys():
+            if fn_name in FLAX_ACT2FN:
+                flax_act_fn = FLAX_ACT2FN[fn_name]
+                torch_act_fn = TORCH_ACT2FN[fn_name]
+                torch_x = torch.Tensor(x)
+                jax_x: jnp.ndarray = jnp.float32(x)
+                torch_y = np.float32(torch_act_fn(torch_x))
+                flax_y = np.float32(flax_act_fn(jax_x))
+                self.assertEqual(torch_y.shape, flax_y.shape)
+                np.testing.assert_allclose(
+                    torch_y,
+                    flax_y,
+                    atol=1e-6,
+                    rtol=1e-6,
+                    err_msg=f"ACT2FN '{fn_name}' of torch and flax are not close enough.",
+                )

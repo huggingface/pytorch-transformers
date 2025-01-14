@@ -1246,6 +1246,7 @@ class TFBertForPreTraining(TFBertPreTrainedModel, TFBertPreTrainingLoss):
         r"position_ids",
         r"cls.predictions.decoder.weight",
         r"cls.predictions.decoder.bias",
+        r"embeddings.position_embeddings",
     ]
 
     def __init__(self, config: BertConfig, *inputs, **kwargs):
@@ -1366,6 +1367,7 @@ class TFBertForMaskedLM(TFBertPreTrainedModel, TFMaskedLanguageModelingLoss):
         r"pooler",
         r"cls.seq_relationship",
         r"cls.predictions.decoder.weight",
+        r"embeddings.position_embeddings",
         r"nsp___cls",
     ]
 
@@ -1462,6 +1464,7 @@ class TFBertLMHeadModel(TFBertPreTrainedModel, TFCausalLanguageModelingLoss):
         r"pooler",
         r"cls.seq_relationship",
         r"cls.predictions.decoder.weight",
+        r"embeddings.position_embeddings",
         r"nsp___cls",
     ]
 
@@ -1598,7 +1601,7 @@ class TFBertLMHeadModel(TFBertPreTrainedModel, TFCausalLanguageModelingLoss):
 )
 class TFBertForNextSentencePrediction(TFBertPreTrainedModel, TFNextSentencePredictionLoss):
     # names with a '.' represents the authorized unexpected/missing layers when a TF model is loaded from a PT model
-    _keys_to_ignore_on_load_unexpected = [r"mlm___cls", r"cls.predictions"]
+    _keys_to_ignore_on_load_unexpected = [r"mlm___cls", r"cls.predictions", r"embeddings.position_embeddings"]
 
     def __init__(self, config: BertConfig, *inputs, **kwargs):
         super().__init__(config, *inputs, **kwargs)
@@ -1694,7 +1697,13 @@ class TFBertForNextSentencePrediction(TFBertPreTrainedModel, TFNextSentencePredi
 )
 class TFBertForSequenceClassification(TFBertPreTrainedModel, TFSequenceClassificationLoss):
     # names with a '.' represents the authorized unexpected/missing layers when a TF model is loaded from a PT model
-    _keys_to_ignore_on_load_unexpected = [r"mlm___cls", r"nsp___cls", r"cls.predictions", r"cls.seq_relationship"]
+    _keys_to_ignore_on_load_unexpected = [
+        r"mlm___cls",
+        r"nsp___cls",
+        r"cls.predictions",
+        r"cls.seq_relationship",
+        r"embeddings.position_embeddings",
+    ]
     _keys_to_ignore_on_load_missing = [r"dropout"]
 
     def __init__(self, config: BertConfig, *inputs, **kwargs):
@@ -1792,7 +1801,13 @@ class TFBertForSequenceClassification(TFBertPreTrainedModel, TFSequenceClassific
 )
 class TFBertForMultipleChoice(TFBertPreTrainedModel, TFMultipleChoiceLoss):
     # names with a '.' represents the authorized unexpected/missing layers when a TF model is loaded from a PT model
-    _keys_to_ignore_on_load_unexpected = [r"mlm___cls", r"nsp___cls", r"cls.predictions", r"cls.seq_relationship"]
+    _keys_to_ignore_on_load_unexpected = [
+        r"mlm___cls",
+        r"nsp___cls",
+        r"cls.predictions",
+        r"cls.seq_relationship",
+        r"embeddings.position_embeddings",
+    ]
     _keys_to_ignore_on_load_missing = [r"dropout"]
 
     def __init__(self, config: BertConfig, *inputs, **kwargs):
@@ -1909,6 +1924,7 @@ class TFBertForTokenClassification(TFBertPreTrainedModel, TFTokenClassificationL
         r"nsp___cls",
         r"cls.predictions",
         r"cls.seq_relationship",
+        r"embeddings.position_embeddings",
     ]
     _keys_to_ignore_on_load_missing = [r"dropout"]
 
@@ -2011,6 +2027,7 @@ class TFBertForQuestionAnswering(TFBertPreTrainedModel, TFQuestionAnsweringLoss)
         r"nsp___cls",
         r"cls.predictions",
         r"cls.seq_relationship",
+        r"embeddings.position_embeddings",
     ]
 
     def __init__(self, config: BertConfig, *inputs, **kwargs):

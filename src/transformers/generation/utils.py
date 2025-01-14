@@ -3605,7 +3605,7 @@ class GenerationMixin:
             # increase cur_len
             cur_len = cur_len + 1
 
-            if beam_scorer.is_done or all(stopping_criteria(input_ids, scores)):
+            if beam_scorer.is_done or any(stopping_criteria(input_ids, scores)):
                 this_peer_finished = True
 
         sequence_outputs = beam_scorer.finalize(

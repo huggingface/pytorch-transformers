@@ -241,6 +241,21 @@ from transformers import pipeline
 classifier = pipeline(model="{your_username}/test-dynamic-pipeline", trust_remote_code=True)
 ```
 
+Under the hood, this is registering the custom pipeline to the `config.json` of your model.
+```py
+  "custom_pipelines": {
+    "pair-classification": {
+      "impl": "pair_classification.PairClassificationPipeline",
+      "pt": [
+        "AutoModelForSequenceClassification"
+      ],
+      "tf": [
+        "TFAutoModelForSequenceClassification"
+      ],
+    }
+  },
+```
+
 ## Add the pipeline to 🤗 Transformers
 
 If you want to contribute your pipeline to 🤗 Transformers, you will need to add a new module in the `pipelines` submodule

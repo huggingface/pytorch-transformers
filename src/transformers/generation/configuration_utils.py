@@ -788,7 +788,6 @@ class GenerationConfig(PushToHubMixin):
                 if getattr(self, arg_name) is not None:
                     logger.warning_once(
                         no_cache_warning.format(cache_arg=arg_name, cache_arg_value=getattr(self, arg_name)),
-                        UserWarning,
                     )
 
         # 6.  check watermarking arguments

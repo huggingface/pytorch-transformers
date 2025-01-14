@@ -387,7 +387,7 @@ class MllamaVisionEncoder(nn.Module):
                 )
             else:
                 layer_outputs = encoder_layer(
-                    hidden_state=hidden_states,
+                    hidden_states,
                     attention_mask=attention_mask,
                     output_attentions=output_attentions,
                 )

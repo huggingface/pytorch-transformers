@@ -4203,6 +4203,9 @@ class Trainer:
                 if self.is_deepspeed_enabled or (self.is_fsdp_enabled and self.accelerator.mixed_precision != "fp8")
                 else self.accelerator.prepare_model(model, evaluation_mode=True)
             )
+            example_inputs = dict(next(iter(dataloader)))
+            with torch.no_grad():
+                model(**example_inputs)
             self.model_preparation_time = round(time.time() - start_time, 4)
 
             if self.is_fsdp_enabled:

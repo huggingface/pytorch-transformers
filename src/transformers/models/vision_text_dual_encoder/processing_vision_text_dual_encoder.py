@@ -17,9 +17,15 @@ Processor class for VisionTextDualEncoder
 """
 
 import warnings
+from typing import List, Optional, Union
 
-from ...processing_utils import ProcessorMixin
-from ...tokenization_utils_base import BatchEncoding
+from ...image_utils import ImageInput
+from ...processing_utils import ProcessingKwargs, ProcessorMixin, Unpack, _validate_images_text_input_order
+from ...tokenization_utils_base import BatchEncoding, PreTokenizedInput, TextInput
+
+
+class VisionTextDualEncoderProcessorKwargs(ProcessingKwargs, total=False):
+    _defaults = {}
 
 
 class VisionTextDualEncoderProcessor(ProcessorMixin):
@@ -61,7 +67,14 @@ class VisionTextDualEncoderProcessor(ProcessorMixin):
         super().__init__(image_processor, tokenizer)
         self.current_processor = self.image_processor
 
-    def __call__(self, text=None, images=None, return_tensors=None, **kwargs):
+    def __call__(
+        self,
+        images: Optional[ImageInput] = None,
+        text: Union[TextInput, PreTokenizedInput, List[TextInput], List[PreTokenizedInput]] = None,
+        audio=None,
+        videos=None,
+        **kwargs: Unpack[VisionTextDualEncoderProcessorKwargs],
+    ) -> BatchEncoding:
         """
         Main method to prepare for the model one or several sequences(s) and image(s). This method forwards the `text`
         and `kwargs` arguments to VisionTextDualEncoderTokenizer's [`~PreTrainedTokenizer.__call__`] if `text` is not
@@ -98,12 +111,20 @@ class VisionTextDualEncoderProcessor(ProcessorMixin):
 
         if text is None and images is None:
             raise ValueError("You have to specify either text or images. Both cannot be none.")
+        # check if images and text inputs are reversed for BC
+        images, text = _validate_images_text_input_order(images, text)
+
+        output_kwargs = self._merge_kwargs(
+            VisionTextDualEncoderProcessorKwargs,
+            tokenizer_init_kwargs=self.tokenizer.init_kwargs,
+            **kwargs,
+        )
 
         if text is not None:
-            encoding = self.tokenizer(text, return_tensors=return_tensors, **kwargs)
+            encoding = self.tokenizer(text, **output_kwargs["text_kwargs"])
 
         if images is not None:
-            image_features = self.image_processor(images, return_tensors=return_tensors, **kwargs)
+            image_features = self.image_processor(images, **output_kwargs["images_kwargs"])
 
         if text is not None and images is not None:
             encoding["pixel_values"] = image_features.pixel_values
@@ -111,7 +132,10 @@ class VisionTextDualEncoderProcessor(ProcessorMixin):
         elif text is not None:
             return encoding
         else:
-            return BatchEncoding(data=dict(**image_features), tensor_type=return_tensors)
+            return BatchEncoding(
+                data=dict(**image_features),
+                tensor_type=output_kwargs["common_kwargs"].get("return_tensors"),
+            )
 
     def batch_decode(self, *args, **kwargs):
         """

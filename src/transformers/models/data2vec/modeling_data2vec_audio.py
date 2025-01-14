@@ -124,9 +124,7 @@ def _compute_mask_indices(
 
     # compute number of masked spans in batch
     input_lengths = (
-        attention_mask.sum(-1).detach().tolist()
-        if attention_mask is not None
-        else [sequence_length for _ in range(batch_size)]
+        attention_mask.sum(-1).detach() if attention_mask is not None else [sequence_length for _ in range(batch_size)]
     )
 
     # SpecAugment mask to fill
@@ -139,6 +137,7 @@ def _compute_mask_indices(
         return spec_aug_mask
 
     for input_length in input_lengths:
+        input_length = input_length if isinstance(input_length, int) else input_length.item()
         # compute num of masked spans for this input
         num_masked_span = compute_num_masked_span(input_length)
 

@@ -806,7 +806,7 @@ class GPT2Model(GPT2PreTrainedModel):
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
         use_cache: Optional[bool] = None,
-        return_legacy_cache: Optional[bool] = True,  # TODO implement
+        # return_legacy_cache: Optional[bool] = True,  # TODO implement
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
@@ -836,6 +836,17 @@ class GPT2Model(GPT2PreTrainedModel):
         if token_type_ids is not None:
             token_type_ids = token_type_ids.view(-1, input_shape[-1])
 
+        # based on pattern from src/transformers/models/whisper/modeling_whisper.py::WhisperDecoder
+        return_legacy_cache = False
+        if use_cache or past_key_values is not None:
+            if not isinstance(past_key_values, Cache):
+                return_legacy_cache = True
+                logger.warning_once(
+                    "Passing a tuple of `past_key_values` is deprecated and will be removed in Transformers v4.49.0. "
+                    "You should pass an instance of `Cache` instead, e.g. "
+                    "`past_key_values=DynamicCache.from_legacy_cache(past_key_values)`."
+                )
+
         if use_cache and past_key_values is None:
             past_key_values = DynamicCache()
 
@@ -859,6 +870,7 @@ class GPT2Model(GPT2PreTrainedModel):
         hidden_states = inputs_embeds + position_embeds
 
         # Attention mask.
+        # ._update_causal_mask() and ._prepare_4d_causal_attention_mask_with_cache_position() copied from LlamaModel
         causal_mask = self._update_causal_mask(
             attention_mask, inputs_embeds, cache_position, past_key_values, output_attentions
         )
@@ -998,19 +1010,18 @@ class GPT2Model(GPT2PreTrainedModel):
         if output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
 
-        # TODO implement cache return, conversion of past_key_values into presents if return_legacy_cache
-        presents = None  # plug
-
+        if return_legacy_cache:
+            next_cache = past_key_values.to_legacy_cache()
         if not return_dict:
             return tuple(
                 v
-                for v in [hidden_states, presents, all_hidden_states, all_self_attentions, all_cross_attentions]
+                for v in [hidden_states, next_cache, all_hidden_states, all_self_attentions, all_cross_attentions]
                 if v is not None
             )
 
         return BaseModelOutputWithPastAndCrossAttentions(
             last_hidden_state=hidden_states,
-            past_key_values=presents,
+            past_key_values=next_cache,
             hidden_states=all_hidden_states,
             attentions=all_self_attentions,
             cross_attentions=all_cross_attentions,

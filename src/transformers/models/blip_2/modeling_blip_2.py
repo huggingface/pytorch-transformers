@@ -2023,6 +2023,7 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel, GenerationMixin):
         self.qformer = Blip2QFormerModel(config.qformer_config)
 
         self.language_projection = nn.Linear(config.qformer_config.hidden_size, config.text_config.hidden_size)
+        self.vision_projection = nn.Linear(config.qformer_config.hidden_size, config.text_config.hidden_size)
         if config.use_decoder_only_language_model:
             language_model = AutoModelForCausalLM.from_config(config.text_config)
         else:
@@ -2079,6 +2080,58 @@ class Blip2ForConditionalGeneration(Blip2PreTrainedModel, GenerationMixin):
 
         if hasattr(self.language_model, "_hf_hook"):
             self.language_model._hf_hook.io_same_device = True  # For `generate` compatibility
+
+    @add_start_docstrings_to_model_forward(BLIP_2_TEXT_INPUTS_DOCSTRING)
+    def get_text_features(
+        self,
+        input_ids: Optional[torch.Tensor] = None,
+        attention_mask: Optional[torch.Tensor] = None,
+        decoder_input_ids: Optional[torch.Tensor] = None,
+        decoder_attention_mask: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> torch.FloatTensor:
+        ...
+
+    @add_start_docstrings_to_model_forward(BLIP_2_VISION_INPUTS_DOCSTRING)
+    def get_image_features(
+        self,
+        pixel_values: Optional[torch.FloatTensor] = None,
+        output_attentions: Optional[bool] = None,
+        output_hidden_states: Optional[bool] = None,
+        return_dict: Optional[bool] = None,
+    ) -> torch.FloatTensor:
+        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        )
+        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        vision_outputs = self.vision_model(
+            pixel_values=pixel_values,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        image_embeds = vision_outputs[0]
+
+        image_attention_mask = torch.ones(image_embeds.size()[:-1], dtype=torch.long, device=image_embeds.device)
+
+        query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
+        query_outputs = self.qformer(
+            query_embeds=query_tokens,
+            encoder_hidden_states=image_embeds,
+            encoder_attention_mask=image_attention_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
+            return_dict=return_dict,
+        )
+
+        image_embeds = query_outputs.last_hidden_state
+        return image_embeds
 
     @add_start_docstrings_to_model_forward(BLIP_2_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Blip2ForConditionalGenerationModelOutput, config_class=Blip2VisionConfig)

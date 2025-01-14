@@ -1490,7 +1490,8 @@ class DetrImageProcessor(BaseImageProcessor):
                 to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format)
                 for image in images
             ]
-            encoded_inputs = BatchFeature(data={"pixel_values": images}, tensor_type=return_tensors)
+            data = {"pixel_values": np.array(images) if do_resize and return_tensors is not None else images}
+            encoded_inputs = BatchFeature(data=data, tensor_type=return_tensors)
             if annotations is not None:
                 encoded_inputs["labels"] = [
                     BatchFeature(annotation, tensor_type=return_tensors) for annotation in annotations

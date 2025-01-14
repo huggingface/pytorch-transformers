@@ -449,7 +449,11 @@ class BeitImageProcessor(BaseImageProcessor):
             for img in images
         ]
 
-        data = {"pixel_values": images}
+        data = {
+            "pixel_values": np.array(images)
+            if (do_resize or do_center_crop) and return_tensors is not None
+            else images
+        }
 
         if segmentation_maps is not None:
             segmentation_maps = [
@@ -464,7 +468,7 @@ class BeitImageProcessor(BaseImageProcessor):
                 )
                 for segmentation_map in segmentation_maps
             ]
-            data["labels"] = segmentation_maps
+            data["labels"] = np.array(segmentation_maps) if do_resize or do_center_crop else segmentation_maps
 
         return BatchFeature(data=data, tensor_type=return_tensors)
 

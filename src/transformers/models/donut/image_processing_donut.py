@@ -454,8 +454,7 @@ class DonutImageProcessor(BaseImageProcessor):
         images = [
             to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format) for image in images
         ]
-
-        data = {"pixel_values": images}
+        data = {"pixel_values": np.array(images) if (do_resize or do_pad) and return_tensors is not None else images}
         return BatchFeature(data=data, tensor_type=return_tensors)
 
 

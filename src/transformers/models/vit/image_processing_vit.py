@@ -279,7 +279,7 @@ class ViTImageProcessor(BaseImageProcessor):
             to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format) for image in images
         ]
 
-        data = {"pixel_values": images}
+        data = {"pixel_values": np.asarray(images) if do_resize and return_tensors is not None else images}
         return BatchFeature(data=data, tensor_type=return_tensors)
 
 

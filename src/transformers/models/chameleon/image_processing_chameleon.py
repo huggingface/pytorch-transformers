@@ -333,7 +333,11 @@ class ChameleonImageProcessor(BaseImageProcessor):
             for image in all_images
         ]
 
-        data = {"pixel_values": images}
+        data = {
+            "pixel_values": np.array(images)
+            if (do_resize or do_center_crop) and return_tensors is not None
+            else images
+        }
         return BatchFeature(data=data, tensor_type=return_tensors)
 
     def blend_rgba(self, image: ImageInput) -> ImageInput:

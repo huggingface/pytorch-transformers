@@ -2419,7 +2419,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
 
         # Check if the covariance is positive definite.
         epsilon = 1e-9
-        is_covariance_psd = constraints.positive_definite.check(epsilon * covariance).item()
+        is_covariance_psd = constraints.positive_definite.check(epsilon * covariance).all()
         if is_covariance_psd:
             # If covariances is positive definite, a distribution can be created. and we can sample new weights from it.
             distribution = torch.distributions.multivariate_normal.MultivariateNormal(

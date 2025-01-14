@@ -187,6 +187,7 @@ Flax), PyTorch, and/or TensorFlow.
 |                      [Informer](model_doc/informer)                      |       ✅        |         ❌         |      ❌      |
 |                  [InstructBLIP](model_doc/instructblip)                  |       ✅        |         ❌         |      ❌      |
 |             [InstructBlipVideo](model_doc/instructblipvideo)             |       ✅        |         ❌         |      ❌      |
+|                          [IRIS](model_doc/iris)                          |       ✅        |         ❌         |      ❌      |
 |                         [Jamba](model_doc/jamba)                         |       ✅        |         ❌         |      ❌      |
 |                        [JetMoe](model_doc/jetmoe)                        |       ✅        |         ❌         |      ❌      |
 |                       [Jukebox](model_doc/jukebox)                       |       ✅        |         ❌         |      ❌      |

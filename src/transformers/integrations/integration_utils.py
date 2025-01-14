@@ -33,10 +33,8 @@ from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union
 import numpy as np
 import packaging.version
 
-from .. import PreTrainedModel, TFPreTrainedModel
 from .. import __version__ as version
 from ..utils import (
-    PushToHubMixin,
     flatten_dict,
     is_datasets_available,
     is_pandas_available,
@@ -719,17 +717,9 @@ class TensorBoardCallback(TrainerCallback):
 
 def save_model_architecture_to_file(model: Any, output_dir: str):
     with open(f"{output_dir}/model_architecture.txt", "w+") as f:
-        if isinstance(model, PreTrainedModel):
-            print(model, file=f)
-        elif is_tf_available() and isinstance(model, TFPreTrainedModel):
-
-            def print_to_file(s):
-                print(s, file=f)
-
-            model.summary(print_fn=print_to_file)
-        elif is_torch_available() and (
-            isinstance(model, (torch.nn.Module, PushToHubMixin)) and hasattr(model, "base_model")
-        ):
+        if is_tf_available() and hasattr(model, "summary"):
+            model.summary(print_fn=lambda s: print(s, file=f))
+        else:
             print(model, file=f)
 
 

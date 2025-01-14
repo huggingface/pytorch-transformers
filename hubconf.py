@@ -61,7 +61,7 @@ def tokenizer(*args, **kwargs):
         # Using torch.hub !
         import torch
 
-        tokenizer = torch.hub.load('huggingface/transformers', 'tokenizer', 'google-bert/bert-base-uncased')    # Download vocabulary from huggingface.co and cache.
+        tokenizer = torch.hub.load('huggingface/transformers', 'tokenizer', 'google-bert/bert-base-uncased')  # Download vocabulary from huggingface.co and cache.
         tokenizer = torch.hub.load('huggingface/transformers', 'tokenizer', './test/bert_saved_model/')  # E.g. tokenizer was saved using `save_pretrained('./test/saved_model/')`
 
     """
@@ -75,7 +75,7 @@ def model(*args, **kwargs):
             # Using torch.hub !
             import torch
 
-            model = torch.hub.load('huggingface/transformers', 'model', 'google-bert/bert-base-uncased')    # Download model and configuration from huggingface.co and cache.
+            model = torch.hub.load('huggingface/transformers', 'model', 'google-bert/bert-base-uncased')  # Download model and configuration from huggingface.co and cache.
             model = torch.hub.load('huggingface/transformers', 'model', './test/bert_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
             model = torch.hub.load('huggingface/transformers', 'model', 'google-bert/bert-base-uncased', output_attentions=True)  # Update configuration during loading
             assert model.config.output_attentions == True
@@ -94,7 +94,7 @@ def modelForCausalLM(*args, **kwargs):
         # Using torch.hub !
         import torch
 
-        model = torch.hub.load('huggingface/transformers', 'modelForCausalLM', 'openai-community/gpt2')    # Download model and configuration from huggingface.co and cache.
+        model = torch.hub.load('huggingface/transformers', 'modelForCausalLM', 'openai-community/gpt2')  # Download model and configuration from huggingface.co and cache.
         model = torch.hub.load('huggingface/transformers', 'modelForCausalLM', './test/saved_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
         model = torch.hub.load('huggingface/transformers', 'modelForCausalLM', 'openai-community/gpt2', output_attentions=True)  # Update configuration during loading
         assert model.config.output_attentions == True
@@ -112,7 +112,7 @@ def modelForMaskedLM(*args, **kwargs):
             # Using torch.hub !
             import torch
 
-            model = torch.hub.load('huggingface/transformers', 'modelForMaskedLM', 'google-bert/bert-base-uncased')    # Download model and configuration from huggingface.co and cache.
+            model = torch.hub.load('huggingface/transformers', 'modelForMaskedLM', 'google-bert/bert-base-uncased')  # Download model and configuration from huggingface.co and cache.
             model = torch.hub.load('huggingface/transformers', 'modelForMaskedLM', './test/bert_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
             model = torch.hub.load('huggingface/transformers', 'modelForMaskedLM', 'google-bert/bert-base-uncased', output_attentions=True)  # Update configuration during loading
             assert model.config.output_attentions == True
@@ -131,7 +131,7 @@ def modelForSequenceClassification(*args, **kwargs):
             # Using torch.hub !
             import torch
 
-            model = torch.hub.load('huggingface/transformers', 'modelForSequenceClassification', 'google-bert/bert-base-uncased')    # Download model and configuration from huggingface.co and cache.
+            model = torch.hub.load('huggingface/transformers', 'modelForSequenceClassification', 'google-bert/bert-base-uncased')  # Download model and configuration from huggingface.co and cache.
             model = torch.hub.load('huggingface/transformers', 'modelForSequenceClassification', './test/bert_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
             model = torch.hub.load('huggingface/transformers', 'modelForSequenceClassification', 'google-bert/bert-base-uncased', output_attentions=True)  # Update configuration during loading
             assert model.config.output_attentions == True
@@ -150,7 +150,7 @@ def modelForQuestionAnswering(*args, **kwargs):
         # Using torch.hub !
         import torch
 
-        model = torch.hub.load('huggingface/transformers', 'modelForQuestionAnswering', 'google-bert/bert-base-uncased')    # Download model and configuration from huggingface.co and cache.
+        model = torch.hub.load('huggingface/transformers', 'modelForQuestionAnswering', 'google-bert/bert-base-uncased')  # Download model and configuration from huggingface.co and cache.
         model = torch.hub.load('huggingface/transformers', 'modelForQuestionAnswering', './test/bert_model/')  # E.g. model was saved using `save_pretrained('./test/saved_model/')`
         model = torch.hub.load('huggingface/transformers', 'modelForQuestionAnswering', 'google-bert/bert-base-uncased', output_attentions=True)  # Update configuration during loading
         assert model.config.output_attentions == True

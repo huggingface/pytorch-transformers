@@ -277,7 +277,6 @@ class GPT2Attention(nn.Module):
         head_mask: Optional[torch.FloatTensor] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        # use_cache: Optional[bool] = False,  TODO delete
         output_attentions: Optional[bool] = False,
         **kwargs,
     ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]], ...]:
@@ -301,19 +300,9 @@ class GPT2Attention(nn.Module):
         key_states = key_states.reshape(shape_kv).transpose(1, 2)
         value_states = value_states.reshape(shape_kv).transpose(1, 2)
 
-        # if layer_past is not None:  TODO delete
-        #     past_key, past_value = layer_past
-        #     key_states = torch.cat((past_key, key_states), dim=-2)
-        #     value_states = torch.cat((past_value, value_states), dim=-2)
-
         if past_key_value is not None:
             cache_kwargs = {"cache_position": cache_position}
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs=cache_kwargs)
-
-        # if use_cache is True:  TODO delete
-        #     present = (key_states, value_states)
-        # else:
-        #     present = None
 
         is_cross_attention = encoder_hidden_states is not None
         is_causal = attention_mask is None and query_states.shape[-2] > 1 and not is_cross_attention
@@ -450,9 +439,6 @@ class GPT2Block(nn.Module):
         # residual connection
         hidden_states = residual + feed_forward_hidden_states
 
-        # if use_cache:  # TODO delete
-        #     outputs = (hidden_states,) + outputs
-        # else:
         outputs = (hidden_states,) + outputs[1:]
 
         return outputs  # hidden_states, (attentions, cross_attentions)
@@ -806,7 +792,6 @@ class GPT2Model(GPT2PreTrainedModel):
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.FloatTensor] = None,
         use_cache: Optional[bool] = None,
-        # return_legacy_cache: Optional[bool] = True,  # TODO implement
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
@@ -824,10 +809,8 @@ class GPT2Model(GPT2PreTrainedModel):
             self.warn_if_padding_and_no_attention_mask(input_ids, attention_mask)
             input_shape = input_ids.size()
             input_ids = input_ids.view(-1, input_shape[-1])
-            # batch_size = input_ids.shape[0]
         elif inputs_embeds is not None:
             input_shape = inputs_embeds.size()[:-1]
-            # batch_size = inputs_embeds.shape[0]
         else:
             raise ValueError("You have to specify either input_ids or inputs_embeds")
 
@@ -855,14 +838,8 @@ class GPT2Model(GPT2PreTrainedModel):
             cache_position = torch.arange(
                 past_seen_tokens, past_seen_tokens + inputs_embeds.shape[1], device=inputs_embeds.device
             )
-            # past_length = 0
-            # past_key_values = tuple([None] * len(self.h))  # TODO DELETE
         if position_ids is None:
             position_ids = cache_position.unsqueeze(0)
-
-        # if position_ids is None:
-        #     position_ids = torch.arange(past_length, input_shape[-1] + past_length, dtype=torch.long, device=device)  TODO delete
-        #     position_ids = position_ids.unsqueeze(0)
 
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
@@ -874,36 +851,6 @@ class GPT2Model(GPT2PreTrainedModel):
         causal_mask = self._update_causal_mask(
             attention_mask, inputs_embeds, cache_position, past_key_values, output_attentions
         )
-
-        # _past_length = past_key_values.seen_tokens if past_key_values is not None else 0  # TODO improve this
-
-        # _use_sdpa = self._attn_implementation == "sdpa" and output_attentions is False and head_mask is None
-        # attention_mask = attention_mask.view(batch_size, -1) if attention_mask is not None else None
-        # if self._attn_implementation == "flash_attention_2":
-        #     attention_mask = attention_mask if (attention_mask is not None and 0 in attention_mask) else None
-        # elif _use_sdpa:
-        #     attention_mask = _prepare_4d_causal_attention_mask_for_sdpa(
-        #         attention_mask=attention_mask,
-        #         input_shape=(batch_size, input_shape[-1]),
-        #         inputs_embeds=inputs_embeds,
-        #         past_key_values_length=_past_length,
-        #     )
-        # else:
-        #     if attention_mask is not None:
-        #         # We create a 3D attention mask from a 2D tensor mask.
-        #         # Sizes are [batch_size, 1, 1, to_seq_length]
-        #         # So we can broadcast to [batch_size, num_heads, from_seq_length, to_seq_length]
-        #         # this attention mask is more simple than the triangular masking of causal attention
-        #         # used in OpenAI GPT, we just need to prepare the broadcast dimension here.
-        #         attention_mask = attention_mask[:, None, None, :]
-
-        #         # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
-        #         # masked positions, this operation will create a tensor which is 0.0 for
-        #         # positions we want to attend and the dtype's smallest value for masked positions.
-        #         # Since we are adding it to the raw scores before the softmax, this is
-        #         # effectively the same as removing these entirely.
-        #         attention_mask = attention_mask.to(dtype=self.dtype)  # fp16 compatibility
-        #         attention_mask = (1.0 - attention_mask) * torch.finfo(self.dtype).min
 
         # If a 2D or 3D attention mask is provided for the cross-attention
         # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
@@ -943,7 +890,6 @@ class GPT2Model(GPT2PreTrainedModel):
                 )
                 use_cache = False
 
-        # presents = () if use_cache else None  # TODO delete
         all_self_attentions = () if output_attentions else None
         all_cross_attentions = () if output_attentions and self.config.add_cross_attention else None
         all_hidden_states = () if output_hidden_states else None
@@ -951,9 +897,6 @@ class GPT2Model(GPT2PreTrainedModel):
             # Model parallel
             if self.model_parallel:
                 torch.cuda.set_device(hidden_states.device)
-                # Ensure layer_past is on same device as hidden_states (might not be correct)  TODO delete
-                # if layer_past is not None:
-                #     layer_past = tuple(past_state.to(hidden_states.device) for past_state in layer_past)
                 # Ensure that attention_mask is always on the same device as hidden_states
                 if attention_mask is not None:
                     attention_mask = attention_mask.to(hidden_states.device)
@@ -989,8 +932,6 @@ class GPT2Model(GPT2PreTrainedModel):
                 )
 
             hidden_states = outputs[0]
-            # if use_cache is True:  TODO delete
-            #     presents = presents + (outputs[1],)
 
             if output_attentions:
                 all_self_attentions = all_self_attentions + (outputs[2 if use_cache else 1],)

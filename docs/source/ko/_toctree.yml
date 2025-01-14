@@ -254,8 +254,8 @@
       title: 에이전트와 도구
     - local: model_doc/auto
       title: 자동 클래스
-    - local: in_translation
-      title: (번역중) Backbones
+    - local: main_classes/backbones
+      title: 백본
     - local: main_classes/callback
       title: 콜백
     - local: main_classes/configuration

@@ -161,7 +161,7 @@ _deps = [
     "ruff==0.5.1",
     "sacrebleu>=1.4.12,<2.0.0",
     "sacremoses",
-    "safetensors>=0.4.1",
+    "safetensors==0.4.6.dev0",
     "sagemaker>=2.31.0",
     "schedulefree>=1.2.6",
     "scikit-learn",

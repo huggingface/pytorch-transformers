@@ -144,13 +144,30 @@ class PhrasalConstraint(Constraint):
         if not isinstance(token_ids, list) or len(token_ids) == 0:
             raise ValueError(f"`token_ids` has to be a non-empty list, but is {token_ids}.")
         if any((not isinstance(token_id, int) or token_id < 0) for token_id in token_ids):
-            raise ValueError(f"Each list in `token_ids` has to be a list of positive integers, but is {token_ids}.")
+            raise ValueError(f"Each element in `token_ids` has to be a positive integer, but is {token_ids}.")
 
         self.token_ids = token_ids
 
         self.seqlen = len(self.token_ids)
         self.fulfilled_idx = -1  # the index of the currently fulfilled step
         self.completed = False
+
+        self.match_table = self.build_kmp_table()  # Build the KMP partial match table
+
+    def build_kmp_table(self):
+        """
+        Builds the KMP partial match table for the token_ids pattern.
+        """
+        pattern = self.token_ids
+        match_table = [-1] * len(pattern)
+        j = -1
+        for i in range(1, len(pattern)):
+            while j != -1 and pattern[i] != pattern[j + 1]:
+                j = match_table[j]
+            if pattern[i] == pattern[j + 1]:
+                j = j + 1
+            match_table[i] = j
+        return match_table
 
     def advance(self):
         if self.completed:
@@ -182,13 +199,30 @@ class PhrasalConstraint(Constraint):
             self.completed = completed
         else:
             # failed to make progress.
-            reset = True
-            self.reset()
+
+            new_fulfilled_idx = self.get_qkstart(token_id)  # use KMP to find longest suffix which fulfilled
+            if new_fulfilled_idx == -1:
+                reset = True
+                self.reset()
+            else:
+                self.fulfilled_idx = new_fulfilled_idx
+
         return stepped, completed, reset
+
+    def get_qkstart(self, token_id: int):
+        """
+        Implements the KMP search algorithm. Returns the start index of the pattern in the text or -1 if not found.
+        """
+        now_idx = self.fulfilled_idx
+        while now_idx > 0 and token_id != self.token_ids[now_idx + 1]:
+            now_idx = self.match_table[now_idx]
+        if token_id == self.token_ids[now_idx + 1]:
+            now_idx = now_idx + 1
+        return now_idx
 
     def reset(self):
         self.completed = False
-        self.fulfilled_idx = 0
+        self.fulfilled_idx = -1
 
     def remaining(self):
         return self.seqlen - (self.fulfilled_idx + 1)

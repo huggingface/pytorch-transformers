@@ -31,7 +31,7 @@ class HfQuantizer(ABC):
     This class is used only for transformers.PreTrainedModel.from_pretrained and cannot be easily used outside the scope of that method
     yet.
 
-    Attributes
+    Attributes:
         quantization_config (`transformers.utils.quantization_config.QuantizationConfigMixin`):
             The quantization config that defines the quantization parameters of your model that you want to quantize.
         modules_to_not_convert (`List[str]`, *optional*):

@@ -2650,6 +2650,8 @@ class Trainer:
             elif is_sagemaker_mp_enabled():
                 smp.barrier()
 
+            # empty cache to prevent OOM
+            torch.cuda.empty_cache()
             self._load_best_model()
 
         # add remaining tr_loss

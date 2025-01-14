@@ -5119,6 +5119,30 @@ class Trainer:
                 "`auto_find_batch_size` isn't supported yet with DeepSpeed Zero-3. Please consider using Zero-2, Zero-1, or FSDP"
             )
 
+    def free_memory(self, *models):
+        """
+        Will release all references to the internal objects stored and call the garbage collector.
+        Should also explicitly pass in the (potentially multiple) `model` *original* references
+        to be released.
+        Example usage:
+        ```
+        >>> from transformers import Trainer
+        >>> model = MyModel()
+        >>> trainer = Trainer(model, ...)
+        >>> trainer.train()
+        >>> model = trainer.free_memory(model)
+        ```
+        """
+        # We need to have these references so they can be set to `None`
+        (
+            *models,
+            self.optimizer,
+            self.model,
+            self.deepspeed,
+            self.model_wrapped,
+        ) = self.accelerator.free_memory(*models, self.optimizer, self.model, self.deepspeed, self.model_wrapped)
+        return models
+
     def propagate_args_to_deepspeed(self, auto_find_batch_size=False):
         """
         Sets values in the deepspeed plugin based on the Trainer args

@@ -4184,6 +4184,24 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
                 )
             self.assertTrue("Tried passing in a callable to `accelerator_config`" in str(context.exception))
 
+    def test_free_memory(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model = RegressionPreTrainedModel(RegressionModelConfig(a=1.5, b=2.5))
+            dataset = SampleIterableDataset(length=1024)
+            trainer = Trainer(
+                model, TrainingArguments(output_dir=tmp_dir, max_steps=1), train_dataset=dataset, eval_dataset=dataset
+            )
+            trainer.train()
+            assert model is not None
+            assert trainer.model is not None
+            assert trainer.accelerator._models == [model]
+
+            (model,) = trainer.free_memory(model)
+            assert model is None
+            assert trainer.model is None
+            assert trainer.accelerator._models == []
+            assert trainer.accelerator._optimizers == []
+
     def test_torch_dtype_to_json(self):
         @dataclasses.dataclass
         class TorchDtypeTrainingArguments(TrainingArguments):

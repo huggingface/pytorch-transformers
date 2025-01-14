@@ -508,6 +508,7 @@ def get_scheduler(
                 optimizer=optimizer_dict[param],
                 num_warmup_steps=num_warmup_steps,
                 num_training_steps=num_training_steps,
+                scheduler_specific_kwargs=scheduler_specific_kwargs,
             )
 
         def scheduler_hook(param):

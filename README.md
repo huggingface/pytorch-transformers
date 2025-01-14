@@ -65,9 +65,9 @@ limitations under the License.
 
 These models can be applied on:
 
-* 📝 Text, for tasks like text classification, information extraction, question answering, summarization, translation, and text generation, in over 100 languages.
-* 🖼️ Images, for tasks like image classification, object detection, and segmentation.
-* 🗣️ Audio, for tasks like speech recognition and audio classification.
+- 📝 Text, for tasks like text classification, information extraction, question answering, summarization, translation, and text generation, in over 100 languages.
+- 🖼️ Images, for tasks like image classification, object detection, and segmentation.
+- 🗣️ Audio, for tasks like speech recognition and audio classification.
 
 Transformer models can also perform tasks on **several modalities combined**, such as table question answering, optical character recognition, information extraction from scanned documents, video classification, and visual question answering.
 
@@ -82,6 +82,7 @@ You can test most of our models directly on their pages from the [model hub](htt
 Here are a few examples:
 
 In Natural Language Processing:
+
 - [Masked word completion with BERT](https://huggingface.co/google-bert/bert-base-uncased?text=Paris+is+the+%5BMASK%5D+of+France)
 - [Named Entity Recognition with Electra](https://huggingface.co/dbmdz/electra-large-discriminator-finetuned-conll03-english?text=My+name+is+Sarah+and+I+live+in+London+city)
 - [Text generation with Mistral](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)
@@ -91,6 +92,7 @@ In Natural Language Processing:
 - [Translation with T5](https://huggingface.co/google-t5/t5-base?text=My+name+is+Wolfgang+and+I+live+in+Berlin)
 
 In Computer Vision:
+
 - [Image classification with ViT](https://huggingface.co/google/vit-base-patch16-224)
 - [Object Detection with DETR](https://huggingface.co/facebook/detr-resnet-50)
 - [Semantic Segmentation with SegFormer](https://huggingface.co/nvidia/segformer-b0-finetuned-ade-512-512)
@@ -100,11 +102,13 @@ In Computer Vision:
 - [Universal Segmentation with OneFormer](https://huggingface.co/shi-labs/oneformer_ade20k_dinat_large)
 
 In Audio:
+
 - [Automatic Speech Recognition with Whisper](https://huggingface.co/openai/whisper-large-v3)
 - [Keyword Spotting with Wav2Vec2](https://huggingface.co/superb/wav2vec2-base-superb-ks)
 - [Audio Classification with Audio Spectrogram Transformer](https://huggingface.co/MIT/ast-finetuned-audioset-10-10-0.4593)
 
 In Multimodal tasks:
+
 - [Table Question Answering with TAPAS](https://huggingface.co/google/tapas-base-finetuned-wtq)
 - [Visual Question Answering with ViLT](https://huggingface.co/dandelin/vilt-b32-finetuned-vqa)
 - [Image captioning with LLaVa](https://huggingface.co/llava-hf/llava-1.5-7b-hf)
@@ -114,7 +118,6 @@ In Multimodal tasks:
 - [Zero-shot Object Detection with OWLv2](https://huggingface.co/docs/transformers/en/model_doc/owlv2)
 - [Zero-shot Image Segmentation with CLIPSeg](https://huggingface.co/docs/transformers/model_doc/clipseg)
 - [Automatic Mask Generation with SAM](https://huggingface.co/docs/transformers/model_doc/sam)
-
 
 ## 100 projects using Transformers
 
@@ -139,19 +142,21 @@ If you own or use a project that you believe should be part of the list, please 
 To immediately use a model on a given input (text, image, audio, ...), we provide the `pipeline` API. Pipelines group together a pretrained model with the preprocessing that was used during that model's training. Here is how to quickly use a pipeline to classify positive versus negative texts:
 
 ```python
->>> from transformers import pipeline
-
+from transformers import pipeline
 # Allocate a pipeline for sentiment-analysis
->>> classifier = pipeline('sentiment-analysis')
->>> classifier('We are very happy to introduce pipeline to the transformers repository.')
-[{'label': 'POSITIVE', 'score': 0.9996980428695679}]
+classifier = pipeline('sentiment-analysis')
+result = classifier('We are very happy to introduce pipeline to the transformers repository.')
+# Enhanced output formatting
+label = result[0]['label']
+score = result[0]['score']
+print(f"Sentiment: {label}\nScore: {score:.4f}")
 ```
 
 The second line of code downloads and caches the pretrained model used by the pipeline, while the third evaluates it on the given text. Here, the answer is "positive" with a confidence of 99.97%.
 
 Many tasks have a pre-trained `pipeline` ready to go, in NLP but also in computer vision and speech. For example, we can easily extract detected objects in an image:
 
-``` python
+```python
 >>> import requests
 >>> from PIL import Image
 >>> from transformers import pipeline
@@ -191,6 +196,7 @@ Here, we get a list of objects detected in the image, with a box surrounding the
 You can learn more about the tasks supported by the `pipeline` API in [this tutorial](https://huggingface.co/docs/transformers/task_summary).
 
 In addition to `pipeline`, to download and use any of the pretrained models on your given task, all it takes is three lines of code. Here is the PyTorch version:
+
 ```python
 >>> from transformers import AutoTokenizer, AutoModel
 
@@ -202,6 +208,7 @@ In addition to `pipeline`, to download and use any of the pretrained models on y
 ```
 
 And here is the equivalent code for TensorFlow:
+
 ```python
 >>> from transformers import AutoTokenizer, TFAutoModel
 
@@ -212,32 +219,35 @@ And here is the equivalent code for TensorFlow:
 >>> outputs = model(**inputs)
 ```
 
-The tokenizer is responsible for all the preprocessing the pretrained model expects and can be called directly on a single string (as in the above examples) or a list. It will output a dictionary that you can use in downstream code or simply directly pass to your model using the ** argument unpacking operator.
+The tokenizer is responsible for all the preprocessing the pretrained model expects and can be called directly on a single string (as in the above examples) or a list. It will output a dictionary that you can use in downstream code or simply directly pass to your model using the \*\* argument unpacking operator.
 
 The model itself is a regular [Pytorch `nn.Module`](https://pytorch.org/docs/stable/nn.html#torch.nn.Module) or a [TensorFlow `tf.keras.Model`](https://www.tensorflow.org/api_docs/python/tf/keras/Model) (depending on your backend) which you can use as usual. [This tutorial](https://huggingface.co/docs/transformers/training) explains how to integrate such a model into a classic PyTorch or TensorFlow training loop, or how to use our `Trainer` API to quickly fine-tune on a new dataset.
 
 ## Why should I use transformers?
 
 1. Easy-to-use state-of-the-art models:
-    - High performance on natural language understanding & generation, computer vision, and audio tasks.
-    - Low barrier to entry for educators and practitioners.
-    - Few user-facing abstractions with just three classes to learn.
-    - A unified API for using all our pretrained models.
+
+   - High performance on natural language understanding & generation, computer vision, and audio tasks.
+   - Low barrier to entry for educators and practitioners.
+   - Few user-facing abstractions with just three classes to learn.
+   - A unified API for using all our pretrained models.
 
 1. Lower compute costs, smaller carbon footprint:
-    - Researchers can share trained models instead of always retraining.
-    - Practitioners can reduce compute time and production costs.
-    - Dozens of architectures with over 400,000 pretrained models across all modalities.
+
+   - Researchers can share trained models instead of always retraining.
+   - Practitioners can reduce compute time and production costs.
+   - Dozens of architectures with over 400,000 pretrained models across all modalities.
 
 1. Choose the right framework for every part of a model's lifetime:
-    - Train state-of-the-art models in 3 lines of code.
-    - Move a single model between TF2.0/PyTorch/JAX frameworks at will.
-    - Seamlessly pick the right framework for training, evaluation, and production.
+
+   - Train state-of-the-art models in 3 lines of code.
+   - Move a single model between TF2.0/PyTorch/JAX frameworks at will.
+   - Seamlessly pick the right framework for training, evaluation, and production.
 
 1. Easily customize a model or an example to your needs:
-    - We provide examples for each architecture to reproduce the results published by its original authors.
-    - Model internals are exposed as consistently as possible.
-    - Model files can be used independently of the library for quick experiments.
+   - We provide examples for each architecture to reproduce the results published by its original authors.
+   - Model internals are exposed as consistently as possible.
+   - Model files can be used independently of the library for quick experiments.
 
 ## Why shouldn't I use transformers?
 
@@ -298,7 +308,7 @@ conda install conda-forge::transformers
 
 Follow the installation pages of Flax, PyTorch or TensorFlow to see how to install them with conda.
 
-> **_NOTE:_**  On Windows, you may be prompted to activate Developer Mode in order to benefit from caching. If this is not an option for you, please let us know in [this issue](https://github.com/huggingface/huggingface_hub/issues/1062).
+> **_NOTE:_** On Windows, you may be prompted to activate Developer Mode in order to benefit from caching. If this is not an option for you, please let us know in [this issue](https://github.com/huggingface/huggingface_hub/issues/1062).
 
 ## Model architectures
 
@@ -312,21 +322,21 @@ To check if each model has an implementation in Flax, PyTorch or TensorFlow, or 
 
 These implementations have been tested on several datasets (see the example scripts) and should match the performance of the original implementations. You can find more details on performance in the Examples section of the [documentation](https://github.com/huggingface/transformers/tree/main/examples).
 
-
 ## Learn more
 
-| Section | Description |
-|-|-|
-| [Documentation](https://huggingface.co/docs/transformers/) | Full API documentation and tutorials |
-| [Task summary](https://huggingface.co/docs/transformers/task_summary) | Tasks supported by 🤗 Transformers |
-| [Preprocessing tutorial](https://huggingface.co/docs/transformers/preprocessing) | Using the `Tokenizer` class to prepare data for the models |
-| [Training and fine-tuning](https://huggingface.co/docs/transformers/training) | Using the models provided by 🤗 Transformers in a PyTorch/TensorFlow training loop and the `Trainer` API |
-| [Quick tour: Fine-tuning/usage scripts](https://github.com/huggingface/transformers/tree/main/examples) | Example scripts for fine-tuning models on a wide range of tasks |
-| [Model sharing and uploading](https://huggingface.co/docs/transformers/model_sharing) | Upload and share your fine-tuned models with the community |
+| Section                                                                                                 | Description                                                                                              |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [Documentation](https://huggingface.co/docs/transformers/)                                              | Full API documentation and tutorials                                                                     |
+| [Task summary](https://huggingface.co/docs/transformers/task_summary)                                   | Tasks supported by 🤗 Transformers                                                                       |
+| [Preprocessing tutorial](https://huggingface.co/docs/transformers/preprocessing)                        | Using the `Tokenizer` class to prepare data for the models                                               |
+| [Training and fine-tuning](https://huggingface.co/docs/transformers/training)                           | Using the models provided by 🤗 Transformers in a PyTorch/TensorFlow training loop and the `Trainer` API |
+| [Quick tour: Fine-tuning/usage scripts](https://github.com/huggingface/transformers/tree/main/examples) | Example scripts for fine-tuning models on a wide range of tasks                                          |
+| [Model sharing and uploading](https://huggingface.co/docs/transformers/model_sharing)                   | Upload and share your fine-tuned models with the community                                               |
 
 ## Citation
 
 We now have a [paper](https://www.aclweb.org/anthology/2020.emnlp-demos.6/) you can cite for the 🤗 Transformers library:
+
 ```bibtex
 @inproceedings{wolf-etal-2020-transformers,
     title = "Transformers: State-of-the-Art Natural Language Processing",

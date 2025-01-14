@@ -13,9 +13,9 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Add a new model
+# Adding a new model
 
-Transformers is fortunate to have a passionate community of developers and researchers contributing models to the library. As an open-source first project, we're invested in empowering the community to actively add models.
+Many of the models in Transformers are contributed by developers and researchers. As an open-source first project, we're invested in empowering the community to actively and independently add more models.
 
 When you add a model to Transformers, you'll learn:
 
@@ -25,31 +25,16 @@ When you add a model to Transformers, you'll learn:
 - how to efficiently test large models
 - how to use Python utilities like [Black](https://black.readthedocs.io/en/stable/) and [Ruff](https://docs.astral.sh/ruff/) to create clean and readable code
 
-It is a challenging, but also rewarding process!
+It is a challenging but rewarding process.
 
-This guide will walk you through adding an example "BrandNewBert" PyTorch model to Transformers.
-
-## New model addition
-
-Open a [New model addition](https://github.com/huggingface/transformers/issues/new?assignees=&labels=New+model&template=new-model-addition.yml) issue to add a specific model.
-
-> [!TIP]
-> Filter by the [New model](https://github.com/huggingface/transformers/labels/New%20model) label on GitHub if you're open to adding any model.
-
-Now is a good time to get familiar with BrandNewBert. It is helpful to read a models research paper to understand its technical design and implementation. You don't necessarily have to worry too much about the theoretical details. Instead, focus on the practical ones. Use the questions below to guide your reading.
-
-- What type of model is BrandNewBert? Is it a encoder, decoder, or encoder-decoder model?
-- What tasks can BrandNewBert be used for?
-- What makes BrandNewBert different from other models?
-- What models in Transformers are most similar to BrandNewBert?
-- What tokenizer does BrandNewBert use?
+This guide will walk you through adding an example BrandNewBert PyTorch model to Transformers. Before you begin, it is a good idea to familiarize yourself with the library.
 
 ## Transformers overview
 
-Transformers is an opinionated library with its own unique philosophy and design choices. These choices help us scale Transformers while maintaining a sustainable level of maintenance.
+Transformers is an opinionated library with its own unique philosophy and design choices. These choices help us sustainably scale and maintain Transformers.
 
 > [!TIP]
-> Learn more about our design principles on the [Philosophy](./philosophy) page.
+> Learn more about our design principles on the [Philosophy](./philosophy) doc.
 
 Some of these design choices are:
 
@@ -65,13 +50,11 @@ This section describes how the model and configuration classes interact and the 
 
 All Transformers' models inherit from a base [`PreTrainedModel`] and [`PretrainedConfig`] class. The configuration is the models blueprint.
 
-<!-- <insert diagram here> -->
-
-To keep the code readable, there is never more than two levels of abstraction for any model. The example model here, BrandNewBert, traces its inheritance from `BrandNewBertPreTrainedModel` and [`PreTrainedModel`]. It is important that a new model only depends on [`PreTrainedModel`] because it allows a model to be loaded and saved with [`~PreTrainedModel.from_pretrained`] and [`~PreTrainedModel.save_pretrained`].
+There is never more than two levels of abstraction for any model to keep the code readable. The example model here, BrandNewBert, inherits from `BrandNewBertPreTrainedModel` and [`PreTrainedModel`]. It is important that a new model only depends on [`PreTrainedModel`] so that it can use the [`~PreTrainedModel.from_pretrained`] and [`~PreTrainedModel.save_pretrained`] methods.
 
 Other important functions like the forward method are defined in the `modeling.py` file.
 
-Specific model heads (for example, for sequence classification or language modeling) should use the base model as a component that is called in the forward pass rather than inherting from it. This keeps abstraction low.
+Specific model heads (for example, sequence classification or language modeling) should call the base model in the forward pass rather than inherting from it to keep abstraction low.
 
 New models require a configuration, for example `BrandNewBertConfig`, that is stored as an attribute of [`PreTrainedModel`].
 
@@ -80,15 +63,15 @@ model = BrandNewBertModel.from_pretrained("username/brand_new_bert")
 model.config
 ```
 
-Like [`PreTrainedModel`], [`PretrainedConfig`] provides the [`~PretrainedConfig.from_pretrained`] and [`~PretrainedConfig.save_pretrained`] methods.
+[`PretrainedConfig`] provides the [`~PretrainedConfig.from_pretrained`] and [`~PretrainedConfig.save_pretrained`] methods.
 
-When you use [`PreTrainedModel.save_pretrained`], it automatically calls [`~PretrainedConfig.save_pretrained`] so that both the model and configuration are saved together.
+When you use [`PreTrainedModel.save_pretrained`], it automatically calls [`PretrainedConfig.save_pretrained`] so that both the model and configuration are saved together.
 
 A model is saved to a `model.safetensors` file and a configuration is saved to a `config.json` file.
 
 ### Code style
 
-Transformers prefers a clean and readable code style over a more abstracted one. Some of the code style choices include:
+Transformers prefers a clean and readable code over a more abstracted code style. Some of the code style choices include:
 
 - The forward pass is written in the `modeling.py` file, completely independent of other models in the library. To reuse a block from another model, copy the code and paste it with a `# Copied from` comment above it. For example, the `RobertaSelfAttention` class is copied from the `BertSelfAttention` class.
 
@@ -97,32 +80,43 @@ Transformers prefers a clean and readable code style over a more abstracted one.
   class RobertaSelfAttention(nn.Module):
   ```
 
-  Refer to the [Check copies](./pr_checks#check-copies) section for more information about the `# Copied from` comment.
+  Refer to the [Check copies](./pr_checks#check-copies) docs for more information about the `# Copied from` comment.
 
-- The code should be accessible to users from a non-native English background. Pick descriptive variable names and avoid abbreviations. For example, "activation" is preferred over "act". One letter variables names are highly discouraged unless it's an index in a for loop.
+- The code should be accessible to non-English users. Pick descriptive variable names and avoid abbreviations. For example, "activation" is preferred over "act". One letter variables names are highly discouraged unless it's an index in a for loop.
 
-- Explicit code is preferred over shorter code even if it's longer.
+- Explicit code is preferred - even if it's longer - over shorter code.
 
 - Avoid subclassing [nn.Sequential](https://pytorch.org/docs/stable/generated/torch.nn.Sequential.html). Subclass [nn.Module](https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module) instead so the code can be quickly debugged with print statements or breakpoints.
 
-- Function signatures should be type-annotated. Otherwise, good variable names are preferred because they're more readable and understandable.
+- Function signatures should be type-annotated. Otherwise, use good variable names so they're more understandable.
 
-## Add a new model
+## New model addition issue
 
-With some background knowledge about your model and the Transformers library, you're ready to add BrandNewBert now!
+Open a [New model addition](https://github.com/huggingface/transformers/issues/new?assignees=&labels=New+model&template=new-model-addition.yml) issue to add a specific model.
+
+> [!TIP]
+> Filter by the [New model](https://github.com/huggingface/transformers/labels/New%20model) label on GitHub to view and add any existing model requests.
+
+Now is a good time to get familiar with BrandNewBert. It is helpful to read a models research paper to understand its technical design and implementation. You don't necessarily have to worry too much about the theoretical details. Instead, focus on the practical ones. Use the questions below to guide your reading.
+
+- What type of model is BrandNewBert? Is it a encoder, decoder, or encoder-decoder model?
+- What tasks can BrandNewBert be used for?
+- What makes BrandNewBert different from other models?
+- What models in Transformers are most similar to BrandNewBert?
+- What tokenizer does BrandNewBert use?
+
+In addition to learning more about your model, use the tips below to help you add a model faster.
 
 > [!TIP]
 > Each contributor has a unique style and workflow for porting models to Transformers. It may be helpful to take a look at how [GPT2](https://medium.com/huggingface/from-tensorflow-to-pytorch-265f40ef2a28) and [WMT19](https://huggingface.co/blog/porting-fsmt) were ported.
 
-Some final tips to keep in mind are:
-
 - Don't reinvent the wheel! Take your time to explore existing models and tokenizers to see what you can copy and reuse. [Grep](https://www.gnu.org/software/grep/) and [ripgrep](https://github.com/BurntSushi/ripgrep) are great tools for this.
-- This is an engineering challenge more than a scientific one. Focus on the more practical aspects (set up an efficient debugging environment for example) instead of theoretical ones.
+- This is more of an engineering than a science challenge. Focus on the more practical (setting up an efficient debugging environment for example) instead of the theorertical aspects of the model.
 - Don't be shy to ask for help! We are here to support you. 🤗
 
-### Dev environment
+## Dev environment
 
-Click on the **Fork** button on the [Transformers](https://github.com/huggingface/transformers) repository to create your own copy of it to work on. Then clone the repository to your local disk and add the base repository as the remote.
+Click on the **Fork** button on the [Transformers](https://github.com/huggingface/transformers) repository to create your own copy to work on. Clone the repository to your local disk and add the base repository as the remote.
 
 ```bash
 git clone https://github.com/[your Github handle]/transformers.git
@@ -130,7 +124,7 @@ cd transformers
 git remote add upstream https://github.com/huggingface/transformers.git
 ```
 
-Create a virtual environment and do an [editable install](./installation#editable-install) of the library with the "dev" or development dependencies.
+Create a virtual environment and perform an [editable install](./installation#editable-install) of the library with the "dev" or development dependencies.
 
 ```bash
 python -m venv .env
@@ -138,7 +132,7 @@ source .env/bin/activate
 pip install -e ".[dev]"
 ```
 
-Due to the number of optional dependencies as Transformers grows, this command may fail. In that case, install the "quality" dependencies. Also make sure you have a deep learning framework installed.
+Due to the number of optional dependencies as Transformers grows, this command may fail. In this case, install the "quality" dependencies. Also make sure you have a deep learning framework installed.
 
 ```bash
 pip install -e ".[quality]"
@@ -163,9 +157,9 @@ There are two possible debugging environments for running the original model, a 
 > [!WARNING]
 > We don't recommend setting up a GPU environment to run the original model because it can be expensive. Instead, work in a CPU environment first to verify the model works in Transformers. Once it does, then you can verify it on a GPU.
 
-Notebooks are great for executing code cell-by-cell which can help split logical components from one another. It can also accelerate debugging cycles because intermediate results can be stored. Notebooks can also be shared when working with other contributors.
+Notebooks are great for executing code cell-by-cell which can help split logical components from one another. It can also accelerate debugging cycles because intermediate results can be stored. You can also share notebooks when working with other contributors.
 
-The downside of notebooks is that if you aren't used to them, it may take some time to get used to.
+The downside is that if you aren't used to them, it may take some time to get used to.
 
 > [!TIP]
 > If the model architecture is identical to an existing model, skip ahead to add a [conversion script](#conversion-script), because you can reuse the architecture of the existing model.
@@ -176,9 +170,9 @@ Run the command below to start and complete the questionnaire with some basic in
 transformers-cli add-new-model-like
 ```
 
-### Create a pull request
+## Create a pull request
 
-Before you start adapting the code, create a pull request to track your progress and get feedback from the Transformers team. Title your pull request "[WIP] Add BrandNewBert" so it's clear that this is a work in progress.
+Before you start adapting the code, create a pull request to track your progress and get feedback from the Transformers team. Title your pull request **[WIP] Add BrandNewBert** so it's clear that this is a work in progress.
 
 Create a branch with a descriptive name from your main branch.
 
@@ -201,7 +195,7 @@ Push any changes to your branch and click on **Compare & pull request** to open 
 git push -u origin a-descriptive-name-for-my-changes
 ```
 
-Include relevant Hugging Face team members GitHub handles in the pull request for questions, feedback, comments, and reviews. Direct team members to specific parts of the code you want by clicking on the **Files changed** tab, and then clicking on **+** to the left of the line number to add a comment. When a question or problem is solved, click on **Resolve** to indicate the issue is resolved. This keeps the conversation organized and clean.
+Include relevant Hugging Face team members by adding their GitHub handles in the pull request for questions, feedback, comments, and reviews. Direct team members to specific parts of the code you want by clicking on the **Files changed** tab, and then clicking on **+** to the left of the line number to add a comment. When a question or problem is solved, click on **Resolve** to indicate the issue is resolved. This keeps the conversation organized and clean.
 
 Remember to periodically commit and push your work, and update your work with the current main branch.
 
@@ -210,9 +204,9 @@ git fetch upstream
 git merge upstream/main
 ```
 
-### Run original checkpoint
+## Original checkpoint
 
-Before you start working on your model implementation, you should work on the original model implementation first to understand how it works.
+Take some time to work on the original model implementation first to understand how it works.
 
 This can be difficult if the original model repository is lacking documentation or if the codebase is complex. But you should use this as your motivation to implement the model in Transformers. Your contribution makes it more accessible and user-friendly to everyone!
 
@@ -235,7 +229,9 @@ input_ids = [0, 4, 5, 2, 3, 7, 9]  # vector of input ids
 original_output = model.predict(input_ids)
 ```
 
-If you run into issues, you'll need to choose one of the following debugging decomposition strategies depending on the original models codebase.
+### Debugging
+
+If you run into issues, you'll need to choose one of the following debugging strategies depending on the original models codebase.
 
 <hfoptions id="debug-strategy">
 <hfoption id="sub-components">
@@ -300,23 +296,25 @@ Here are some tips for an efficient debugging environment.
 
 Once you're able to run the original checkpoint, you're ready to start adapting the model code for Transformers.
 
-### Adapt the model code
+## Adapt the model code
 
 The `transformers-cli add-new-model-like` command should have generated a model and configuration file.
 
 - `src/transformers/models/brand_new_bert/modeling_brand_new_bert.py`
 - `src/transformers/models/brand_new_bert/configuration_brand_new_bert.py`
 
-The automatically generated code in the `modeling.py` file will have the same architecture as BERT if you answered it's an encoder-only model or it will have the same architecture as BART if you answered it's an encoder-decoder model. The generated code is just a starting point. Based on your research on the new model, you'll need to implement those specific changes by adapting the generated code. This may involve changes to the self-attention layer, the order of the normalization layer, and so on.
+The automatically generated code in the `modeling.py` file has the same architecture as BERT if you answered it's an encoder-only model or it will have the same architecture as BART if you answered it's an encoder-decoder model. The generated code is just a starting point. Based on your research on the new model, you'll need to implement those specific changes by adapting the generated code. This may involve changes to the self-attention layer, the order of the normalization layer, and so on.
 
-At this point, your code doesn't have to be clean or even fully correct! It is more efficiently to quickly create a first draft and then iteratively improve on it. The only thing that matters is that your model can be instantiated from Transformers. The command below creates a model from the configuration with random weights, verifying that the the `__init__` method works.
+### Model initialization
+
+At this point, your code doesn't have to be clean or even fully correct, It is more efficient to quickly create a first draft and then iteratively improve on it. The most important thing is that your model can be instantiated from Transformers. The command below creates a model from the configuration with random weights, verifying that the `__init__` method works.
 
 ```py
 from transformers import BrandNewBert, BrandNewBertConfig
 model = BrandNewBert(BrandNewBertConfig())
 ```
 
-Random initialization occurs in BrandNewBertPreTrainedModel's `_init_weights` method. All leaf modules are initialized depending on the configuration's variables.
+Random initialization occurs in the `_init_weights` method of `BrandNewBertPreTrainedModel`. All leaf modules are initialized depending on the configuration's variables.
 
 ```py
 def _init_weights(self, module):
@@ -352,7 +350,7 @@ def _init_weights(self, module):
             module.bias.data.zero_()
 ```
 
-### Conversion script
+### Convert checkpoints to Transformers
 
 The original checkpoint must be converted to a Transformers compatible checkpoint.
 
@@ -448,7 +446,7 @@ assert (
 logger.info(f"Initialize PyTorch weight {layer_name} from {pretrained_weight.name}")
 ```
 
-When the shape or name don't match, you may have assigned the incorrect checkpoint weight to a randomly initialized layer. An incorrect shape may be because BrandNewBerts parameters don't exactly match the original models parameters. But it could also be that the PyTorch layer implementation requires the weights to be transposed first.
+When the shape or name don't match, you may have assigned the incorrect checkpoint weight to a randomly initialized layer. An incorrect shape may be because the `BrandNewBert` parameters don't exactly match the original models parameters. But it could also be that the PyTorch layer implementation requires the weights to be transposed first.
 
 ### Implement the forward pass
 
@@ -460,7 +458,7 @@ input_ids = [0, 4, 4, 3, 2, 4, 1, 7, 19]
 output = model(input_ids).last_hidden_states
 ```
 
-Don't be discouraged if your forward pass isn't identical with the output from the original model or if it returns an error! Check that the forward pass doesn't throw any errors. This is often because the dimensions are wrong (dimensionality mismatch) or because the wrong data type is used ([torch.long](https://pytorch.org/docs/stable/generated/torch.Tensor.long.html) instead of [torch.float32](https://pytorch.org/docs/stable/tensors.html)).
+Don't be discouraged if your forward pass isn't identical with the output from the original model or if it returns an error. Check that the forward pass doesn't throw any errors. This is often because the dimensions are wrong or because the wrong data type is used ([torch.long](https://pytorch.org/docs/stable/generated/torch.Tensor.long.html) instead of [torch.float32](https://pytorch.org/docs/stable/tensors.html)).
 
 Your output should have a precision of *1e-3*. Ensure the output shapes and output values are identical. Common reasons for why the outputs aren't identical include:
 
@@ -490,7 +488,7 @@ And if you're stuck or struggling with this step, don't hesitate to ask for help
 
 ### Add model tests
 
-While the model works, you still need to add tests to ensure it is compatible with Transformers and all the tests pass. Tests are important because they help users understand your work by looking at specific tests, and because they prevent your model from breaking in the future if any changes are made.
+While the model works, you still need to add tests to ensure it is compatible with Transformers. Tests are important because they help users understand your work by looking at specific tests, and because they prevent your model from breaking in the future if any changes are made.
 
 [Cookiecutter](https://cookiecutter.readthedocs.io/en/stable/) should have added a test file for your model. Run the test file below to make sure all common tests pass.
 
@@ -498,7 +496,7 @@ While the model works, you still need to add tests to ensure it is compatible wi
 pytest tests/models/brand_new_bert/test_modeling_brand_new_bert.py
 ```
 
-The integration tests should be added first because they serve the same purpose as the debugging scripts you used earlier to implement the new model in Transformers. A template of those model tests, `BrandNewBertModelIntegrationTests`, was added by Cookiecutter and just needs to be filled out. To ensure it passes, run the following command.
+The integration tests should be added first because they serve the same purpose as the debugging scripts you used earlier to implement the new model in Transformers. A template of those model tests, `BrandNewBertModelIntegrationTests`, was added by Cookiecutter and should be filled out. To ensure it passes, run the following command.
 
 <hfoptions id="integration-test">
 <hfoption id="macOS">
@@ -519,14 +517,14 @@ SET RUN_SLOW=1 pytest -sv tests/models/brand_new_bert/test_modeling_brand_new_be
 
 All features unique to BrandNewBert should be tested in a separate test under `BrandNewBertModelTester/BrandNewBertModelTest`. This test is often overlooked, but it is extremely important because:
 
-- it helps transfer knowledge you acquired during the process to the community by showing how the novel features of the new model works
+- it helps transfer knowledge you acquired during the process to the community by showing how the models novel features work
 - future contributors can quickly test changes to the model by running these special tests
 
-### Implement tokenizer
+## Implement tokenizer
 
 With the model out of the way, time to focus on the tokenizer. The tokenizer should be identical or very similar to an existing tokenizer in Transformers.
 
-Find and load the original tokenizer file into your implementation. Create a script in the original repository that inputs a string and returns the `input_ids`. The pseudocode should look similar to this.
+Find and load the original tokenizer file into your implementation. Create a script in the original repository that inputs a string and returns the `input_ids`. The pseudocode should look similar to the code below.
 
 ```py
 input_str = "This is a long example input string containing special characters .$?-, numbers 2872 234 12 and words."
@@ -534,7 +532,7 @@ model = BrandNewBertModel.load_pretrained_checkpoint("/path/to/checkpoint/")
 input_ids = model.tokenize(input_str)
 ```
 
-You may need to search the original repository to find the correct tokenizer function or modify the existing tokenizer in your clone of the original repository to only return the `input_ids`. The script for your tokenizer should look something like this.
+You may need to search the original repository to find the correct tokenizer function or modify the existing tokenizer in your clone of the original repository to only return the `input_ids`. The script for your tokenizer should look similar to the following.
 
 ```py
 from transformers import BrandNewBertTokenizer
@@ -546,25 +544,25 @@ input_ids = tokenizer(input_str).input_ids
 
 When both implementations have the same `input_ids`, add a tokenizer test file. This file is analogous to the modeling test files. The tokenizer test files should contain a couple of hardcoded integration tests.
 
-### Run integration tests
+## Integration tests
 
-Now that you have a model and tokenizer, add end-to-end integration tests using both the model and tokenizer to `tests/models/brand_new_bert/test_modeling_brand-new_bert.py`.
+Now that you have a model and tokenizer, add end-to-end integration tests for the model and tokenizer to `tests/models/brand_new_bert/test_modeling_brand-new_bert.py`.
 
 The test should provide a meaningful text-to-text example to show the model works as expected. For example, you can include a source-to-target translation pair, an article-to-summary pair, or a question-to-answer pair.
 
-If the checkpoint hasn't been finetuned on a downstream task, then the model tests will suffice.
+If the checkpoint hasn't been fine-tuned on a downstream task, then the model tests are sufficient.
 
-Finally, try to make sure your tests can run on a GPU by adding `.to(self.device)` statements to the models internal tensors. Don't worry if you don't have access to a GPU, we can take care of that for you if that's the case.
+Finally, try to make sure your tests can run on a GPU by adding `.to(self.device)` statements to the models internal tensors. If you don't have access to a GPU, we can take care of that for you.
 
-### Add documentation
+## Add documentation
 
 Your model is only useful if users know how to use it. This is why it's important to add documentation and docstrings. Cookiecutter added a template file, `docs/source/model_doc/brand_new_bert.md`, that you can fill out with information about your model.
 
 This is generally a user's first interaction with a model, so the documentation should be clear and concise. It is often very useful to add examples of how the model should be used.
 
-Make sure docstrings are added to `src/transformers/models/brand_new_bert/modeling_brand_new_bert/py` and includes all necessary inputs and outputs. Review our [guide](https://github.com/huggingface/transformers/tree/main/docs#writing-documentation---specification) for writing documentation and docstrings.
+Make sure docstrings are added to `src/transformers/models/brand_new_bert/modeling_brand_new_bert.py` and includes all necessary inputs and outputs. Review our [guide](https://github.com/huggingface/transformers/tree/main/docs#writing-documentation---specification) for writing documentation and docstrings.
 
-### Refactor
+## Refactor
 
 Time to tidy things up and make sure the code style is consistent with the rest of the library. Run the following command to automatically fix incorrect styles.
 
@@ -582,12 +580,12 @@ There may be other failing tests or checks (missing docstring or incorrect namin
 
 After ensuring the code runs correctly, you may want to refactor it to make it more readable or cleaner.
 
-### Upload to the Hub
+## Upload to the Hub
 
 Convert and upload all checkpoints to the [Hub](https://hf.co/models). Add a model card to provide more transparency and context about the model. The model card should highlight specific characteristics of a checkpoint, how the model was trained, and code examples of how to use it.
 
 > [!TIP]
-> In many cases, adding an interactive notebook users can run is a great way to showcase how to use the model for inference or finetune it on a downstream task. While not mandatory, including a notebook can drive greater adoption of your model.
+> In many cases, adding an interactive notebook users can run is a great way to showcase how to use the model for inference or fine-tune it on a downstream task. While not required, including a notebook can drive greater adoption of your model.
 
 You should also consult with the Transformers team to decide on an appropriate name for the model, and getting the required access rights to upload the model.
 
@@ -597,12 +595,32 @@ Use the [`~PreTrainedModel.push_to_hub`] method to upload the model.
 brand_new_bert.push_to_hub("brand_new_bert")
 ```
 
-Refer to the [Share](./model_sharing) guide for more information about uploading models to the Hub.
+Refer to the [Sharing](./model_sharing) guide for more information about uploading models to the Hub.
 
-### Merge your model
+## Merge your model
 
 You're finally ready to merge your pull request and officially add the model to Transformers! Make sure all the tests are passing and all comments and feedback have been addressed.
 
 Congratulations on adding a new model to Transformers! 🥳
 
-This is a very significant contribution. Your work here makes Transformers more accessible to developers and researchers around the world. You should be proud of your contribution and share your accomplishment with the community!
+This is a very significant contribution. Your work makes Transformers more accessible to developers and researchers around the world. You should be proud of your contribution and share your accomplishment with the community!
+
+## Model addition timeline
+
+There are four timelines for model additions depending on the model contributor and community demand for an architecture.
+
+- **day-0 integration**: If you plan on having a Transformers-first release, this is a great option because we can ensure the documentation is clear and optimize your model as much as possible (quantization, FlashAttention, KV-cache, etc.). We can also help you add the model, provide early reviews and make sure it works as expected.
+
+  Reach out to transformers@huggingface.co a few days (preferably weeks) in advance, especially if an architecture is particularly novel, to ensure model integration. We'll work together on a private fork of Transformers until your checkpoint and release is ready.
+
+- **same week integration**: Models with significant requests/demand are usually added the same week if the model author doesn't reach out.
+
+  Use the [issue tracker](https://github.com/huggingface/transformers/issues/new?assignees=&labels=New+model&projects=&template=new-model-addition.yml) to request a specific model to add. The more activity on the issue, the faster and more likely we'll integrate it.
+
+- **post-release integration**: Models without popular requests/demand or if we don't have the bandwidth to integrate it are added post-release.
+
+  This is a good opportunity if you're interested in contributing a model to Transformers. Take a look at open issues tagged with ["New model"](https://github.com/huggingface/transformers/issues?q=is%3Aopen+is%3Aissue+label%3A%22New+model%22). Feel free to give the most requested models a try first to multiply the impact of your contribution. We'll be there to help you each step of the way!
+
+- **Hub-first release**: Transformers [remote-code](./models#custom-models) feature allows Transformers-based projects to be shared directly on the Hub. This is a good option if you don't have the bandwidth to add a model directly to Transformers.
+
+  If a model ends up being very popular, then it's very likely that we'll integrate it in Transformers ourselves to enable better support (documentation, maintenance, optimization, etc.) for it. A Hub-first release is the most frictionless way to add a model.

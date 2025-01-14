@@ -77,6 +77,12 @@ class Seq2SeqTrainingArguments(TrainingArguments):
         },
     )
 
+    def __post_init__(self):
+        super().__post_init__()
+        logger.info(f"Initialized Seq2SeqTrainingArguments with sortish_sampler={self.sortish_sampler}, "
+                    f"predict_with_generate={self.predict_with_generate}, generation_max_length={self.generation_max_length}, "
+                    f"generation_num_beams={self.generation_num_beams}")
+
     def to_dict(self):
         """
         Serializes this instance while replace `Enum` by their values and `GenerationConfig` by dictionaries (for JSON
@@ -88,3 +94,5 @@ class Seq2SeqTrainingArguments(TrainingArguments):
             if isinstance(v, GenerationConfig):
                 d[k] = v.to_dict()
         return d
+
+}

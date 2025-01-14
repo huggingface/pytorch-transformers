@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 from ..utils import is_torch_available
@@ -31,3 +32,24 @@ def is_fsdp_managed_module(module: nn.Module) -> bool:
     return isinstance(module, torch.distributed.fsdp.FullyShardedDataParallel) or getattr(
         module, "_is_fsdp_managed_module", False
     )
+
+
+def enable_cpu_ram_efficient_loading():
+    """
+    Enable CPU RAM efficient loading of model weights by setting `FSDP_CPU_RAM_EFFICIENT_LOADING`.
+    """
+    os.environ["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "true"
+
+
+def disable_cpu_ram_efficient_loading():
+    """
+    Disable CPU RAM efficient loading of model weights by unsetting `FSDP_CPU_RAM_EFFICIENT_LOADING`.
+    """
+    os.environ["FSDP_CPU_RAM_EFFICIENT_LOADING"] = "false"
+
+
+def set_cpu_ram_efficient_loading(value: bool):
+    """
+    Set CPU RAM efficient loading of model weights by setting `FSDP_CPU_RAM_EFFICIENT_LOADING`.
+    """
+    os.environ["FSDP_CPU_RAM_EFFICIENT_LOADING"] = str(bool(value)).lower()

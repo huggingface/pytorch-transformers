@@ -29,7 +29,7 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 from ...activations import ACT2FN
 from ...cache_utils import Cache, DynamicCache, StaticCache  # noqa: F401
 from ...generation import GenerationMixin
-from ...modeling_attn_mask_utils import _prepare_4d_attention_mask_for_sdpa, _prepare_4d_causal_attention_mask_for_sdpa
+from ...modeling_attn_mask_utils import AttentionMaskConverter, _prepare_4d_attention_mask_for_sdpa
 from ...modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     CausalLMOutputWithCrossAttentions,
@@ -824,10 +824,10 @@ class GPT2Model(GPT2PreTrainedModel):
             self.warn_if_padding_and_no_attention_mask(input_ids, attention_mask)
             input_shape = input_ids.size()
             input_ids = input_ids.view(-1, input_shape[-1])
-            batch_size = input_ids.shape[0]
+            # batch_size = input_ids.shape[0]
         elif inputs_embeds is not None:
             input_shape = inputs_embeds.size()[:-1]
-            batch_size = inputs_embeds.shape[0]
+            # batch_size = inputs_embeds.shape[0]
         else:
             raise ValueError("You have to specify either input_ids or inputs_embeds")
 
@@ -859,38 +859,43 @@ class GPT2Model(GPT2PreTrainedModel):
         hidden_states = inputs_embeds + position_embeds
 
         # Attention mask.
-        _past_length = past_key_values.seen_tokens if past_key_values is not None else 0  # TODO improve this
+        causal_mask = self._update_causal_mask(
+            attention_mask, inputs_embeds, cache_position, past_key_values, output_attentions
+        )
 
-        _use_sdpa = self._attn_implementation == "sdpa" and output_attentions is False and head_mask is None
-        attention_mask = attention_mask.view(batch_size, -1) if attention_mask is not None else None
-        if self._attn_implementation == "flash_attention_2":
-            attention_mask = attention_mask if (attention_mask is not None and 0 in attention_mask) else None
-        elif _use_sdpa:
-            attention_mask = _prepare_4d_causal_attention_mask_for_sdpa(
-                attention_mask=attention_mask,
-                input_shape=(batch_size, input_shape[-1]),
-                inputs_embeds=inputs_embeds,
-                past_key_values_length=_past_length,
-            )
-        else:
-            if attention_mask is not None:
-                # We create a 3D attention mask from a 2D tensor mask.
-                # Sizes are [batch_size, 1, 1, to_seq_length]
-                # So we can broadcast to [batch_size, num_heads, from_seq_length, to_seq_length]
-                # this attention mask is more simple than the triangular masking of causal attention
-                # used in OpenAI GPT, we just need to prepare the broadcast dimension here.
-                attention_mask = attention_mask[:, None, None, :]
+        # _past_length = past_key_values.seen_tokens if past_key_values is not None else 0  # TODO improve this
 
-                # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
-                # masked positions, this operation will create a tensor which is 0.0 for
-                # positions we want to attend and the dtype's smallest value for masked positions.
-                # Since we are adding it to the raw scores before the softmax, this is
-                # effectively the same as removing these entirely.
-                attention_mask = attention_mask.to(dtype=self.dtype)  # fp16 compatibility
-                attention_mask = (1.0 - attention_mask) * torch.finfo(self.dtype).min
+        # _use_sdpa = self._attn_implementation == "sdpa" and output_attentions is False and head_mask is None
+        # attention_mask = attention_mask.view(batch_size, -1) if attention_mask is not None else None
+        # if self._attn_implementation == "flash_attention_2":
+        #     attention_mask = attention_mask if (attention_mask is not None and 0 in attention_mask) else None
+        # elif _use_sdpa:
+        #     attention_mask = _prepare_4d_causal_attention_mask_for_sdpa(
+        #         attention_mask=attention_mask,
+        #         input_shape=(batch_size, input_shape[-1]),
+        #         inputs_embeds=inputs_embeds,
+        #         past_key_values_length=_past_length,
+        #     )
+        # else:
+        #     if attention_mask is not None:
+        #         # We create a 3D attention mask from a 2D tensor mask.
+        #         # Sizes are [batch_size, 1, 1, to_seq_length]
+        #         # So we can broadcast to [batch_size, num_heads, from_seq_length, to_seq_length]
+        #         # this attention mask is more simple than the triangular masking of causal attention
+        #         # used in OpenAI GPT, we just need to prepare the broadcast dimension here.
+        #         attention_mask = attention_mask[:, None, None, :]
+
+        #         # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
+        #         # masked positions, this operation will create a tensor which is 0.0 for
+        #         # positions we want to attend and the dtype's smallest value for masked positions.
+        #         # Since we are adding it to the raw scores before the softmax, this is
+        #         # effectively the same as removing these entirely.
+        #         attention_mask = attention_mask.to(dtype=self.dtype)  # fp16 compatibility
+        #         attention_mask = (1.0 - attention_mask) * torch.finfo(self.dtype).min
 
         # If a 2D or 3D attention mask is provided for the cross-attention
         # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
+        _use_sdpa = self._attn_implementation == "sdpa" and output_attentions is False and head_mask is None
         if self.config.add_cross_attention and encoder_hidden_states is not None:
             encoder_batch_size, encoder_sequence_length, _ = encoder_hidden_states.size()
             encoder_hidden_shape = (encoder_batch_size, encoder_sequence_length)
@@ -950,7 +955,8 @@ class GPT2Model(GPT2PreTrainedModel):
                     block.__call__,
                     hidden_states,
                     None,
-                    attention_mask,
+                    None,
+                    causal_mask,
                     head_mask[i],
                     encoder_hidden_states,
                     encoder_attention_mask,
@@ -961,7 +967,8 @@ class GPT2Model(GPT2PreTrainedModel):
                 outputs = block(
                     hidden_states,
                     past_key_value=past_key_values,
-                    attention_mask=attention_mask,
+                    cache_position=cache_position,
+                    attention_mask=causal_mask,
                     head_mask=head_mask[i],
                     encoder_hidden_states=encoder_hidden_states,
                     encoder_attention_mask=encoder_attention_mask,
@@ -1008,6 +1015,127 @@ class GPT2Model(GPT2PreTrainedModel):
             attentions=all_self_attentions,
             cross_attentions=all_cross_attentions,
         )
+
+    def _update_causal_mask(
+        self,
+        attention_mask: torch.Tensor,
+        input_tensor: torch.Tensor,
+        cache_position: torch.Tensor,
+        past_key_values: Cache,
+        output_attentions: bool,
+    ):
+        if self.config._attn_implementation == "flash_attention_2":
+            if attention_mask is not None and 0.0 in attention_mask:
+                return attention_mask
+            return None
+
+        # For SDPA, when possible, we will rely on its `is_causal` argument instead of its `attn_mask` argument, in
+        # order to dispatch on Flash Attention 2. This feature is not compatible with static cache, as SDPA will fail
+        # to infer the attention mask.
+        past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
+        using_static_cache = isinstance(past_key_values, StaticCache)
+
+        # When output attentions is True, sdpa implementation's forward method calls the eager implementation's forward
+        if self.config._attn_implementation == "sdpa" and not using_static_cache and not output_attentions:
+            if AttentionMaskConverter._ignore_causal_mask_sdpa(
+                attention_mask,
+                inputs_embeds=input_tensor,
+                past_key_values_length=past_seen_tokens,
+                is_training=self.training,
+            ):
+                return None
+
+        dtype, device = input_tensor.dtype, input_tensor.device
+        sequence_length = input_tensor.shape[1]
+        if using_static_cache:
+            target_length = past_key_values.get_max_cache_shape()
+        else:
+            target_length = (
+                attention_mask.shape[-1]
+                if isinstance(attention_mask, torch.Tensor)
+                else past_seen_tokens + sequence_length + 1
+            )
+
+        # In case the provided `attention` mask is 2D, we generate a causal mask here (4D).
+        causal_mask = self._prepare_4d_causal_attention_mask_with_cache_position(
+            attention_mask,
+            sequence_length=sequence_length,
+            target_length=target_length,
+            dtype=dtype,
+            device=device,
+            cache_position=cache_position,
+            batch_size=input_tensor.shape[0],
+        )
+
+        if (
+            self.config._attn_implementation == "sdpa"
+            and attention_mask is not None
+            and attention_mask.device.type == "cuda"
+            and not output_attentions
+        ):
+            # Attend to all tokens in fully masked rows in the causal_mask, for example the relevant first rows when
+            # using left padding. This is required by F.scaled_dot_product_attention memory-efficient attention path.
+            # Details: https://github.com/pytorch/pytorch/issues/110213
+            min_dtype = torch.finfo(dtype).min
+            causal_mask = AttentionMaskConverter._unmask_unattended(causal_mask, min_dtype)
+
+        return causal_mask
+
+    @staticmethod
+    def _prepare_4d_causal_attention_mask_with_cache_position(
+        attention_mask: torch.Tensor,
+        sequence_length: int,
+        target_length: int,
+        dtype: torch.dtype,
+        device: torch.device,
+        cache_position: torch.Tensor,
+        batch_size: int,
+        **kwargs,
+    ):
+        """
+        Creates a causal 4D mask of shape `(batch_size, 1, query_length, key_value_length)` from a 2D mask of shape
+        `(batch_size, key_value_length)`, or if the input `attention_mask` is already 4D, do nothing.
+
+        Args:
+            attention_mask (`torch.Tensor`):
+                A 2D attention mask of shape `(batch_size, key_value_length)` or a 4D attention mask of shape
+                `(batch_size, 1, query_length, key_value_length)`.
+            sequence_length (`int`):
+                The sequence length being processed.
+            target_length (`int`):
+                The target length: when generating with static cache, the mask should be as long as the static cache,
+                to account for the 0 padding, the part of the cache that is not filled yet.
+            dtype (`torch.dtype`):
+                The dtype to use for the 4D attention mask.
+            device (`torch.device`):
+                The device to plcae the 4D attention mask on.
+            cache_position (`torch.Tensor`):
+                Indices depicting the position of the input sequence tokens in the sequence.
+            batch_size (`torch.Tensor`):
+                Batch size.
+        """
+        if attention_mask is not None and attention_mask.dim() == 4:
+            # In this case we assume that the mask comes already in inverted form and requires no inversion or slicing.
+            causal_mask = attention_mask
+        else:
+            min_dtype = torch.finfo(dtype).min
+            causal_mask = torch.full(
+                (sequence_length, target_length), fill_value=min_dtype, dtype=dtype, device=device
+            )
+            if sequence_length != 1:
+                causal_mask = torch.triu(causal_mask, diagonal=1)
+            causal_mask *= torch.arange(target_length, device=device) > cache_position.reshape(-1, 1)
+            causal_mask = causal_mask[None, None, :, :].expand(batch_size, 1, -1, -1)
+            if attention_mask is not None:
+                causal_mask = causal_mask.clone()  # copy to contiguous memory for in-place edit
+                mask_length = attention_mask.shape[-1]
+                padding_mask = causal_mask[:, :, :, :mask_length] + attention_mask[:, None, None, :]
+                padding_mask = padding_mask == 0
+                causal_mask[:, :, :, :mask_length] = causal_mask[:, :, :, :mask_length].masked_fill(
+                    padding_mask, min_dtype
+                )
+
+        return causal_mask
 
 
 @add_start_docstrings(

@@ -1038,7 +1038,12 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
             mask_labels.append(self._whole_word_mask(ref_tokens))
         batch_mask = _torch_collate_batch(mask_labels, self.tokenizer, pad_to_multiple_of=self.pad_to_multiple_of)
         inputs, labels = self.torch_mask_tokens(batch_input, batch_mask)
-        return {"input_ids": inputs, "labels": labels}
+        batch = {}
+        batch["input_ids"], batch["labels"] = inputs, labels
+        if "next_sentence_label" in examples[0]:
+            batch["token_type_ids"] = examples[0]["token_type_ids"]
+            batch["next_sentence_label"] = examples[0]["next_sentence_label"]
+        return batch
 
     def tf_call(self, examples: List[Union[List[int], Any, Dict[str, Any]]]) -> Dict[str, Any]:
         import tensorflow as tf
@@ -1068,7 +1073,12 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
             mask_labels.append(self._whole_word_mask(ref_tokens))
         batch_mask = _tf_collate_batch(mask_labels, self.tokenizer, pad_to_multiple_of=self.pad_to_multiple_of)
         inputs, labels = self.tf_mask_tokens(tf.cast(batch_input, tf.int64), batch_mask)
-        return {"input_ids": inputs, "labels": labels}
+        batch = {}
+        batch["input_ids"], batch["labels"] = inputs, labels
+        if "next_sentence_label" in examples[0]:
+            batch["token_type_ids"] = examples[0]["token_type_ids"]
+            batch["next_sentence_label"] = examples[0]["next_sentence_label"]
+        return batch
 
     def numpy_call(self, examples: List[Union[List[int], Any, Dict[str, Any]]]) -> Dict[str, Any]:
         if isinstance(examples[0], Mapping):
@@ -1096,7 +1106,12 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
             mask_labels.append(self._whole_word_mask(ref_tokens))
         batch_mask = _numpy_collate_batch(mask_labels, self.tokenizer, pad_to_multiple_of=self.pad_to_multiple_of)
         inputs, labels = self.numpy_mask_tokens(batch_input, batch_mask)
-        return {"input_ids": inputs, "labels": labels}
+        batch = {}
+        batch["input_ids"], batch["labels"] = inputs, labels
+        if "next_sentence_label" in examples[0]:
+            batch["token_type_ids"] = examples[0]["token_type_ids"]
+            batch["next_sentence_label"] = examples[0]["next_sentence_label"]
+        return batch
 
     def _whole_word_mask(self, input_tokens: List[str], max_predictions=512):
         """
@@ -1336,7 +1351,8 @@ class DataCollatorForSOP(DataCollatorForLanguageModeling):
         if self.tokenizer.pad_token is not None:
             attention_padding_mask = labels.eq(self.tokenizer.pad_token_id)
             attention_mask.masked_fill_(attention_padding_mask, value=1.0)
-        labels[~masked_indices] = -100  # We only compute loss on masked tokens, -100 is default for CE compute
+        # We only compute loss on masked tokens, -100 is default for CE compute
+        labels[~masked_indices] = -100
 
         # 80% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
         indices_replaced = torch.bernoulli(torch.full(labels.shape, 0.8)).bool() & masked_indices
@@ -1555,7 +1571,8 @@ class DataCollatorForPermutationLanguageModeling(DataCollatorMixin):
         non_func_mask = ~(padding_mask | special_tokens_mask)
 
         inputs = tf.where(masked_indices, self.tokenizer.mask_token_id, inputs)
-        labels = tf.where(masked_indices, labels, -100)  # We only compute loss on masked tokens
+        # We only compute loss on masked tokens
+        labels = tf.where(masked_indices, labels, -100)
 
         perm_mask = []
 
@@ -1573,7 +1590,8 @@ class DataCollatorForPermutationLanguageModeling(DataCollatorMixin):
             # Split this into two halves, assuming that half the sequence is reused each time
             perm_index = tf.transpose(tf.reshape(perm_index, (-1, labels_shape[1] // 2)))
             # Permute the two halves such that they do not cross over
-            perm_index = tf.random.shuffle(perm_index)  # Shuffles along the first dimension
+            # Shuffles along the first dimension
+            perm_index = tf.random.shuffle(perm_index)
             # Flatten this out into the desired permuted factorisation order
             perm_index = tf.reshape(tf.transpose(perm_index), (-1,))
             # Set the permutation indices of non-masked (non-functional) tokens to the

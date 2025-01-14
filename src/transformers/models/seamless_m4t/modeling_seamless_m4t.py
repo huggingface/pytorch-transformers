@@ -2913,7 +2913,7 @@ class SeamlessM4TForTextToText(SeamlessM4TPreTrainedModel, GenerationMixin):
     SEAMLESS_M4T_START_DOCSTRING,
 )
 class SeamlessM4TForSpeechToText(SeamlessM4TPreTrainedModel):
-    _keys_to_ignore_on_load_missing = ["text_decoder", "t2u_model", "vocoder"]
+    _keys_to_ignore_on_load_missing = ["text_encoder", "t2u_model", "vocoder"]
     main_input_name = "input_features"
 
     _tied_weights_keys = [

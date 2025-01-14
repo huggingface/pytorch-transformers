@@ -280,6 +280,7 @@ Flax), PyTorch, and/or TensorFlow.
 |                        [PLBart](model_doc/plbart)                        |       ✅        |         ❌         |      ❌      |
 |                    [PoolFormer](model_doc/poolformer)                    |       ✅        |         ❌         |      ❌      |
 |                     [Pop2Piano](model_doc/pop2piano)                     |       ✅        |         ❌         |      ❌      |
+|                    [ProPainter](model_doc/propainter)                    |       ✅        |         ❌         |      ❌      |
 |                    [ProphetNet](model_doc/prophetnet)                    |       ✅        |         ❌         |      ❌      |
 |                           [PVT](model_doc/pvt)                           |       ✅        |         ❌         |      ❌      |
 |                        [PVTv2](model_doc/pvt_v2)                         |       ✅        |         ❌         |      ❌      |

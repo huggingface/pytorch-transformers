@@ -821,6 +821,8 @@
       title: Audio models
     - isExpanded: false
       sections:
+      - local: model_doc/propainter
+        title: ProPainter
       - local: model_doc/timesformer
         title: TimeSformer
       - local: model_doc/videomae

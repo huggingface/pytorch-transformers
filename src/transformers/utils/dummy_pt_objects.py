@@ -7766,6 +7766,20 @@ class Pop2PianoPreTrainedModel(metaclass=DummyObject):
         requires_backends(self, ["torch"])
 
 
+class ProPainterModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class ProPainterPreTrainedModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
 class ProphetNetDecoder(metaclass=DummyObject):
     _backends = ["torch"]
 

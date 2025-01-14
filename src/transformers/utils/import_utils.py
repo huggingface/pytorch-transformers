@@ -581,6 +581,11 @@ def is_torch_tf32_available():
 
     import torch
 
+    if is_torch_musa_available():
+        device_info = torch.musa.get_device_properties(torch.musa.current_device())
+        if f"{device_info.major}{device_info.minor}" >= "22":
+            return True
+        return False
     if not torch.cuda.is_available() or torch.version.cuda is None:
         return False
     if torch.cuda.get_device_properties(torch.cuda.current_device()).major < 8:

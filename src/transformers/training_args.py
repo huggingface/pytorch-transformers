@@ -1807,12 +1807,16 @@ class TrainingArguments:
         if self.framework == "pt" and is_torch_available() and self.torch_compile:
             if is_torch_tf32_available():
                 if self.tf32 is None and not self.fp16 or self.bf16:
+                    device_str = "MUSA" if is_torch_musa_available() else "CUDA"
                     logger.info(
-                        "Setting TF32 in CUDA backends to speedup torch compile, you won't see any improvement"
+                        f"Setting TF32 in {device_str} backends to speedup torch compile, you won't see any improvement"
                         " otherwise."
                     )
-                    torch.backends.cuda.matmul.allow_tf32 = True
-                    torch.backends.cudnn.allow_tf32 = True
+                    if is_torch_musa_available():
+                        torch.backends.mudnn.allow_tf32 = True
+                    else:
+                        torch.backends.cuda.matmul.allow_tf32 = True
+                        torch.backends.cudnn.allow_tf32 = True
             else:
                 logger.warning(
                     "The speedups for torchdynamo mostly come wih GPU Ampere or higher and which is not detected here."
@@ -1820,14 +1824,20 @@ class TrainingArguments:
         if self.framework == "pt" and is_torch_available() and self.tf32 is not None:
             if self.tf32:
                 if is_torch_tf32_available():
-                    torch.backends.cuda.matmul.allow_tf32 = True
-                    torch.backends.cudnn.allow_tf32 = True
+                    if is_torch_musa_available():
+                        torch.backends.mudnn.allow_tf32 = True
+                    else:
+                        torch.backends.cuda.matmul.allow_tf32 = True
+                        torch.backends.cudnn.allow_tf32 = True
                 else:
                     raise ValueError("--tf32 requires Ampere or a newer GPU arch, cuda>=11 and torch>=1.7")
             else:
                 if is_torch_tf32_available():
-                    torch.backends.cuda.matmul.allow_tf32 = False
-                    torch.backends.cudnn.allow_tf32 = False
+                    if is_torch_musa_available():
+                        torch.backends.mudnn.allow_tf32 = False
+                    else:
+                        torch.backends.cuda.matmul.allow_tf32 = False
+                        torch.backends.cudnn.allow_tf32 = False
                 # no need to assert on else
 
         # if training args is specified, it will override the one specified in the accelerate config

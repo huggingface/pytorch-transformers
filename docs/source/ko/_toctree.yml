@@ -324,8 +324,8 @@
         title: (번역중) Blenderbot
       - local: in_translation
         title: (번역중) Blenderbot Small
-      - local: in_translation
-        title: (번역중) BLOOM
+      - local: model_doc/bloom
+        title: BLOOM
       - local: in_translation
         title: (번역중) BORT
       - local: in_translation

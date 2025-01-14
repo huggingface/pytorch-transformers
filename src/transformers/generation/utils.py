@@ -698,6 +698,9 @@ class GenerationMixin:
             pass
         elif self.config.model_type in ["whisper"]:
             pass
+        # user input but it is empty -> use decoder_start_token_id
+        elif decoder_input_ids.size(-1) == 0:
+            decoder_input_ids = decoder_start_token_id
         # user input but doesn't start with decoder_start_token_id -> prepend decoder_start_token_id (and adjust
         # decoder_attention_mask if provided)
         elif (decoder_input_ids[:, 0] != decoder_start_token_id[:, 0]).all().item():

@@ -439,9 +439,7 @@ class GPT2Block(nn.Module):
         # residual connection
         hidden_states = residual + feed_forward_hidden_states
 
-        outputs = (hidden_states,) + outputs[1:]
-
-        return outputs  # hidden_states, (attentions, cross_attentions)
+        return hidden_states, outputs  # hidden_states, (attentions, cross_attentions)
 
 
 class GPT2PreTrainedModel(PreTrainedModel):
@@ -935,9 +933,9 @@ class GPT2Model(GPT2PreTrainedModel):
             hidden_states = outputs[0]
 
             if output_attentions:
-                all_self_attentions = all_self_attentions + (outputs[2 if use_cache else 1],)
+                all_self_attentions = all_self_attentions + (outputs[1],)
                 if self.config.add_cross_attention:
-                    all_cross_attentions = all_cross_attentions + (outputs[3 if use_cache else 2],)
+                    all_cross_attentions = all_cross_attentions + (outputs[2],)
 
             # Model Parallel: If it's the last layer for that device, put things on the next device
             if self.model_parallel:

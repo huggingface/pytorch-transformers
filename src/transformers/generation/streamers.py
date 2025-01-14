@@ -76,9 +76,9 @@ class TextStreamer(BaseStreamer):
         self.decode_kwargs = decode_kwargs
 
         # variables used in the streaming process
-        self.token_cache = []
         self.print_len = 0
         self.next_tokens_are_prompt = True
+        self.decoded_text = ""
 
     def put(self, value):
         """
@@ -93,23 +93,23 @@ class TextStreamer(BaseStreamer):
             self.next_tokens_are_prompt = False
             return
 
-        # Add the new token to the cache and decodes the entire thing.
-        self.token_cache.extend(value.tolist())
-        text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
+        # Decode the new token, and add it to the full decoded text
+        new_token_text = self.tokenizer.decode(value.tolist(), **self.decode_kwargs)
+        self.decoded_text += new_token_text
 
         # After the symbol for a new line, we flush the cache.
-        if text.endswith("\n"):
-            printable_text = text[self.print_len :]
-            self.token_cache = []
+        if self.decoded_text.endswith("\n"):
+            printable_text = self.decoded_text[self.print_len :]
+            self.decoded_text = ""
             self.print_len = 0
         # If the last token is a CJK character, we print the characters.
-        elif len(text) > 0 and self._is_chinese_char(ord(text[-1])):
-            printable_text = text[self.print_len :]
+        elif len(self.decoded_text) > 0 and self._is_chinese_char(ord(self.decoded_text[-1])):
+            printable_text = self.decoded_text[self.print_len :]
             self.print_len += len(printable_text)
         # Otherwise, prints until the last space char (simple heuristic to avoid printing incomplete words,
         # which may change with the subsequent token -- there are probably smarter ways to do this!)
         else:
-            printable_text = text[self.print_len : text.rfind(" ") + 1]
+            printable_text = self.decoded_text[self.print_len : self.decoded_text.rfind(" ") + 1]
             self.print_len += len(printable_text)
 
         self.on_finalized_text(printable_text)
@@ -117,10 +117,9 @@ class TextStreamer(BaseStreamer):
     def end(self):
         """Flushes any remaining cache and prints a newline to stdout."""
         # Flush the cache, if it exists
-        if len(self.token_cache) > 0:
-            text = self.tokenizer.decode(self.token_cache, **self.decode_kwargs)
-            printable_text = text[self.print_len :]
-            self.token_cache = []
+        if len(self.decoded_text) > 0:
+            printable_text = self.decoded_text[self.print_len :]
+            self.decoded_text = ""
             self.print_len = 0
         else:
             printable_text = ""

@@ -1427,7 +1427,7 @@ class Trainer:
                 )
         elif args.optim == OptimizerNames.ADAMW_ANYPRECISION:
             try:
-                from torchdistx.optimizers import AnyPrecisionAdamW
+                from llama_recipes.policies import AnyPrecisionAdamW
 
                 optimizer_cls = AnyPrecisionAdamW
                 optimizer_kwargs.update(adam_kwargs)
@@ -1444,7 +1444,7 @@ class Trainer:
                     }
                 )
             except ImportError:
-                raise ValueError("Please install https://github.com/pytorch/torchdistx")
+                raise ValueError("Please install llama-recipes: `pip install llama-recipes`")
         elif args.optim == OptimizerNames.SGD:
             optimizer_cls = torch.optim.SGD
         elif args.optim == OptimizerNames.ADAGRAD:

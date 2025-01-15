@@ -22,7 +22,6 @@ from ..rt_detr.modeling_rt_detr import (
     RTDetrEncoder,
     RTDetrHybridEncoder,
     RTDetrRepVggBlock,
-    RTDetrCSPRepLayer,
     RTDetrConvNormLayer,
     RTDetrForObjectDetection,
     RTDetrPreTrainedModel,
@@ -633,13 +632,49 @@ class DFineVggBlock(RTDetrRepVggBlock):
 
 class DFineConvNormLayer(RTDetrConvNormLayer):
     pass
-        
 
-class DFineCSPRepLayer(RTDetrCSPRepLayer):
+
+class DFineRepVggBlock(nn.Module):
     def __init__(self, config: DFineConfig, in_channels: int, out_channels: int):
-        super().__init__(config=config)
-        self.in_channels = in_channels
-        self.out_channels = out_channels
+        super().__init__()
+
+        activation = config.activation_function
+        self.conv1 = DFineConvNormLayer(config, in_channels, out_channels, 3, 1, padding=1)
+        self.conv2 = DFineConvNormLayer(config, in_channels, out_channels, 1, 1, padding=0)
+        self.activation = nn.Identity() if activation is None else ACT2CLS[activation]()
+
+    def forward(self, x):
+        y = self.conv1(x) + self.conv2(x)
+        return self.activation(y)
+
+
+class DFineCSPRepLayer(nn.Module):
+    """
+    Cross Stage Partial (CSP) network layer with RepVGG blocks.
+    """
+
+    def __init__(self, config: DFineConfig, in_channels: int, out_channels: int):
+        super().__init__()
+        in_channels = in_channels
+        out_channels = out_channels
+        num_blocks = 3
+        activation = config.activation_function
+
+        hidden_channels = int(out_channels * config.hidden_expansion)
+        self.conv1 = DFineConvNormLayer(config, in_channels, hidden_channels, 1, 1, activation=activation)
+        self.conv2 = DFineConvNormLayer(config, in_channels, hidden_channels, 1, 1, activation=activation)
+        self.bottlenecks = nn.Sequential(*[DFineRepVggBlock(config, hidden_channels, hidden_channels) for _ in range(num_blocks)])
+        if hidden_channels != out_channels:
+            self.conv3 = DFineConvNormLayer(config, hidden_channels, out_channels, 1, 1, activation=activation)
+        else:
+            self.conv3 = nn.Identity()
+
+    def forward(self, hidden_state):
+        device = hidden_state.device
+        hidden_state_1 = self.conv1(hidden_state)
+        hidden_state_1 = self.bottlenecks(hidden_state_1).to(device)
+        hidden_state_2 = self.conv2(hidden_state).to(device)
+        return self.conv3(hidden_state_1 + hidden_state_2)
         
 
 class RepNCSPELAN4(nn.Module):
@@ -681,6 +716,7 @@ class SCDown(nn.Module):
 class DFineEncoder(RTDetrEncoder):
     pass
 
+
 class DFineHybridEncoder(RTDetrHybridEncoder):
     def __init__(self, config: DFineConfig):
         nn.Module.__init__(self)
@@ -693,7 +729,6 @@ class DFineHybridEncoder(RTDetrHybridEncoder):
         self.eval_size = config.eval_size
         self.out_channels = [self.encoder_hidden_dim for _ in self.in_channels]
         self.out_strides = self.feat_strides
-        activation_function = config.activation_function
 
         # encoder transformer
         self.encoder = nn.ModuleList([DFineEncoder(config) for _ in range(len(self.encode_proj_layers))])

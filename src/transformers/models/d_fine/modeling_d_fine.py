@@ -807,25 +807,6 @@ class DFineEncoderLayer(nn.Module):
         return outputs
 
 
-class DFineRepVggBlock(nn.Module):
-    """
-    RepVGG architecture block introduced by the work "RepVGG: Making VGG-style ConvNets Great Again".
-    """
-
-    def __init__(self, config: DFineConfig):
-        super().__init__()
-
-        activation = config.activation_function
-        hidden_channels = int(config.encoder_hidden_dim * config.hidden_expansion)
-        self.conv1 = DFineConvNormLayer(config, hidden_channels, hidden_channels, 3, 1, padding=1)
-        self.conv2 = DFineConvNormLayer(config, hidden_channels, hidden_channels, 1, 1, padding=0)
-        self.activation = nn.Identity() if activation is None else ACT2CLS[activation]()
-
-    def forward(self, x):
-        y = self.conv1(x) + self.conv2(x)
-        return self.activation(y)
-
-
 def inverse_sigmoid(x, eps=1e-5):
     x = x.clamp(min=0, max=1)
     x1 = x.clamp(min=eps)
@@ -1997,6 +1978,20 @@ class DFineConvNormLayer(nn.Module):
         return hidden_state
 
 
+class DFineRepVggBlock(nn.Module):
+    def __init__(self, config: DFineConfig, in_channels: int, out_channels: int):
+        super().__init__()
+
+        activation = config.activation_function
+        self.conv1 = DFineConvNormLayer(config, in_channels, out_channels, 3, 1, padding=1)
+        self.conv2 = DFineConvNormLayer(config, in_channels, out_channels, 1, 1, padding=0)
+        self.activation = nn.Identity() if activation is None else ACT2CLS[activation]()
+
+    def forward(self, x):
+        y = self.conv1(x) + self.conv2(x)
+        return self.activation(y)
+
+
 class DFineCSPRepLayer(nn.Module):
     """
     Cross Stage Partial (CSP) network layer with RepVGG blocks.
@@ -2004,17 +1999,19 @@ class DFineCSPRepLayer(nn.Module):
 
     def __init__(self, config: DFineConfig, in_channels: int, out_channels: int):
         super().__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
+        in_channels = in_channels
+        out_channels = out_channels
         num_blocks = 3
         activation = config.activation_function
 
-        hidden_channels = int(self.out_channels * config.hidden_expansion)
-        self.conv1 = DFineConvNormLayer(config, self.in_channels, hidden_channels, 1, 1, activation=activation)
-        self.conv2 = DFineConvNormLayer(config, self.in_channels, hidden_channels, 1, 1, activation=activation)
-        self.bottlenecks = nn.Sequential(*[DFineRepVggBlock(config) for _ in range(num_blocks)])
-        if hidden_channels != self.out_channels:
-            self.conv3 = DFineConvNormLayer(config, hidden_channels, self.out_channels, 1, 1, activation=activation)
+        hidden_channels = int(out_channels * config.hidden_expansion)
+        self.conv1 = DFineConvNormLayer(config, in_channels, hidden_channels, 1, 1, activation=activation)
+        self.conv2 = DFineConvNormLayer(config, in_channels, hidden_channels, 1, 1, activation=activation)
+        self.bottlenecks = nn.Sequential(
+            *[DFineRepVggBlock(config, hidden_channels, hidden_channels) for _ in range(num_blocks)]
+        )
+        if hidden_channels != out_channels:
+            self.conv3 = DFineConvNormLayer(config, hidden_channels, out_channels, 1, 1, activation=activation)
         else:
             self.conv3 = nn.Identity()
 

@@ -16,14 +16,7 @@
 
 from ..rt_detr.configuration_rt_detr_resnet import RTDetrResNetConfig
 from ..rt_detr.modeling_rt_detr_resnet import RTDetrResNetBackbone, RTDetrResNetPreTrainedModel
-
-
-class DFineResNetPreTrainedModel(RTDetrResNetPreTrainedModel):
-    pass
-
-
-class DFineResNetBackbone(RTDetrResNetBackbone):
-    pass
+from torch import nn
 
 
 class DFineResNetConfig(RTDetrResNetConfig):
@@ -32,6 +25,22 @@ class DFineResNetConfig(RTDetrResNetConfig):
         **super_kwargs,
     ):
         super().__init__(**super_kwargs)
+        self.depths = [5, 5, 5, 5]
+
+
+class DFineResNetPreTrainedModel(RTDetrResNetPreTrainedModel):
+    pass
+
+
+class DFineResNetEncoder(nn.Module):
+    def __init__(self, config: DFineResNetConfig):
+        super().__init__()
+
+
+class DFineResNetBackbone(RTDetrResNetBackbone):
+    def __init__(self, config: DFineResNetConfig):
+        super().__init__(config=config)
+        self.encoder = DFineResNetEncoder(config=config)
 
 
 __all__ = ["DFineResNetConfig", "DFineResNetBackbone", "DFineResNetPreTrainedModel"]

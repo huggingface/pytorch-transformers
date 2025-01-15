@@ -704,17 +704,17 @@ class RTDetrCSPRepLayer(nn.Module):
     def __init__(self, config: RTDetrConfig):
         super().__init__()
 
-        self.in_channels = config.encoder_hidden_dim * 2
-        self.out_channels = config.encoder_hidden_dim
+        in_channels = config.encoder_hidden_dim * 2
+        out_channels = config.encoder_hidden_dim
         num_blocks = 3
         activation = config.activation_function
 
-        hidden_channels = int(self.out_channels * config.hidden_expansion)
-        self.conv1 = RTDetrConvNormLayer(config, self.in_channels, hidden_channels, 1, 1, activation=activation)
-        self.conv2 = RTDetrConvNormLayer(config, self.in_channels, hidden_channels, 1, 1, activation=activation)
+        hidden_channels = int(out_channels * config.hidden_expansion)
+        self.conv1 = RTDetrConvNormLayer(config, in_channels, hidden_channels, 1, 1, activation=activation)
+        self.conv2 = RTDetrConvNormLayer(config, in_channels, hidden_channels, 1, 1, activation=activation)
         self.bottlenecks = nn.Sequential(*[RTDetrRepVggBlock(config) for _ in range(num_blocks)])
-        if hidden_channels != self.out_channels:
-            self.conv3 = RTDetrConvNormLayer(config, hidden_channels, self.out_channels, 1, 1, activation=activation)
+        if hidden_channels != out_channels:
+            self.conv3 = RTDetrConvNormLayer(config, hidden_channels, out_channels, 1, 1, activation=activation)
         else:
             self.conv3 = nn.Identity()
 

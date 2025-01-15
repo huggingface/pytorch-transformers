@@ -201,6 +201,7 @@ SPECIAL_CASES_TO_ALLOW = {
         "giou_cost",
         "giou_loss_coefficient",
     ],
+    "GPTNeoXConfig": ["rotary_emb_base"],
 }
 
 

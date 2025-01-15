@@ -147,6 +147,7 @@ from .import_utils import (
     is_g2p_en_available,
     is_galore_torch_available,
     is_gguf_available,
+    is_gptqmodel_available,
     is_grokadamw_available,
     is_hadamard_available,
     is_hqq_available,

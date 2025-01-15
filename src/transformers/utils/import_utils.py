@@ -144,6 +144,7 @@ _onnx_available = _is_package_available("onnx")
 _openai_available = _is_package_available("openai")
 _optimum_available = _is_package_available("optimum")
 _auto_gptq_available = _is_package_available("auto_gptq")
+_gptqmodel_available = _is_package_available("gptqmodel")
 # `importlib.metadata.version` doesn't work with `awq`
 _auto_awq_available = importlib.util.find_spec("awq") is not None
 _quanto_available = _is_package_available("quanto")
@@ -1040,6 +1041,10 @@ def is_compressed_tensors_available():
 
 def is_auto_gptq_available():
     return _auto_gptq_available
+
+
+def is_gptqmodel_available():
+    return _gptqmodel_available
 
 
 def is_eetq_available():

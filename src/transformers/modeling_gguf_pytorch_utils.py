@@ -221,6 +221,17 @@ class MambaTensorProcessor(TensorProcessor):
         return GGUFTensor(weights, name, {})
 
 
+class NemotronTensorProcessor(TensorProcessor):
+    def __init__(self, config=None):
+        super().__init__(config=config)
+
+    # ref : https://github.com/ggerganov/llama.cpp/blob/master/convert_hf_to_gguf.py#L4666
+    def process(self, weights, name, **kwargs):
+        if "norm.weight" in name:
+            weights = weights - 1
+        return GGUFTensor(weights, name, {})
+
+
 class Gemma2TensorProcessor(TensorProcessor):
     def __init__(self, config=None):
         super().__init__(config=config)
@@ -241,6 +252,7 @@ TENSOR_PROCESSORS = {
     "t5encoder": T5TensorProcessor,
     "gpt2": GPT2TensorProcessor,
     "mamba": MambaTensorProcessor,
+    "nemotron": NemotronTensorProcessor,
     "gemma2": Gemma2TensorProcessor,
 }
 

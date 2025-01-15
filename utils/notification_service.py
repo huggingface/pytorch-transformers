@@ -1275,7 +1275,6 @@ if __name__ == "__main__":
             artifact_names = [f"ci_results_{job_name}"]
             output_dir = os.path.join(os.getcwd(), "previous_reports")
             os.makedirs(output_dir, exist_ok=True)
-            workflow_id = None
             token = os.environ["ACCESS_REPO_INFO_TOKEN"]
             workflow_id = get_workflow_id(token, os.environ["GITHUB_RUN_ID"])
             prev_ci_artifacts = get_last_daily_ci_reports(

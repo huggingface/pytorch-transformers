@@ -22,7 +22,7 @@
     - local: add_new_model
       title: Adding a new model
     - local: modular_transformers
-      title: Modular transformers
+      title: Modular Transformers
     - local: task_summary
       title: What 🤗 Transformers can do
     - local: tasks_explained

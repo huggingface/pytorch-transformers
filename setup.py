@@ -194,6 +194,9 @@ _deps = [
     "pytest-rich",
     "libcst",
     "rich",
+    # rwkv
+    "triton>=3.0.0",
+    "rwkv-fla",
 ]
 
 
@@ -314,6 +317,7 @@ extras["torch-vision"] = deps_list("torchvision") + extras["vision"]
 extras["natten"] = deps_list("natten")
 extras["codecarbon"] = deps_list("codecarbon")
 extras["video"] = deps_list("av")
+extras["rwkv"] = deps_list("triton", "rwkv-fla")
 
 extras["sentencepiece"] = deps_list("sentencepiece", "protobuf")
 extras["tiktoken"] = deps_list("tiktoken", "blobfile")
@@ -364,6 +368,7 @@ extras["all"] = (
     + extras["codecarbon"]
     + extras["accelerate"]
     + extras["video"]
+    + extras["rwkv"]
 )
 
 

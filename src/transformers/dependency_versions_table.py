@@ -99,4 +99,6 @@ deps = {
     "pytest-rich": "pytest-rich",
     "libcst": "libcst",
     "rich": "rich",
+    "triton": "triton>=3.0.0",
+    "rwkv-fla": "rwkv-fla",
 }

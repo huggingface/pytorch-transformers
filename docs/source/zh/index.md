@@ -245,6 +245,7 @@ rendered properly in your Markdown viewer.
 |                      [RoCBert](../en/model_doc/roc_bert)                       |       ✅        |         ❌         |      ❌      |
 |                      [RoFormer](../en/model_doc/roformer)                      |       ✅        |         ✅         |      ✅      |
 |                          [RWKV](../en/model_doc/rwkv)                          |       ✅        |         ❌         |      ❌      |
+|                         [RWKV6](../en/model_doc/rwkv6)                         |       ✅        |         ❌         |      ❌      |
 |                           [SAM](../en/model_doc/sam)                           |       ✅        |         ✅         |      ❌      |
 |                  [SeamlessM4T](../en/model_doc/seamless_m4t)                   |       ✅        |         ❌         |      ❌      |
 |                [SeamlessM4Tv2](../en/model_doc/seamless_m4t_v2)                |       ✅        |         ❌         |      ❌      |

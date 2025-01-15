@@ -740,6 +740,7 @@ _import_structure = {
     ],
     "models.rt_detr": ["RTDetrConfig", "RTDetrResNetConfig"],
     "models.rwkv": ["RwkvConfig"],
+    "models.rwkv6": ["Rwkv6Config"],
     "models.sam": [
         "SamConfig",
         "SamMaskDecoderConfig",
@@ -3420,6 +3421,14 @@ else:
             "RwkvPreTrainedModel",
         ]
     )
+    _import_structure["models.rwkv6"].extend(
+        [
+            "Rwkv6ForCausalLM",
+            "Rwkv6Model",
+            "Rwkv6PreTrainedModel",
+            "Rwkv6Tokenizer",
+        ]
+    )
     _import_structure["models.sam"].extend(
         [
             "SamModel",
@@ -5815,6 +5824,7 @@ if TYPE_CHECKING:
         RTDetrResNetConfig,
     )
     from .models.rwkv import RwkvConfig
+    from .models.rwkv6 import Rwkv6Config
     from .models.sam import (
         SamConfig,
         SamMaskDecoderConfig,
@@ -6156,6 +6166,7 @@ if TYPE_CHECKING:
         from .models.plbart import PLBartTokenizer
         from .models.reformer import ReformerTokenizer
         from .models.rembert import RemBertTokenizer
+        from .models.rwkv6 import Rwkv6Tokenizer
         from .models.seamless_m4t import SeamlessM4TTokenizer
         from .models.siglip import SiglipTokenizer
         from .models.speech_to_text import Speech2TextTokenizer
@@ -8089,6 +8100,11 @@ if TYPE_CHECKING:
             RwkvForCausalLM,
             RwkvModel,
             RwkvPreTrainedModel,
+        )
+        from .models.rwkv6 import (
+            Rwkv6ForCausalLM,
+            Rwkv6Model,
+            Rwkv6PreTrainedModel,
         )
         from .models.sam import (
             SamModel,

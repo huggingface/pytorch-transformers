@@ -336,5 +336,5 @@ tests/models/zoedepth/test_modeling_zoedepth.py::ZoeDepthModelTest::test_batchin
 -v
 -n 8
 --flake-finder
---flake-runs=1
+--flake-runs=10
 --make-reports=tests_torch

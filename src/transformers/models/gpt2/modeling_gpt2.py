@@ -439,7 +439,7 @@ class GPT2Block(nn.Module):
         # residual connection
         hidden_states = residual + feed_forward_hidden_states
 
-        return hidden_states, outputs  # hidden_states, (attentions, cross_attentions)
+        return (hidden_states, ) + outputs  # hidden_states, (attentions, cross_attentions)
 
 
 class GPT2PreTrainedModel(PreTrainedModel):

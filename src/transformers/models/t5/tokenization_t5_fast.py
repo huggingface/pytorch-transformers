@@ -95,6 +95,7 @@ class T5TokenizerFast(PreTrainedTokenizerFast):
         add_prefix_space=None,
         **kwargs,
     ):
+        self.dduf_entries = kwargs.get("dduf_entries", None)
         # Add extra_ids to the special token list
         if additional_special_tokens is not None:
             extra_tokens = [x for x in additional_special_tokens if "<extra_id_" in str(x)]
@@ -133,7 +134,9 @@ class T5TokenizerFast(PreTrainedTokenizerFast):
 
     @property
     def can_save_slow_tokenizer(self) -> bool:
-        return os.path.isfile(self.vocab_file) if self.vocab_file else False
+        # TODO: update this. Putting it to True for now
+        # return os.path.isfile(self.vocab_file) if self.vocab_file else False
+        return True
 
     @staticmethod
     def _eventually_correct_t5_max_length(pretrained_model_name_or_path, max_model_length, init_max_model_length):
@@ -171,8 +174,14 @@ class T5TokenizerFast(PreTrainedTokenizerFast):
             save_directory, (filename_prefix + "-" if filename_prefix else "") + VOCAB_FILES_NAMES["vocab_file"]
         )
 
-        if os.path.abspath(self.vocab_file) != os.path.abspath(out_vocab_file):
+        if os.path.abspath(self.vocab_file) != os.path.abspath(out_vocab_file) and os.path.isfile(self.vocab_file):
             copyfile(self.vocab_file, out_vocab_file)
+            logger.info(f"Copy vocab file to {out_vocab_file}")
+        # copyfile don't work with binary content e.g when we load file from an archive
+        elif not os.path.isfile(self.vocab_file): 
+            with self.dduf_entries[self.vocab_file].as_mmap() as mm:
+                 with open(out_vocab_file, "wb") as out_file:
+                    out_file.write(mm)
             logger.info(f"Copy vocab file to {out_vocab_file}")
 
         return (out_vocab_file,)

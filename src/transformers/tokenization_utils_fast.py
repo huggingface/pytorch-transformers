@@ -109,7 +109,6 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
                 "Cannot instantiate this tokenizer from a slow version. If it's based on sentencepiece, make sure you "
                 "have sentencepiece installed."
             )
-
         if tokenizer_object is not None:
             fast_tokenizer = copy.deepcopy(tokenizer_object)
         elif fast_tokenizer_file is not None and not from_slow:
@@ -131,7 +130,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         elif self.slow_tokenizer_class is not None and slow_tokenizer is not False:
             # We need to create and convert a slow tokenizer to build the backend
             slow_tokenizer = self.slow_tokenizer_class(*args, **kwargs)
-            fast_tokenizer = convert_slow_tokenizer(slow_tokenizer)
+            fast_tokenizer = convert_slow_tokenizer(slow_tokenizer, **kwargs)
         elif not slow_tokenizer:
             # We tried loading a slow_tokenizer with spm and failed, try to load with tiktoken
             self.vocab_file = kwargs.get("vocab_file", None)

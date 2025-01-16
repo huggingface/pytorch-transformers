@@ -621,6 +621,7 @@ class PretrainedConfig(PushToHubMixin):
         commit_hash = kwargs.pop("_commit_hash", None)
 
         gguf_file = kwargs.get("gguf_file", None)
+        dduf_entries = kwargs.pop("dduf_entries", None)
 
         if trust_remote_code is True:
             logger.warning(
@@ -634,7 +635,7 @@ class PretrainedConfig(PushToHubMixin):
 
         pretrained_model_name_or_path = str(pretrained_model_name_or_path)
 
-        is_local = os.path.isdir(pretrained_model_name_or_path)
+        is_local = os.path.isdir(pretrained_model_name_or_path) or dduf_entries
         if os.path.isfile(os.path.join(subfolder, pretrained_model_name_or_path)):
             # Special case when pretrained_model_name_or_path is a local file
             resolved_config_file = pretrained_model_name_or_path
@@ -644,26 +645,31 @@ class PretrainedConfig(PushToHubMixin):
             resolved_config_file = download_url(pretrained_model_name_or_path)
         else:
             configuration_file = kwargs.pop("_configuration_file", CONFIG_NAME) if gguf_file is None else gguf_file
-
             try:
                 # Load from local folder or from cache or download from model Hub and cache
-                resolved_config_file = cached_file(
-                    pretrained_model_name_or_path,
-                    configuration_file,
-                    cache_dir=cache_dir,
-                    force_download=force_download,
-                    proxies=proxies,
-                    resume_download=resume_download,
-                    local_files_only=local_files_only,
-                    token=token,
-                    user_agent=user_agent,
-                    revision=revision,
-                    subfolder=subfolder,
-                    _commit_hash=commit_hash,
-                )
-                if resolved_config_file is None:
-                    return None, kwargs
-                commit_hash = extract_commit_hash(resolved_config_file, commit_hash)
+                if dduf_entries:
+                    resolved_config_file = os.path.join(pretrained_model_name_or_path, configuration_file)
+                    commit_hash = extract_commit_hash(dduf_entries[resolved_config_file].dduf_path, commit_hash)
+                else:
+                    resolved_config_file = cached_file(
+                        pretrained_model_name_or_path,
+                        configuration_file,
+                        cache_dir=cache_dir,
+                        force_download=force_download,
+                        proxies=proxies,
+                        resume_download=resume_download,
+                        local_files_only=local_files_only,
+                        token=token,
+                        user_agent=user_agent,
+                        revision=revision,
+                        subfolder=subfolder,
+                        _commit_hash=commit_hash,
+                    )
+                    if resolved_config_file is None:
+                        return None, kwargs
+                    else:
+                        commit_hash = extract_commit_hash(resolved_config_file, commit_hash)
+
             except EnvironmentError:
                 # Raise any environment error raise by `cached_file`. It will have a helpful error message adapted to
                 # the original exception.
@@ -682,7 +688,10 @@ class PretrainedConfig(PushToHubMixin):
                 config_dict = load_gguf_checkpoint(resolved_config_file, return_tensors=False)["config"]
             else:
                 # Load config dict
-                config_dict = cls._dict_from_json_file(resolved_config_file)
+                if dduf_entries:
+                    config_dict = json.loads(dduf_entries[resolved_config_file].read_text())
+                else:
+                    config_dict = cls._dict_from_json_file(resolved_config_file)
 
             config_dict["_commit_hash"] = commit_hash
         except (json.JSONDecodeError, UnicodeDecodeError):

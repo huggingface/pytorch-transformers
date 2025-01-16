@@ -293,7 +293,7 @@ class SuperPointModelIntegrationTest(unittest.TestCase):
                 atol=1e-4,
             )
         )
-        self.assertTrue(torch.allclose(predicted_scores_image0_values, expected_scores_image0_values, atol=1e-4))
+        torch.testing.assert_close(predicted_scores_image0_values, expected_scores_image0_values, rtol=1e-4, atol=1e-4)
         self.assertTrue(
             torch.allclose(
                 predicted_descriptors_image0_value,

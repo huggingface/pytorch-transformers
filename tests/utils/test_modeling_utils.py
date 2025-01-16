@@ -742,14 +742,14 @@ class ModelUtilsTest(TestCasePlus):
                 # Finally, check the model can be reloaded
                 new_model = BertModel.from_pretrained(tmp_dir)
                 for p1, p2 in zip(model.parameters(), new_model.parameters()):
-                    self.assertTrue(torch.allclose(p1, p2))
+                    torch.testing.assert_close(p1, p2)
 
     def test_checkpoint_sharding_from_hub(self):
         model = BertModel.from_pretrained("hf-internal-testing/tiny-random-bert-sharded")
         # the model above is the same as the model below, just a sharded version.
         ref_model = BertModel.from_pretrained("hf-internal-testing/tiny-random-bert")
         for p1, p2 in zip(model.parameters(), ref_model.parameters()):
-            self.assertTrue(torch.allclose(p1, p2))
+            torch.testing.assert_close(p1, p2)
 
     def test_checkpoint_variant_local_bin(self):
         model = BertModel.from_pretrained("hf-internal-testing/tiny-random-bert")
@@ -769,7 +769,7 @@ class ModelUtilsTest(TestCasePlus):
             new_model = BertModel.from_pretrained(tmp_dir, variant="v2")
 
         for p1, p2 in zip(model.parameters(), new_model.parameters()):
-            self.assertTrue(torch.allclose(p1, p2))
+            torch.testing.assert_close(p1, p2)
 
     def test_checkpoint_variant_local_sharded_bin(self):
         model = BertModel.from_pretrained("hf-internal-testing/tiny-random-bert")
@@ -793,7 +793,7 @@ class ModelUtilsTest(TestCasePlus):
             new_model = BertModel.from_pretrained(tmp_dir, variant="v2")
 
         for p1, p2 in zip(model.parameters(), new_model.parameters()):
-            self.assertTrue(torch.allclose(p1, p2))
+            torch.testing.assert_close(p1, p2)
 
     @require_safetensors
     def test_checkpoint_variant_local_safe(self):
@@ -814,7 +814,7 @@ class ModelUtilsTest(TestCasePlus):
             new_model = BertModel.from_pretrained(tmp_dir, variant="v2")
 
         for p1, p2 in zip(model.parameters(), new_model.parameters()):
-            self.assertTrue(torch.allclose(p1, p2))
+            torch.testing.assert_close(p1, p2)
 
     @require_safetensors
     def test_checkpoint_variant_local_sharded_safe(self):
@@ -839,7 +839,7 @@ class ModelUtilsTest(TestCasePlus):
             new_model = BertModel.from_pretrained(tmp_dir, variant="v2")
 
         for p1, p2 in zip(model.parameters(), new_model.parameters()):
-            self.assertTrue(torch.allclose(p1, p2))
+            torch.testing.assert_close(p1, p2)
 
     def test_checkpoint_loading_only_safetensors_available(self):
         # Test that the loading behaviour is as expected when only safetensor checkpoints are available
@@ -872,7 +872,7 @@ class ModelUtilsTest(TestCasePlus):
             new_model = BertModel.from_pretrained(tmp_dir)
 
         for p1, p2 in zip(model.parameters(), new_model.parameters()):
-            self.assertTrue(torch.allclose(p1, p2))
+            torch.testing.assert_close(p1, p2)
 
     def test_checkpoint_loading_only_pytorch_bin_available(self):
         # Test that the loading behaviour is as expected when only pytorch checkpoints are available
@@ -905,7 +905,7 @@ class ModelUtilsTest(TestCasePlus):
             new_model = BertModel.from_pretrained(tmp_dir)
 
         for p1, p2 in zip(model.parameters(), new_model.parameters()):
-            self.assertTrue(torch.allclose(p1, p2))
+            torch.testing.assert_close(p1, p2)
 
     def test_checkpoint_variant_hub(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1068,7 +1068,7 @@ class ModelUtilsTest(TestCasePlus):
             )
             outputs2 = new_model_with_offload(inputs)
 
-            self.assertTrue(torch.allclose(outputs1.logits.cpu(), outputs2.logits.cpu()))
+            torch.testing.assert_close(outputs1.logits.cpu(), outputs2.logits.cpu())
 
             # With state dict temp offload
             new_model_with_offload = AutoModelForCausalLM.from_pretrained(
@@ -1078,7 +1078,7 @@ class ModelUtilsTest(TestCasePlus):
                 offload_state_dict=True,
             )
             outputs2 = new_model_with_offload(inputs)
-            self.assertTrue(torch.allclose(outputs1.logits.cpu(), outputs2.logits.cpu()))
+            torch.testing.assert_close(outputs1.logits.cpu(), outputs2.logits.cpu())
 
     @require_accelerate
     @mark.accelerate_tests
@@ -1108,7 +1108,7 @@ class ModelUtilsTest(TestCasePlus):
                 tmp_dir, device_map=device_map, offload_folder=offload_folder
             )
             outputs2 = base_model_with_offload(inputs)
-            self.assertTrue(torch.allclose(outputs1[0].cpu(), outputs2[0].cpu()))
+            torch.testing.assert_close(outputs1[0].cpu(), outputs2[0].cpu())
 
             # With state dict temp offload
             new_model_with_offload = AutoModel.from_pretrained(
@@ -1118,7 +1118,7 @@ class ModelUtilsTest(TestCasePlus):
                 offload_state_dict=True,
             )
             outputs2 = new_model_with_offload(inputs)
-            self.assertTrue(torch.allclose(outputs1[0].cpu(), outputs2[0].cpu()))
+            torch.testing.assert_close(outputs1[0].cpu(), outputs2[0].cpu())
 
     @slow
     @require_torch
@@ -1169,7 +1169,7 @@ class ModelUtilsTest(TestCasePlus):
             saved_model = AutoModelForCausalLM.from_pretrained(tmp_dir, device_map="cpu")
             saved_model_output = saved_model(inputs)[0]
 
-        self.assertTrue(torch.allclose(output, saved_model_output))
+        torch.testing.assert_close(output, saved_model_output)
 
     @require_accelerate
     @mark.accelerate_tests
@@ -1205,8 +1205,8 @@ class ModelUtilsTest(TestCasePlus):
             saved_model = AutoModelForCausalLM.from_pretrained(tmp_dir, device_map=device_map)
             postsaved_output = saved_model(inputs)[0]
 
-        self.assertTrue(torch.allclose(output, presaved_output, atol=1e-4))
-        self.assertTrue(torch.allclose(presaved_output, postsaved_output))
+        torch.testing.assert_close(output, presaved_output, rtol=1e-4, atol=1e-4)
+        torch.testing.assert_close(presaved_output, postsaved_output)
 
     @require_safetensors
     def test_use_safetensors(self):
@@ -1278,7 +1278,7 @@ class ModelUtilsTest(TestCasePlus):
 
             # Check models are equal
             for p1, p2 in zip(model.parameters(), new_model.parameters()):
-                self.assertTrue(torch.allclose(p1, p2))
+                torch.testing.assert_close(p1, p2)
 
     @require_safetensors
     def test_safetensors_load_from_hub(self):
@@ -1287,7 +1287,7 @@ class ModelUtilsTest(TestCasePlus):
 
         # Check models are equal
         for p1, p2 in zip(safetensors_model.parameters(), pytorch_model.parameters()):
-            self.assertTrue(torch.allclose(p1, p2))
+            torch.testing.assert_close(p1, p2)
 
     @require_safetensors
     def test_safetensors_save_and_load_sharded(self):
@@ -1305,7 +1305,7 @@ class ModelUtilsTest(TestCasePlus):
 
             # Check models are equal
             for p1, p2 in zip(model.parameters(), new_model.parameters()):
-                self.assertTrue(torch.allclose(p1, p2))
+                torch.testing.assert_close(p1, p2)
 
     @require_safetensors
     def test_safetensors_load_from_hub_sharded(self):
@@ -1314,7 +1314,7 @@ class ModelUtilsTest(TestCasePlus):
 
         # Check models are equal
         for p1, p2 in zip(safetensors_model.parameters(), pytorch_model.parameters()):
-            self.assertTrue(torch.allclose(p1, p2))
+            torch.testing.assert_close(p1, p2)
 
     def test_base_model_to_head_model_load(self):
         base_model = BaseModel(PretrainedConfig())
@@ -1324,7 +1324,7 @@ class ModelUtilsTest(TestCasePlus):
             # Can load a base model in a model with head
             model = ModelWithHead.from_pretrained(tmp_dir)
             for p1, p2 in zip(model.base.parameters(), base_model.parameters()):
-                self.assertTrue(torch.allclose(p1, p2))
+                torch.testing.assert_close(p1, p2)
 
             # It doesn't work if the state dict has a mix of keys of the head and base without prefix though.
             base_state_dict = base_model.state_dict()
@@ -1615,7 +1615,7 @@ class ModelUtilsTest(TestCasePlus):
         with torch.no_grad():
             outputs = model(input_ids)
             outputs_from_saved = new_model(input_ids)
-            self.assertTrue(torch.allclose(outputs_from_saved["logits"], outputs["logits"]))
+            torch.testing.assert_close(outputs_from_saved["logits"], outputs["logits"])
 
     def test_warning_for_beta_gamma_parameters(self):
         class TestModelGamma(PreTrainedModel):

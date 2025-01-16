@@ -783,7 +783,7 @@ class GgufIntegrationTests(unittest.TestCase):
                 if "mixer.A_log" in layer_name:
                     # we should increase tolerance after exponential reversing
                     # and performing np.log(-weights) operation as numbers are slightly different
-                    torch.testing.assert_close(original_params, converted_state_dict[layer_name], atol=1e-3, rtol=1e-3)
+                    torch.testing.assert_close(original_params, converted_state_dict[layer_name], rtol=1e-3, atol=1e-3)
                 else:
                     torch.testing.assert_close(original_params, converted_state_dict[layer_name])
             else:

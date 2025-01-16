@@ -331,7 +331,7 @@ class ViTMAEModelIntegrationTest(unittest.TestCase):
             [[-0.0548, -1.7023, -0.9325], [0.3721, -0.5670, -0.2233], [0.8235, -1.3878, -0.3524]]
         )
 
-        self.assertTrue(torch.allclose(outputs.logits[0, :3, :3], expected_slice.to(torch_device), atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, :3, :3], expected_slice.to(torch_device), rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_interpolate_pos_encoding(self):

@@ -452,4 +452,4 @@ class BrosModelIntegrationTest(unittest.TestCase):
         ).to(torch_device)
         torch.set_printoptions(sci_mode=False)
 
-        self.assertTrue(torch.allclose(outputs.last_hidden_state[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.last_hidden_state[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)

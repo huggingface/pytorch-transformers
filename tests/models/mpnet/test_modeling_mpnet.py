@@ -264,4 +264,4 @@ class MPNetModelIntegrationTest(unittest.TestCase):
             [[[-0.0550, 0.1943, -0.0740], [-0.0562, 0.2211, -0.0579], [-0.0437, 0.3337, -0.0641]]]
         )
         # compare the actual values for a slice.
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)

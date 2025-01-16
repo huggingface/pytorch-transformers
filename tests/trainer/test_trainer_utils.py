@@ -162,7 +162,7 @@ class TrainerUtilsTest(unittest.TestCase):
         label_smoothed_loss = LabelSmoother(0.1)(model_output, random_labels)
         log_probs = -nn.functional.log_softmax(random_logits, dim=-1)
         expected_loss = (1 - epsilon) * loss + epsilon * log_probs.mean()
-        self.assertTrue(torch.allclose(label_smoothed_loss, expected_loss))
+        torch.testing.assert_close(label_smoothed_loss, expected_loss)
 
         # With a few -100 labels
         random_labels[0, 1] = -100
@@ -178,7 +178,7 @@ class TrainerUtilsTest(unittest.TestCase):
         log_probs[2, 1] = 0.0
         log_probs[2, 3] = 0.0
         expected_loss = (1 - epsilon) * loss + epsilon * log_probs.sum() / (num_labels * 17)
-        self.assertTrue(torch.allclose(label_smoothed_loss, expected_loss))
+        torch.testing.assert_close(label_smoothed_loss, expected_loss)
 
     def test_group_by_length(self):
         # Get some inputs of random lengths

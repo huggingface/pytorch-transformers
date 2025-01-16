@@ -336,7 +336,7 @@ class EncodecModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase)
             model.eval()
 
             hidden_states_with_chunk = model(**inputs)[0]
-            self.assertTrue(torch.allclose(hidden_states_no_chunk, hidden_states_with_chunk, atol=1e-3))
+            torch.testing.assert_close(hidden_states_no_chunk, hidden_states_with_chunk, rtol=1e-3, atol=1e-3)
 
     @unittest.skip(
         reason="The EncodecModel is not transformers based, thus it does not have the usual `hidden_states` logic"
@@ -507,7 +507,7 @@ class EncodecIntegrationTest(unittest.TestCase):
                 )[-1]
 
             # make sure forward and decode gives same result
-            self.assertTrue(torch.allclose(input_values_dec, input_values_enc_dec, atol=1e-3))
+            torch.testing.assert_close(input_values_dec, input_values_enc_dec, rtol=1e-3, atol=1e-3)
 
             # make sure shape matches
             self.assertTrue(inputs["input_values"].shape == input_values_enc_dec.shape)
@@ -563,7 +563,7 @@ class EncodecIntegrationTest(unittest.TestCase):
                 )[-1]
 
             # make sure forward and decode gives same result
-            self.assertTrue(torch.allclose(input_values_dec, input_values_enc_dec, atol=1e-3))
+            torch.testing.assert_close(input_values_dec, input_values_enc_dec, rtol=1e-3, atol=1e-3)
 
             # make sure shape matches
             self.assertTrue(inputs["input_values"].shape == input_values_enc_dec.shape)
@@ -622,7 +622,7 @@ class EncodecIntegrationTest(unittest.TestCase):
                 input_values_enc_dec = model(input_values, bandwidth=float(bandwidth))[-1]
 
             # make sure forward and decode gives same result
-            self.assertTrue(torch.allclose(input_values_dec, input_values_enc_dec, atol=1e-3))
+            torch.testing.assert_close(input_values_dec, input_values_enc_dec, rtol=1e-3, atol=1e-3)
 
             # make sure shape matches
             self.assertTrue(input_values.shape == input_values_enc_dec.shape)

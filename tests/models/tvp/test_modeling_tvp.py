@@ -277,7 +277,7 @@ class TvpModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[-0.4902, -0.4121, -1.7872], [-0.2184, 2.1211, -0.9371], [0.1180, 0.5003, -0.1727]]
         ).to(torch_device)
-        self.assertTrue(torch.allclose(outputs.last_hidden_state[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.last_hidden_state[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     def test_inference_with_head(self):
         model = TvpForVideoGrounding.from_pretrained("Jiqing/tiny-random-tvp").to(torch_device)
@@ -296,7 +296,7 @@ class TvpModelIntegrationTests(unittest.TestCase):
         expected_shape = torch.Size((1, 2))
         assert outputs.logits.shape == expected_shape
         expected_slice = torch.tensor([[0.5061, 0.4988]]).to(torch_device)
-        self.assertTrue(torch.allclose(outputs.logits, expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits, expected_slice, rtol=1e-4, atol=1e-4)
 
     def test_interpolate_inference_no_head(self):
         model = TvpModel.from_pretrained("Jiqing/tiny-random-tvp").to(torch_device)

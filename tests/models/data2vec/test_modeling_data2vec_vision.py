@@ -548,7 +548,7 @@ class Data2VecVisionModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([0.3277, -0.1395, 0.0911]).to(torch_device)
 
-        self.assertTrue(torch.allclose(logits[0, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(logits[0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
         expected_top2 = [model.config.label2id[i] for i in ["remote control, remote", "tabby, tabby cat"]]
         self.assertEqual(logits[0].topk(2).indices.cpu().tolist(), expected_top2)

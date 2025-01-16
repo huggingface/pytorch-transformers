@@ -683,7 +683,7 @@ class PerceiverModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCas
                         torch.allclose(hidden_states_no_chunk[modality], hidden_states_with_chunk[modality], atol=1e-3)
                     )
             else:
-                self.assertTrue(torch.allclose(hidden_states_no_chunk, hidden_states_with_chunk, atol=1e-3))
+                torch.testing.assert_close(hidden_states_no_chunk, hidden_states_with_chunk, rtol=1e-3, atol=1e-3)
 
     def test_save_load(self):
         for model_class in self.all_model_classes:
@@ -909,7 +909,7 @@ class PerceiverModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(logits[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(logits[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
         expected_greedy_predictions = [38, 115, 111, 121, 121, 111, 116, 109, 52]
         masked_tokens_predictions = logits[0, 52:61].argmax(dim=-1).tolist()
@@ -938,7 +938,7 @@ class PerceiverModelIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor([-1.1652, -0.1992, -0.7520], device=torch_device)
 
         atol = 1e-3 if IS_ROCM_SYSTEM else 1e-4
-        self.assertTrue(torch.allclose(logits[0, :3], expected_slice, atol=atol))
+        torch.testing.assert_close(logits[0, :3], expected_slice, rtol=atol, atol=atol)
 
     @slow
     def test_inference_image_classification_fourier(self):
@@ -962,7 +962,7 @@ class PerceiverModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([-1.1295, -0.2832, 0.3226], device=torch_device)
 
-        self.assertTrue(torch.allclose(logits[0, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(logits[0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_image_classification_conv(self):
@@ -986,7 +986,7 @@ class PerceiverModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([-1.1186, 0.0554, 0.0897], device=torch_device)
 
-        self.assertTrue(torch.allclose(logits[0, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(logits[0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_optical_flow(self):
@@ -1030,7 +1030,7 @@ class PerceiverModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(logits[0, :3, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(logits[0, :3, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_interpolate_pos_encoding(self):

@@ -410,7 +410,7 @@ class PersimmonModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTester
         # Dynamic scaling does not change the RoPE embeddings until it receives an input longer than the original
         # maximum sequence length, so the outputs for the short input should match.
         if scaling_type == "dynamic":
-            self.assertTrue(torch.allclose(original_short_output, scaled_short_output, atol=1e-5))
+            torch.testing.assert_close(original_short_output, scaled_short_output, rtol=1e-5, atol=1e-5)
         else:
             self.assertFalse(torch.allclose(original_short_output, scaled_short_output, atol=1e-5))
 
@@ -483,14 +483,14 @@ class PersimmonIntegrationTest(unittest.TestCase):
             [[-11.4726, -11.1495, -11.2694, -11.2223, -10.9452, -11.0663, -11.0031, -11.1028]]
         )
         # change dtype to `torch.float32` before calling `mean` to avoid `nan` values
-        torch.testing.assert_close(out.cpu().to(torch.float32).mean(-1), EXPECTED_MEAN, atol=1e-4, rtol=1e-4)
+        torch.testing.assert_close(out.cpu().to(torch.float32).mean(-1), EXPECTED_MEAN, rtol=1e-4, atol=1e-4)
         # fmt: off
         EXPECTED_SLICE = torch.tensor(
             [-16.9062, -16.9062, -16.9062, -16.9062, -16.8906, -16.9062, -16.9531, -16.9062, -16.9062, -16.9062, -16.9531, -16.9062, -16.9531, -16.9062, -16.9062, -16.9062, -16.9062, -16.9062, -16.9531, -16.9062, -16.9062, -16.9062, -16.9062, -16.9062, -16.9062, -16.9531, -16.9062, -16.9531, -16.9062, -16.9062],
             dtype=torch.float16
         )
         # fmt: on
-        torch.testing.assert_close(out.cpu()[0, 0, :30], EXPECTED_SLICE, atol=1e-5, rtol=1e-5)
+        torch.testing.assert_close(out.cpu()[0, 0, :30], EXPECTED_SLICE, rtol=1e-5, atol=1e-5)
 
         backend_empty_cache(torch_device)
         del model

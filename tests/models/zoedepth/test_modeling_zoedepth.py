@@ -253,7 +253,7 @@ class ZoeDepthModelIntegrationTest(unittest.TestCase):
             [[1.0020, 1.0219, 1.0389], [1.0349, 1.0816, 1.1000], [1.0576, 1.1094, 1.1249]],
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.predicted_depth[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.predicted_depth[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     def test_inference_depth_estimation_multiple_heads(self):
         image_processor = ZoeDepthImageProcessor.from_pretrained("Intel/zoedepth-nyu-kitti")
@@ -275,7 +275,7 @@ class ZoeDepthModelIntegrationTest(unittest.TestCase):
             [[1.1571, 1.1438, 1.1783], [1.2163, 1.2036, 1.2320], [1.2688, 1.2461, 1.2734]],
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.predicted_depth[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.predicted_depth[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     def check_target_size(
         self,
@@ -301,7 +301,7 @@ class ZoeDepthModelIntegrationTest(unittest.TestCase):
                 out_l.unsqueeze(0).unsqueeze(1), size=img.size[::-1], mode="bicubic", align_corners=False
             )
             self.assertTrue((np.array(out_l.shape)[::-1] == np.array(img.size) * 2).all())
-            self.assertTrue(torch.allclose(out, out_l_reduced, rtol=2e-2))
+            torch.testing.assert_close(out, out_l_reduced, rtol=2e-2)
 
     def check_post_processing_test(self, image_processor, images, model, pad_input=True, flip_aug=True):
         inputs = image_processor(images=images, return_tensors="pt", do_pad=pad_input).to(torch_device)
@@ -323,7 +323,7 @@ class ZoeDepthModelIntegrationTest(unittest.TestCase):
         for img, out, expected_slice in zip(images, outputs, expected_slices):
             out = out["predicted_depth"]
             self.assertTrue(img.size == out.shape[::-1])
-            self.assertTrue(torch.allclose(expected_slice, out[:3, :3], rtol=1e-3))
+            torch.testing.assert_close(expected_slice, out[:3, :3], rtol=1e-3)
 
         self.check_target_size(image_processor, pad_input, images, outputs, raw_outputs, raw_outputs_flipped)
 

@@ -340,7 +340,7 @@ class DistilBertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCa
                 logits = model(dummy_input, output_hidden_states=True).hidden_states[-1]
                 logits_fa = model_fa(dummy_input, output_hidden_states=True).hidden_states[-1]
 
-                self.assertTrue(torch.allclose(logits_fa, logits, atol=4e-2, rtol=4e-2))
+                torch.testing.assert_close(logits_fa, logits, rtol=4e-2, atol=4e-2)
 
                 output_fa = model_fa(dummy_input, attention_mask=dummy_attention_mask, output_hidden_states=True)
                 logits_fa = output_fa.hidden_states[-1]
@@ -348,7 +348,7 @@ class DistilBertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCa
                 output = model(dummy_input, attention_mask=dummy_attention_mask, output_hidden_states=True)
                 logits = output.hidden_states[-1]
 
-                self.assertTrue(torch.allclose(logits_fa[1:], logits[1:], atol=4e-2, rtol=4e-2))
+                torch.testing.assert_close(logits_fa[1:], logits[1:], rtol=4e-2, atol=4e-2)
 
     # Because DistilBertForMultipleChoice requires inputs with different shapes we need to override this test.
     @require_flash_attn
@@ -395,7 +395,7 @@ class DistilBertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCa
                 logits = model(dummy_input, output_hidden_states=True).hidden_states[-1]
                 logits_fa = model_fa(dummy_input, output_hidden_states=True).hidden_states[-1]
 
-                self.assertTrue(torch.allclose(logits_fa, logits, atol=4e-2, rtol=4e-2))
+                torch.testing.assert_close(logits_fa, logits, rtol=4e-2, atol=4e-2)
 
                 output_fa = model_fa(dummy_input, attention_mask=dummy_attention_mask, output_hidden_states=True)
                 logits_fa = output_fa.hidden_states[-1]
@@ -403,7 +403,7 @@ class DistilBertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCa
                 output = model(dummy_input, attention_mask=dummy_attention_mask, output_hidden_states=True)
                 logits = output.hidden_states[-1]
 
-                self.assertTrue(torch.allclose(logits_fa[:-1], logits[:-1], atol=4e-2, rtol=4e-2))
+                torch.testing.assert_close(logits_fa[:-1], logits[:-1], rtol=4e-2, atol=4e-2)
 
 
 @require_torch
@@ -421,7 +421,7 @@ class DistilBertModelIntergrationTest(unittest.TestCase):
             [[[-0.1639, 0.3299, 0.1648], [-0.1746, 0.3289, 0.1710], [-0.1884, 0.3357, 0.1810]]]
         )
 
-        self.assertTrue(torch.allclose(output[:, 1:4, 1:4], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, 1:4, 1:4], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_export(self):

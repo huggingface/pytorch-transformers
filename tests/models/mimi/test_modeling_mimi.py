@@ -850,7 +850,7 @@ class MimiIntegrationTest(unittest.TestCase):
                     )[1]
 
                 # make sure forward and decode gives same result
-                self.assertTrue(torch.allclose(input_values_dec, input_values_enc_dec))
+                torch.testing.assert_close(input_values_dec, input_values_enc_dec)
 
                 # make sure shape matches
                 self.assertTrue(inputs["input_values"].shape == input_values_enc_dec.shape)

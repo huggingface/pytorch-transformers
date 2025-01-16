@@ -231,7 +231,7 @@ class DecisionTransformerModelIntegrationTest(unittest.TestCase):
                 )
 
             self.assertEqual(action_pred.shape, actions.shape)
-            self.assertTrue(torch.allclose(action_pred[0, -1], expected_outputs[step], atol=1e-4))
+            torch.testing.assert_close(action_pred[0, -1], expected_outputs[step], rtol=1e-4, atol=1e-4)
             state, reward, _, _ = (  # env.step(action)
                 torch.randn(1, 1, config.state_dim).to(device=torch_device, dtype=torch.float32),
                 1.0,

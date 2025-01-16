@@ -438,7 +438,7 @@ class AutoformerModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[0.3593, -1.3398, 0.6330], [0.2279, 1.5396, -0.1792], [0.0450, 1.3225, -0.2335]], device=torch_device
         )
-        self.assertTrue(torch.allclose(output[0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def test_inference_head(self):
         model = AutoformerForPrediction.from_pretrained("huggingface/autoformer-tourism-monthly").to(torch_device)
@@ -456,7 +456,7 @@ class AutoformerModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[-0.0734, -0.9036, 0.8358], [4.7186, 2.4113, 1.9581], [1.7953, 2.3558, 1.2970]], device=torch_device
         )
-        self.assertTrue(torch.allclose(output[0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def test_seq_to_seq_generation(self):
         model = AutoformerForPrediction.from_pretrained("huggingface/autoformer-tourism-monthly").to(torch_device)
@@ -474,4 +474,4 @@ class AutoformerModelIntegrationTests(unittest.TestCase):
 
         expected_slice = torch.tensor([3130.6763, 4056.5293, 7053.0786], device=torch_device)
         mean_prediction = outputs.sequences.mean(dim=1)
-        self.assertTrue(torch.allclose(mean_prediction[0, -3:], expected_slice, rtol=1e-1))
+        torch.testing.assert_close(mean_prediction[0, -3:], expected_slice, rtol=1e-1)

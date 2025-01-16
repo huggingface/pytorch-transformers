@@ -513,7 +513,7 @@ class FSMTModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[-1.5753, -1.5753, 2.8975], [-0.9540, -0.9540, 1.0299], [-3.3131, -3.3131, 0.5219]]
         ).to(torch_device)
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def translation_setup(self, pair):
         text = {
@@ -608,6 +608,6 @@ class TestSinusoidalPositionalEmbeddings(unittest.TestCase):
         )
         no_cache_pad_zero = emb1(input_ids)[0]
         # XXX: only the 1st line matches the 3rd
-        self.assertTrue(
-            torch.allclose(torch.tensor(desired_weights, device=torch_device), no_cache_pad_zero[:3, :5], atol=1e-3)
+        torch.testing.assert_close(
+            torch.tensor(desired_weights, device=torch_device), no_cache_pad_zero[:3, :5], rtol=1e-3, atol=1e-3
         )

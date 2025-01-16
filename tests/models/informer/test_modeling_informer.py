@@ -504,7 +504,7 @@ class InformerModelIntegrationTests(unittest.TestCase):
             [[0.4699, 0.7295, 0.8967], [0.4858, 0.3810, 0.9641], [-0.0233, 0.3608, 1.0303]],
             device=torch_device,
         )
-        self.assertTrue(torch.allclose(output[0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def test_inference_head(self):
         model = InformerForPrediction.from_pretrained("huggingface/informer-tourism-monthly").to(torch_device)
@@ -527,7 +527,7 @@ class InformerModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[0.4170, 0.9067, 0.8153], [0.3004, 0.7574, 0.7066], [0.6803, -0.6323, 1.2802]], device=torch_device
         )
-        self.assertTrue(torch.allclose(output[0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def test_seq_to_seq_generation(self):
         model = InformerForPrediction.from_pretrained("huggingface/informer-tourism-monthly").to(torch_device)
@@ -547,4 +547,4 @@ class InformerModelIntegrationTests(unittest.TestCase):
 
         expected_slice = torch.tensor([3400.8005, 4289.2637, 7101.9209], device=torch_device)
         mean_prediction = outputs.sequences.mean(dim=1)
-        self.assertTrue(torch.allclose(mean_prediction[0, -3:], expected_slice, rtol=1e-1))
+        torch.testing.assert_close(mean_prediction[0, -3:], expected_slice, rtol=1e-1)

@@ -244,7 +244,7 @@ class MoshiDecoderTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
             else:
                 old_embeddings_mean = torch.mean(model_embed.weight.data[:-10, :], axis=0)
                 new_embeddings_mean = torch.mean(model_embed.weight.data[-10:, :], axis=0)
-            torch.testing.assert_close(old_embeddings_mean, new_embeddings_mean, atol=1e-3, rtol=1e-1)
+            torch.testing.assert_close(old_embeddings_mean, new_embeddings_mean, rtol=1e-3, atol=1e-3)
 
             # Check that the model can still do a forward pass successfully (every parameter should be resized)
             if not is_deepspeed_zero3_enabled():
@@ -344,7 +344,7 @@ class MoshiDecoderTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
             else:
                 old_embeddings_mean = torch.mean(model_embed.weight.data[:-10, :], axis=0)
                 new_embeddings_mean = torch.mean(model_embed.weight.data[-10:, :], axis=0)
-            torch.testing.assert_close(old_embeddings_mean, new_embeddings_mean, atol=1e-3, rtol=1e-1)
+            torch.testing.assert_close(old_embeddings_mean, new_embeddings_mean, rtol=1e-3, atol=1e-3)
 
     @unittest.skip(reason="Some undefined behavior encountered with test versions of this model. Skip for now.")
     def test_cpu_offload(self):
@@ -733,7 +733,7 @@ class MoshiTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
             next_logits_with_padding = model(**model_kwargs).logits[:, -1, :]
 
             # They should result in very similar logits
-            self.assertTrue(torch.allclose(next_logits_wo_padding, next_logits_with_padding, atol=1e-5))
+            torch.testing.assert_close(next_logits_wo_padding, next_logits_with_padding, rtol=1e-5, atol=1e-5)
 
     @require_torch_sdpa
     @slow
@@ -810,8 +810,8 @@ class MoshiTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
                     depth_decoder_do_sample=False,
                 )
 
-                self.assertTrue(torch.allclose(res_eager.sequences, res_sdpa.sequences))
-                self.assertTrue(torch.allclose(res_eager.audio_sequences, res_sdpa.audio_sequences))
+                torch.testing.assert_close(res_eager.sequences, res_sdpa.sequences)
+                torch.testing.assert_close(res_eager.audio_sequences, res_sdpa.audio_sequences)
 
     @pytest.mark.generate
     def test_generate_without_input_ids(self):

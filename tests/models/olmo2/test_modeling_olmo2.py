@@ -338,7 +338,7 @@ class Olmo2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
         # Dynamic scaling does not change the RoPE embeddings until it receives an input longer than the original
         # maximum sequence length, so the outputs for the short input should match.
         if scaling_type == "dynamic":
-            self.assertTrue(torch.allclose(original_short_output, scaled_short_output, atol=1e-5))
+            torch.testing.assert_close(original_short_output, scaled_short_output, rtol=1e-5, atol=1e-5)
         else:
             self.assertFalse(torch.allclose(original_short_output, scaled_short_output, atol=1e-5))
 
@@ -357,10 +357,10 @@ class Olmo2IntegrationTest(unittest.TestCase):
         EXPECTED_MEAN = torch.tensor(
             [[-13.0244, -13.9564, -11.8270, -11.3047, -12.3794, -12.4215, -15.6030, -12.7962]]
         )
-        torch.testing.assert_close(out.mean(-1), EXPECTED_MEAN, atol=1e-2, rtol=1e-2)
+        torch.testing.assert_close(out.mean(-1), EXPECTED_MEAN, rtol=1e-2, atol=1e-2)
         # slicing logits[0, 0, 0:30]
         EXPECTED_SLICE = torch.tensor([-5.3909, -13.9841, -13.6123, -14.5780, -13.9455, -13.2265, -13.4734, -11.9079, -9.2879, -12.6139, -11.4819, -5.9607, -11.9657, -6.3618, -11.1065, -7.3075, -6.5674, -6.7154, -7.3409, -7.9662, -8.0863, -8.1682, -8.7341, -8.7665, -8.8742, -9.7813, -8.0620, -12.5937, -7.6440, -11.3966])  # fmt: skip
-        torch.testing.assert_close(out[0, 0, :30], EXPECTED_SLICE, atol=1e-2, rtol=1e-2)
+        torch.testing.assert_close(out[0, 0, :30], EXPECTED_SLICE, rtol=1e-2, atol=1e-2)
 
     @slow
     def test_model_7b_greedy_generation(self):

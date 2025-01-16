@@ -148,7 +148,7 @@ class Pop2PianoFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittes
         EXPECTED_INPUT_FEATURES = torch.tensor(
             [[-7.1493, -6.8701, -4.3214], [-5.9473, -5.7548, -3.8438], [-6.1324, -5.9018, -4.3778]]
         )
-        self.assertTrue(torch.allclose(input_features[0, :3, :3], EXPECTED_INPUT_FEATURES, atol=1e-4))
+        torch.testing.assert_close(input_features[0, :3, :3], EXPECTED_INPUT_FEATURES, rtol=1e-4, atol=1e-4)
 
     def test_attention_mask(self):
         feature_extractor = self.feature_extraction_class(**self.feat_extract_tester.prepare_feat_extract_dict())

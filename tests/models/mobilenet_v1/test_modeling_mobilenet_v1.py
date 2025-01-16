@@ -254,4 +254,4 @@ class MobileNetV1ModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([-4.1739, -1.1233, 3.1205]).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.logits[0, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, :3], expected_slice, rtol=1e-4, atol=1e-4)

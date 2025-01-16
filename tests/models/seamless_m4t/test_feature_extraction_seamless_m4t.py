@@ -283,13 +283,13 @@ class SeamlessM4TFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unitt
         # Test not batched input
         encoded_sequences_1 = feature_extractor(speech_inputs[0], return_tensors="pt").input_features
         encoded_sequences_2 = feature_extractor(pt_speech_inputs[0], return_tensors="pt").input_features
-        self.assertTrue(torch.allclose(encoded_sequences_1, encoded_sequences_2, atol=1e-3))
+        torch.testing.assert_close(encoded_sequences_1, encoded_sequences_2, rtol=1e-3, atol=1e-3)
 
         # Test batched
         encoded_sequences_1 = feature_extractor(speech_inputs, return_tensors="pt").input_features
         encoded_sequences_2 = feature_extractor(pt_speech_inputs, return_tensors="pt").input_features
         for enc_seq_1, enc_seq_2 in zip(encoded_sequences_1, encoded_sequences_2):
-            self.assertTrue(torch.allclose(enc_seq_1, enc_seq_2, atol=1e-3))
+            torch.testing.assert_close(enc_seq_1, enc_seq_2, rtol=1e-3, atol=1e-3)
 
         # Test 2-D numpy arrays are batched.
         speech_inputs = [floats_list((1, x))[0] for x in (800, 800, 800)]
@@ -297,7 +297,7 @@ class SeamlessM4TFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unitt
         encoded_sequences_1 = feature_extractor(speech_inputs, return_tensors="pt").input_features
         encoded_sequences_2 = feature_extractor(pt_speech_inputs, return_tensors="pt").input_features
         for enc_seq_1, enc_seq_2 in zip(encoded_sequences_1, encoded_sequences_2):
-            self.assertTrue(torch.allclose(enc_seq_1, enc_seq_2, atol=1e-3))
+            torch.testing.assert_close(enc_seq_1, enc_seq_2, rtol=1e-3, atol=1e-3)
 
     @require_torch
     # Copied from tests.models.whisper.test_feature_extraction_whisper.WhisperFeatureExtractionTest.test_double_precision_pad
@@ -339,7 +339,7 @@ class SeamlessM4TFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unitt
 
         feature_extractor(input_speech, return_tensors="pt").input_features[0, 5, :30]
         self.assertEqual(input_features.shape, (1, 279, 160))
-        self.assertTrue(torch.allclose(input_features[0, 5, :30], EXPECTED_INPUT_FEATURES, atol=1e-4))
+        torch.testing.assert_close(input_features[0, 5, :30], EXPECTED_INPUT_FEATURES, rtol=1e-4, atol=1e-4)
 
     def test_zero_mean_unit_variance_normalization_trunc_np_longest(self):
         feat_extract = self.feature_extraction_class(**self.feat_extract_tester.prepare_feat_extract_dict())

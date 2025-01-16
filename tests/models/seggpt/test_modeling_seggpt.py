@@ -313,7 +313,7 @@ class SegGptModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
         loss_value = loss(prompt_masks, pred_masks, label, bool_masked_pos)
         expected_loss_value = torch.tensor(0.3340)
 
-        self.assertTrue(torch.allclose(loss_value, expected_loss_value, atol=1e-4))
+        torch.testing.assert_close(loss_value, expected_loss_value, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_model_from_pretrained(self):
@@ -386,7 +386,7 @@ class SegGptModelIntegrationTest(unittest.TestCase):
             ]
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.pred_masks[0, :, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.pred_masks[0, :, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
         result = image_processor.post_process_semantic_segmentation(outputs, [input_image.size[::-1]])[0]
 
@@ -428,7 +428,7 @@ class SegGptModelIntegrationTest(unittest.TestCase):
         ).to(torch_device)
 
         self.assertEqual(outputs.pred_masks.shape, expected_shape)
-        self.assertTrue(torch.allclose(outputs.pred_masks[0, :, 448:451, :3], expected_slice, atol=4e-4))
+        torch.testing.assert_close(outputs.pred_masks[0, :, 448:451, :3], expected_slice, rtol=4e-4, atol=4e-4)
 
     @slow
     def test_one_shot_with_label(self):
@@ -461,4 +461,4 @@ class SegGptModelIntegrationTest(unittest.TestCase):
             outputs = model(**inputs, labels=labels, bool_masked_pos=bool_masked_pos)
 
         expected_loss = torch.tensor(0.0074).to(torch_device)
-        self.assertTrue(torch.allclose(outputs.loss, expected_loss, atol=1e-4))
+        torch.testing.assert_close(outputs.loss, expected_loss, rtol=1e-4, atol=1e-4)

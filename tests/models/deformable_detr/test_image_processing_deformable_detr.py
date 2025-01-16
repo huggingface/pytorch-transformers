@@ -186,31 +186,31 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
             self.assertEqual(encoding["pixel_values"].shape, expected_shape)
 
             expected_slice = torch.tensor([0.2796, 0.3138, 0.3481])
-            self.assertTrue(torch.allclose(encoding["pixel_values"][0, 0, 0, :3], expected_slice, atol=1e-4))
+            torch.testing.assert_close(encoding["pixel_values"][0, 0, 0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
             # verify area
             expected_area = torch.tensor([5887.9600, 11250.2061, 489353.8438, 837122.7500, 147967.5156, 165732.3438])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["area"], expected_area))
+            torch.testing.assert_close(encoding["labels"][0]["area"], expected_area)
             # verify boxes
             expected_boxes_shape = torch.Size([6, 4])
             self.assertEqual(encoding["labels"][0]["boxes"].shape, expected_boxes_shape)
             expected_boxes_slice = torch.tensor([0.5503, 0.2765, 0.0604, 0.2215])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["boxes"][0], expected_boxes_slice, atol=1e-3))
+            torch.testing.assert_close(encoding["labels"][0]["boxes"][0], expected_boxes_slice, rtol=1e-3, atol=1e-3)
             # verify image_id
             expected_image_id = torch.tensor([39769])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["image_id"], expected_image_id))
+            torch.testing.assert_close(encoding["labels"][0]["image_id"], expected_image_id)
             # verify is_crowd
             expected_is_crowd = torch.tensor([0, 0, 0, 0, 0, 0])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["iscrowd"], expected_is_crowd))
+            torch.testing.assert_close(encoding["labels"][0]["iscrowd"], expected_is_crowd)
             # verify class_labels
             expected_class_labels = torch.tensor([75, 75, 63, 65, 17, 17])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["class_labels"], expected_class_labels))
+            torch.testing.assert_close(encoding["labels"][0]["class_labels"], expected_class_labels)
             # verify orig_size
             expected_orig_size = torch.tensor([480, 640])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["orig_size"], expected_orig_size))
+            torch.testing.assert_close(encoding["labels"][0]["orig_size"], expected_orig_size)
             # verify size
             expected_size = torch.tensor([800, 1066])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["size"], expected_size))
+            torch.testing.assert_close(encoding["labels"][0]["size"], expected_size)
 
     @slow
     def test_call_pytorch_with_coco_panoptic_annotations(self):
@@ -233,35 +233,35 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
             self.assertEqual(encoding["pixel_values"].shape, expected_shape)
 
             expected_slice = torch.tensor([0.2796, 0.3138, 0.3481])
-            self.assertTrue(torch.allclose(encoding["pixel_values"][0, 0, 0, :3], expected_slice, atol=1e-4))
+            torch.testing.assert_close(encoding["pixel_values"][0, 0, 0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
             # verify area
             expected_area = torch.tensor([147979.6875, 165527.0469, 484638.5938, 11292.9375, 5879.6562, 7634.1147])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["area"], expected_area))
+            torch.testing.assert_close(encoding["labels"][0]["area"], expected_area)
             # verify boxes
             expected_boxes_shape = torch.Size([6, 4])
             self.assertEqual(encoding["labels"][0]["boxes"].shape, expected_boxes_shape)
             expected_boxes_slice = torch.tensor([0.2625, 0.5437, 0.4688, 0.8625])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["boxes"][0], expected_boxes_slice, atol=1e-3))
+            torch.testing.assert_close(encoding["labels"][0]["boxes"][0], expected_boxes_slice, rtol=1e-3, atol=1e-3)
             # verify image_id
             expected_image_id = torch.tensor([39769])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["image_id"], expected_image_id))
+            torch.testing.assert_close(encoding["labels"][0]["image_id"], expected_image_id)
             # verify is_crowd
             expected_is_crowd = torch.tensor([0, 0, 0, 0, 0, 0])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["iscrowd"], expected_is_crowd))
+            torch.testing.assert_close(encoding["labels"][0]["iscrowd"], expected_is_crowd)
             # verify class_labels
             expected_class_labels = torch.tensor([17, 17, 63, 75, 75, 93])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["class_labels"], expected_class_labels))
+            torch.testing.assert_close(encoding["labels"][0]["class_labels"], expected_class_labels)
             # verify masks
             expected_masks_sum = 822873
             relative_error = torch.abs(encoding["labels"][0]["masks"].sum() - expected_masks_sum) / expected_masks_sum
             self.assertTrue(relative_error < 1e-3)
             # verify orig_size
             expected_orig_size = torch.tensor([480, 640])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["orig_size"], expected_orig_size))
+            torch.testing.assert_close(encoding["labels"][0]["orig_size"], expected_orig_size)
             # verify size
             expected_size = torch.tensor([800, 1066])
-            self.assertTrue(torch.allclose(encoding["labels"][0]["size"], expected_size))
+            torch.testing.assert_close(encoding["labels"][0]["size"], expected_size)
 
     @slow
     # Copied from tests.models.detr.test_image_processing_detr.DetrImageProcessingTest.test_batched_coco_detection_annotations with Detr->DeformableDetr
@@ -328,8 +328,8 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
                     [0.5790, 0.4115, 0.3430, 0.7161],
                 ]
             )
-            self.assertTrue(torch.allclose(encoding["labels"][0]["boxes"], expected_boxes_0, rtol=1e-3))
-            self.assertTrue(torch.allclose(encoding["labels"][1]["boxes"], expected_boxes_1, rtol=1e-3))
+            torch.testing.assert_close(encoding["labels"][0]["boxes"], expected_boxes_0, rtol=1e-3)
+            torch.testing.assert_close(encoding["labels"][1]["boxes"], expected_boxes_1, rtol=1e-3)
 
             # Check the masks have also been padded
             self.assertEqual(encoding["labels"][0]["masks"].shape, torch.Size([6, 800, 1066]))
@@ -380,8 +380,8 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
                     unnormalized_boxes_1[:, 1] + unnormalized_boxes_1[:, 3] / 2,
                 ]
             ).T
-            self.assertTrue(torch.allclose(encoding["labels"][0]["boxes"], expected_boxes_0, rtol=1))
-            self.assertTrue(torch.allclose(encoding["labels"][1]["boxes"], expected_boxes_1, rtol=1))
+            torch.testing.assert_close(encoding["labels"][0]["boxes"], expected_boxes_0, rtol=1)
+            torch.testing.assert_close(encoding["labels"][1]["boxes"], expected_boxes_1, rtol=1)
 
     # Copied from tests.models.detr.test_image_processing_detr.DetrImageProcessingTest.test_batched_coco_panoptic_annotations with Detr->DeformableDetr
     def test_batched_coco_panoptic_annotations(self):
@@ -451,8 +451,8 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
                     [0.2997, 0.2994, 0.5994, 0.5987],
                 ]
             )
-            self.assertTrue(torch.allclose(encoding["labels"][0]["boxes"], expected_boxes_0, rtol=1e-3))
-            self.assertTrue(torch.allclose(encoding["labels"][1]["boxes"], expected_boxes_1, rtol=1e-3))
+            torch.testing.assert_close(encoding["labels"][0]["boxes"], expected_boxes_0, rtol=1e-3)
+            torch.testing.assert_close(encoding["labels"][1]["boxes"], expected_boxes_1, rtol=1e-3)
 
             # Check the masks have also been padded
             self.assertEqual(encoding["labels"][0]["masks"].shape, torch.Size([6, 800, 1066]))
@@ -504,8 +504,8 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
                     unnormalized_boxes_1[:, 1] + unnormalized_boxes_1[:, 3] / 2,
                 ]
             ).T
-            self.assertTrue(torch.allclose(encoding["labels"][0]["boxes"], expected_boxes_0, rtol=1))
-            self.assertTrue(torch.allclose(encoding["labels"][1]["boxes"], expected_boxes_1, rtol=1))
+            torch.testing.assert_close(encoding["labels"][0]["boxes"], expected_boxes_0, rtol=1)
+            torch.testing.assert_close(encoding["labels"][1]["boxes"], expected_boxes_1, rtol=1)
 
     # Copied from tests.models.detr.test_image_processing_detr.DetrImageProcessingTest.test_max_width_max_height_resizing_and_pad_strategy with Detr->DeformableDetr
     def test_max_width_max_height_resizing_and_pad_strategy(self):
@@ -637,7 +637,7 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
             )
         )
         # verify area
-        self.assertTrue(torch.allclose(encoding_cpu["labels"][0]["area"], encoding_gpu["labels"][0]["area"].to("cpu")))
+        torch.testing.assert_close(encoding_cpu["labels"][0]["area"], encoding_gpu["labels"][0]["area"].to("cpu"))
         # verify boxes
         self.assertEqual(encoding_cpu["labels"][0]["boxes"].shape, encoding_gpu["labels"][0]["boxes"].shape)
         self.assertTrue(
@@ -646,12 +646,12 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
             )
         )
         # verify image_id
-        self.assertTrue(
-            torch.allclose(encoding_cpu["labels"][0]["image_id"], encoding_gpu["labels"][0]["image_id"].to("cpu"))
+        torch.testing.assert_close(
+            encoding_cpu["labels"][0]["image_id"], encoding_gpu["labels"][0]["image_id"].to("cpu")
         )
         # verify is_crowd
-        self.assertTrue(
-            torch.allclose(encoding_cpu["labels"][0]["iscrowd"], encoding_gpu["labels"][0]["iscrowd"].to("cpu"))
+        torch.testing.assert_close(
+            encoding_cpu["labels"][0]["iscrowd"], encoding_gpu["labels"][0]["iscrowd"].to("cpu")
         )
         # verify class_labels
         self.assertTrue(
@@ -660,11 +660,11 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
             )
         )
         # verify orig_size
-        self.assertTrue(
-            torch.allclose(encoding_cpu["labels"][0]["orig_size"], encoding_gpu["labels"][0]["orig_size"].to("cpu"))
+        torch.testing.assert_close(
+            encoding_cpu["labels"][0]["orig_size"], encoding_gpu["labels"][0]["orig_size"].to("cpu")
         )
         # verify size
-        self.assertTrue(torch.allclose(encoding_cpu["labels"][0]["size"], encoding_gpu["labels"][0]["size"].to("cpu")))
+        torch.testing.assert_close(encoding_cpu["labels"][0]["size"], encoding_gpu["labels"][0]["size"].to("cpu"))
 
     @slow
     @require_torch_gpu
@@ -701,7 +701,7 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
             )
         )
         # verify area
-        self.assertTrue(torch.allclose(encoding_cpu["labels"][0]["area"], encoding_gpu["labels"][0]["area"].to("cpu")))
+        torch.testing.assert_close(encoding_cpu["labels"][0]["area"], encoding_gpu["labels"][0]["area"].to("cpu"))
         # verify boxes
         self.assertEqual(encoding_cpu["labels"][0]["boxes"].shape, encoding_gpu["labels"][0]["boxes"].shape)
         self.assertTrue(
@@ -710,12 +710,12 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
             )
         )
         # verify image_id
-        self.assertTrue(
-            torch.allclose(encoding_cpu["labels"][0]["image_id"], encoding_gpu["labels"][0]["image_id"].to("cpu"))
+        torch.testing.assert_close(
+            encoding_cpu["labels"][0]["image_id"], encoding_gpu["labels"][0]["image_id"].to("cpu")
         )
         # verify is_crowd
-        self.assertTrue(
-            torch.allclose(encoding_cpu["labels"][0]["iscrowd"], encoding_gpu["labels"][0]["iscrowd"].to("cpu"))
+        torch.testing.assert_close(
+            encoding_cpu["labels"][0]["iscrowd"], encoding_gpu["labels"][0]["iscrowd"].to("cpu")
         )
         # verify class_labels
         self.assertTrue(
@@ -729,8 +729,8 @@ class DeformableDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcessi
         relative_error = torch.abs(masks_sum_cpu - masks_sum_gpu) / masks_sum_cpu
         self.assertTrue(relative_error < 1e-3)
         # verify orig_size
-        self.assertTrue(
-            torch.allclose(encoding_cpu["labels"][0]["orig_size"], encoding_gpu["labels"][0]["orig_size"].to("cpu"))
+        torch.testing.assert_close(
+            encoding_cpu["labels"][0]["orig_size"], encoding_gpu["labels"][0]["orig_size"].to("cpu")
         )
         # verify size
-        self.assertTrue(torch.allclose(encoding_cpu["labels"][0]["size"], encoding_gpu["labels"][0]["size"].to("cpu")))
+        torch.testing.assert_close(encoding_cpu["labels"][0]["size"], encoding_gpu["labels"][0]["size"].to("cpu"))

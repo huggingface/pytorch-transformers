@@ -466,7 +466,9 @@ class LongformerModelIntegrationTest(unittest.TestCase):
         self.assertTrue(padded_hidden_states.shape[-1] == chunked_hidden_states.shape[-1] + window_overlap_size - 1)
 
         # first row => [0.4983,  2.6918, -0.0071,  1.0492, 0.0000,  0.0000,  0.0000]
-        self.assertTrue(torch.allclose(padded_hidden_states[0, 0, 0, :4], chunked_hidden_states[0, 0, 0], atol=1e-3))
+        torch.testing.assert_close(
+            padded_hidden_states[0, 0, 0, :4], chunked_hidden_states[0, 0, 0], rtol=1e-3, atol=1e-3
+        )
         self.assertTrue(
             torch.allclose(
                 padded_hidden_states[0, 0, 0, 4:],
@@ -475,7 +477,9 @@ class LongformerModelIntegrationTest(unittest.TestCase):
             )
         )
         # last row => [0.0000,  0.0000,  0.0000, 2.0514, -1.1600,  0.5372,  0.2629]
-        self.assertTrue(torch.allclose(padded_hidden_states[0, 0, -1, 3:], chunked_hidden_states[0, 0, -1], atol=1e-3))
+        torch.testing.assert_close(
+            padded_hidden_states[0, 0, -1, 3:], chunked_hidden_states[0, 0, -1], rtol=1e-3, atol=1e-3
+        )
         self.assertTrue(
             torch.allclose(
                 padded_hidden_states[0, 0, -1, :3],
@@ -493,8 +497,10 @@ class LongformerModelIntegrationTest(unittest.TestCase):
         self.assertEqual(padded_hidden_states.shape, (1, 8, 5))
 
         expected_added_dim = torch.zeros((5,), device=torch_device, dtype=torch.float32)
-        self.assertTrue(torch.allclose(expected_added_dim, padded_hidden_states[0, -1, :], atol=1e-6))
-        self.assertTrue(torch.allclose(hidden_states[0, -1, :], padded_hidden_states.view(1, -1)[0, 24:32], atol=1e-6))
+        torch.testing.assert_close(expected_added_dim, padded_hidden_states[0, -1, :], rtol=1e-6, atol=1e-6)
+        torch.testing.assert_close(
+            hidden_states[0, -1, :], padded_hidden_states.view(1, -1)[0, 24:32], rtol=1e-6, atol=1e-6
+        )
 
     def test_chunk(self):
         hidden_states = self._get_hidden_states()
@@ -513,8 +519,10 @@ class LongformerModelIntegrationTest(unittest.TestCase):
             [0.4983, -1.8348, -0.7584, 2.0514], device=torch_device, dtype=torch.float32
         )
 
-        self.assertTrue(torch.allclose(chunked_hidden_states[0, :, 0, 0], expected_slice_along_seq_length, atol=1e-3))
-        self.assertTrue(torch.allclose(chunked_hidden_states[0, 0, :, 0], expected_slice_along_chunk, atol=1e-3))
+        torch.testing.assert_close(
+            chunked_hidden_states[0, :, 0, 0], expected_slice_along_seq_length, rtol=1e-3, atol=1e-3
+        )
+        torch.testing.assert_close(chunked_hidden_states[0, 0, :, 0], expected_slice_along_chunk, rtol=1e-3, atol=1e-3)
         self.assertEqual(chunked_hidden_states.shape, (1, 3, 4, 4))
 
     def test_mask_invalid_locations(self):
@@ -728,8 +736,8 @@ class LongformerModelIntegrationTest(unittest.TestCase):
         output_without_mask = model(input_ids)[0]
 
         expected_output_slice = torch.tensor([0.0549, 0.1087, -0.1119, -0.0368, 0.0250], device=torch_device)
-        self.assertTrue(torch.allclose(output[0, 0, -5:], expected_output_slice, atol=1e-4))
-        self.assertTrue(torch.allclose(output_without_mask[0, 0, -5:], expected_output_slice, atol=1e-4))
+        torch.testing.assert_close(output[0, 0, -5:], expected_output_slice, rtol=1e-4, atol=1e-4)
+        torch.testing.assert_close(output_without_mask[0, 0, -5:], expected_output_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_no_head_long(self):
@@ -749,8 +757,8 @@ class LongformerModelIntegrationTest(unittest.TestCase):
 
         expected_output_sum = torch.tensor(74585.8594, device=torch_device)
         expected_output_mean = torch.tensor(0.0243, device=torch_device)
-        self.assertTrue(torch.allclose(output.sum(), expected_output_sum, atol=1e-4))
-        self.assertTrue(torch.allclose(output.mean(), expected_output_mean, atol=1e-4))
+        torch.testing.assert_close(output.sum(), expected_output_sum, rtol=1e-4, atol=1e-4)
+        torch.testing.assert_close(output.mean(), expected_output_mean, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_masked_lm_long(self):
@@ -769,6 +777,6 @@ class LongformerModelIntegrationTest(unittest.TestCase):
         expected_prediction_scores_sum = torch.tensor(-6.1048e08, device=torch_device)
         expected_prediction_scores_mean = torch.tensor(-3.0348, device=torch_device)
 
-        self.assertTrue(torch.allclose(loss, expected_loss, atol=1e-4))
-        self.assertTrue(torch.allclose(prediction_scores.sum(), expected_prediction_scores_sum, atol=1e-4))
-        self.assertTrue(torch.allclose(prediction_scores.mean(), expected_prediction_scores_mean, atol=1e-4))
+        torch.testing.assert_close(loss, expected_loss, rtol=1e-4, atol=1e-4)
+        torch.testing.assert_close(prediction_scores.sum(), expected_prediction_scores_sum, rtol=1e-4, atol=1e-4)
+        torch.testing.assert_close(prediction_scores.mean(), expected_prediction_scores_mean, rtol=1e-4, atol=1e-4)

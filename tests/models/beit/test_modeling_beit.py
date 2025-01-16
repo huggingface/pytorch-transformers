@@ -634,7 +634,7 @@ class BeitModelIntegrationTest(unittest.TestCase):
             [[-3.2437, 0.5072, -13.9174], [-3.2456, 0.4948, -13.9401], [-3.2033, 0.5121, -13.8550]]
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(logits[bool_masked_pos][:3, :3], expected_slice, atol=1e-2))
+        torch.testing.assert_close(logits[bool_masked_pos][:3, :3], expected_slice, rtol=1e-2, atol=1e-2)
 
     @slow
     def test_inference_image_classification_head_imagenet_1k(self):
@@ -655,7 +655,7 @@ class BeitModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([-1.2385, -1.0987, -1.0108]).to(torch_device)
 
-        self.assertTrue(torch.allclose(logits[0, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(logits[0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
         expected_class_idx = 281
         self.assertEqual(logits.argmax(-1).item(), expected_class_idx)
@@ -681,7 +681,7 @@ class BeitModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([1.6881, -0.2787, 0.5901]).to(torch_device)
 
-        self.assertTrue(torch.allclose(logits[0, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(logits[0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
         expected_class_idx = 2396
         self.assertEqual(logits.argmax(-1).item(), expected_class_idx)
@@ -727,7 +727,7 @@ class BeitModelIntegrationTest(unittest.TestCase):
                 device=torch_device,
             )
 
-        self.assertTrue(torch.allclose(logits[0, :3, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(logits[0, :3, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_post_processing_semantic_segmentation(self):

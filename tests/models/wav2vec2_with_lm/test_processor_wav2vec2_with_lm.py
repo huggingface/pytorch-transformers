@@ -506,5 +506,5 @@ class Wav2Vec2ProcessorWithLMTest(unittest.TestCase):
         expected_end_tensor = torch.tensor([0.7800, 1.1000, 1.6600, 1.9200, 2.0400, 2.8000, 3.3000, 3.8800, 4.2800])
         # fmt: on
 
-        self.assertTrue(torch.allclose(start_times, expected_start_tensor, atol=0.01))
-        self.assertTrue(torch.allclose(end_times, expected_end_tensor, atol=0.01))
+        torch.testing.assert_close(start_times, expected_start_tensor, rtol=0.01, atol=0.01)
+        torch.testing.assert_close(end_times, expected_end_tensor, rtol=0.01, atol=0.01)

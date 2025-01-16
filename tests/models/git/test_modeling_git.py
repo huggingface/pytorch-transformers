@@ -555,7 +555,7 @@ class GitModelIntegrationTest(unittest.TestCase):
             [[-0.9514, -0.9512, -0.9507], [-0.5454, -0.5453, -0.5453], [-0.8862, -0.8857, -0.8848]],
             device=torch_device,
         )
-        self.assertTrue(torch.allclose(outputs.logits[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     def test_inference_image_captioning(self):
         processor = GitProcessor.from_pretrained("microsoft/git-base")
@@ -576,7 +576,7 @@ class GitModelIntegrationTest(unittest.TestCase):
         self.assertEqual(generated_caption, "two cats laying on a pink blanket")
         self.assertTrue(outputs.scores[-1].shape, expected_shape)
         expected_slice = torch.tensor([[-0.8805, -0.8803, -0.8799]], device=torch_device)
-        self.assertTrue(torch.allclose(outputs.scores[-1][0, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.scores[-1][0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     def test_visual_question_answering(self):
         processor = GitProcessor.from_pretrained("microsoft/git-base-textvqa")
@@ -653,4 +653,4 @@ class GitModelIntegrationTest(unittest.TestCase):
             [[-1.0296, 2.5960, 0.8703], [1.7027, 1.3302, -0.4543], [-1.4932, -0.1084, 0.0502]]
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.last_hidden_state[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.last_hidden_state[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)

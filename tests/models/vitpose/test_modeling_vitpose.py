@@ -277,9 +277,9 @@ class VitPoseModelIntegrationTest(unittest.TestCase):
         expected_scores = torch.tensor([8.7529e-01, 8.4315e-01, 9.2678e-01])
 
         self.assertEqual(len(pose_results), 2)
-        self.assertTrue(torch.allclose(pose_results[1]["bbox"].cpu(), expected_bbox, atol=1e-4))
-        self.assertTrue(torch.allclose(pose_results[1]["keypoints"][:3].cpu(), expected_keypoints, atol=1e-2))
-        self.assertTrue(torch.allclose(pose_results[1]["scores"][:3].cpu(), expected_scores, atol=1e-4))
+        torch.testing.assert_close(pose_results[1]["bbox"].cpu(), expected_bbox, rtol=1e-4, atol=1e-4)
+        torch.testing.assert_close(pose_results[1]["keypoints"][:3].cpu(), expected_keypoints, rtol=1e-2, atol=1e-2)
+        torch.testing.assert_close(pose_results[1]["scores"][:3].cpu(), expected_scores, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_batched_inference(self):
@@ -327,6 +327,6 @@ class VitPoseModelIntegrationTest(unittest.TestCase):
 
         self.assertEqual(len(pose_results), 2)
         self.assertEqual(len(pose_results[0]), 2)
-        self.assertTrue(torch.allclose(pose_results[0][1]["bbox"].cpu(), expected_bbox, atol=1e-4))
-        self.assertTrue(torch.allclose(pose_results[0][1]["keypoints"][:3].cpu(), expected_keypoints, atol=1e-2))
-        self.assertTrue(torch.allclose(pose_results[0][1]["scores"][:3].cpu(), expected_scores, atol=1e-4))
+        torch.testing.assert_close(pose_results[0][1]["bbox"].cpu(), expected_bbox, rtol=1e-4, atol=1e-4)
+        torch.testing.assert_close(pose_results[0][1]["keypoints"][:3].cpu(), expected_keypoints, rtol=1e-2, atol=1e-2)
+        torch.testing.assert_close(pose_results[0][1]["scores"][:3].cpu(), expected_scores, rtol=1e-4, atol=1e-4)

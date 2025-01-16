@@ -1703,7 +1703,7 @@ class T5ModelIntegrationTests(unittest.TestCase):
 
         model.forward = torch.compile(model.forward, mode="reduce-overhead", fullgraph=True)
         logits_compiled = model(**inputs)
-        self.assertTrue(torch.allclose(logits[0][:, -3:, -3], logits_compiled[0][:, -3:, -3], atol=1e-5))
+        torch.testing.assert_close(logits[0][:, -3:, -3], logits_compiled[0][:, -3:, -3], rtol=1e-5, atol=1e-5)
 
 
 @require_torch

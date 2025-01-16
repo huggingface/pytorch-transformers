@@ -259,4 +259,4 @@ class MgpstrModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(outputs.logits[0][:, 1:4, 1:4], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0][:, 1:4, 1:4], expected_slice, rtol=1e-4, atol=1e-4)

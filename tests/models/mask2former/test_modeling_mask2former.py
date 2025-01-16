@@ -436,7 +436,7 @@ class Mask2FormerModelIntegrationTest(unittest.TestCase):
             [-6.6105, -6.3427, -6.4675],
         ]
         expected_slice = torch.tensor(expected_slice).to(torch_device)
-        self.assertTrue(torch.allclose(masks_queries_logits[0, 0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(masks_queries_logits[0, 0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
         # class_queries_logits
         class_queries_logits = outputs.class_queries_logits
         self.assertEqual(class_queries_logits.shape, (1, model.config.num_queries, model.config.num_labels + 1))
@@ -447,7 +447,9 @@ class Mask2FormerModelIntegrationTest(unittest.TestCase):
                 [0.3045, -7.7293, -3.0275],
             ]
         ).to(torch_device)
-        self.assertTrue(torch.allclose(outputs.class_queries_logits[0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(
+            outputs.class_queries_logits[0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE
+        )
 
     @require_torch_accelerator
     @require_torch_fp16
@@ -500,10 +502,10 @@ class Mask2FormerModelIntegrationTest(unittest.TestCase):
             eager_outputs = model(**inputs)
             exported_outputs = exported_program.module().forward(inputs["pixel_values"], inputs["pixel_mask"])
         self.assertEqual(eager_outputs.masks_queries_logits.shape, exported_outputs.masks_queries_logits.shape)
-        self.assertTrue(
-            torch.allclose(eager_outputs.masks_queries_logits, exported_outputs.masks_queries_logits, atol=TOLERANCE)
+        torch.testing.assert_close(
+            eager_outputs.masks_queries_logits, exported_outputs.masks_queries_logits, rtol=TOLERANCE, atol=TOLERANCE
         )
         self.assertEqual(eager_outputs.class_queries_logits.shape, exported_outputs.class_queries_logits.shape)
-        self.assertTrue(
-            torch.allclose(eager_outputs.class_queries_logits, exported_outputs.class_queries_logits, atol=TOLERANCE)
+        torch.testing.assert_close(
+            eager_outputs.class_queries_logits, exported_outputs.class_queries_logits, rtol=TOLERANCE, atol=TOLERANCE
         )

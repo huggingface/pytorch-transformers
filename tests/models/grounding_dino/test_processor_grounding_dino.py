@@ -123,10 +123,10 @@ class GroundingDinoProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         self.assertEqual(post_processed[0]["scores"].shape, (self.num_queries,))
 
         expected_scores = torch.tensor([0.7050, 0.7222, 0.7222, 0.6829, 0.7220])
-        self.assertTrue(torch.allclose(post_processed[0]["scores"], expected_scores, atol=1e-4))
+        torch.testing.assert_close(post_processed[0]["scores"], expected_scores, rtol=1e-4, atol=1e-4)
 
         expected_box_slice = torch.tensor([0.6908, 0.4354, 1.0737, 1.3947])
-        self.assertTrue(torch.allclose(post_processed[0]["boxes"][0], expected_box_slice, atol=1e-4))
+        torch.testing.assert_close(post_processed[0]["boxes"][0], expected_box_slice, rtol=1e-4, atol=1e-4)
 
     # Copied from tests.models.clip.test_processor_clip.CLIPProcessorTest.test_save_load_pretrained_default with CLIP->GroundingDino,GroundingDinoTokenizer->BertTokenizer
     def test_save_load_pretrained_default(self):

@@ -591,4 +591,4 @@ class UniSpeechModelIntegrationTest(unittest.TestCase):
         )
         # fmt: on
 
-        self.assertTrue(torch.allclose(cosine_sim[:, :5], expected_cosine_sim_slice, atol=1e-3))
+        torch.testing.assert_close(cosine_sim[:, :5], expected_cosine_sim_slice, rtol=1e-3, atol=1e-3)

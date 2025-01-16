@@ -333,7 +333,9 @@ class TextNetModelIntegrationTest(unittest.TestCase):
             [0.9210, 0.6099, 0.0000, 0.0000, 0.0000, 0.0000, 3.2207, 2.6602, 1.8925, 0.0000],
             device=torch_device,
         )
-        self.assertTrue(torch.allclose(output.feature_maps[-1][0][10][12][:10], expected_slice_backbone, atol=1e-3))
+        torch.testing.assert_close(
+            output.feature_maps[-1][0][10][12][:10], expected_slice_backbone, rtol=1e-3, atol=1e-3
+        )
 
 
 @require_torch

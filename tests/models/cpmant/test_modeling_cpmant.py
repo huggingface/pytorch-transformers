@@ -185,7 +185,7 @@ class CpmAntModelIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[[6.1708, 5.9244, 1.0835], [6.5207, 6.2893, -11.3324], [-1.0107, -0.0576, -5.9577]]],
         )
-        self.assertTrue(torch.allclose(hidden_states[:, :3, :3], expected_slice, atol=1e-2))
+        torch.testing.assert_close(hidden_states[:, :3, :3], expected_slice, rtol=1e-2, atol=1e-2)
 
 
 @require_torch
@@ -202,7 +202,7 @@ class CpmAntForCausalLMlIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[[-6.4267, -6.4083, -6.3958], [-5.8802, -5.9447, -5.7811], [-5.3896, -5.4820, -5.4295]]],
         )
-        self.assertTrue(torch.allclose(hidden_states[:, :3, :3], expected_slice, atol=1e-2))
+        torch.testing.assert_close(hidden_states[:, :3, :3], expected_slice, rtol=1e-2, atol=1e-2)
 
     @tooslow
     def test_simple_generation(self):

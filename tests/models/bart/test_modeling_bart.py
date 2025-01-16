@@ -887,7 +887,7 @@ class BartModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[0.7144, 0.8143, -1.2813], [0.7144, 0.8143, -1.2813], [-0.0467, 2.5911, -2.1845]], device=torch_device
         )
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-3))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-3, atol=1e-3)
 
     @slow
     def test_base_mask_filling(self):

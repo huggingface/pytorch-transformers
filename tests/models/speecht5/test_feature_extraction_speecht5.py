@@ -402,7 +402,7 @@ class SpeechT5FeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest
         feature_extractor = SpeechT5FeatureExtractor()
         input_values = feature_extractor(input_speech, return_tensors="pt").input_values
         self.assertEqual(input_values.shape, (1, 93680))
-        self.assertTrue(torch.allclose(input_values[0, :30], EXPECTED_INPUT_VALUES, atol=1e-6))
+        torch.testing.assert_close(input_values[0, :30], EXPECTED_INPUT_VALUES, rtol=1e-6, atol=1e-6)
 
     def test_integration_target(self):
         # fmt: off
@@ -418,4 +418,4 @@ class SpeechT5FeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest
         feature_extractor = SpeechT5FeatureExtractor()
         input_values = feature_extractor(audio_target=input_speech, return_tensors="pt").input_values
         self.assertEqual(input_values.shape, (1, 366, 80))
-        self.assertTrue(torch.allclose(input_values[0, 0, :30], EXPECTED_INPUT_VALUES, atol=1e-4))
+        torch.testing.assert_close(input_values[0, 0, :30], EXPECTED_INPUT_VALUES, rtol=1e-4, atol=1e-4)

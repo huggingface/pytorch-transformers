@@ -612,7 +612,7 @@ class AltCLIPModelIntegrationTest(unittest.TestCase):
         probs = outputs.logits_per_image.softmax(dim=1)
         expected_probs = torch.tensor([[9.9942e-01, 5.7805e-04]], device=torch_device)
 
-        self.assertTrue(torch.allclose(probs, expected_probs, atol=5e-3))
+        torch.testing.assert_close(probs, expected_probs, rtol=5e-3, atol=5e-3)
 
     @slow
     def test_inference_interpolate_pos_encoding(self):
@@ -651,6 +651,6 @@ class AltCLIPModelIntegrationTest(unittest.TestCase):
             [[-0.3589, -0.5939, 0.3534], [0.4346, 0.1647, 0.7071], [1.1404, -0.4716, 0.1664]]
         ).to(torch_device)
 
-        self.assertTrue(
-            torch.allclose(outputs.vision_model_output.last_hidden_state[0, :3, :3], expected_slice, atol=1e-4)
+        torch.testing.assert_close(
+            outputs.vision_model_output.last_hidden_state[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4
         )

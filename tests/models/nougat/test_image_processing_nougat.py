@@ -142,7 +142,7 @@ class NougatImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         dummy_image = self.image_processor_tester.prepare_dummy_image()
         image_processor = self.image_processor
         inputs = image_processor(dummy_image, return_tensors="pt")
-        self.assertTrue(torch.allclose(inputs["pixel_values"].mean(), torch.tensor(0.4906), atol=1e-3, rtol=1e-3))
+        torch.testing.assert_close(inputs["pixel_values"].mean(), torch.tensor(0.4906), rtol=1e-3, atol=1e-3)
 
     def test_crop_margin_all_white(self):
         image = np.uint8(np.ones((100, 100, 3)) * 255)

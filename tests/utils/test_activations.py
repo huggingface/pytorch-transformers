@@ -29,7 +29,7 @@ class TestActivations(unittest.TestCase):
     def test_gelu_versions(self):
         x = torch.tensor([-100, -1, -0.1, 0, 0.1, 1.0, 100])
         torch_builtin = get_activation("gelu")
-        self.assertTrue(torch.allclose(gelu_python(x), torch_builtin(x)))
+        torch.testing.assert_close(gelu_python(x), torch_builtin(x))
         self.assertFalse(torch.allclose(gelu_python(x), gelu_new(x)))
 
     def test_gelu_10(self):
@@ -43,7 +43,7 @@ class TestActivations(unittest.TestCase):
         clipped_mask = torch.where(y_gelu_10 < 10.0, 1, 0)
 
         self.assertTrue(torch.max(y_gelu_10).item() == 10.0)
-        self.assertTrue(torch.allclose(y_gelu * clipped_mask, y_gelu_10 * clipped_mask))
+        torch.testing.assert_close(y_gelu * clipped_mask, y_gelu_10 * clipped_mask)
 
     def test_get_activation(self):
         get_activation("gelu")

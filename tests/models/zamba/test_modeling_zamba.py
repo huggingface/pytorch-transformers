@@ -342,10 +342,10 @@ class ZambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
                 if param.requires_grad:
                     if "A_log" in name:
                         A = torch.arange(1, config.mamba_d_state + 1, dtype=torch.float32)[None, :]
-                        self.assertTrue(torch.allclose(param.data, torch.log(A), atol=1e-5, rtol=1e-5))
+                        torch.testing.assert_close(param.data, torch.log(A), rtol=1e-5, atol=1e-5)
                     elif "D" in name:
                         # check if it's a ones like
-                        self.assertTrue(torch.allclose(param.data, torch.ones_like(param.data), atol=1e-5, rtol=1e-5))
+                        torch.testing.assert_close(param.data, torch.ones_like(param.data), rtol=1e-5, atol=1e-5)
                     elif "x_proj" in name or "dt_proj_weight" in name:
                         self.assertIn(
                             ((param.data.mean() * 1e2).round() / 1e2).item(),
@@ -499,7 +499,7 @@ class ZambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
             next_logits_with_padding = model(**model_kwargs).logits[:, -1, :]
 
             # They should result in very similar logits
-            self.assertTrue(torch.allclose(next_logits_wo_padding, next_logits_with_padding, atol=3e-3))
+            torch.testing.assert_close(next_logits_wo_padding, next_logits_with_padding, rtol=3e-3, atol=3e-3)
 
     @require_flash_attn
     @require_torch_gpu

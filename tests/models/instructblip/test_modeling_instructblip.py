@@ -748,7 +748,7 @@ class InstructBlipForConditionalGenerationDecoderOnlyTest(ModelTesterMixin, Gene
             ).logits[:, -1, :]
 
             # They should result in very similar logits
-            self.assertTrue(torch.allclose(next_logits_wo_padding, next_logits_with_padding, atol=1e-5))
+            torch.testing.assert_close(next_logits_wo_padding, next_logits_with_padding, rtol=1e-5, atol=1e-5)
 
     @unittest.skip(
         "InstructBLIP cannot generate only from input ids, and requires pixel values in all cases to be present"
@@ -851,7 +851,7 @@ class InstructBlipModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(logits[0, :3, :3].float(), expected_slice, atol=1e-3))
+        torch.testing.assert_close(logits[0, :3, :3].float(), expected_slice, rtol=1e-3, atol=1e-3)
 
         # verify generation
         outputs = model.generate(**inputs, max_new_tokens=30)

@@ -682,7 +682,7 @@ class BertModelIntegrationTest(unittest.TestCase):
         self.assertEqual(output.shape, expected_shape)
         expected_slice = torch.tensor([[[0.4249, 0.1008, 0.7531], [0.3771, 0.1188, 0.7467], [0.4152, 0.1098, 0.7108]]])
 
-        self.assertTrue(torch.allclose(output[:, 1:4, 1:4], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, 1:4, 1:4], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_no_head_relative_embedding_key(self):
@@ -697,7 +697,7 @@ class BertModelIntegrationTest(unittest.TestCase):
             [[[0.0756, 0.3142, -0.5128], [0.3761, 0.3462, -0.5477], [0.2052, 0.3760, -0.1240]]]
         )
 
-        self.assertTrue(torch.allclose(output[:, 1:4, 1:4], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, 1:4, 1:4], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_no_head_relative_embedding_key_query(self):
@@ -712,7 +712,7 @@ class BertModelIntegrationTest(unittest.TestCase):
             [[[0.6496, 0.3784, 0.8203], [0.8148, 0.5656, 0.2636], [-0.0681, 0.5597, 0.7045]]]
         )
 
-        self.assertTrue(torch.allclose(output[:, 1:4, 1:4], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, 1:4, 1:4], expected_slice, rtol=1e-4, atol=1e-4)
 
     def test_sdpa_ignored_mask(self):
         pkv = []

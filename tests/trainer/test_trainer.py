@@ -609,8 +609,8 @@ class TrainerIntegrationCommon:
                 state_dict = safetensors.torch.load_file(os.path.join(checkpoint, SAFE_WEIGHTS_NAME))
             best_model.load_state_dict(state_dict)
             best_model.to(trainer.args.device)
-        self.assertTrue(torch.allclose(best_model.a, trainer.model.a))
-        self.assertTrue(torch.allclose(best_model.b, trainer.model.b))
+        torch.testing.assert_close(best_model.a, trainer.model.a)
+        torch.testing.assert_close(best_model.b, trainer.model.b)
 
         metrics = trainer.evaluate()
         self.assertEqual(metrics[metric], best_value)
@@ -698,8 +698,8 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
     def check_trained_model(self, model, alternate_seed=False):
         # Checks a training seeded with learning_rate = 0.1
         (a, b) = self.alternate_trained_model if alternate_seed else self.default_trained_model
-        self.assertTrue(torch.allclose(model.a, a))
-        self.assertTrue(torch.allclose(model.b, b))
+        torch.testing.assert_close(model.a, a)
+        torch.testing.assert_close(model.b, b)
 
     def test_reproducible_training(self):
         # Checks that training worked, model trained and seed made a reproducible training.
@@ -1567,8 +1567,7 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         # Check that we get identical embeddings just in case
         emb1 = trainer.model.get_input_embeddings()(dummy_input)
         emb2 = trainer.model.get_input_embeddings()(dummy_input)
-
-        self.assertTrue(torch.allclose(emb1, emb2), "Neftune noise is still applied!")
+        torch.testing.assert_close(emb1, emb2)
 
     def test_logging_inf_nan_filter(self):
         config = GPT2Config(vocab_size=100, n_positions=128, n_embd=32, n_layer=3, n_head=4)

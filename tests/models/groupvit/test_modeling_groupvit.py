@@ -757,4 +757,4 @@ class GroupViTModelIntegrationTest(unittest.TestCase):
 
         expected_logits = torch.tensor([[13.3523, 6.3629]])
 
-        self.assertTrue(torch.allclose(outputs.logits_per_image, expected_logits, atol=1e-3))
+        torch.testing.assert_close(outputs.logits_per_image, expected_logits, rtol=1e-3, atol=1e-3)

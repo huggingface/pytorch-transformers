@@ -589,4 +589,4 @@ class GPTBigCodeMQATest(unittest.TestCase):
         attention_mqa_result = attention_mqa(hidden_states)[0]
 
         # CHECK THAT ALL OUTPUTS ARE THE SAME
-        self.assertTrue(torch.allclose(attention_mha_result, attention_mqa_result, atol=1e-5))
+        torch.testing.assert_close(attention_mha_result, attention_mqa_result, rtol=1e-5, atol=1e-5)

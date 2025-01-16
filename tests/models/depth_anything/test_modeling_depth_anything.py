@@ -267,7 +267,7 @@ class DepthAnythingModelIntegrationTest(unittest.TestCase):
             [[8.8223, 8.6483, 8.6216], [8.3332, 8.6047, 8.7545], [8.6547, 8.6885, 8.7472]],
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(predicted_depth[0, :3, :3], expected_slice, atol=1e-6))
+        torch.testing.assert_close(predicted_depth[0, :3, :3], expected_slice, rtol=1e-6, atol=1e-6)
 
         # -- `metric` depth model --
         image_processor = DPTImageProcessor.from_pretrained("depth-anything/depth-anything-V2-metric-indoor-small-hf")
@@ -290,7 +290,7 @@ class DepthAnythingModelIntegrationTest(unittest.TestCase):
             [[1.3349, 1.2947, 1.2802], [1.2794, 1.2338, 1.2901], [1.2630, 1.2219, 1.2478]],
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(predicted_depth[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(predicted_depth[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     def test_export(self):
         for strict in [True, False]:

@@ -513,4 +513,4 @@ class MptIntegrationTests(unittest.TestCase):
         expected_slice = torch.Tensor([-0.2520, -0.2178, -0.1953]).to(torch_device, torch.bfloat16)
         predicted_slice = outputs.hidden_states[-1][0, 0, :3]
 
-        self.assertTrue(torch.allclose(expected_slice, predicted_slice, atol=1e-3, rtol=1e-3))
+        torch.testing.assert_close(expected_slice, predicted_slice, rtol=1e-3, atol=1e-3)

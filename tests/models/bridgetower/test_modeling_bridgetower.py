@@ -689,4 +689,4 @@ class BridgeTowerModelTrainingTest(unittest.TestCase):
             [[-0.6518, 0.4978, -0.4544], [-2.6672, -0.0843, -0.4210], [-2.4510, -0.1002, -0.3458]]
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.image_features[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.image_features[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)

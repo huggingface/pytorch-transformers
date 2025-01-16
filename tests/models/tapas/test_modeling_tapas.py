@@ -605,12 +605,12 @@ class TapasModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(outputs.last_hidden_state[:, :3, :3], expected_slice, atol=0.0005))
+        torch.testing.assert_close(outputs.last_hidden_state[:, :3, :3], expected_slice, rtol=0.0005, atol=0.0005)
 
         # test the pooled output
         expected_slice = torch.tensor([[0.987518311, -0.970520139, -0.994303405]], device=torch_device)
 
-        self.assertTrue(torch.allclose(outputs.pooler_output[:, :3], expected_slice, atol=0.0005))
+        torch.testing.assert_close(outputs.pooler_output[:, :3], expected_slice, rtol=0.0005, atol=0.0005)
 
     @unittest.skip(reason="Model not available yet")
     def test_inference_masked_lm(self):
@@ -666,7 +666,7 @@ class TapasModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(logits, expected_tensor, atol=0.015))
+        torch.testing.assert_close(logits, expected_tensor, rtol=0.015, atol=0.015)
 
     @slow
     def test_inference_question_answering_head_conversational_absolute_embeddings(self):
@@ -716,7 +716,7 @@ class TapasModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(logits, expected_tensor, atol=0.01))
+        torch.testing.assert_close(logits, expected_tensor, rtol=0.01, atol=0.01)
 
     @slow
     def test_inference_question_answering_head_weak_supervision(self):
@@ -744,7 +744,7 @@ class TapasModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(logits[:, -6:], expected_slice, atol=0.4))
+        torch.testing.assert_close(logits[:, -6:], expected_slice, rtol=0.4, atol=0.4)
 
         # test the aggregation logits
         logits_aggregation = outputs.logits_aggregation
@@ -755,7 +755,7 @@ class TapasModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(logits_aggregation, expected_tensor, atol=0.001))
+        torch.testing.assert_close(logits_aggregation, expected_tensor, rtol=0.001, atol=0.001)
 
         # test the predicted answer coordinates and aggregation indices
         EXPECTED_PREDICTED_ANSWER_COORDINATES = [[(0, 0)], [(1, 2)]]
@@ -813,7 +813,7 @@ class TapasModelIntegrationTest(unittest.TestCase):
         # test the loss
         loss = outputs.loss
         expected_loss = torch.tensor(3.3527612686157227e-08, device=torch_device)
-        self.assertTrue(torch.allclose(loss, expected_loss, atol=1e-6))
+        torch.testing.assert_close(loss, expected_loss, rtol=1e-6, atol=1e-6)
 
         # test the logits on the first example
         logits = outputs.logits
@@ -834,7 +834,7 @@ class TapasModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(logits[0, -9:], expected_slice, atol=1e-6))
+        torch.testing.assert_close(logits[0, -9:], expected_slice, rtol=1e-6, atol=1e-6)
 
         # test the aggregation logits on the second example
         logits_aggregation = outputs.logits_aggregation
@@ -842,7 +842,7 @@ class TapasModelIntegrationTest(unittest.TestCase):
         self.assertEqual(logits_aggregation.shape, expected_shape)
         expected_slice = torch.tensor([-4.0538, 40.0304, -5.3554, 23.3965], device=torch_device)
 
-        self.assertTrue(torch.allclose(logits_aggregation[1, -4:], expected_slice, atol=1e-4))
+        torch.testing.assert_close(logits_aggregation[1, -4:], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_question_answering_head_strong_supervision(self):
@@ -890,7 +890,7 @@ class TapasModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(logits, expected_tensor, atol=0.02))
+        torch.testing.assert_close(logits, expected_tensor, rtol=0.02, atol=0.02)
 
         # test the aggregation logits
         logits_aggregation = outputs.logits_aggregation
@@ -900,7 +900,7 @@ class TapasModelIntegrationTest(unittest.TestCase):
             [[16.5659733, -3.06624889, -2.34152961, -0.970244825]], device=torch_device
         )  # PyTorch model outputs [[16.5679, -3.0668, -2.3442, -0.9674]]
 
-        self.assertTrue(torch.allclose(logits_aggregation, expected_tensor, atol=0.003))
+        torch.testing.assert_close(logits_aggregation, expected_tensor, rtol=0.003, atol=0.003)
 
     @slow
     def test_inference_classification_head(self):
@@ -922,7 +922,7 @@ class TapasModelIntegrationTest(unittest.TestCase):
             [[0.795137286, 9.5572]], device=torch_device
         )  # Note that the PyTorch model outputs [[0.8057, 9.5281]]
 
-        self.assertTrue(torch.allclose(outputs.logits, expected_tensor, atol=0.05))
+        torch.testing.assert_close(outputs.logits, expected_tensor, rtol=0.05, atol=0.05)
 
 
 @require_torch

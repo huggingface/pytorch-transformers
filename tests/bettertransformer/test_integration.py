@@ -66,7 +66,7 @@ class BetterTransformerIntegrationTest(unittest.TestCase):
             )
 
             output_from_pretrained = model_reloaded.generate(**inp)
-            self.assertTrue(torch.allclose(output, output_from_pretrained))
+            torch.testing.assert_close(output, output_from_pretrained)
 
     def test_error_save_pretrained(self):
         r"""

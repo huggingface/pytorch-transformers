@@ -238,7 +238,7 @@ class ColPaliForRetrievalModelTest(ModelTesterMixin, unittest.TestCase):
             with torch.no_grad():
                 out_ids = model(input_ids=input_ids, **inputs)[0]
                 out_embeds = model(inputs_embeds=inputs_embeds, **inputs)[0]
-            self.assertTrue(torch.allclose(out_embeds, out_ids))
+            torch.testing.assert_close(out_embeds, out_ids)
 
     @slow
     @require_vision

@@ -304,7 +304,7 @@ class NystromformerModelIntegrationTest(unittest.TestCase):
             [[[-0.4532, -0.0936, 0.5137], [-0.2676, 0.0628, 0.6186], [-0.3629, -0.1726, 0.4716]]]
         )
 
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_masked_lm_end_to_end(self):

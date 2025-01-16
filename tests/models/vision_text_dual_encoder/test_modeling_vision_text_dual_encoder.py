@@ -515,4 +515,4 @@ class VisionTextDualEncoderIntegrationTest(unittest.TestCase):
 
         expected_logits = torch.tensor([[1.2284727, 0.3104122]])
 
-        self.assertTrue(torch.allclose(outputs.logits_per_image, expected_logits, atol=1e-3))
+        torch.testing.assert_close(outputs.logits_per_image, expected_logits, rtol=1e-3, atol=1e-3)

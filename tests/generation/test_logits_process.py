@@ -166,8 +166,8 @@ class LogitsProcessorTest(unittest.TestCase):
         processed_scores = temp_dist_warper_smoother(input_ids, scores)
 
         # uniform distribution stays uniform
-        self.assertTrue(torch.allclose(probs[0, :], warped_prob_sharp[0, :], atol=1e-3))
-        self.assertTrue(torch.allclose(probs[0, :], warped_prob_smooth[0, :], atol=1e-3))
+        torch.testing.assert_close(probs[0, :], warped_prob_sharp[0, :], rtol=1e-3, atol=1e-3)
+        torch.testing.assert_close(probs[0, :], warped_prob_smooth[0, :], rtol=1e-3, atol=1e-3)
 
         # sharp peaks get higher, valleys get lower
         self.assertLess(probs[1, :].max(), warped_prob_sharp[1, :].max())
@@ -288,7 +288,7 @@ class LogitsProcessorTest(unittest.TestCase):
         EXPECTED_FILTERED_DIST = torch.tensor(
             [[0.3, 0.0, 0.0, 0.5], [0.0, 0.3, 0.3, 0.25]], device=torch_device, dtype=torch.float
         )
-        self.assertTrue(torch.allclose(filtered_dist, EXPECTED_FILTERED_DIST, atol=1e-3))
+        torch.testing.assert_close(filtered_dist, EXPECTED_FILTERED_DIST, rtol=1e-3, atol=1e-3)
 
         # processor should not change logits in-place
         self.assertFalse(torch.all(top_p_warp(input_ids, dist) == dist))
@@ -335,7 +335,7 @@ class LogitsProcessorTest(unittest.TestCase):
             device=torch_device,
             dtype=torch.float,
         )
-        self.assertTrue(torch.allclose(filtered_dist, EXPECTED_FILTERED_DIST, atol=1e-3))
+        torch.testing.assert_close(filtered_dist, EXPECTED_FILTERED_DIST, rtol=1e-3, atol=1e-3)
 
         # processor should not change logits in-place
         self.assertFalse(torch.all(min_p_warp(input_ids, dist) == dist))
@@ -372,7 +372,7 @@ class LogitsProcessorTest(unittest.TestCase):
         EXPECTED_FILTERED_DIST = torch.tensor(
             [[0.97, 0.0, 0.0, 0.0], [0.0, 0.2, 0.2, 0.2]], device=torch_device, dtype=torch.float
         )
-        self.assertTrue(torch.allclose(filtered_dist, EXPECTED_FILTERED_DIST, atol=1e-3))
+        torch.testing.assert_close(filtered_dist, EXPECTED_FILTERED_DIST, rtol=1e-3, atol=1e-3)
 
         # processor should not change logits in-place
         self.assertFalse(torch.all(typical_warp(input_ids, dist) == dist))
@@ -422,7 +422,7 @@ class LogitsProcessorTest(unittest.TestCase):
         EXPECTED_FILTERED_DIST = torch.tensor(
             [[0.87, 0, 0, 0], [0.4, 0.299, 0.101, 0.2]], device=torch_device, dtype=torch.float
         )
-        self.assertTrue(torch.allclose(filtered_dist, EXPECTED_FILTERED_DIST, atol=1e-3))
+        torch.testing.assert_close(filtered_dist, EXPECTED_FILTERED_DIST, rtol=1e-3, atol=1e-3)
 
         # processor should not change logits in-place
         self.assertFalse(torch.all(epsilon_warp(input_ids, dist) == dist))
@@ -462,7 +462,7 @@ class LogitsProcessorTest(unittest.TestCase):
         EXPECTED_FILTERED_DIST = torch.tensor(
             [[0.0, 0.1, 0.8, 0.1], [0.0, 0.0, 0.9, 0.0]], device=torch_device, dtype=torch.float
         )
-        self.assertTrue(torch.allclose(filtered_dist, EXPECTED_FILTERED_DIST, atol=1e-3))
+        torch.testing.assert_close(filtered_dist, EXPECTED_FILTERED_DIST, rtol=1e-3, atol=1e-3)
 
         # processor should not change logits in-place
         self.assertFalse(torch.all(eta_warp(input_ids, dist) == dist))
@@ -599,7 +599,7 @@ class LogitsProcessorTest(unittest.TestCase):
         # check edge case
         no_bad_words_dist_proc = NoBadWordsLogitsProcessor(bad_words_ids=[[4]], eos_token_id=eos_token_id)
         filtered_scores = no_bad_words_dist_proc(input_ids, scores)
-        self.assertTrue(torch.allclose(scores, filtered_scores, atol=1e-3))
+        torch.testing.assert_close(scores, filtered_scores, rtol=1e-3, atol=1e-3)
 
     def test_bias_dist_processor(self):
         vocab_size = 5
@@ -674,7 +674,7 @@ class LogitsProcessorTest(unittest.TestCase):
         scores_comp = processor(input_ids, scores_comp)
 
         # scores should be equal
-        self.assertTrue(torch.allclose(scores, scores_comp, atol=1e-3))
+        torch.testing.assert_close(scores, scores_comp, rtol=1e-3, atol=1e-3)
 
         # input_ids should never be changed
         self.assertListEqual(input_ids.tolist(), input_ids_comp.tolist())

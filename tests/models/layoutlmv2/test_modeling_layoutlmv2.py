@@ -559,7 +559,7 @@ class LayoutLMv2ModelIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[-0.1087, 0.0727, -0.3075], [0.0799, -0.0427, -0.0751], [-0.0367, 0.0480, -0.1358]], device=torch_device
         )
-        self.assertTrue(torch.allclose(outputs.last_hidden_state[0, :3, :3], expected_slice, atol=1e-3))
+        torch.testing.assert_close(outputs.last_hidden_state[0, :3, :3], expected_slice, rtol=1e-3, atol=1e-3)
 
         # verify the pooled output
         expected_shape = torch.Size((2, model.config.hidden_size))

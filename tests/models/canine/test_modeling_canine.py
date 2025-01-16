@@ -562,7 +562,7 @@ class CanineModelIntegrationTest(unittest.TestCase):
             ]
         )
 
-        self.assertTrue(torch.allclose(outputs.last_hidden_state[0, :3, :3], expected_slice, atol=1e-2))
+        torch.testing.assert_close(outputs.last_hidden_state[0, :3, :3], expected_slice, rtol=1e-2, atol=1e-2)
 
         # verify pooled output
         expected_shape = torch.Size((1, 768))
@@ -570,4 +570,4 @@ class CanineModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([-0.884311497, -0.529064834, 0.723164916])
 
-        self.assertTrue(torch.allclose(outputs.pooler_output[0, :3], expected_slice, atol=1e-2))
+        torch.testing.assert_close(outputs.pooler_output[0, :3], expected_slice, rtol=1e-2, atol=1e-2)

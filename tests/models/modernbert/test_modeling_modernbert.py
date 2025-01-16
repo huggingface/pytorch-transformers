@@ -383,7 +383,7 @@ class ModernBertModelIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[[3.8387, -0.2017, 12.2839], [3.6300, 0.6869, 14.7123], [-5.1137, -3.8122, 11.9874]]]
         )
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_no_head(self):
@@ -405,7 +405,7 @@ class ModernBertModelIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[[0.3151, -0.6417, -0.7027], [-0.7834, -1.5810, 0.4576], [1.0614, -0.7268, -0.0871]]]
         )
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_token_classification(self):
@@ -428,7 +428,7 @@ class ModernBertModelIntegrationTest(unittest.TestCase):
         expected = torch.tensor(
             [[[2.0159, 4.6569], [-0.9430, 3.1595], [-3.8770, 3.2653], [1.5752, 4.5167], [-1.6939, 1.2524]]]
         )
-        self.assertTrue(torch.allclose(output, expected, atol=1e-4))
+        torch.testing.assert_close(output, expected, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_sequence_classification(self):
@@ -451,7 +451,7 @@ class ModernBertModelIntegrationTest(unittest.TestCase):
         self.assertEqual(output.shape, expected_shape)
 
         expected = torch.tensor([[1.6466, 4.5662]])
-        self.assertTrue(torch.allclose(output, expected, atol=1e-4))
+        torch.testing.assert_close(output, expected, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_export(self):

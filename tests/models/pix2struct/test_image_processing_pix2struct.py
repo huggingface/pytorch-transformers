@@ -106,7 +106,7 @@ class Pix2StructImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase)
         max_patch = 2048
 
         inputs = image_processor(dummy_image, return_tensors="pt", max_patches=max_patch)
-        self.assertTrue(torch.allclose(inputs.flattened_patches.mean(), torch.tensor(0.0606), atol=1e-3, rtol=1e-3))
+        torch.testing.assert_close(inputs.flattened_patches.mean(), torch.tensor(0.0606), rtol=1e-3, atol=1e-3)
 
     def test_call_pil(self):
         # Initialize image_processor

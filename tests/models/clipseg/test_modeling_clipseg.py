@@ -814,13 +814,13 @@ class CLIPSegModelIntegrationTest(unittest.TestCase):
             [[-7.4613, -7.4785, -7.3628], [-7.3268, -7.0899, -7.1333], [-6.9838, -6.7900, -6.8913]]
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.logits[0, :3, :3], expected_masks_slice, atol=1e-3))
+        torch.testing.assert_close(outputs.logits[0, :3, :3], expected_masks_slice, rtol=1e-3, atol=1e-3)
 
         # verify conditional and pooled output
         expected_conditional = torch.tensor([0.5601, -0.0314, 0.1980]).to(torch_device)
         expected_pooled_output = torch.tensor([0.5036, -0.2681, -0.2644]).to(torch_device)
-        self.assertTrue(torch.allclose(outputs.conditional_embeddings[0, :3], expected_conditional, atol=1e-3))
-        self.assertTrue(torch.allclose(outputs.pooled_output[0, :3], expected_pooled_output, atol=1e-3))
+        torch.testing.assert_close(outputs.conditional_embeddings[0, :3], expected_conditional, rtol=1e-3, atol=1e-3)
+        torch.testing.assert_close(outputs.pooled_output[0, :3], expected_pooled_output, rtol=1e-3, atol=1e-3)
 
     @slow
     def test_inference_interpolate_pos_encoding(self):
@@ -855,6 +855,6 @@ class CLIPSegModelIntegrationTest(unittest.TestCase):
             [[-0.1538, 0.0322, -0.3235], [0.2893, 0.1135, -0.5708], [0.0461, 0.1540, -0.6018]]
         ).to(torch_device)
 
-        self.assertTrue(
-            torch.allclose(outputs.vision_model_output.last_hidden_state[0, :3, :3], expected_slice, atol=1e-4)
+        torch.testing.assert_close(
+            outputs.vision_model_output.last_hidden_state[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4
         )

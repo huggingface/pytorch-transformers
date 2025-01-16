@@ -290,7 +290,7 @@ class LlavaOnevisionForConditionalGenerationModelTest(ModelTesterMixin, Generati
             with torch.no_grad():
                 out_ids = model(input_ids=input_ids, **inputs)[0]
                 out_embeds = model(inputs_embeds=inputs_embeds, **inputs)[0]
-            self.assertTrue(torch.allclose(out_embeds, out_ids))
+            torch.testing.assert_close(out_embeds, out_ids)
 
     @unittest.skip(
         reason="This architecure seem to not compute gradients properly when using GC, SiglipVisionModel does not support standalone training"
@@ -369,7 +369,7 @@ class LlavaOnevisionForConditionalGenerationIntegrationTest(unittest.TestCase):
             dtype=torch.float32,
             device=torch_device,
         )
-        self.assertTrue(torch.allclose(output.logits[0, :3, :3], expected_slice, atol=1e-3))
+        torch.testing.assert_close(output.logits[0, :3, :3], expected_slice, rtol=1e-3, atol=1e-3)
 
         # verify generation
         output = model.generate(**inputs, max_new_tokens=100)

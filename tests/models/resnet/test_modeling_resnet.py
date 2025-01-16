@@ -303,7 +303,7 @@ class ResNetModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([-11.1069, -9.7877, -8.3777]).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.logits[0, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
 
 @require_torch

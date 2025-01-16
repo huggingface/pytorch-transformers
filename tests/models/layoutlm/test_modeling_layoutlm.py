@@ -329,12 +329,12 @@ class LayoutLMModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(outputs.last_hidden_state[0, :3, :3], expected_slice, atol=1e-3))
+        torch.testing.assert_close(outputs.last_hidden_state[0, :3, :3], expected_slice, rtol=1e-3, atol=1e-3)
 
         # test the pooled output on [1, :3]
         expected_slice = torch.tensor([-0.6580, -0.0214, 0.8552], device=torch_device)
 
-        self.assertTrue(torch.allclose(outputs.pooler_output[1, :3], expected_slice, atol=1e-3))
+        torch.testing.assert_close(outputs.pooler_output[1, :3], expected_slice, rtol=1e-3, atol=1e-3)
 
     @slow
     def test_forward_pass_sequence_classification(self):

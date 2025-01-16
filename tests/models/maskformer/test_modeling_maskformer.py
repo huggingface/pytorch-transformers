@@ -567,7 +567,7 @@ class MaskFormerModelIntegrationTest(unittest.TestCase):
             [-1.5795398, -1.9269832, -2.093942],
         ]
         expected_slice = torch.tensor(expected_slice).to(torch_device)
-        self.assertTrue(torch.allclose(masks_queries_logits[0, 0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(masks_queries_logits[0, 0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
         # class_queries_logits
         class_queries_logits = outputs.class_queries_logits
         self.assertEqual(
@@ -580,7 +580,9 @@ class MaskFormerModelIntegrationTest(unittest.TestCase):
                 [1.0766e-04, -7.7630e00, -5.1263e00],
             ]
         ).to(torch_device)
-        self.assertTrue(torch.allclose(outputs.class_queries_logits[0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(
+            outputs.class_queries_logits[0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE
+        )
 
     def test_inference_instance_segmentation_head_resnet_backbone(self):
         model = (
@@ -607,7 +609,7 @@ class MaskFormerModelIntegrationTest(unittest.TestCase):
         )
         expected_slice = [[-0.9046, -2.6366, -4.6062], [-3.4179, -5.7890, -8.8057], [-4.9179, -7.6560, -10.7711]]
         expected_slice = torch.tensor(expected_slice).to(torch_device)
-        self.assertTrue(torch.allclose(masks_queries_logits[0, 0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(masks_queries_logits[0, 0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
         # class_queries_logits
         class_queries_logits = outputs.class_queries_logits
         self.assertEqual(
@@ -616,7 +618,9 @@ class MaskFormerModelIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[4.7188, -3.2585, -2.8857], [6.6871, -2.9181, -1.2487], [7.2449, -2.2764, -2.1874]]
         ).to(torch_device)
-        self.assertTrue(torch.allclose(outputs.class_queries_logits[0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(
+            outputs.class_queries_logits[0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE
+        )
 
     @require_torch_accelerator
     @require_torch_fp16

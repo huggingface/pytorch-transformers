@@ -552,7 +552,7 @@ class Idefics2ForConditionalGenerationModelTest(GenerationTesterMixin, ModelTest
             out_ids = model.generate(input_ids=input_ids, **inputs, max_new_tokens=2)
             out_embeds = model.generate(input_ids=input_ids, inputs_embeds=inputs_embeds, **inputs, max_new_tokens=2)
 
-            self.assertTrue(torch.allclose(out_embeds, out_ids))
+            torch.testing.assert_close(out_embeds, out_ids)
 
 
 @require_torch

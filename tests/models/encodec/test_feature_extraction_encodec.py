@@ -159,7 +159,7 @@ class EnCodecFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.
         feature_extractor = EncodecFeatureExtractor()
         input_values = feature_extractor(input_audio, return_tensors="pt").input_values
         self.assertEqual(input_values.shape, (1, 1, 93680))
-        self.assertTrue(torch.allclose(input_values[0, 0, :30], EXPECTED_INPUT_VALUES, atol=1e-6))
+        torch.testing.assert_close(input_values[0, 0, :30], EXPECTED_INPUT_VALUES, rtol=1e-6, atol=1e-6)
 
     def test_integration_stereo(self):
         # fmt: off
@@ -178,8 +178,8 @@ class EnCodecFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.
         feature_extractor = EncodecFeatureExtractor(feature_size=2)
         input_values = feature_extractor(input_audio, return_tensors="pt").input_values
         self.assertEqual(input_values.shape, (1, 2, 93680))
-        self.assertTrue(torch.allclose(input_values[0, 0, :30], EXPECTED_INPUT_VALUES, atol=1e-6))
-        self.assertTrue(torch.allclose(input_values[0, 1, :30], EXPECTED_INPUT_VALUES * 0.5, atol=1e-6))
+        torch.testing.assert_close(input_values[0, 0, :30], EXPECTED_INPUT_VALUES, rtol=1e-6, atol=1e-6)
+        torch.testing.assert_close(input_values[0, 1, :30], EXPECTED_INPUT_VALUES * 0.5, rtol=1e-6, atol=1e-6)
 
     def test_truncation_and_padding(self):
         input_audio = self._load_datasamples(2)

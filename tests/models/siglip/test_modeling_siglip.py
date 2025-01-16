@@ -1014,12 +1014,12 @@ class SiglipModelIntegrationTest(unittest.TestCase):
 
         expected_logits = torch.tensor([[-0.7567, -10.3354]], device=torch_device)
 
-        self.assertTrue(torch.allclose(outputs.logits_per_image, expected_logits, atol=1e-3))
+        torch.testing.assert_close(outputs.logits_per_image, expected_logits, rtol=1e-3, atol=1e-3)
 
         # verify the probs
         probs = torch.sigmoid(logits_per_image)  # these are the probabilities
         expected_probs = torch.tensor([[3.1937e-01, 3.2463e-05]], device=torch_device)
-        self.assertTrue(torch.allclose(probs, expected_probs, atol=1e-3))
+        torch.testing.assert_close(probs, expected_probs, rtol=1e-3, atol=1e-3)
 
     @slow
     def test_inference_interpolate_pos_encoding(self):

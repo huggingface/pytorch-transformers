@@ -397,13 +397,13 @@ class IBertModelIntegrationTest(unittest.TestCase):
         y, y_scaling_factor = embedding(torch.tensor(1))
 
         # scaling factor should follow the symmetric quantization rule
-        self.assertTrue(torch.allclose(x_scaling_factor, expected_scaling_factor, atol=1e-4))
-        self.assertTrue(torch.allclose(x_scaling_factor, expected_scaling_factor, atol=1e-4))
-        self.assertTrue(torch.allclose(y_scaling_factor, expected_scaling_factor, atol=1e-4))
+        torch.testing.assert_close(x_scaling_factor, expected_scaling_factor, rtol=1e-4, atol=1e-4)
+        torch.testing.assert_close(x_scaling_factor, expected_scaling_factor, rtol=1e-4, atol=1e-4)
+        torch.testing.assert_close(y_scaling_factor, expected_scaling_factor, rtol=1e-4, atol=1e-4)
 
         # quantization error should not exceed the scaling factor
-        self.assertTrue(torch.allclose(x, embedding_weight[0], atol=expected_scaling_factor))
-        self.assertTrue(torch.allclose(y, embedding_weight[1], atol=expected_scaling_factor))
+        torch.testing.assert_close(x, embedding_weight[0], rtol=expected_scaling_factor, atol=expected_scaling_factor)
+        torch.testing.assert_close(y, embedding_weight[1], rtol=expected_scaling_factor, atol=expected_scaling_factor)
 
     def test_quant_act(self):
         def _test_range():
@@ -417,19 +417,19 @@ class IBertModelIntegrationTest(unittest.TestCase):
 
             # After the first pass, x_min and x_max should be initialized with x.min() and x.max()
             expected_x_min, expected_x_max = x.min(), x.max()
-            self.assertTrue(torch.allclose(act.x_min, expected_x_min, atol=1e-4))
-            self.assertTrue(torch.allclose(act.x_max, expected_x_max, atol=1e-4))
+            torch.testing.assert_close(act.x_min, expected_x_min, rtol=1e-4, atol=1e-4)
+            torch.testing.assert_close(act.x_max, expected_x_max, rtol=1e-4, atol=1e-4)
 
             # scaling factor should follow the symmetric quantization rule
             expected_range = torch.max(expected_x_min.abs(), expected_x_max.abs())
             expected_scaling_factor = expected_range / (2 ** (activation_bit - 1) - 1)
-            self.assertTrue(torch.allclose(y_scaling_factor, expected_scaling_factor, atol=1e-4))
+            torch.testing.assert_close(y_scaling_factor, expected_scaling_factor, rtol=1e-4, atol=1e-4)
 
             # quantization error should not exceed the scaling factor
-            self.assertTrue(torch.allclose(x, y, atol=expected_scaling_factor))
+            torch.testing.assert_close(x, y, rtol=expected_scaling_factor, atol=expected_scaling_factor)
 
             # output should be integer
-            self.assertTrue(torch.allclose(y_int, y_int.round(), atol=1e-4))
+            torch.testing.assert_close(y_int, y_int.round(), rtol=1e-4, atol=1e-4)
 
             # Second Pass
             x = torch.tensor([[-1.0, -2.0, -3.0, -4.0], [5.0, 6.0, 7.0, 8.0]]) * 2
@@ -440,29 +440,29 @@ class IBertModelIntegrationTest(unittest.TestCase):
             # From the second pass, x_min and x_max should be updated with moving average
             expected_x_min = expected_x_min * act_range_momentum + x.min() * (1 - act_range_momentum)
             expected_x_max = expected_x_max * act_range_momentum + x.max() * (1 - act_range_momentum)
-            self.assertTrue(torch.allclose(act.x_min, expected_x_min, atol=1e-4))
-            self.assertTrue(torch.allclose(act.x_max, expected_x_max, atol=1e-4))
+            torch.testing.assert_close(act.x_min, expected_x_min, rtol=1e-4, atol=1e-4)
+            torch.testing.assert_close(act.x_max, expected_x_max, rtol=1e-4, atol=1e-4)
 
             # scaling factor should follow the symmetric quantization rule
             expected_range = torch.max(expected_x_min.abs(), expected_x_max.abs())
             expected_scaling_factor = expected_range / (2 ** (activation_bit - 1) - 1)
-            self.assertTrue(torch.allclose(y_scaling_factor, expected_scaling_factor, atol=1e-4))
+            torch.testing.assert_close(y_scaling_factor, expected_scaling_factor, rtol=1e-4, atol=1e-4)
 
             # quantization error should not exceed the scaling factor
             x = x.clamp(min=-expected_range, max=expected_range)
-            self.assertTrue(torch.allclose(x, y, atol=expected_scaling_factor))
+            torch.testing.assert_close(x, y, rtol=expected_scaling_factor, atol=expected_scaling_factor)
 
             # output should be integer
-            self.assertTrue(torch.allclose(y_int, y_int.round(), atol=1e-4))
+            torch.testing.assert_close(y_int, y_int.round(), rtol=1e-4, atol=1e-4)
 
             # Third pass, with eval()
             act.eval()
             x = torch.tensor([[-1.0, -2.0, -3.0, -4.0], [5.0, 6.0, 7.0, 8.0]]) * 3
 
             # In eval mode, min/max and scaling factor must be fixed
-            self.assertTrue(torch.allclose(act.x_min, expected_x_min, atol=1e-4))
-            self.assertTrue(torch.allclose(act.x_max, expected_x_max, atol=1e-4))
-            self.assertTrue(torch.allclose(y_scaling_factor, expected_scaling_factor, atol=1e-4))
+            torch.testing.assert_close(act.x_min, expected_x_min, rtol=1e-4, atol=1e-4)
+            torch.testing.assert_close(act.x_max, expected_x_max, rtol=1e-4, atol=1e-4)
+            torch.testing.assert_close(y_scaling_factor, expected_scaling_factor, rtol=1e-4, atol=1e-4)
 
         def _test_identity():
             # test if identity and identity_scaling_factor are given
@@ -474,8 +474,8 @@ class IBertModelIntegrationTest(unittest.TestCase):
             y_scaling_factor = torch.tensor(0.5)
             z, z_scaling_factor = act(x, x_scaling_factor, y, y_scaling_factor)
             z_int = z / z_scaling_factor
-            self.assertTrue(torch.allclose(x + y, z, atol=0.1))
-            self.assertTrue(torch.allclose(z_int, z_int.round(), atol=1e-4))
+            torch.testing.assert_close(x + y, z, rtol=0.1, atol=0.1)
+            torch.testing.assert_close(z_int, z_int.round(), rtol=1e-4, atol=1e-4)
 
         activation_bit = 8
         act_range_momentum = 0.95
@@ -501,13 +501,13 @@ class IBertModelIntegrationTest(unittest.TestCase):
             expected_scaling_factor = q_max / (2 ** (weight_bit - 1) - 1)
 
             # scaling factor should follow the symmetric quantization rule
-            self.assertTrue(torch.allclose(linear_q.fc_scaling_factor, expected_scaling_factor, atol=1e-4))
+            torch.testing.assert_close(linear_q.fc_scaling_factor, expected_scaling_factor, rtol=1e-4, atol=1e-4)
 
             # output of the normal linear layer and the quantized linear layer should be similar
-            self.assertTrue(torch.allclose(q, dq, atol=0.5))
+            torch.testing.assert_close(q, dq, rtol=0.5, atol=0.5)
 
             # output of the quantized linear layer should be integer
-            self.assertTrue(torch.allclose(q_int, q_int.round(), atol=1e-4))
+            torch.testing.assert_close(q_int, q_int.round(), rtol=1e-4, atol=1e-4)
 
         weight_bit = 8
         x = torch.tensor([[2.0, -5.0], [-3.0, 4.0]])
@@ -528,10 +528,10 @@ class IBertModelIntegrationTest(unittest.TestCase):
         dq = gelu_dq(x)
 
         # output of the normal GELU and the quantized GELU should be similar
-        self.assertTrue(torch.allclose(q, dq, atol=0.5))
+        torch.testing.assert_close(q, dq, rtol=0.5, atol=0.5)
 
         # output of the quantized GELU layer should be integer
-        self.assertTrue(torch.allclose(q_int, q_int.round(), atol=1e-4))
+        torch.testing.assert_close(q_int, q_int.round(), rtol=1e-4, atol=1e-4)
 
     def test_force_dequant_gelu(self):
         x_int = torch.arange(-10000, 10001, 1)
@@ -556,7 +556,7 @@ class IBertModelIntegrationTest(unittest.TestCase):
             for gelu_fdq in gelu_fdqs:
                 q, q_scaling_factor = gelu_fdq(x, x_scaling_factor)
                 if label:
-                    self.assertTrue(torch.allclose(q, dq, atol=1e-4))
+                    torch.testing.assert_close(q, dq, rtol=1e-4, atol=1e-4)
                 else:
                     self.assertFalse(torch.allclose(q, dq, atol=1e-4))
 
@@ -575,10 +575,10 @@ class IBertModelIntegrationTest(unittest.TestCase):
             dq = softmax_dq(x)
 
             # output of the normal Softmax and the quantized Softmax should be similar
-            self.assertTrue(torch.allclose(q, dq, atol=0.5))
+            torch.testing.assert_close(q, dq, rtol=0.5, atol=0.5)
 
             # output of the quantized GELU layer should be integer
-            self.assertTrue(torch.allclose(q_int, q_int.round(), atol=1e-4))
+            torch.testing.assert_close(q_int, q_int.round(), rtol=1e-4, atol=1e-4)
 
             # Output of the quantize Softmax should not exceed the output_bit
             self.assertTrue(q.abs().max() < 2**output_bit)
@@ -615,7 +615,7 @@ class IBertModelIntegrationTest(unittest.TestCase):
             for softmax_fdq in softmax_fdqs:
                 q, q_scaling_factor = softmax_fdq(x, x_scaling_factor)
                 if label:
-                    self.assertTrue(torch.allclose(q, dq, atol=1e-4))
+                    torch.testing.assert_close(q, dq, rtol=1e-4, atol=1e-4)
                 else:
                     self.assertFalse(torch.allclose(q, dq, atol=1e-4))
 
@@ -641,10 +641,10 @@ class IBertModelIntegrationTest(unittest.TestCase):
         dq = ln_dq(x)
 
         # output of the normal LN and the quantized LN should be similar
-        self.assertTrue(torch.allclose(q, dq, atol=0.5))
+        torch.testing.assert_close(q, dq, rtol=0.5, atol=0.5)
 
         # output of the quantized GELU layer should be integer
-        self.assertTrue(torch.allclose(q_int, q_int.round(), atol=1e-4))
+        torch.testing.assert_close(q_int, q_int.round(), rtol=1e-4, atol=1e-4)
 
     def test_force_dequant_layernorm(self):
         output_bit = 8
@@ -675,7 +675,7 @@ class IBertModelIntegrationTest(unittest.TestCase):
                 ln_fdq.bias = nn.Parameter(torch.ones(x.shape[1:]))
                 q, q_scaling_factor = ln_fdq(x, x_scaling_factor)
                 if label:
-                    self.assertTrue(torch.allclose(q, dq, atol=1e-4))
+                    torch.testing.assert_close(q, dq, rtol=1e-4, atol=1e-4)
                 else:
                     self.assertFalse(torch.allclose(q, dq, atol=1e-4))
 
@@ -708,13 +708,13 @@ class IBertModelIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[[33.8802, -4.3103, 22.7761], [4.6539, -2.8098, 13.6253], [1.8228, -3.6898, 8.8600]]]
         )
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
         # I-BERT should be "similar" to RoBERTa if quantized
         self.quantize(model)
         output = model(input_ids)[0]
         self.assertEqual(output.shape, expected_shape)
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=0.1))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=0.1, atol=0.1)
 
     @slow
     def test_inference_classification_head(self):
@@ -726,10 +726,10 @@ class IBertModelIntegrationTest(unittest.TestCase):
         expected_shape = torch.Size((1, 3))
         self.assertEqual(output.shape, expected_shape)
         expected_tensor = torch.tensor([[-0.9469, 0.3913, 0.5118]])
-        self.assertTrue(torch.allclose(output, expected_tensor, atol=1e-4))
+        torch.testing.assert_close(output, expected_tensor, rtol=1e-4, atol=1e-4)
 
         # I-BERT should be "similar" to RoBERTa if quantized
         self.quantize(model)
         output = model(input_ids)[0]
         self.assertEqual(output.shape, expected_shape)
-        self.assertTrue(torch.allclose(output, expected_tensor, atol=0.1))
+        torch.testing.assert_close(output, expected_tensor, rtol=0.1, atol=0.1)

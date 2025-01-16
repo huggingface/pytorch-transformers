@@ -385,7 +385,7 @@ class VideoMAEModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([0.3669, -0.0688, -0.2421]).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.logits[0, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_for_pretraining(self):
@@ -409,11 +409,11 @@ class VideoMAEModelIntegrationTest(unittest.TestCase):
             [[0.7994, 0.9612, 0.8508], [0.7401, 0.8958, 0.8302], [0.5862, 0.7468, 0.7325]], device=torch_device
         )
         self.assertEqual(outputs.logits.shape, expected_shape)
-        self.assertTrue(torch.allclose(outputs.logits[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
         # verify the loss (`config.norm_pix_loss` = `True`)
         expected_loss = torch.tensor([0.5142], device=torch_device)
-        self.assertTrue(torch.allclose(outputs.loss, expected_loss, atol=1e-4))
+        torch.testing.assert_close(outputs.loss, expected_loss, rtol=1e-4, atol=1e-4)
 
         # verify the loss (`config.norm_pix_loss` = `False`)
         model = VideoMAEForPreTraining.from_pretrained("MCG-NJU/videomae-base-short", norm_pix_loss=False).to(
@@ -424,4 +424,4 @@ class VideoMAEModelIntegrationTest(unittest.TestCase):
             outputs = model(**inputs)
 
         expected_loss = torch.tensor(torch.tensor([0.6469]), device=torch_device)
-        self.assertTrue(torch.allclose(outputs.loss, expected_loss, atol=1e-4))
+        torch.testing.assert_close(outputs.loss, expected_loss, rtol=1e-4, atol=1e-4)

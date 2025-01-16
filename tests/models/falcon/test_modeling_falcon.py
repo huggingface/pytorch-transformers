@@ -446,7 +446,7 @@ class FalconModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
         # Dynamic scaling does not change the RoPE embeddings until it receives an input longer than the original
         # maximum sequence length, so the outputs for the short input should match.
         if scaling_type == "dynamic":
-            self.assertTrue(torch.allclose(original_short_output, scaled_short_output, atol=1e-5))
+            torch.testing.assert_close(original_short_output, scaled_short_output, rtol=1e-5, atol=1e-5)
         else:
             self.assertFalse(torch.allclose(original_short_output, scaled_short_output, atol=1e-5))
 
@@ -628,4 +628,4 @@ class FalconLanguageGenerationTest(unittest.TestCase):
             falcon_output_eager = falcon(input_ids, output_attentions=True)[0]
             falcon_output_sdpa = falcon(input_ids)[0]
 
-        self.assertTrue(torch.allclose(falcon_output_eager, falcon_output_sdpa, atol=1e-3))
+        torch.testing.assert_close(falcon_output_eager, falcon_output_sdpa, rtol=1e-3, atol=1e-3)

@@ -183,7 +183,7 @@ def convert_wav2vec2_bert_checkpoint(
         with torch.no_grad():
             outputs = hf_wav2vec(**inputs)
 
-        torch.testing.assert_close(original_output, outputs.last_hidden_state, atol=5e-3, rtol=5e-3)
+        torch.testing.assert_close(original_output, outputs.last_hidden_state, rtol=5e-3, atol=5e-3)
 
 
 if __name__ == "__main__":

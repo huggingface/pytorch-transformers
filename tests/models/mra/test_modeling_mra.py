@@ -401,7 +401,7 @@ class MraModelIntegrationTest(unittest.TestCase):
             [[[-0.0140, 0.0830, -0.0381], [0.1546, 0.1402, 0.0220], [0.1162, 0.0851, 0.0165]]]
         )
 
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_masked_lm(self):
@@ -420,7 +420,7 @@ class MraModelIntegrationTest(unittest.TestCase):
             [[[9.2595, -3.6038, 11.8819], [9.3869, -3.2693, 11.0956], [11.8524, -3.4938, 13.1210]]]
         )
 
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_masked_lm_long_input(self):
@@ -439,4 +439,4 @@ class MraModelIntegrationTest(unittest.TestCase):
             [[[5.4789, -2.3564, 7.5064], [7.9067, -1.3369, 9.9668], [9.0712, -1.8106, 7.0380]]]
         )
 
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)

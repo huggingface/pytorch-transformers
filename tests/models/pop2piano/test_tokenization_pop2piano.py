@@ -87,8 +87,8 @@ class Pop2PianoTokenizerTest(unittest.TestCase):
         )
         expected_output_attention_mask = torch.tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 0, 0, 0, 0]])
 
-        self.assertTrue(torch.allclose(output["token_ids"], expected_output_token_ids, atol=1e-4))
-        self.assertTrue(torch.allclose(output["attention_mask"], expected_output_attention_mask, atol=1e-4))
+        torch.testing.assert_close(output["token_ids"], expected_output_token_ids, rtol=1e-4, atol=1e-4)
+        torch.testing.assert_close(output["attention_mask"], expected_output_attention_mask, rtol=1e-4, atol=1e-4)
 
     def test_batch_decode(self):
         # test batch decode with model, feature-extractor outputs(beatsteps, extrapolated_beatstep)
@@ -174,7 +174,7 @@ class Pop2PianoTokenizerTest(unittest.TestCase):
         )
         predicted_start_timings = torch.tensor(predicted_start_timings)
 
-        self.assertTrue(torch.allclose(expected_start_timings, predicted_start_timings, atol=1e-4))
+        torch.testing.assert_close(expected_start_timings, predicted_start_timings, rtol=1e-4, atol=1e-4)
 
         # Checking note end timings
         expected_end_timings = torch.tensor(
@@ -187,7 +187,7 @@ class Pop2PianoTokenizerTest(unittest.TestCase):
         )
         predicted_end_timings = torch.tensor(predicted_end_timings)
 
-        self.assertTrue(torch.allclose(expected_end_timings, predicted_end_timings, atol=1e-4))
+        torch.testing.assert_close(expected_end_timings, predicted_end_timings, rtol=1e-4, atol=1e-4)
 
     def test_get_vocab(self):
         vocab_dict = self.tokenizer.get_vocab()

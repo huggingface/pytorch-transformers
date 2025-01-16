@@ -359,7 +359,7 @@ class GPTNeoXModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
         # Dynamic scaling does not change the RoPE embeddings until it receives an input longer than the original
         # maximum sequence length, so the outputs for the short input should match.
         if scaling_type == "dynamic":
-            self.assertTrue(torch.allclose(original_short_output, scaled_short_output, atol=1e-5))
+            torch.testing.assert_close(original_short_output, scaled_short_output, rtol=1e-5, atol=1e-5)
         else:
             self.assertFalse(torch.allclose(original_short_output, scaled_short_output, atol=1e-5))
 
@@ -472,4 +472,4 @@ class GPTNeoXLanguageGenerationTest(unittest.TestCase):
         # alternative: tokenizer('<|im_start|>system\nA chat between')
         input_ids = torch.as_tensor(input_ids)[None].to(torch_device)
         outputs = model(input_ids)["logits"][:, -1][0, :30]
-        self.assertTrue(torch.allclose(EXPECTED_LOGITS, outputs, atol=1e-5))
+        torch.testing.assert_close(EXPECTED_LOGITS, outputs, rtol=1e-5, atol=1e-5)

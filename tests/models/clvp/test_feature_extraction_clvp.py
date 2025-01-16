@@ -238,4 +238,4 @@ class ClvpFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unittest.Tes
         feature_extractor = ClvpFeatureExtractor.from_pretrained("susnato/clvp_dev")
         input_features = feature_extractor(input_speech, sampling_rate=sr[0], return_tensors="pt").input_features
         self.assertEqual(input_features.shape, (1, 80, 517))
-        self.assertTrue(torch.allclose(input_features[0, 0, :30], EXPECTED_INPUT_FEATURES, atol=1e-4))
+        torch.testing.assert_close(input_features[0, 0, :30], EXPECTED_INPUT_FEATURES, rtol=1e-4, atol=1e-4)

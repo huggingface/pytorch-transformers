@@ -339,4 +339,4 @@ class DPTModelIntegrationTest(unittest.TestCase):
             [[[5.6437, 5.6146, 5.6511], [5.4371, 5.5649, 5.5958], [5.5215, 5.5184, 5.5293]]]
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.predicted_depth[:3, :3, :3] / 100, expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.predicted_depth[:3, :3, :3] / 100, expected_slice, rtol=1e-4, atol=1e-4)

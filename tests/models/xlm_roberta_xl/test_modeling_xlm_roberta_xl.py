@@ -542,7 +542,7 @@ class XLMRobertaModelXLIntegrationTest(unittest.TestCase):
         output = model(input_ids)["last_hidden_state"].detach()
         self.assertEqual(output.shape, expected_output_shape)
         # compare the actual values for a slice of last dim
-        self.assertTrue(torch.allclose(output[:, :, -1], expected_output_values_last_dim, atol=1e-3))
+        torch.testing.assert_close(output[:, :, -1], expected_output_values_last_dim, rtol=1e-3, atol=1e-3)
 
     @unittest.skip(reason="Model is too large to be tested on the CI")
     def test_xlm_roberta_xxl(self):
@@ -561,4 +561,4 @@ class XLMRobertaModelXLIntegrationTest(unittest.TestCase):
         output = model(input_ids)["last_hidden_state"].detach()
         self.assertEqual(output.shape, expected_output_shape)
         # compare the actual values for a slice of last dim
-        self.assertTrue(torch.allclose(output[:, :, -1], expected_output_values_last_dim, atol=1e-3))
+        torch.testing.assert_close(output[:, :, -1], expected_output_values_last_dim, rtol=1e-3, atol=1e-3)

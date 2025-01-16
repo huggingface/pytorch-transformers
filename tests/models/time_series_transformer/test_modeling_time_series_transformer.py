@@ -512,7 +512,7 @@ class TimeSeriesTransformerModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[0.8196, -1.5131, 1.4620], [1.1268, -1.3238, 1.5997], [1.5098, -1.0715, 1.7359]], device=torch_device
         )
-        self.assertTrue(torch.allclose(output[0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def test_inference_head(self):
         model = TimeSeriesTransformerForPrediction.from_pretrained(
@@ -534,7 +534,7 @@ class TimeSeriesTransformerModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[-1.2957, -1.0280, -0.6045], [-0.7017, -0.8193, -0.3717], [-1.0449, -0.8149, 0.1405]], device=torch_device
         )
-        self.assertTrue(torch.allclose(output[0, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[0, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def test_seq_to_seq_generation(self):
         model = TimeSeriesTransformerForPrediction.from_pretrained(
@@ -555,4 +555,4 @@ class TimeSeriesTransformerModelIntegrationTests(unittest.TestCase):
 
         expected_slice = torch.tensor([2825.2749, 3584.9207, 6763.9951], device=torch_device)
         mean_prediction = outputs.sequences.mean(dim=1)
-        self.assertTrue(torch.allclose(mean_prediction[0, -3:], expected_slice, rtol=1e-1))
+        torch.testing.assert_close(mean_prediction[0, -3:], expected_slice, rtol=1e-1)

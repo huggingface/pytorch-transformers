@@ -745,11 +745,11 @@ class RTDetrModelIntegrationTest(unittest.TestCase):
             ]
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.logits[0, :3, :3], expected_logits, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, :3, :3], expected_logits, rtol=1e-4, atol=1e-4)
 
         expected_shape_boxes = torch.Size((1, 300, 4))
         self.assertEqual(outputs.pred_boxes.shape, expected_shape_boxes)
-        self.assertTrue(torch.allclose(outputs.pred_boxes[0, :3, :3], expected_boxes, atol=1e-4))
+        torch.testing.assert_close(outputs.pred_boxes[0, :3, :3], expected_boxes, rtol=1e-4, atol=1e-4)
 
         # verify postprocessing
         results = image_processor.post_process_object_detection(
@@ -769,6 +769,6 @@ class RTDetrModelIntegrationTest(unittest.TestCase):
             device=torch_device,
         )
 
-        self.assertTrue(torch.allclose(results["scores"][:4], expected_scores, atol=1e-4))
+        torch.testing.assert_close(results["scores"][:4], expected_scores, rtol=1e-4, atol=1e-4)
         self.assertSequenceEqual(results["labels"][:4].tolist(), expected_labels)
-        self.assertTrue(torch.allclose(results["boxes"][:4], expected_slice_boxes, atol=1e-4))
+        torch.testing.assert_close(results["boxes"][:4], expected_slice_boxes, rtol=1e-4, atol=1e-4)

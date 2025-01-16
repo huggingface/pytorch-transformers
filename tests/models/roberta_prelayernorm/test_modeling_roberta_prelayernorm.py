@@ -544,7 +544,7 @@ class RobertaPreLayerNormModelIntegrationTest(TestCasePlus):
             [[[40.4880, 18.0199, -5.2367], [-1.8877, -4.0885, 10.7085], [-2.2613, -5.6110, 7.2665]]]
         )
 
-        self.assertTrue(torch.allclose(output[:, :3, :3], EXPECTED_SLICE, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_no_head(self):
@@ -558,4 +558,4 @@ class RobertaPreLayerNormModelIntegrationTest(TestCasePlus):
             [[[0.0208, -0.0356, 0.0237], [-0.1569, -0.0411, -0.2626], [0.1879, 0.0125, -0.0089]]]
         )
 
-        self.assertTrue(torch.allclose(output[:, :3, :3], EXPECTED_SLICE, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], EXPECTED_SLICE, rtol=1e-4, atol=1e-4)

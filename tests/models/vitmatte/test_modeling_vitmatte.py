@@ -292,4 +292,4 @@ class VitMatteModelIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[0.9977, 0.9987, 0.9990], [0.9980, 0.9998, 0.9998], [0.9983, 0.9998, 0.9998]], device=torch_device
         )
-        self.assertTrue(torch.allclose(alphas[0, 0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(alphas[0, 0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)

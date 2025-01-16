@@ -768,7 +768,7 @@ class InstructBlipVideoForConditionalGenerationDecoderOnlyTest(
             ).logits[:, -1, :]
 
             # They should result in very similar logits
-            self.assertTrue(torch.allclose(next_logits_wo_padding, next_logits_with_padding, atol=1e-5))
+            torch.testing.assert_close(next_logits_wo_padding, next_logits_with_padding, rtol=1e-5, atol=1e-5)
 
     @unittest.skip(
         "InstructBLIPVideo cannot generate only from input ids, and requires pixel values in all cases to be present"

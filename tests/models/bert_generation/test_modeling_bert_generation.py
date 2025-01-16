@@ -319,7 +319,7 @@ class BertGenerationEncoderIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[[0.1775, 0.0083, -0.0321], [1.6002, 0.1287, 0.3912], [2.1473, 0.5791, 0.6066]]]
         )
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
 
 @require_torch
@@ -335,4 +335,4 @@ class BertGenerationDecoderIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[[-0.5788, -2.5994, -3.7054], [0.0438, 4.7997, 1.8795], [1.5862, 6.6409, 4.4638]]]
         )
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)

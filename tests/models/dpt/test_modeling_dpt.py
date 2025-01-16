@@ -342,7 +342,7 @@ class DPTModelIntegrationTest(unittest.TestCase):
             [[6.3199, 6.3629, 6.4148], [6.3850, 6.3615, 6.4166], [6.3519, 6.3176, 6.3575]]
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.predicted_depth[0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.predicted_depth[0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     def test_inference_semantic_segmentation(self):
         image_processor = DPTImageProcessor.from_pretrained("Intel/dpt-large-ade")
@@ -363,7 +363,7 @@ class DPTModelIntegrationTest(unittest.TestCase):
             [[4.0480, 4.2420, 4.4360], [4.3124, 4.5693, 4.8261], [4.5768, 4.8965, 5.2163]]
         ).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.logits[0, 0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, 0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     def test_post_processing_semantic_segmentation(self):
         image_processor = DPTImageProcessor.from_pretrained("Intel/dpt-large-ade")
@@ -410,7 +410,7 @@ class DPTModelIntegrationTest(unittest.TestCase):
             predicted_depth.unsqueeze(0).unsqueeze(1), size=(500, 500), mode="bicubic", align_corners=False
         ).squeeze()
         self.assertTrue(output_enlarged.shape == expected_shape)
-        self.assertTrue(torch.allclose(predicted_depth_l, output_enlarged, rtol=1e-3))
+        torch.testing.assert_close(predicted_depth_l, output_enlarged, rtol=1e-3)
 
     def test_export(self):
         for strict in [True, False]:
@@ -431,4 +431,4 @@ class DPTModelIntegrationTest(unittest.TestCase):
                     eager_outputs = model(**inputs)
                     exported_outputs = exported_program.module().forward(inputs["pixel_values"])
                 self.assertEqual(eager_outputs.logits.shape, exported_outputs.logits.shape)
-                self.assertTrue(torch.allclose(eager_outputs.logits, exported_outputs.logits, atol=1e-4))
+                torch.testing.assert_close(eager_outputs.logits, exported_outputs.logits, rtol=1e-4, atol=1e-4)

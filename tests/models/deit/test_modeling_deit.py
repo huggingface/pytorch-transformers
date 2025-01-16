@@ -421,7 +421,7 @@ class DeiTModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([-1.0266, 0.1912, -1.2861]).to(torch_device)
 
-        self.assertTrue(torch.allclose(outputs.logits[0, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_interpolate_pos_encoding(self):

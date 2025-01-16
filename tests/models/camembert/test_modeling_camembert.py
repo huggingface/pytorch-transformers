@@ -60,7 +60,7 @@ class CamembertModelIntegrationTest(unittest.TestCase):
         # camembert.eval()
         # expected_slice = roberta.model.forward(input_ids)[0][:, :3, :3].detach()
 
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     @require_torch_sdpa
@@ -81,4 +81,4 @@ class CamembertModelIntegrationTest(unittest.TestCase):
         with torch.no_grad():
             output = model(input_ids)["last_hidden_state"].detach()
 
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)

@@ -166,7 +166,7 @@ class PeftIntegrationTester(unittest.TestCase, PeftTesterMixin):
 
                 peft_logits_enabled = peft_model(dummy_input).logits
 
-                self.assertTrue(torch.allclose(peft_logits, peft_logits_enabled, atol=1e-12, rtol=1e-12))
+                torch.testing.assert_close(peft_logits, peft_logits_enabled, rtol=1e-12, atol=1e-12)
                 self.assertFalse(torch.allclose(peft_logits_enabled, peft_logits_disabled, atol=1e-12, rtol=1e-12))
 
     def test_peft_add_adapter(self):

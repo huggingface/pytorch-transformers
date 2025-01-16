@@ -314,10 +314,10 @@ class BambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
                 if param.requires_grad:
                     if "A_log" in name:
                         A = torch.arange(1, config.mamba_n_heads + 1, dtype=torch.float32)[None, :]
-                        self.assertTrue(torch.allclose(param.data, torch.log(A), atol=1e-5, rtol=1e-5))
+                        torch.testing.assert_close(param.data, torch.log(A), rtol=1e-5, atol=1e-5)
                     elif "D" in name:
                         D = torch.ones(config.mamba_n_heads, dtype=torch.float32)
-                        self.assertTrue(torch.allclose(param.data, D, atol=1e-5, rtol=1e-5))
+                        torch.testing.assert_close(param.data, D, rtol=1e-5, atol=1e-5)
                     else:
                         self.assertIn(
                             ((param.data.mean() * 1e9).round() / 1e9).item(),
@@ -488,7 +488,7 @@ class BambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
             next_logits_with_padding = model(**model_kwargs).logits[:, -1, :]
 
             # They should result in very similar logits
-            torch.testing.assert_close(next_logits_wo_padding, next_logits_with_padding, atol=1e-5, rtol=1e-1)
+            torch.testing.assert_close(next_logits_wo_padding, next_logits_with_padding, rtol=1e-5, atol=1e-5)
 
 
 @slow

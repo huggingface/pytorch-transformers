@@ -599,7 +599,7 @@ class BarkSemanticModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.Te
             with torch.no_grad():
                 out_embeds = model(**inputs)[0]
 
-            self.assertTrue(torch.allclose(out_embeds, out_ids))
+            torch.testing.assert_close(out_embeds, out_ids)
 
     @require_torch_fp16
     def test_generate_fp16(self):
@@ -688,7 +688,7 @@ class BarkCoarseModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.Test
             with torch.no_grad():
                 out_embeds = model(**inputs)[0]
 
-            self.assertTrue(torch.allclose(out_embeds, out_ids))
+            torch.testing.assert_close(out_embeds, out_ids)
 
     @require_torch_fp16
     def test_generate_fp16(self):
@@ -1252,8 +1252,8 @@ class BarkModelIntegrationTests(unittest.TestCase):
         self.assertEqual(tuple(audio_lengths), (output1.shape[1], output2.shape[1]))
 
         # then assert almost equal
-        self.assertTrue(torch.allclose(outputs[0, : audio_lengths[0]], output1.squeeze(), atol=2e-3))
-        self.assertTrue(torch.allclose(outputs[1, : audio_lengths[1]], output2.squeeze(), atol=2e-3))
+        torch.testing.assert_close(outputs[0, : audio_lengths[0]], output1.squeeze(), rtol=2e-3, atol=2e-3)
+        torch.testing.assert_close(outputs[1, : audio_lengths[1]], output2.squeeze(), rtol=2e-3, atol=2e-3)
 
         # now test single input with return_output_lengths = True
         outputs, _ = self.model.generate(**s1, **args, return_output_lengths=True)

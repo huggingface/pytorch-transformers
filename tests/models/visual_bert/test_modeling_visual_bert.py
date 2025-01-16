@@ -605,14 +605,14 @@ class VisualBertModelIntegrationTest(unittest.TestCase):
             [[[-5.1858, -5.1903, -4.9142], [-6.2214, -5.9238, -5.8381], [-6.3027, -5.9939, -5.9297]]]
         )
 
-        self.assertTrue(torch.allclose(output.prediction_logits[:, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output.prediction_logits[:, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
         expected_shape_2 = torch.Size((1, 2))
         self.assertEqual(output.seq_relationship_logits.shape, expected_shape_2)
 
         expected_slice_2 = torch.tensor([[0.7393, 0.1754]])
 
-        self.assertTrue(torch.allclose(output.seq_relationship_logits, expected_slice_2, atol=1e-4))
+        torch.testing.assert_close(output.seq_relationship_logits, expected_slice_2, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_vqa(self):
@@ -644,7 +644,7 @@ class VisualBertModelIntegrationTest(unittest.TestCase):
             [[-8.9898, 3.0803, -1.8016, 2.4542, -8.3420, -2.0224, -3.3124, -4.4139, -3.1491, -3.8997]]
         )
 
-        self.assertTrue(torch.allclose(output.logits[:, :10], expected_slice, atol=1e-4))
+        torch.testing.assert_close(output.logits[:, :10], expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_nlvr(self):
@@ -674,7 +674,7 @@ class VisualBertModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([[-1.1436, 0.8900]])
 
-        self.assertTrue(torch.allclose(output.logits, expected_slice, atol=1e-4))
+        torch.testing.assert_close(output.logits, expected_slice, rtol=1e-4, atol=1e-4)
 
     @slow
     def test_inference_vcr(self):
@@ -705,4 +705,4 @@ class VisualBertModelIntegrationTest(unittest.TestCase):
 
         expected_slice = torch.tensor([[-7.7697, -7.7697, -7.7697, -7.7697]])
 
-        self.assertTrue(torch.allclose(output.logits, expected_slice, atol=1e-4))
+        torch.testing.assert_close(output.logits, expected_slice, rtol=1e-4, atol=1e-4)

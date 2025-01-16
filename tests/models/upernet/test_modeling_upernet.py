@@ -310,7 +310,7 @@ class UperNetModelIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[-7.5958, -7.5958, -7.4302], [-7.5958, -7.5958, -7.4302], [-7.4797, -7.4797, -7.3068]]
         ).to(torch_device)
-        self.assertTrue(torch.allclose(outputs.logits[0, 0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, 0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)
 
     def test_inference_convnext_backbone(self):
         processor = AutoImageProcessor.from_pretrained("openmmlab/upernet-convnext-tiny")
@@ -328,4 +328,4 @@ class UperNetModelIntegrationTest(unittest.TestCase):
         expected_slice = torch.tensor(
             [[-8.8110, -8.8110, -8.6521], [-8.8110, -8.8110, -8.6521], [-8.7746, -8.7746, -8.6130]]
         ).to(torch_device)
-        self.assertTrue(torch.allclose(outputs.logits[0, 0, :3, :3], expected_slice, atol=1e-4))
+        torch.testing.assert_close(outputs.logits[0, 0, :3, :3], expected_slice, rtol=1e-4, atol=1e-4)

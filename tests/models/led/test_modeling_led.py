@@ -540,7 +540,7 @@ class LEDModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[2.3050, 2.8279, 0.6531], [-1.8457, -0.1455, -3.5661], [-1.0186, 0.4586, -2.2043]], device=torch_device
         )
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def test_inference_head(self):
         model = LEDForConditionalGeneration.from_pretrained("allenai/led-base-16384").to(torch_device)
@@ -557,7 +557,7 @@ class LEDModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[33.6507, 6.4572, 16.8089], [5.8739, -2.4238, 11.2902], [-3.2139, -4.3149, 4.2783]], device=torch_device
         )
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def test_seq_to_seq_generation(self):
         # this test requires 16GB of RAM

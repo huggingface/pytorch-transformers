@@ -103,10 +103,10 @@ class OmDetTurboProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         self.assertEqual(post_processed[0]["boxes"].shape, (self.num_queries, 4))
         self.assertEqual(post_processed[0]["scores"].shape, (self.num_queries,))
         expected_scores = torch.tensor([0.7310, 0.6579, 0.6513, 0.6444, 0.6252])
-        self.assertTrue(torch.allclose(post_processed[0]["scores"], expected_scores, atol=1e-4))
+        torch.testing.assert_close(post_processed[0]["scores"], expected_scores, rtol=1e-4, atol=1e-4)
 
         expected_box_slice = torch.tensor([14.9657, 141.2052, 30.0000, 312.9670])
-        self.assertTrue(torch.allclose(post_processed[0]["boxes"][0], expected_box_slice, atol=1e-4))
+        torch.testing.assert_close(post_processed[0]["boxes"][0], expected_box_slice, rtol=1e-4, atol=1e-4)
 
     def test_save_load_pretrained_additional_features(self):
         processor = OmDetTurboProcessor(tokenizer=self.get_tokenizer(), image_processor=self.get_image_processor())

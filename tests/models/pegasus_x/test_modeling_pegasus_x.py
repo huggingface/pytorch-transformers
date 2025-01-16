@@ -595,7 +595,7 @@ class PegasusXModelIntegrationTests(unittest.TestCase):
             [[0.0702, -0.1552, 0.1192], [0.0836, -0.1848, 0.1304], [0.0673, -0.1686, 0.1045]], device=torch_device
         )
 
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def test_inference_head(self):
         model = PegasusXForConditionalGeneration.from_pretrained("google/pegasus-x-base").to(torch_device)
@@ -612,7 +612,7 @@ class PegasusXModelIntegrationTests(unittest.TestCase):
         expected_slice = torch.tensor(
             [[0.0, 9.5705185, 1.5897303], [0.0, 9.833374, 1.5828674], [0.0, 10.429961, 1.5643371]], device=torch_device
         )
-        self.assertTrue(torch.allclose(output[:, :3, :3], expected_slice, atol=TOLERANCE))
+        torch.testing.assert_close(output[:, :3, :3], expected_slice, rtol=TOLERANCE, atol=TOLERANCE)
 
     def test_seq_to_seq_generation(self):
         hf = PegasusXForConditionalGeneration.from_pretrained("google/pegasus-x-base-arxiv").to(torch_device)

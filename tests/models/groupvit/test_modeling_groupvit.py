@@ -575,6 +575,10 @@ class GroupViTModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase
     def test_config(self):
         self.config_tester.run_common_tests()
 
+    @is_flaky(description="The `index` computed with `max()` in `hard_softmax` is not stable.")
+    def test_batching_equivalence(self):
+        super().test_batching_equivalence()
+
     @unittest.skip(reason="hidden_states are tested in individual model tests")
     def test_hidden_states_output(self):
         pass

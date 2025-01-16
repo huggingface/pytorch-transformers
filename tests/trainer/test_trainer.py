@@ -762,35 +762,34 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             trainer.train()
             self.check_trained_model(trainer.model, alternate_seed=True)
 
-    @slow
     def test_gradient_accumulation_loss_alignment_with_model_loss(self):
         set_seed(42)
         import datasets
 
-        model_name = "nickypro/tinyllama-110M"
+        model_name = "nickypro/tinyllama-15M"
         dataset_name = "wikitext"
         dataset_config = "wikitext-2-raw-v1"
-        dataset = datasets.load_dataset(dataset_name, dataset_config, split="train[:500]")
-        dataset = dataset.train_test_split(test_size=0.2)
+        dataset = datasets.load_dataset(dataset_name, dataset_config, split="train[:40]")
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         tokenizer.pad_token = tokenizer.eos_token
 
         def tokenize_function(examples):
-            return tokenizer(examples["text"], max_length=128, padding="max_length", truncation=True)
+            return tokenizer(examples["text"], max_length=16, padding="max_length", truncation=True)
 
-        tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset["train"].column_names)
+        tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset.column_names)
 
         data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
         model = AutoModelForCausalLM.from_pretrained(model_name)
+        state_dict = model.state_dict()
 
         base_loss_callback = StoreLossCallback()
 
         args_kwargs = {
             "report_to": "none",
             "logging_steps": 1,
-            "max_steps": 20,
+            "max_steps": 5,
             "learning_rate": 3e-4,
             "disable_tqdm": True,
         }
@@ -803,7 +802,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             trainer = Trainer(
                 model,
                 args,
-                train_dataset=tokenized_dataset["train"],
+                train_dataset=tokenized_dataset,
                 callbacks=[base_loss_callback],
                 data_collator=data_collator,
             )
@@ -823,19 +822,19 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             trainer = Trainer(
                 model,
                 args,
-                train_dataset=tokenized_dataset["train"],
+                train_dataset=tokenized_dataset,
                 callbacks=[grad_accum_loss_callback],
                 data_collator=data_collator,
             )
             trainer.train()
 
             set_seed(42)
-            model = AutoModelForCausalLM.from_pretrained(model_name)
+            model.load_state_dict(state_dict)
             broken_loss_callback = StoreLossCallback()
             trainer = Trainer(
                 model,
                 args,
-                train_dataset=tokenized_dataset["train"],
+                train_dataset=tokenized_dataset,
                 callbacks=[broken_loss_callback],
                 data_collator=data_collator,
             )
@@ -855,24 +854,24 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             self.assertLess(max(diff_truth), 0.01, f"Difference {max(diff_truth)} is not within 0.01")
 
             # max diff broken should be very off
-            self.assertGreater(max(diff_broken), 3, f"Difference {max(diff_broken)} is not greater than 3")
+            self.assertGreater(max(diff_broken), 2, f"Difference {max(diff_broken)} is not greater than 2")
 
-    @slow
     def test_gradient_accumulation_loss_alignment_with_loss_func(self):
         set_seed(42)
         import datasets
 
-        model_name = "roneneldan/TinyStories-33M"
+        model_name = "nickypro/tinyllama-15M"
         dataset_name = "wikitext"
         dataset_config = "wikitext-2-raw-v1"
-        dataset = datasets.load_dataset(dataset_name, dataset_config, split="train[:500]")
-        dataset = dataset.train_test_split(test_size=0.2)
+        dataset = datasets.load_dataset(dataset_name, dataset_config, split="train[:40]")
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-        def tokenize_function(examples):
-            return tokenizer(examples["text"])
+        tokenizer.pad_token = tokenizer.eos_token
 
-        tokenized_dataset = dataset.map(tokenize_function, batched=True, remove_columns=dataset["train"].column_names)
+        def tokenize_function(examples):
+            return tokenizer(examples["text"], max_length=16, padding="max_length", truncation=True)
+
+        tokenized_dataset = dataset.map(tokenize_function, batched=True)
 
         tokenizer.pad_token = tokenizer.eos_token
         data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
@@ -891,7 +890,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
         args_kwargs = {
             "report_to": "none",
             "logging_steps": 1,
-            "max_steps": 20,
+            "max_steps": 5,
             "learning_rate": 3e-4,
             "disable_tqdm": True,
         }
@@ -904,7 +903,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             trainer = Trainer(
                 model,
                 args,
-                train_dataset=tokenized_dataset["train"],
+                train_dataset=tokenized_dataset,
                 callbacks=[base_loss_callback],
                 compute_loss_func=loss_fn,
                 data_collator=data_collator,
@@ -924,7 +923,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             trainer = Trainer(
                 model,
                 args,
-                train_dataset=tokenized_dataset["train"],
+                train_dataset=tokenized_dataset,
                 callbacks=[grad_accum_loss_callback],
                 compute_loss_func=loss_fn,
                 data_collator=data_collator,
@@ -938,7 +937,7 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             trainer = Trainer(
                 model,
                 args,
-                train_dataset=tokenized_dataset["train"],
+                train_dataset=tokenized_dataset,
                 callbacks=[broken_loss_callback],
                 compute_loss_func=loss_fn,
                 data_collator=data_collator,

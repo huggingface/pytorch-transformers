@@ -105,6 +105,7 @@ _import_structure = {
     ],
     "peft": ["PeftAdapterMixin"],
     "quanto": ["replace_with_quanto_layers"],
+    "spqr": ["replace_with_spqr_linear"],
     "vptq": ["replace_with_vptq_linear"],
 }
 
@@ -208,6 +209,7 @@ if TYPE_CHECKING:
     )
     from .peft import PeftAdapterMixin
     from .quanto import replace_with_quanto_layers
+    from .spqr import replace_with_spqr_linear
     from .vptq import replace_with_vptq_linear
 
     try:

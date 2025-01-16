@@ -199,6 +199,7 @@ _tiktoken_available = _is_package_available("tiktoken")
 _blobfile_available = _is_package_available("blobfile")
 _liger_kernel_available = _is_package_available("liger_kernel")
 _triton_available = _is_package_available("triton")
+_spqr_available = _is_package_available("spqr_quant")
 
 _torch_version = "N/A"
 _torch_available = False
@@ -1203,6 +1204,10 @@ def is_torchao_available():
 def is_speech_available():
     # For now this depends on torchaudio but the exact dependency might evolve in the future.
     return _torchaudio_available
+
+
+def is_spqr_available():
+    return _spqr_available
 
 
 def is_phonemizer_available():

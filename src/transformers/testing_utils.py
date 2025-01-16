@@ -120,6 +120,7 @@ from .utils import (
     is_seqio_available,
     is_soundfile_available,
     is_spacy_available,
+    is_spqr_available,
     is_sudachi_available,
     is_sudachi_projection_available,
     is_tensorflow_probability_available,
@@ -1153,6 +1154,13 @@ def require_vptq(test_case):
     Decorator marking a test that requires vptq
     """
     return unittest.skipUnless(is_vptq_available(), "test requires vptq")(test_case)
+
+
+def require_spqr(test_case):
+    """
+    Decorator marking a test that requires spqr
+    """
+    return unittest.skipUnless(is_spqr_available(), "test requires spqr")(test_case)
 
 
 def require_eetq(test_case):

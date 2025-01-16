@@ -56,6 +56,7 @@ class QuantizationMethod(str, Enum):
     FBGEMM_FP8 = "fbgemm_fp8"
     TORCHAO = "torchao"
     BITNET = "bitnet"
+    SPQR = "spqr"
 
 
 class AWQLinearVersion(str, Enum):
@@ -1548,3 +1549,72 @@ class BitNetConfig(QuantizationConfigMixin):
         Safety checker that arguments are correct
         """
         pass
+
+
+@dataclass
+class SpQRConfig(QuantizationConfigMixin):
+    """
+    This is a wrapper class about `spqr` parameters. Refer to the original publication for more details.
+
+    Args:
+        bits (`int`, *optional*, defaults to 3):
+            Specifies the bit count for the weights and first order zero-points and scales.
+            Currently only bits = 3 is supported.
+        beta1 (`int`, *optional*, defaults to 16):
+            SpQR tile width. Currently only beta1 = 16 is supported.
+        beta2 (`int`, *optional*, defaults to 16):
+            SpQR tile height. Currently only beta2 = 16 is supported.
+        shapes (`Optional`, *optional*):
+            A dictionary holding the shape of each object. We need this because it's impossible
+            to deduce the exact size of the parameters just from bits, beta1, beta2.
+        modules_to_not_convert (`Optional[List[str]]`, *optional*):
+            Optionally, provides a list of full paths of `nn.Linear` weight parameters that shall not be quantized.
+            Defaults to None.
+        kwargs (`Dict[str, Any]`, *optional*):
+            Additional parameters from which to initialize the configuration object.
+    """
+
+    def __init__(
+        self,
+        bits: int = 3,
+        beta1: int = 16,
+        beta2: int = 16,
+        shapes: Optional[Dict[str, int]] = None,
+        modules_to_not_convert: Optional[List[str]] = None,
+        **kwargs,
+    ):
+        if shapes is None:
+            shapes = {}
+        self.shapes = shapes
+        self.quant_method = QuantizationMethod.SPQR
+        self.bits = bits
+        self.beta1 = beta1
+        self.beta2 = beta2
+        if modules_to_not_convert is None:
+            modules_to_not_convert = []
+        self.modules_to_not_convert = modules_to_not_convert
+        self.post_init()
+
+    def post_init(self):
+        r"""
+        Safety checker that arguments are correct - also replaces some NoneType arguments with their default values.
+        """
+        if not isinstance(self.bits, int):
+            raise TypeError("bits must be an int")
+        if not isinstance(self.beta1, int):
+            raise TypeError("beta1 must be an int")
+        if not isinstance(self.beta2, int):
+            raise TypeError("beta2 must be an int")
+
+        if self.bits != 3:
+            raise ValueError("SpQR currently only supports bits = 3")
+        if self.beta1 != 16:
+            raise ValueError("SpQR currently only supports beta1 = 16")
+        if self.beta2 != 16:
+            raise ValueError("SpQR currently only supports beta2 = 16")
+
+        if self.modules_to_not_convert is not None and not isinstance(self.modules_to_not_convert, list):
+            raise ValueError("modules_to_not_convert must be a list of strings")
+
+        if not isinstance(self.shapes, dict):
+            raise TypeError("shapes must be a dict")

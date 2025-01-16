@@ -18,7 +18,7 @@ rendered properly in your Markdown viewer.
 
 Feature extractors preprocess audio data into the correct format for a given model. It takes the raw audio signal and converts it into a tensor that can be fed to a model. The tensor shape depends on the model, but the feature extractor will correctly preprocess the audio data for you given the model you're using. Feature extractors also include methods for padding, truncation, and resampling.
 
-To load a feature extractor, call [`~AutoFeatureExtractor.from_pretrained`] to load the feature extractor and its preprocessor configuration from the Hugging Face [Hub](https://hf.co/models). The feature extractor and preprocessor configuration is saved in a [preprocessor_config.json](https://hf.co/openai/whisper-tiny/blob/main/preprocessor_config.json) file. This method loads a feature extractor from a Hub model repository name or local directory
+Call [`~AutoFeatureExtractor.from_pretrained`] to load a feature extractor and its preprocessor configuration from the Hugging Face [Hub](https://hf.co/models) or local directory. The feature extractor and preprocessor configuration is saved in a [preprocessor_config.json](https://hf.co/openai/whisper-tiny/blob/main/preprocessor_config.json) file.
 
 Pass the audio signal, typically stored in `array`, to the feature extractor and set the `sampling_rate` parameter to the pretrained audio models sampling rate. It is important the sampling rate of the audio data matches the sampling rate of the data a pretrained audio model was trained on.
 
@@ -32,15 +32,13 @@ processed_sample
        -2.8888427e-03,  9.4472744e-05,  9.4472744e-05], dtype=float32)]}
 ```
 
-The feature extractor returns an input, `input_values`, that is ready for the model to accept.
+The feature extractor returns an input, `input_values`, that is ready for the model to consume.
 
 This guide walks you through the feature extractor classes and how to preprocess audio data.
 
 ## Feature extractor classes
 
-Transformers feature extractors inherit from the [`SequenceFeatureExtractor`] class, which subclasses [`FeatureExtractionMixin`].
-
-<!-- insert diagram here -->
+Transformers feature extractors inherit from the base [`SequenceFeatureExtractor`] class which subclasses [`FeatureExtractionMixin`].
 
 - [`SequenceFeatureExtractor`] provides a method to [`~SequenceFeatureExtractor.pad`] sequences to a certain length to avoid uneven sequence lengths.
 - [`FeatureExtractionMixin`] provides [`~FeatureExtractionMixin.from_pretrained`] and [`~FeatureExtractionMixin.save_pretrained`] to load and save a feature extractor.
@@ -63,7 +61,7 @@ feature_extractor = AutoFeatureExtractor.from_pretrained("openai/whisper-tiny")
 </hfoption>
 <hfoption id="model-specific feature extractor">
 
-Every pretrained audio model has a specific associated feature extractor for correctly processing audio data. When you load a feature extractor, it retrieves the feature extractors configuration (feature size, chunk length, etc.) from [`preprocessor_config.json`](https://hf.co/openai/whisper-tiny/blob/main/preprocessor_config.json).
+Every pretrained audio model has a specific associated feature extractor for correctly processing audio data. When you load a feature extractor, it retrieves the feature extractors configuration (feature size, chunk length, etc.) from [preprocessor_config.json](https://hf.co/openai/whisper-tiny/blob/main/preprocessor_config.json).
 
 A feature extractor can be loaded directly from its model-specific class.
 
@@ -80,13 +78,13 @@ feature_extractor = WhisperFeatureExtractor.from_pretrained("openai/whisper-tiny
 
 A feature extractor expects the input as a PyTorch tensor of a certain shape. The exact input shape can vary depending on the specific audio model you're using.
 
-For example, [Whisper](https://huggingface.co/docs/transformers/model_doc/whisper) expects `input_features` which is a tensor of shape (batch_size, feature_size, sequence_length) but [Wav2Vec2](https://hf.co/docs/transformers/model_doc/wav2vec2) expects `input_values` which is a tensor of shape (batch_size, sequence_length).
+For example, [Whisper](https://huggingface.co/docs/transformers/model_doc/whisper) expects `input_features` to be a tensor of shape `(batch_size, feature_size, sequence_length)` but [Wav2Vec2](https://hf.co/docs/transformers/model_doc/wav2vec2) expects `input_values` to be a tensor of shape `(batch_size, sequence_length)`.
 
 The feature extractor generates the correct input shape for whichever audio model you're using.
 
 A feature extractor also sets the sampling rate (the number of audio signal values taken per second) of the audio files. The sampling rate of your audio data must match the sampling rate of the dataset a pretrained model was trained on. This value is typically given in the model card.
 
-Load a dataset and feature extractor.
+Load a dataset and feature extractor with [`~FeatureExtractionMixin.from_pretrained`].
 
 ```py
 from datasets import load_dataset, Audio
@@ -104,7 +102,7 @@ array([ 0.        ,  0.00024414, -0.00024414, ..., -0.00024414,
         0.        ,  0.        ])
 ```
 
-The feature extractor preprocesses `array` into the expected input format for a given audio model. Set the appropriate sampling rate with the `sampling_rate` parameter.
+The feature extractor preprocesses `array` into the expected input format for a given audio model. Use the `sampling_rate` parameter to set the appropriate sampling rate.
 
 ```py
 processed_dataset = feature_extractor(dataset[0]["audio"]["array"], sampling_rate=16000)
@@ -138,11 +136,6 @@ def preprocess_function(examples):
     return inputs
 
 processed_dataset = preprocess_function(dataset[:5])
-```
-
-The sequence lengths are the same now.
-
-```py
 processed_dataset["input_values"][0].shape
 (86699,)
 
@@ -168,11 +161,6 @@ def preprocess_function(examples):
     return inputs
 
 processed_dataset = preprocess_function(dataset[:5])
-```
-
-The sequence lengths are now 50000.
-
-```py
 processed_dataset["input_values"][0].shape
 (50000,)
 

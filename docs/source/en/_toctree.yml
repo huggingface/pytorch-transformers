@@ -36,7 +36,7 @@
     - local: fast_tokenizers
       title: Tokenizers
     - local: tiktoken
-      title: TikToken
+      title: tiktoken
     - local: image_processors
       title: Image processors
     - local: backbones

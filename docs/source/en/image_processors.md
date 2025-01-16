@@ -16,12 +16,12 @@ rendered properly in your Markdown viewer.
 
 # Image processors
 
-An image processor converts images into pixel values, tensors that represent image colors and size. The pixel values are inputs to a vision or video model. To ensure a pretrained model receives the correct input, an image processor can perform the following operations to make sure an image is exactly like the images a model was pretrained on.
+Image processors converts images into pixel values, tensors that represent image colors and size. The pixel values are inputs to a vision or video model. To ensure a pretrained model receives the correct input, an image processor can perform the following operations to make sure an image is exactly like the images a model was pretrained on.
 
 - [`~BaseImageProcessor.center_crop`] to resize an image
 - [`~BaseImageProcessor.normalize`] or [`~BaseImageProcessor.rescale`] pixel values
 
-Load an image processor with [`~ImageProcessingMixin.from_pretrained`]. This loads the image processors configuration (image size, whether to normalize and rescale, etc.) from a vision model on the Hugging Face [Hub](https://hf.co). The specific image processor configuration for each pretrained model is saved in a [preprocessor_config.json](https://huggingface.co/google/vit-base-patch16-224/blob/main/preprocessor_config.json) file. This method accepts a Hub model repository name or a local directory.
+Use [`~ImageProcessingMixin.from_pretrained`] to load an image processors configuration (image size, whether to normalize and rescale, etc.) from a vision model on the Hugging Face [Hub](https://hf.co) or local directory. The configuration for each pretrained model is saved in a [preprocessor_config.json](https://huggingface.co/google/vit-base-patch16-224/blob/main/preprocessor_config.json) file.
 
 ```py
 from transformers import AutoImageProcessor
@@ -29,7 +29,7 @@ from transformers import AutoImageProcessor
 image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
 ```
 
-Pass an image to the image processor to transform it into pixel values. Set `return_tensors="pt"` to return PyTorch tensors, and feel free to print out the inputs to see what the image looks like as a tensor.
+Pass an image to the image processor to transform it into pixel values, and set `return_tensors="pt"` to return PyTorch tensors. Feel free to print out the inputs to see what the image looks like as a tensor.
 
 ```py
 from PIL import Image
@@ -44,23 +44,21 @@ This guide covers the image processor class and how to preprocess images for vis
 
 ## Image processor classes
 
-<!-- insert diagram here -->
-
-Transformers image processors inherit from the [`BaseImageProcessor`] class which provides the [`~BaseImageProcessor.center_crop`], [`~BaseImageProcessor.normalize`], and [`~BaseImageProcessor.rescale`] operations.. There are two types of image processors.
+Image processors inherit from the [`BaseImageProcessor`] class which provides the [`~BaseImageProcessor.center_crop`], [`~BaseImageProcessor.normalize`], and [`~BaseImageProcessor.rescale`] functions. There are two types of image processors.
 
 - [`BaseImageProcessor`] is a Python implementation.
-- [`BaseImageProcessorFast`] is a faster [torchvision](https://pytorch.org/vision/stable/index.html) backed version. For a batch of torch.Tensor inputs, this can be up to 33x faster. This is not available for all vision models at the moment. Refer to a models API documentation to check if it is supported.
+- [`BaseImageProcessorFast`] is a faster [torchvision-backed](https://pytorch.org/vision/stable/index.html) version. For a batch of [torch.Tensor](https://pytorch.org/docs/stable/tensors.html) inputs, this can be up to 33x faster. [`BaseImageProcessorFast`] is not available for all vision models at the moment. Refer to a models API documentation to check if it is supported.
 
 Each image processor subclasses the [`ImageProcessingMixin`] class which provides the [`~ImageProcessingMixin.from_pretrained`] and [`~ImageProcessingMixin.save_pretrained`] methods for loading and saving image processors.
 
-There are two ways you can load an image processor, [`AutoImageProcessor`] and a model-specific image processor.
+There are two ways you can load an image processor, with [`AutoImageProcessor`] or a model-specific image processor.
 
 <hfoptions id="image-processor-classes">
 <hfoption id="AutoImageProcessor">
 
 The [AutoClass](./model_doc/auto) API provides a convenient method to load an image processor without directly specifying the model the image processor is associated with.
 
-Use [`~AutoImageProcessor.from_pretrained`] to load an image processor. Set `use_fast=True` to load a fast image processor if it's supported for a model.
+Use [`~AutoImageProcessor.from_pretrained`] to load an image processor, and set `use_fast=True` to load a fast image processor if it's supported.
 
 ```py
 from transformers import AutoImageProcessor
@@ -71,9 +69,9 @@ image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-22
 </hfoption>
 <hfoption id="model-specific image processor">
 
-Each image processor is associated with a specific pretrained vision model, and the image processor's configuration contains the model's expected size and whether to normalize and resize.
+Each image processor is associated with a specific pretrained vision model, and the image processors configuration contains the models expected size and whether to normalize and resize.
 
-The image processor can be loaded directly from the model-specific class. Check a model's API documentation to see whether it supports a fast image processor.
+The image processor can be loaded directly from the model-specific class. Check a models API documentation to see whether it supports a fast image processor.
 
 ```py
 from transformers import ViTImageProcessor
@@ -91,6 +89,46 @@ image_processor = ViTImageProcessorFast.from_pretrained("google/vit-base-patch16
 
 </hfoption>
 </hfoptions>
+
+## Fast image processors
+
+[`BaseImageProcessorFast`] is based on [torchvision](https://pytorch.org/vision/stable/index.html) and is significantly faster, especially when processing on a GPU. This class can be used as a drop-in replacement for [`BaseImageProcessor`] if it's available for a model because it has the same design. Make sure [torchvision](https://pytorch.org/get-started/locally/#mac-installation) is installed, and set the `use_fast` parameter to `True`.
+
+```py
+from transformers import AutoImageProcessor
+
+processor = AutoImageProcessor.from_pretrained("facebook/detr-resnet-50", use_fast=True)
+```
+
+Control which device processing is performed on with the `device` parameter. Processing is performed on the same device as the input by default if the inputs are tensors, otherwise they are processed on the CPU. The example below places the fast processor on a GPU.
+
+```py
+from torchvision.io import read_image
+from transformers import DetrImageProcessorFast
+
+images = read_image("image.jpg")
+processor = DetrImageProcessorFast.from_pretrained("facebook/detr-resnet-50")
+images_processed = processor(images, return_tensors="pt", device="cuda")
+```
+
+<details>
+<summary>Benchmarks</summary>
+
+The benchmarks are obtained from an [AWS EC2 g5.2xlarge](https://aws.amazon.com/ec2/instance-types/g5/) instance with a NVIDIA A10G Tensor Core GPU.
+
+<div class="flex">
+  <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/benchmark_results_full_pipeline_detr_fast_padded.png" />
+</div>
+<div class="flex">
+  <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/benchmark_results_full_pipeline_detr_fast_batched_compiled.png" />
+</div>
+<div class="flex">
+  <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/benchmark_results_full_pipeline_rt_detr_fast_single.png" />
+</div>
+<div class="flex">
+  <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/benchmark_results_full_pipeline_rt_detr_fast_batched.png" />
+</div>
+</details>
 
 ## Preprocess
 
@@ -110,7 +148,7 @@ from datasets import load_dataset
 dataset = load_dataset("food101", split="train[:100]")
 ```
 
-From the [transforms](https://pytorch.org/vision/stable/transforms.html) module, use the [Compose](https://pytorch.org/vision/master/generated/torchvision.transforms.Compose.html) API to chain together [RandomResizedCrop](https://pytorch.org/vision/main/generated/torchvision.transforms.RandomResizedCrop.html) and [ColorJitter](https://pytorch.org/vision/main/generated/torchvision.transforms.ColorJitter.html). These transforms randomly crop and resize an image, and randomly adjusts the colors of an image.
+From the [transforms](https://pytorch.org/vision/stable/transforms.html) module, use the [Compose](https://pytorch.org/vision/master/generated/torchvision.transforms.Compose.html) API to chain together [RandomResizedCrop](https://pytorch.org/vision/main/generated/torchvision.transforms.RandomResizedCrop.html) and [ColorJitter](https://pytorch.org/vision/main/generated/torchvision.transforms.ColorJitter.html). These transforms randomly crop and resize an image, and randomly adjusts an images colors.
 
 The image size to randomly crop to can be retrieved from the image processor. For some models, an exact height and width are expected while for others, only the `shortest_edge` is required.
 

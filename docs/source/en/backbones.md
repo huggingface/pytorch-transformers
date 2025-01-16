@@ -16,13 +16,13 @@ rendered properly in your Markdown viewer.
 
 # Backbones
 
-For some higher-level computer visions tasks such as object detection or image segmentation, it is common to use several models together to generate a prediction. These networks combine a *backbone*, neck, and head. The backbone extracts useful features from an input image into a feature map, the neck combines and processes the feature maps, and the head uses them to make a prediction.
+Higher-level computer visions tasks, such as object detection or image segmentation, use several models together to generate a prediction. A separate model is used for the *backbone*, neck, and head. The backbone extracts useful features from an input image into a feature map, the neck combines and processes the feature maps, and the head uses them to make a prediction.
 
 <div class="flex justify-center">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/Backbone.png"/>
 </div>
 
-Load a backbone with [`~AutoBackbone.from_pretrained`].
+Load a backbone with [`~PretrainedConfig.from_pretrained`] and use the `out_indices` parameter to determine which layer, given by the index, to extract a feature map from.
 
 ```py
 from transformers import AutoBackbone
@@ -34,10 +34,10 @@ This guide describes the backbone class, backbones from the [timm](https://hf.co
 
 ## Backbone classes
 
-There are two backbone classes for Transformers' models.
+There are two backbone classes.
 
-- [`BackboneMixin`] allows you to load a backbone and includes functions for extracting the feature maps and indices.
-- [`BackboneConfigMixin`] allows you to set the feature map and indices of a backbone configuration.
+- [`~transformers.utils.BackboneMixin`] allows you to load a backbone and includes functions for extracting the feature maps and indices.
+- [`~transformers.utils.BackboneConfigMixin`] allows you to set the feature map and indices of a backbone configuration.
 
 Refer to the [Backbone](./main_classes/backbones) API documentation to check which models support a backbone.
 
@@ -46,11 +46,11 @@ There are two ways to load a Transformers backbone, [`AutoBackbone`] and a model
 <hfoptions id="backbone-classes">
 <hfoption id="AutoBackbone">
 
-The [AutoClass](./model_doc/auto) API automatically loads a pretrained vision model with [`~AutoBackbone.from_pretrained`] as a backbone if it's supported.
+The [AutoClass](./model_doc/auto) API automatically loads a pretrained vision model with [`~PretrainedConfig.from_pretrained`] as a backbone if it's supported.
 
 Set the `out_indices` parameter to the layer you'd like to get the feature map from. If you know the name of the layer, you could also use `out_features`. These parameters can be used interchangeably, but if you use both, make sure they refer to the same layer.
 
-When you don't use `out_indices` or `out_features`, the backbone returns the feature map from the last layer. Specify `out_indices=(1,)` to get the feature map from the first layer.
+When `out_indices` or `out_features` isn't used, the backbone returns the feature map from the last layer. The example code below uses `out_indices=(1,)` to get the feature map from the first layer.
 
 <div class="flex justify-center">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/transformers/Swin%20Stage%201.png"/>
@@ -65,11 +65,11 @@ model = AutoBackbone.from_pretrained("microsoft/swin-tiny-patch4-window7-224", o
 </hfoption>
 <hfoption id="model-specific backbone">
 
-When you know a model supports a backbone, you can load the backbone and neck directly into the models configuration. Then pass the configuration to the model to initialize it for a task.
+When you know a model supports a backbone, you can load the backbone and neck directly into the models configuration. Pass the configuration to the model to initialize it for a task.
 
-For example, load a [ResNet](./model_doc/resnet) backbone and neck for use in a [MaskFormer](./model_doc/maskformer) instance segmentation head.
+The example below loads a [ResNet](./model_doc/resnet) backbone and neck for use in a [MaskFormer](./model_doc/maskformer) instance segmentation head.
 
-Set the `backbone` parameter to the pretrained model to load the model configuration class. Toggle the `use_pretrained_backbone` parameter to determine whether you want to use pretrained or randomly initialized weights.
+Set `backbone` to a pretrained model and  `use_pretrained_backbone=True` to use pretrained weights instead of randomly initialized weights.
 
 ```py
 from transformers import MaskFormerConfig, MaskFormerForInstanceSegmentation
@@ -78,7 +78,7 @@ config = MaskFormerConfig(backbone="microsoft/resnet-50", use_pretrained_backbon
 model = MaskFormerForInstanceSegmentation(config)
 ```
 
-Another option is to separately load the backbone configuration and then pass it to the `backbone_config` paramater in the model configuration.
+Another option is to separately load the backbone configuration and then pass it to `backbone_config` in the model configuration.
 
 ```py
 from transformers import MaskFormerConfig, MaskFormerForInstanceSegmentation, ResNetConfig
@@ -98,7 +98,7 @@ model = MaskFormerForInstanceSegmentation(config)
 
 [timm](https://hf.co/docs/timm/index) is a collection of vision models for training and inference. Transformers supports timm models as backbones with the [`TimmBackbone`] and [`TimmBackboneConfig`] classes.
 
-Set `use_timm_backbone=True` to load pretrained timm weights. The `use_pretrained_backbone` parameter can be toggled to use pretrained or randomly initialized weights.
+Set `use_timm_backbone=True` to load pretrained timm weights, and `use_pretrained_backbone` to use pretrained or randomly initialized weights.
 
 ```py
 from transformers import MaskFormerConfig, MaskFormerForInstanceSegmentation
@@ -115,7 +115,7 @@ from transformers import TimmBackboneConfig
 backbone_config = TimmBackboneConfig("resnet50", use_pretrained_backbone=True)
 ```
 
-Pass the backbone configuration to the model configuration and then instantiate the model head, [`MaskFormerForInstanceSegmentation`], with the backbone.
+Pass the backbone configuration to the model configuration and instantiate the model head, [`MaskFormerForInstanceSegmentation`], with the backbone.
 
 ```py
 from transformers import MaskFormerConfig, MaskFormerForInstanceSegmentation
@@ -126,9 +126,9 @@ model = MaskFormerForInstanceSegmentation(config)
 
 ## Feature extraction
 
-The backbone is used for image feature extraction. Pass an image through the backbone to get the feature maps.
+The backbone is used to extract image features. Pass an image through the backbone to get the feature maps.
 
-Load and preprocess an image, and then pass it to the backbone.
+Load and preprocess an image and pass it to the backbone. The example below extracts the feature maps from the first layer.
 
 ```py
 from transformers import AutoImageProcessor, AutoBackbone

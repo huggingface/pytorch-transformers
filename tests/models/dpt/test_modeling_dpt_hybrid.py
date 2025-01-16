@@ -304,7 +304,6 @@ class DPTModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
         with self.assertRaises(ValueError):
             _ = DPTForDepthEstimation(config)
 
-    @is_flaky(description="is_flaky https://github.com/huggingface/transformers/issues/29516")
     def test_batching_equivalence(self):
         super().test_batching_equivalence()
 

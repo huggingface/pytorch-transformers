@@ -269,7 +269,6 @@ class MobileNetV2ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestC
         model = MobileNetV2Model.from_pretrained(model_name)
         self.assertIsNotNone(model)
 
-    @is_flaky(description="is_flaky https://github.com/huggingface/transformers/issues/29516")
     def test_batching_equivalence(self):
         super().test_batching_equivalence()
 

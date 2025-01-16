@@ -350,13 +350,11 @@ src/transformers/commands/add_new_model_like.py
 src/transformers/commands/convert.py
 src/transformers/commands/download.py
 src/transformers/commands/env.py
-src/transformers/commands/lfs.py
 src/transformers/commands/pt_to_tf.py
 src/transformers/commands/run.py
 src/transformers/commands/serving.py
 src/transformers/commands/train.py
 src/transformers/commands/transformers_cli.py
-src/transformers/commands/user.py
 src/transformers/configuration_utils.py
 src/transformers/convert_graph_to_onnx.py
 src/transformers/convert_pytorch_checkpoint_to_tf2.py

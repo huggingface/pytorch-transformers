@@ -19,11 +19,9 @@ from .add_new_model_like import AddNewModelLikeCommand
 from .convert import ConvertCommand
 from .download import DownloadCommand
 from .env import EnvironmentCommand
-from .lfs import LfsCommands
 from .pt_to_tf import PTtoTFCommand
 from .run import RunCommand
 from .serving import ServeCommand
-from .user import UserCommands
 
 
 def main():
@@ -36,9 +34,7 @@ def main():
     EnvironmentCommand.register_subcommand(commands_parser)
     RunCommand.register_subcommand(commands_parser)
     ServeCommand.register_subcommand(commands_parser)
-    UserCommands.register_subcommand(commands_parser)
     AddNewModelLikeCommand.register_subcommand(commands_parser)
-    LfsCommands.register_subcommand(commands_parser)
     PTtoTFCommand.register_subcommand(commands_parser)
 
     # Let's go

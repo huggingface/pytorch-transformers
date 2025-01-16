@@ -156,7 +156,7 @@ class CircleCIJob:
             {"run": "pip install pytest-flakefinder"},
             {"run": {
                 "name": "Run tests",
-                "command": f"({timeout_cmd} python3 -m pytest {marker_cmd} -n 1 {additional_flags} {' '.join(pytest_flags)} tests/models -k test_batching_equivalence | tee tests_output.txt)"}
+                "command": f"({timeout_cmd} python3 -m pytest @pytest.txt | tee tests_output.txt)"}
             },
             {"run": {"name": "Expand to show skipped tests", "when": "always", "command": f"python3 .circleci/parse_test_outputs.py --file tests_output.txt --skip"}},
             {"run": {"name": "Failed tests: show reasons",   "when": "always", "command": f"python3 .circleci/parse_test_outputs.py --file tests_output.txt --fail"}},

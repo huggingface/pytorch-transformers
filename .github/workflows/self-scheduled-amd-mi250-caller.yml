@@ -12,7 +12,7 @@ on:
 jobs:
   model-ci:
     name: Model CI
-    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@main
+    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@testing
     with:
       job: run_models_gpu
       slack_report_channel: "#transformers-ci-daily-amd"
@@ -23,7 +23,7 @@ jobs:
 
   torch-pipeline:
     name: Torch pipeline CI
-    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@main
+    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@testing
     with:
       job: run_pipelines_torch_gpu
       slack_report_channel: "#transformers-ci-daily-amd"
@@ -34,7 +34,7 @@ jobs:
 
   example-ci:
     name: Example CI
-    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@main
+    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@testing
     with:
       job: run_examples_gpu
       slack_report_channel: "#transformers-ci-daily-amd"
@@ -45,7 +45,7 @@ jobs:
 
   deepspeed-ci:
     name: DeepSpeed CI
-    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@main
+    uses: huggingface/hf-workflows/.github/workflows/transformers_amd_ci_scheduled.yaml@testing
     with:
       job: run_torch_cuda_extensions_gpu
       slack_report_channel: "#transformers-ci-daily-amd"

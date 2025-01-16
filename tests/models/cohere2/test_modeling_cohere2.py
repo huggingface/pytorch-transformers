@@ -202,7 +202,7 @@ class Cohere2IntegrationTest(unittest.TestCase):
 
     @require_read_token
     def test_model_bf16(self):
-        model_id = "CohereForAI/command-r7b-12-2024"
+        model_id = "CohereForAI/c4ai-command-r7b-12-2024"
         EXPECTED_TEXTS = [
             "<BOS_TOKEN>Hello I am doing a project on the 1918 flu pandemic and I am trying to find out how many",
             "<PAD><PAD><BOS_TOKEN>Hi today I'm going to be talking about the history of the United States. The United States of America",
@@ -222,7 +222,7 @@ class Cohere2IntegrationTest(unittest.TestCase):
 
     @require_read_token
     def test_model_fp16(self):
-        model_id = "CohereForAI/command-r7b-12-2024"
+        model_id = "CohereForAI/c4ai-command-r7b-12-2024"
         EXPECTED_TEXTS = [
             "<BOS_TOKEN>Hello I am doing a project on the 1918 flu pandemic and I am trying to find out how many",
             "<PAD><PAD><BOS_TOKEN>Hi today I'm going to be talking about the history of the United States. The United States of America",
@@ -243,7 +243,7 @@ class Cohere2IntegrationTest(unittest.TestCase):
     @require_read_token
     def test_model_pipeline_bf16(self):
         # See https://github.com/huggingface/transformers/pull/31747 -- pipeline was broken for Cohere2 before this PR
-        model_id = "CohereForAI/command-r7b-12-2024"
+        model_id = "CohereForAI/c4ai-command-r7b-12-2024"
         # EXPECTED_TEXTS should match the same non-pipeline test, minus the special tokens
         EXPECTED_TEXTS = [
             "Hello I am doing a project on the 1918 flu pandemic and I am trying to find out how many",
@@ -268,7 +268,7 @@ class Cohere2IntegrationTest(unittest.TestCase):
     @slow
     def test_model_flash_attn(self):
         # See https://github.com/huggingface/transformers/issues/31953 --- flash attn was generating garbage for Gemma2, especially in long context
-        model_id = "CohereForAI/command-r7b-12-2024"
+        model_id = "CohereForAI/c4ai-command-r7b-12-2024"
         EXPECTED_TEXTS = [
             '<BOS_TOKEN>Hello I am doing a project on the 1918 flu pandemic and I am trying to find out how many people died in the United States. I have found a few sites that say 500,000 but I am not sure if that is correct. I have also found a site that says 675,000 but I am not sure if that is correct either. I am trying to find out how many people died in the United States. I have found a few',
             "<PAD><PAD><BOS_TOKEN>Hi today I'm going to be talking about the history of the United States. The United States of America is a country in North America. It is the third largest country in the world by total area and the third most populous country with over 320 million people. The United States is a federal republic consisting of 50 states and a federal district. The 48 contiguous states and the district of Columbia are in central North America between Canada and Mexico. The state of Alaska is in the"
@@ -297,7 +297,7 @@ class Cohere2IntegrationTest(unittest.TestCase):
         )
 
         tokenizer = AutoTokenizer.from_pretrained(
-            "CohereForAI/command-r7b-12-2024", pad_token="<PAD>", padding_side="right"
+            "CohereForAI/c4ai-command-r7b-12-2024", pad_token="<PAD>", padding_side="right"
         )
         EXPECTED_TEXT_COMPLETION = [
             "Hello I am doing a project for my school and I need to know how to make a program that will take a number",
@@ -313,7 +313,7 @@ class Cohere2IntegrationTest(unittest.TestCase):
         attn_implementation = "sdpa"
         batch_size = 1
         model = AutoModelForCausalLM.from_pretrained(
-            "CohereForAI/command-r7b-12-2024",
+            "CohereForAI/c4ai-command-r7b-12-2024",
             device_map=device,
             torch_dtype=dtype,
             attn_implementation=attn_implementation,

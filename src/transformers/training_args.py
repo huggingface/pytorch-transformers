@@ -154,6 +154,7 @@ class OptimizerNames(ExplicitEnum):
     ADAFACTOR = "adafactor"
     ADAMW_ANYPRECISION = "adamw_anyprecision"
     ADAMW_TORCH_4BIT = "adamw_torch_4bit"
+    ADAMW_TORCH_8BIT = "adamw_torch_8bit"
     ADEMAMIX = "ademamix"
     SGD = "sgd"
     ADAGRAD = "adagrad"

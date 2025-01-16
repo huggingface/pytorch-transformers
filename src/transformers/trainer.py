@@ -1615,7 +1615,10 @@ class Trainer:
                     "gradient_clipping": float(optim_args.get("gradient_clipping", 1.0)),
                 }
             )
-        elif args.optim == OptimizerNames.ADAMW_TORCH_4BIT:
+        elif args.optim in [
+            OptimizerNames.ADAMW_TORCH_4BIT,
+            OptimizerNames.ADAMW_TORCH_8BIT,
+        ]:
             if not is_torchao_available() or version.parse(importlib.metadata.version("torchao")) < version.parse(
                 "0.4.0"
             ):
@@ -1628,9 +1631,14 @@ class Trainer:
                     "You need to have `torch>2.4` in order to use torch 4-bit optimizers. "
                     "Install it with `pip install --upgrade torch` it is available on pipy. Otherwise, you need to install torch nightly."
                 )
-            from torchao.prototype.low_bit_optim import AdamW4bit
+            from torchao.prototype.low_bit_optim import AdamW4bit, AdamW8bit
 
-            optimizer_cls = AdamW4bit
+            if args.optim == OptimizerNames.ADAMW_TORCH_4BIT:
+                optimizer_cls = AdamW4bit
+            elif args.optim == OptimizerNames.ADAMW_TORCH_8BIT:
+                optimizer_cls = AdamW8bit
+            else:
+                raise ValueError("Invalid optimizer")
             optimizer_kwargs.update(adam_kwargs)
         elif args.optim in [
             OptimizerNames.SCHEDULE_FREE_ADAMW,

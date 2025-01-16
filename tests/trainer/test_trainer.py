@@ -5017,6 +5017,13 @@ if is_torch_available():
                 default_adam_kwargs,
             )
         )
+        optim_test_params.append(
+            (
+                TrainingArguments(optim=OptimizerNames.ADAMW_TORCH_8BIT, output_dir="None"),
+                torchao.prototype.low_bit_optim.AdamW8bit,
+                default_adam_kwargs,
+            )
+        )
 
 
 @require_torch

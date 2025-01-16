@@ -334,6 +334,7 @@ def resize(
     # the pillow library to resize the image and then convert back to numpy
     do_rescale = False
     if not isinstance(image, PIL.Image.Image):
+        image = (image - np.min(image))/(np.max(image) - np.min(image))
         do_rescale = _rescale_for_pil_conversion(image)
         image = to_pil_image(image, do_rescale=do_rescale, input_data_format=input_data_format)
     height, width = size

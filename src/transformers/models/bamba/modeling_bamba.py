@@ -1200,7 +1200,14 @@ class BambaModel(BambaPreTrainedModel):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
         cache_position: Optional[torch.LongTensor] = None,
+        **kwargs,
     ) -> Union[Tuple, BaseModelOutputWithPast]:
+        """
+        Args:
+            kwargs (`dict`, *optional*):
+                Arbitrary kwargs that are passed and to be ignored. In the future support for
+                FlashAttentionKwargs will be added.
+        """
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states

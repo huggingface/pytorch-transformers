@@ -1087,6 +1087,34 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
                 trainer.lr_scheduler.step()
             self.assertEqual(trainer.lr_scheduler.get_last_lr()[0], 1e-5)
 
+    def test_cosine_with_min_lr_schedule_with_warmup_lr_rate(self):
+        train_dataset = RegressionDataset()
+        model = RegressionModel()
+        num_steps, num_warmup_steps = 10, 2
+        extra_kwargs = {"min_lr": 1e-5}  # Non-default arguments
+        args = TrainingArguments(
+            "./regression",
+            lr_scheduler_type="cosine_warmup_with_min_lr",
+            lr_scheduler_kwargs=extra_kwargs,
+            learning_rate=0.2,
+            warmup_steps=num_warmup_steps,
+            report_to="none",
+        )
+        trainer = Trainer(model, args, train_dataset=train_dataset)
+        trainer.create_optimizer_and_scheduler(num_training_steps=num_steps)
+
+        # Checking that the scheduler was created
+        self.assertIsNotNone(trainer.lr_scheduler)
+
+        # Check the last learning rate
+        step_lrs = []
+        for _ in range(num_steps):
+            step_lrs.append(trainer.optimizer.param_groups[0]["lr"])
+            trainer.lr_scheduler.step()
+        self.assertEqual(step_lrs[0], 0.1)
+        self.assertEqual(step_lrs[1], 0.2)
+        self.assertEqual(step_lrs[-1], 1e-05)
+
     def test_reduce_lr_on_plateau_args(self):
         # test passed arguments for a custom ReduceLROnPlateau scheduler
         train_dataset = RegressionDataset(length=64)

@@ -441,6 +441,7 @@ class SchedulerType(ExplicitEnum):
     INVERSE_SQRT = "inverse_sqrt"
     REDUCE_ON_PLATEAU = "reduce_lr_on_plateau"
     COSINE_WITH_MIN_LR = "cosine_with_min_lr"
+    COSINE_WARMUP_WITH_MIN_LR = "cosine_warmup_with_min_lr"
     WARMUP_STABLE_DECAY = "warmup_stable_decay"
 
 

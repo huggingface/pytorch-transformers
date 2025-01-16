@@ -38,7 +38,7 @@ from transformers.testing_utils import (
     require_bitsandbytes,
     require_torch,
     require_torch_gpu_if_bnb_not_multi_backend_enabled,
-    require_torch_multi_gpu,
+    require_torch_multi_accelerator,
     slow,
     torch_device,
 )
@@ -514,7 +514,7 @@ class Pipeline4BitTest(Base4bitTest):
         self.assertIn(pipeline_output[0]["generated_text"], self.EXPECTED_OUTPUTS)
 
 
-@require_torch_multi_gpu
+@require_torch_multi_accelerator
 @apply_skip_if_not_implemented
 class Bnb4bitTestMultiGpu(Base4bitTest):
     def setUp(self):

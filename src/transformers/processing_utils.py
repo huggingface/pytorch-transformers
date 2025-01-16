@@ -171,6 +171,8 @@ class ImagesKwargs(TypedDict, total=False):
             The channel dimension format for the output image.
         input_data_format (`ChannelDimension` or `str`, *optional*):
             The channel dimension format for the input image.
+        device (`str`, *optional*):
+            The device to use for processing (e.g. "cpu", "cuda"), only relevant for fast image processing.
     """
 
     do_resize: Optional[bool]
@@ -188,6 +190,7 @@ class ImagesKwargs(TypedDict, total=False):
     do_center_crop: Optional[bool]
     data_format: Optional[ChannelDimension]
     input_data_format: Optional[Union[str, ChannelDimension]]
+    device: Optional[str]
 
 
 class VideosKwargs(TypedDict, total=False):

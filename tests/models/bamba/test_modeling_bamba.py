@@ -23,6 +23,7 @@ from parameterized import parameterized
 from transformers import AutoTokenizer, BambaConfig, is_torch_available
 from transformers.testing_utils import (
     require_torch,
+    require_torch_gpu,
     slow,
     torch_device,
 )
@@ -493,6 +494,7 @@ class BambaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixi
 
 @slow
 @require_torch
+@require_torch_gpu
 class BambaModelIntegrationTest(unittest.TestCase):
     model = None
     tokenizer = None

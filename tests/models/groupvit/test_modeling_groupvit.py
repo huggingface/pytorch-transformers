@@ -162,7 +162,7 @@ class GroupViTVisionModelTest(ModelTesterMixin, unittest.TestCase):
     def test_inputs_embeds(self):
         pass
 
-    @is_flaky(reason="The `index` computed with `max()` in `hard_softmax` is not stable.")
+    @is_flaky(description="The `index` computed with `max()` in `hard_softmax` is not stable.")
     def test_batching_equivalence(self):
         super().test_batching_equivalence()
 

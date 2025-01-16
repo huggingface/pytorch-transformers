@@ -15,32 +15,78 @@
 
 
 from ..rt_detr.configuration_rt_detr_resnet import RTDetrResNetConfig
-from ..rt_detr.modeling_rt_detr_resnet import RTDetrResNetBackbone, RTDetrResNetPreTrainedModel
+from ..rt_detr.modeling_rt_detr_resnet import RTDetrResNetBackbone, RTDetrResNetPreTrainedModel, RTDetrResNetEmbeddings, RTDetrResNetConvLayer
 from torch import nn
 
 
 class DFineResNetConfig(RTDetrResNetConfig):
+    model_type = "d-fine-resnet"
     def __init__(
         self,
+        stem_channels=[3, 32, 48],
         **super_kwargs,
     ):
         super().__init__(**super_kwargs)
-        self.depths = [5, 5, 5, 5]
+        self.stem_channels = stem_channels
 
 
 class DFineResNetPreTrainedModel(RTDetrResNetPreTrainedModel):
     pass
 
 
-class DFineResNetEncoder(nn.Module):
+class DFineResNetConvLayer(RTDetrResNetConvLayer):
+    pass
+
+
+class DFineResNetEmbeddings(RTDetrResNetEmbeddings):
     def __init__(self, config: DFineResNetConfig):
-        super().__init__()
+        super().__init__(config=config)
+
+        self.embedder = nn.Sequential(
+            *[
+                DFineResNetConvLayer(
+                    config.stem_channels[0],
+                    config.stem_channels[1],
+                    kernel_size=3,
+                    stride=2,
+                    activation=config.hidden_act,
+                ),
+                DFineResNetConvLayer(
+                    config.stem_channels[1],
+                    config.stem_channels[1] // 2,
+                    kernel_size=2,
+                    stride=1,
+                    activation=config.hidden_act,
+                ),
+                DFineResNetConvLayer(
+                    config.stem_channels[1] // 2,
+                    config.stem_channels[1],
+                    kernel_size=2,
+                    stride=1,
+                    activation=config.hidden_act,
+                ),
+                DFineResNetConvLayer(
+                    config.stem_channels[1] * 2,
+                    config.stem_channels[1],
+                    kernel_size=3,
+                    stride=2,
+                    activation=config.hidden_act,
+                ),
+                DFineResNetConvLayer(
+                    config.stem_channels[1],
+                    config.stem_channels[2],
+                    kernel_size=1,
+                    stride=1,
+                    activation=config.hidden_act,
+                )
+            ]
+        )
 
 
 class DFineResNetBackbone(RTDetrResNetBackbone):
     def __init__(self, config: DFineResNetConfig):
         super().__init__(config=config)
-        self.encoder = DFineResNetEncoder(config=config)
+        self.embedder = DFineResNetEmbeddings(config=config)
 
 
 __all__ = ["DFineResNetConfig", "DFineResNetBackbone", "DFineResNetPreTrainedModel"]

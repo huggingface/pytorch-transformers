@@ -250,7 +250,7 @@ class DFineConfig(PretrainedConfig):
         eos_coefficient=1e-4,
         decoder_offset_scale=0.5,
         eval_idx=-1,
-        layer_scale=2,
+        layer_scale=1,
         reg_max=32,
         **kwargs,
     ):

@@ -88,26 +88,41 @@ class DFineResNetEmbeddings(nn.Module):
 
     def __init__(self, config: DFineResNetConfig):
         super().__init__()
+
         self.embedder = nn.Sequential(
             *[
                 DFineResNetConvLayer(
-                    config.num_channels,
-                    config.embedding_size // 2,
+                    config.stem_channels[0],
+                    config.stem_channels[1],
                     kernel_size=3,
                     stride=2,
                     activation=config.hidden_act,
                 ),
                 DFineResNetConvLayer(
-                    config.embedding_size // 2,
-                    config.embedding_size // 2,
-                    kernel_size=3,
+                    config.stem_channels[1],
+                    config.stem_channels[1] // 2,
+                    kernel_size=2,
                     stride=1,
                     activation=config.hidden_act,
                 ),
                 DFineResNetConvLayer(
-                    config.embedding_size // 2,
-                    config.embedding_size,
+                    config.stem_channels[1] // 2,
+                    config.stem_channels[1],
+                    kernel_size=2,
+                    stride=1,
+                    activation=config.hidden_act,
+                ),
+                DFineResNetConvLayer(
+                    config.stem_channels[1] * 2,
+                    config.stem_channels[1],
                     kernel_size=3,
+                    stride=2,
+                    activation=config.hidden_act,
+                ),
+                DFineResNetConvLayer(
+                    config.stem_channels[1],
+                    config.stem_channels[2],
+                    kernel_size=1,
                     stride=1,
                     activation=config.hidden_act,
                 ),
@@ -353,12 +368,12 @@ DFine_RESNET_INPUTS_DOCSTRING = r"""
     DFine_RESNET_START_DOCSTRING,
 )
 class DFineResNetBackbone(DFineResNetPreTrainedModel, BackboneMixin):
-    def __init__(self, config):
+    def __init__(self, config: DFineResNetConfig):
         super().__init__(config)
         super()._init_backbone(config)
 
         self.num_features = [config.embedding_size] + config.hidden_sizes
-        self.embedder = DFineResNetEmbeddings(config)
+        self.embedder = DFineResNetEmbeddings(config=config)
         self.encoder = DFineResNetEncoder(config)
 
         # initialize weights and apply final processing

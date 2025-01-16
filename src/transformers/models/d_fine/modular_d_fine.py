@@ -23,7 +23,6 @@ from ..rt_detr.modeling_rt_detr import (
     RTDetrHybridEncoder,
     RTDetrRepVggBlock,
     RTDetrConvNormLayer,
-    RTDetrForObjectDetection,
     RTDetrPreTrainedModel,
     inverse_sigmoid,
 )
@@ -41,7 +40,7 @@ from ...activations import ACT2CLS
 class DFineConfig(RTDetrConfig):
     model_type = "d-fine"
 
-    def __init__(self, decoder_offset_scale=0.5, eval_idx=-1, layer_scale=2, reg_max=32, **super_kwargs):
+    def __init__(self, decoder_offset_scale=0.5, eval_idx=-1, layer_scale=1, reg_max=32, **super_kwargs):
         super().__init__(**super_kwargs)
 
         self.decoder_offset_scale = decoder_offset_scale
@@ -515,15 +514,33 @@ class DFineModel(RTDetrModel):
         self.encoder = DFineHybridEncoder(config=config)
 
 
-class DFineForObjectDetection(RTDetrForObjectDetection):
+class DFineForObjectDetection(DFinePreTrainedModel):
     def __init__(self, config: DFineConfig):
         super().__init__(config)
+
         # D-FINE encoder-decoder model
         self.model = DFineModel(config)
+        scaled_dim = round(config.layer_scale * config.hidden_size)
+        num_pred = config.decoder_layers
+        self.class_embed = functools.partial(nn.Linear, config.d_model, config.num_labels)
+        self.class_embed = nn.ModuleList([self.class_embed() for _ in range(num_pred)])
+        self.bbox_embed = nn.ModuleList(
+            [
+                MLP(config.hidden_size, config.hidden_size, 4 * (config.reg_max + 1), 3)
+                for _ in range(config.eval_idx + 1)
+            ]
+            + [
+                MLP(scaled_dim, scaled_dim, 4 * (config.reg_max + 1), 3)
+                for _ in range(config.decoder_layers - config.eval_idx - 1)
+            ]
+        )
+
         # here self.model.decoder.bbox_embed is null, but not self.bbox_embed
-        # fix bug
         self.model.decoder.class_embed = self.class_embed
         self.model.decoder.bbox_embed = self.bbox_embed
+
+        # Initialize weights and apply final processing
+        self.post_init()
 
 
 def weighting_function(reg_max, up, reg_scale):

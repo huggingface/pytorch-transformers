@@ -79,7 +79,7 @@ class DFineResNetConfig(BackboneConfigMixin, PretrainedConfig):
     ```
     """
 
-    model_type = "d_fine_resnet"
+    model_type = "d-fine-resnet"
     layer_types = ["basic", "bottleneck"]
 
     def __init__(
@@ -94,6 +94,7 @@ class DFineResNetConfig(BackboneConfigMixin, PretrainedConfig):
         downsample_in_bottleneck=False,
         out_features=None,
         out_indices=None,
+        stem_channels=[3, 32, 48],
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -111,6 +112,7 @@ class DFineResNetConfig(BackboneConfigMixin, PretrainedConfig):
         self._out_features, self._out_indices = get_aligned_output_features_output_indices(
             out_features=out_features, out_indices=out_indices, stage_names=self.stage_names
         )
+        self.stem_channels = stem_channels
 
 
 __all__ = ["DFineResNetConfig"]

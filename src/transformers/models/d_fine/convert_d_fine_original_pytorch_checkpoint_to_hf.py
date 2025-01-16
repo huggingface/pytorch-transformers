@@ -47,6 +47,7 @@ def get_d_fine_config(model_name: str) -> DFineConfig:
     config.backbone_config.hidden_sizes = [64, 128, 256, 512]
     config.backbone_config.depths = [5, 5, 5, 5]
     config.backbone_config.layer_type = "basic"
+    config.backbone_config.embedding_size = 32
     config.encoder_in_channels = [512, 1024, 2048]
     config.hidden_expansion = 1.0
     config.decoder_layers = 6
@@ -81,15 +82,15 @@ def create_rename_keys(config):
     for level in range(4):
         if level + 1 == 2:
             rename_keys.append((f"backbone.stem.stem{level+1}a.conv.weight", f"model.backbone.model.embedder.embedder.{level}.convolution.weight"))
-            rename_keys.append((f"backbone.stem.stem{level+1}b.conv.weight", f"model.backbone.model.embedder.embedder.{level}.convolution.weight"))
+            rename_keys.append((f"backbone.stem.stem{level+1}b.conv.weight", f"model.backbone.model.embedder.embedder.{level+1}.convolution.weight"))
         else:
-            rename_keys.append((f"backbone.stem.stem{level+1}.conv.weight", f"model.backbone.model.embedder.embedder.{level}.convolution.weight"))
+            rename_keys.append((f"backbone.stem.stem{level+1}.conv.weight", f"model.backbone.model.embedder.embedder.{level+1}.convolution.weight"))
         for last in last_key:
             if level + 1 == 2:
                 rename_keys.append((f"backbone.stem.stem{level+1}a.bn.{last}", f"model.backbone.model.embedder.embedder.{level}.normalization.{last}"))
-                rename_keys.append((f"backbone.stem.stem{level+1}b.bn.{last}", f"model.backbone.model.embedder.embedder.{level}.normalization.{last}"))
+                rename_keys.append((f"backbone.stem.stem{level+1}b.bn.{last}", f"model.backbone.model.embedder.embedder.{level+1}.normalization.{last}"))
             else:
-                rename_keys.append((f"backbone.stem.stem{level+1}.bn.{last}", f"model.backbone.model.embedder.embedder.{level}.normalization.{last}"))
+                rename_keys.append((f"backbone.stem.stem{level+1}.bn.{last}", f"model.backbone.model.embedder.embedder.{level+1}.normalization.{last}"))
 
     for stage_idx in range(len(config.backbone_config.depths)):
         for layer_idx in range(config.backbone_config.depths[stage_idx]):

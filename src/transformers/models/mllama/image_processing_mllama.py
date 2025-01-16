@@ -33,8 +33,8 @@ from ...image_utils import (
     ImageInput,
     PILImageResampling,
     infer_channel_dimension_format,
-    is_valid_image,
     is_vision_available,
+    make_nested_list_of_images,
     to_numpy_array,
     validate_preprocess_arguments,
 )
@@ -514,42 +514,6 @@ def convert_to_rgb(image: ImageInput) -> ImageInput:
     return alpha_composite
 
 
-# Modified from transformers.models.idefics2.image_processing_idefics2.make_list_of_images
-def make_list_of_images(images: ImageInput) -> List[List[Optional[np.ndarray]]]:
-    """
-    Convert a single image or a list of images to a list of numpy arrays.
-
-    Args:
-        images (`ImageInput`):
-            A single image or a list of images.
-
-    Returns:
-        A list of numpy arrays.
-    """
-    # If it's a single image, convert it to a list of lists
-    if is_valid_image(images):
-        output_images = [[images]]
-    # If it's a list of images, it's a single batch, so convert it to a list of lists
-    elif isinstance(images, (list, tuple)) and is_valid_list_of_images(images):
-        output_images = [images]
-    # If it's a list of batches, it's already in the right format
-    elif (
-        isinstance(images, (list, tuple))
-        and all(isinstance(images_i, (list, tuple)) for images_i in images)
-        and any(is_valid_list_of_images(images_i) for images_i in images)
-    ):
-        output_images = images
-    else:
-        raise ValueError(
-            "Invalid input type. Must be a single image, a list of images, or a list of batches of images."
-        )
-    return output_images
-
-
-def is_valid_list_of_images(images: List):
-    return images and all(is_valid_image(image) for image in images)
-
-
 def _validate_size(size: Dict[str, int]) -> None:
     if not ("height" in size and "width" in size):
         raise ValueError(f"Argument `size` must be a dictionary with keys 'height' and 'width'. Got: {size}")
@@ -726,7 +690,7 @@ class MllamaImageProcessor(BaseImageProcessor):
         # extra validation
         _validate_mllama_preprocess_arguments(do_resize, size, do_pad, max_image_tiles)
 
-        images_list = make_list_of_images(images)
+        images_list = make_nested_list_of_images(images)
 
         if self.do_convert_rgb:
             images_list = [[convert_to_rgb(image) for image in images] for images in images_list]

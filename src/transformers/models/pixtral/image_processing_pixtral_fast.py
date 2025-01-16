@@ -26,6 +26,7 @@ from ...image_utils import (
     get_image_size,
     get_image_type,
     infer_channel_dimension_format,
+    make_nested_list_of_images,
     validate_fast_preprocess_arguments,
     validate_kwargs,
 )
@@ -41,7 +42,6 @@ from .image_processing_pixtral import (
     BatchMixFeature,
     convert_to_rgb,
     get_resize_output_image_size,
-    make_list_of_images,
 )
 
 
@@ -271,7 +271,7 @@ class PixtralImageProcessorFast(BaseImageProcessorFast):
 
         validate_kwargs(captured_kwargs=kwargs.keys(), valid_processor_keys=self._valid_processor_keys)
 
-        images_list = make_list_of_images(images)
+        images_list = make_nested_list_of_images(images)
         image_type = get_image_type(images_list[0][0])
 
         if image_type not in [ImageType.PIL, ImageType.TORCH, ImageType.NUMPY]:

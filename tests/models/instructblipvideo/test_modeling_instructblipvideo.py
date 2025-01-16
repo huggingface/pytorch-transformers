@@ -39,7 +39,7 @@ from transformers.testing_utils import (
     slow,
     torch_device,
 )
-from transformers.utils import is_torch_available, is_vision_available
+from transformers.utils import is_torch_available
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -56,10 +56,6 @@ if is_torch_available():
     from torch import nn
 
     from transformers import InstructBlipVideoForConditionalGeneration, InstructBlipVideoVisionModel
-
-
-if is_vision_available():
-    pass
 
 
 class InstructBlipVideoVisionModelTester:

@@ -20,7 +20,6 @@ from transformers import (
     PixtralVisionConfig,
     PixtralVisionModel,
     is_torch_available,
-    is_vision_available,
 )
 from transformers.testing_utils import (
     require_torch,
@@ -33,10 +32,6 @@ from ...test_modeling_common import ModelTesterMixin, floats_tensor
 
 if is_torch_available():
     import torch
-
-
-if is_vision_available():
-    pass
 
 
 class PixtralVisionModelTester:

@@ -19,7 +19,7 @@ Processor class for PaliGemma.
 from typing import List, Optional, Union
 
 from ...feature_extraction_utils import BatchFeature
-from ...image_utils import ImageInput, is_valid_image
+from ...image_utils import ImageInput, is_valid_image, make_flat_list_of_images
 from ...processing_utils import (
     ImagesKwargs,
     ProcessingKwargs,
@@ -97,30 +97,6 @@ def build_string_from_input(prompt, bos_token, image_seq_len, image_token, num_i
         num_images (`int`): Number of images in the prompt.
     """
     return f"{image_token * image_seq_len * num_images}{bos_token}{prompt}\n"
-
-
-# Copied from transformers.models.llava_next.image_processing_llava_next.make_batched_images
-def make_batched_images(images) -> List[List[ImageInput]]:
-    """
-    Accepts images in list or nested list format, and makes a list of images for preprocessing.
-
-    Args:
-        images (`Union[List[List[ImageInput]], List[ImageInput], ImageInput]`):
-            The input image.
-
-    Returns:
-        list: A list of images.
-    """
-    if isinstance(images, (list, tuple)) and isinstance(images[0], (list, tuple)) and is_valid_image(images[0][0]):
-        return [img for img_list in images for img in img_list]
-
-    elif isinstance(images, (list, tuple)) and is_valid_image(images[0]):
-        return images
-
-    elif is_valid_image(images):
-        return [images]
-
-    raise ValueError(f"Could not make batched video from {images}")
 
 
 class PaliGemmaProcessor(ProcessorMixin):
@@ -297,7 +273,7 @@ class PaliGemmaProcessor(ProcessorMixin):
                     )
                     for prompt, image_list in zip(text, images)
                 ]
-                images = make_batched_images(images)
+                images = make_flat_list_of_images(images)
             else:
                 expanded_samples = []
                 for sample in text:

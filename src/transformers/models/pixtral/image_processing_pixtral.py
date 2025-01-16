@@ -31,7 +31,7 @@ from ...image_utils import (
     get_image_size,
     infer_channel_dimension_format,
     is_scaled_image,
-    is_valid_image,
+    make_nested_list_of_images,
     to_numpy_array,
     valid_images,
     validate_kwargs,
@@ -97,40 +97,6 @@ class BatchMixFeature(BatchFeature):
 
         self.data = {k: _recursive_to(v, device, *args, **kwargs) for k, v in self.data.items()}
         return self
-
-
-# Copied from transformers.models.idefics2.image_processing_idefics2.make_list_of_images
-def make_list_of_images(images: ImageInput) -> List[List[np.ndarray]]:
-    """
-    Convert a single image or a list of images to a list of numpy arrays.
-
-    Args:
-        images (`ImageInput`):
-            A single image or a list of images.
-
-    Returns:
-        A list of numpy arrays.
-    """
-    # If it's a single image, convert it to a list of lists
-    if is_valid_image(images):
-        images = [[images]]
-    # If it's a list of images, it's a single batch, so convert it to a list of lists
-    elif isinstance(images, (list, tuple)) and len(images) > 0 and is_valid_image(images[0]):
-        images = [images]
-    # If it's a list of batches, it's already in the right format
-    elif (
-        isinstance(images, (list, tuple))
-        and len(images) > 0
-        and isinstance(images[0], (list, tuple))
-        and len(images[0]) > 0
-        and is_valid_image(images[0][0])
-    ):
-        pass
-    else:
-        raise ValueError(
-            "Invalid input type. Must be a single image, a list of images, or a list of batches of images."
-        )
-    return images
 
 
 # Adapted from function in image_transforms.py to ensure any transparent pixels are converted to white.
@@ -449,7 +415,7 @@ class PixtralImageProcessor(BaseImageProcessor):
 
         validate_kwargs(captured_kwargs=kwargs.keys(), valid_processor_keys=self._valid_processor_keys)
 
-        images_list = make_list_of_images(images)
+        images_list = make_nested_list_of_images(images)
 
         if not valid_images(images_list[0]):
             raise ValueError(

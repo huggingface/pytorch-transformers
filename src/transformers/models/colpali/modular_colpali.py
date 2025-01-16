@@ -20,11 +20,10 @@ from transformers.models.paligemma.processing_paligemma import (
     IMAGE_TOKEN,
     PaliGemmaProcessor,
     build_string_from_input,
-    make_batched_images,
 )
 
 from ...feature_extraction_utils import BatchFeature
-from ...image_utils import ImageInput, is_valid_image
+from ...image_utils import ImageInput, is_valid_image, make_flat_list_of_images
 from ...processing_utils import (
     ProcessingKwargs,
     Unpack,
@@ -168,7 +167,7 @@ class ColPaliProcessor(PaliGemmaProcessor):
                 )
                 for prompt, image_list in zip(texts_doc, images)
             ]
-            images = make_batched_images(images)
+            images = make_flat_list_of_images(images)
             pixel_values = self.image_processor(images, **output_kwargs["images_kwargs"])["pixel_values"]
 
             # max_length has to account for the image tokens

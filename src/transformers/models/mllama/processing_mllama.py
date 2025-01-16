@@ -20,15 +20,12 @@ from typing import List, Optional, Union
 import numpy as np
 
 from ...feature_extraction_utils import BatchFeature
-from ...image_utils import ImageInput
+from ...image_utils import ImageInput, make_nested_list_of_images
 from ...processing_utils import ImagesKwargs, ProcessingKwargs, ProcessorMixin, Unpack
 from ...tokenization_utils_base import (
     PreTokenizedInput,
     TextInput,
 )
-
-# TODO: Can we do it that way or its better include as "Copied from ..."
-from .image_processing_mllama import make_list_of_images
 
 
 class MllamaImagesKwargs(ImagesKwargs, total=False):
@@ -292,7 +289,7 @@ class MllamaProcessor(ProcessorMixin):
 
         n_images_in_images = [0]
         if images is not None:
-            images = make_list_of_images(images)
+            images = make_nested_list_of_images(images)
             n_images_in_images = [len(sample) for sample in images]
 
         if text is not None:

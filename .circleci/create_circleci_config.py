@@ -152,6 +152,8 @@ class CircleCIJob:
                     "command": f"TESTS=$(circleci tests split  --split-by=timings {self.job_name}_test_list.txt) && echo $TESTS > splitted_tests.txt && echo $TESTS | tr ' ' '\n'" if self.parallelism else f"awk '{{printf \"%s \", $0}}' {self.job_name}_test_list.txt > splitted_tests.txt"
                     }
             },
+            {"run": "pip install -U pytest"},
+            {"run": "pip install pytest-flakefinder"},
             {"run": {
                 "name": "Run tests",
                 "command": f"({timeout_cmd} python3 -m pytest {marker_cmd} -n 1 {additional_flags} {' '.join(pytest_flags)} tests/models -k test_batching_equivalence | tee tests_output.txt)"}

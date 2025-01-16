@@ -25,7 +25,7 @@ from ..utils import is_sklearn_available
 if is_sklearn_available():
     from sklearn.metrics import roc_curve
 
-from ..cache_utils import DynamicCache
+from ..cache_utils import Cache
 from ..pytorch_utils import isin_mps_friendly
 from .logits_process import LogitsProcessorList, MinLengthLogitsProcessor
 
@@ -183,9 +183,6 @@ class AssistedCandidateGenerator(CandidateGenerator):
                     "Please pass in `min_length` into `.generate()` instead"
                 )
 
-        # We need to roll back the cache in assisted generation, only DynamicCache is supported
-        self.generation_config.cache_implementation = None
-
         if (
             is_sklearn_available()
             and self.assistant_model.generation_config.assistant_confidence_threshold
@@ -212,11 +209,13 @@ class AssistedCandidateGenerator(CandidateGenerator):
         min_new_tokens, max_new_tokens = self._calculate_new_tokens(input_ids)
         if max_new_tokens == 0:
             return input_ids, None
+
         # Update past key values and masks
         self._update_past_and_masks(input_ids)
         # Generate candidates
         generation_args = self._prepare_generation_args(input_ids, min_new_tokens, max_new_tokens)
         candidate_ids, candidate_logits = self._generate_candidates(generation_args)
+
         return candidate_ids, candidate_logits
 
     def update_candidate_strategy(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, num_matches: int):
@@ -312,6 +311,7 @@ class AssistedCandidateGenerator(CandidateGenerator):
         """Generate candidate sequences using the assistant model."""
         assistant_output = self.assistant_model.generate(**generation_args, **self.assistant_kwargs)
         self.assistant_kwargs["past_key_values"] = assistant_output.past_key_values
+        self.generation_config.cache_implementation = None
         if (
             is_sklearn_available()
             and self.assistant_model.generation_config.assistant_confidence_threshold
@@ -801,7 +801,7 @@ def _crop_past_key_values(model, past_key_values, max_length):
         else:
             for idx in range(len(past_key_values)):
                 past_key_values[idx] = past_key_values[idx][:, :, :max_length, :]
-    elif isinstance(past_key_values, DynamicCache):
+    elif isinstance(past_key_values, Cache):
         past_key_values.crop(max_length)
     elif past_key_values is not None:
         for idx in range(len(past_key_values)):

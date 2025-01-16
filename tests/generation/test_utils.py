@@ -2094,6 +2094,86 @@ class GenerationTesterMixin:
             for dynamic_result, compiled_result in zip(dynamic_outputs, compiled_outputs):
                 self._check_similar_generate_outputs(dynamic_result, compiled_result)
 
+    @parameterized.expand(
+        [
+            ("forward_only", False),  # TODO (@joao): a few models failing. After fixed, this should not be "@slow"
+            ("end_to_end", True),  # TODO (@joao): end-to-end compilation is broken with torch 2.5+, explore and fix
+        ]
+    )
+    @pytest.mark.generate
+    @require_torch_gpu
+    @slow
+    def test_assisted_decoding_compile(self, _, end_to_end):
+        """
+        Tests that `.generate` is compatible with torch.compile without graph breaks, keeping the same results. Tests
+        end-to-end compilation and forward pass compilation only.
+        ⚠️ Runs two sequential generations to ensure the cache doesn't get stuck after the first compiled run! ⚠️
+        """
+        for model_class in self.all_generative_model_classes:
+            if not model_class._supports_static_cache:
+                self.skipTest("This model doesn't support static cache")
+
+            if model_class._is_stateful:
+                self.skipTest(reason="Stateful models don't support assisted generation")
+
+            # TODO (joao) -- fix and enable me :)
+            if end_to_end and any(model_name in model_class.__name__.lower() for model_name in ["whisper"]):
+                self.skipTest("whisper model end-to-end generate compile not yet supported")
+
+            config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
+            # TODO (joao) -- fix and enable me :)
+            if end_to_end and config.is_encoder_decoder:
+                self.skipTest("Encoder-decoder model end-to-end generate compile not yet supported")
+
+            if not hasattr(config, "use_cache"):
+                self.skipTest(reason=f"{model_class.__name__} doesn't support caching")
+
+            model = model_class(config).to(torch_device)
+            model.eval()  # otherwise `self.training` is `True` -- this flag is used at attn mask creation time
+
+            input_ids = inputs_dict["input_ids"].to(torch_device)
+            # assisted decoding only supports batch size 1, so divide and conquer
+            batch_size = input_ids.shape[0]
+            input_ids_sets = [torch.unsqueeze(input_ids[0, :], 0)]
+            for i in range(1, batch_size):
+                input_ids_sets.append(torch.unsqueeze(input_ids[i, :], 0))
+                self.assertTrue(input_ids_sets[i].shape == input_ids_sets[0].shape)
+
+            generation_kwargs = {
+                "do_sample": False,
+                "max_new_tokens": 10,
+                "return_dict_in_generate": True,
+                "output_scores": True,
+                "return_legacy_cache": False,
+            }
+
+            # end-to-end works best with dynamic cache, forward compilation works best with static cache
+            if not end_to_end:
+                generation_kwargs["cache_implementation"] = "static"
+
+            # get eager + dynamic cache results for future comparison
+            dynamic_outputs = []
+            for model_inputs in input_ids_sets:
+                dynamic_outputs.append(model.generate(model_inputs, assistant_model=model, **generation_kwargs))
+
+            # get compiled results
+            generation_config = copy.deepcopy(model.generation_config)
+            generation_config.update(**generation_kwargs)
+            torch.compiler.reset()
+            if end_to_end:
+                model.generate = torch.compile(model.generate, fullgraph=True, mode="reduce-overhead")
+            else:
+                model.forward = torch.compile(model.forward, fullgraph=True, mode="reduce-overhead")
+
+            compiled_outputs = []
+            for model_inputs in input_ids_sets:
+                compiled_outputs.append(
+                    model.generate(model_inputs, assistant_model=model, generation_config=generation_config)
+                )
+
+            for dynamic_result, compiled_result in zip(dynamic_outputs, compiled_outputs):
+                self._check_similar_generate_outputs(dynamic_result, compiled_result)
+
     @pytest.mark.generate
     def test_generate_methods_with_num_logits_to_keep(self):
         for model_class in self.all_generative_model_classes:
@@ -2119,13 +2199,16 @@ class GenerationTesterMixin:
             without_all_logits = model.generate(**inputs_dict, **generation_kwargs)
             self.assertEqual(with_all_logits.tolist(), without_all_logits.tolist())
 
+    @parameterized.expand([("static", False), (None, True)])
     @pytest.mark.generate
-    def test_assisted_decoding_with_num_logits_to_keep(self):
+    def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
         for model_class in self.all_generative_model_classes:
             if "num_logits_to_keep" not in set(inspect.signature(model_class.forward).parameters.keys()):
                 self.skipTest(reason="This model does not support `num_logits_to_keep` argument.")
             if model_class._is_stateful:
                 self.skipTest(reason="Stateful models don't support assisted generation")
+            if cache_implementation == "static" and not model_class._supports_static_cache:
+                self.skipTest(reason="This model does not support `cache_implementation=static`.")
 
             config, inputs_dict = self.prepare_config_and_inputs_for_generate(batch_size=1)
             # NOTE: assisted generation only works with cache on at the moment.
@@ -2145,6 +2228,8 @@ class GenerationTesterMixin:
                 "assistant_model": assistant_model,
                 "return_dict_in_generate": True,
                 "output_scores": True,
+                "cache_implementation": cache_implementation,
+                "return_legacy_cache": return_legacy_cache,
             }
 
             # Setting num_logits_to_keep at 0 keeps all logits (old behavior)

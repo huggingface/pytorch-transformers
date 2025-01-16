@@ -91,6 +91,11 @@ class Cohere2ModelTest(CohereModelTest, unittest.TestCase):
     def test_assisted_decoding_matches_greedy_search(self, assistant_type):
         pass
 
+    @parameterized.expand([("static", False)])
+    @unittest.skip("Cohere2 has HybridCache which is not compatible with assisted decoding StaticCache")
+    def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
+        pass
+
     @unittest.skip("Cohere2 has HybridCache which is not compatible with assisted decoding")
     def test_prompt_lookup_decoding_matches_greedy_search(self, assistant_type):
         pass

@@ -113,6 +113,11 @@ class Gemma2ModelTest(GemmaModelTest, unittest.TestCase):
     def test_assisted_decoding_sample(self):
         pass
 
+    @parameterized.expand([("static", False)])
+    @unittest.skip("Gemma2 has HybridCache which is not compatible with assisted decoding StaticCache")
+    def test_assisted_decoding_with_num_logits_to_keep(self, cache_implementation, return_legacy_cache):
+        pass
+
     @unittest.skip("Gemma2 has HybridCache which is not compatible with dola decoding")
     def test_dola_decoding_sample(self):
         pass

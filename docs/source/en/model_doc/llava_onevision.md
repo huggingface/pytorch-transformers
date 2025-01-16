@@ -100,8 +100,8 @@ import torch
 from PIL import Image
 import requests
 
-processor = AutoProcessor.from_pretrained("llava-hf/llava-onevision-qwen2-7b-ov-hf") 
-model = LlavaOnevisionForConditionalGeneration.from_pretrained("llava-hf/llava-onevision-qwen2-7b-ov-hf", torch_dtype=torch.float16, low_cpu_mem_usage=True) 
+processor = AutoProcessor.from_pretrained("llava-hf/llava-onevision-qwen2-7b-ov-hf")
+model = LlavaOnevisionForConditionalGeneration.from_pretrained("llava-hf/llava-onevision-qwen2-7b-ov-hf", torch_dtype=torch.float16, low_cpu_mem_usage=True)
 model.to("cuda:0")
 
 # prepare image and text prompt, using the appropriate prompt template
@@ -298,8 +298,8 @@ First make sure to install flash-attn. Refer to the [original repository of Flas
 from transformers import LlavaOnevisionForConditionalGeneration
 
 model = LlavaOnevisionForConditionalGeneration.from_pretrained(
-    model_id, 
-    torch_dtype=torch.float16, 
+    model_id,
+    torch_dtype=torch.float16,
     low_cpu_mem_usage=True,
     use_flash_attention_2=True
 ).to(0)
@@ -317,6 +317,11 @@ model = LlavaOnevisionForConditionalGeneration.from_pretrained(
 ## LlavaOnevisionImageProcessor
 
 [[autodoc]] LlavaOnevisionImageProcessor
+
+## LlavaOnevisionImageProcessorFast
+
+[[autodoc]] LlavaOnevisionImageProcessorFast
+    - preprocess
 
 ## LlavaOnevisionVideoProcessor
 

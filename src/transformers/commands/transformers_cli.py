@@ -15,6 +15,7 @@
 
 from argparse import ArgumentParser
 
+from .add_fast_image_processor import AddFastImageProcessorCommand
 from .add_new_model_like import AddNewModelLikeCommand
 from .convert import ConvertCommand
 from .download import DownloadCommand
@@ -40,6 +41,7 @@ def main():
     AddNewModelLikeCommand.register_subcommand(commands_parser)
     LfsCommands.register_subcommand(commands_parser)
     PTtoTFCommand.register_subcommand(commands_parser)
+    AddFastImageProcessorCommand.register_subcommand(commands_parser)
 
     # Let's go
     args = parser.parse_args()

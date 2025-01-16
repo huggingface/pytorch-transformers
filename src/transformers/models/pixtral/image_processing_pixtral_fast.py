@@ -125,22 +125,6 @@ class PixtralImageProcessorFast(BaseImageProcessorFast):
         self.image_mean = image_mean if image_mean is not None else [0.48145466, 0.4578275, 0.40821073]
         self.image_std = image_std if image_std is not None else [0.26862954, 0.26130258, 0.27577711]
         self.do_convert_rgb = do_convert_rgb
-        self._valid_processor_keys = [
-            "images",
-            "do_resize",
-            "size",
-            "patch_size",
-            "resample",
-            "do_rescale",
-            "rescale_factor",
-            "do_normalize",
-            "image_mean",
-            "image_std",
-            "do_convert_rgb",
-            "return_tensors",
-            "data_format",
-            "input_data_format",
-        ]
 
     def resize(
         self,
@@ -205,6 +189,7 @@ class PixtralImageProcessorFast(BaseImageProcessorFast):
         return_tensors: Optional[Union[str, TensorType]] = None,
         data_format: Optional[ChannelDimension] = ChannelDimension.FIRST,
         input_data_format: Optional[Union[str, ChannelDimension]] = None,
+        device: Optional["torch.device"] = None,
         **kwargs,
     ) -> BatchMixFeature:
         """
@@ -254,6 +239,8 @@ class PixtralImageProcessorFast(BaseImageProcessorFast):
                 - `"channels_first"` or `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
                 - `"channels_last"` or `ChannelDimension.LAST`: image in (height, width, num_channels) format.
                 - `"none"` or `ChannelDimension.NONE`: image in (height, width) format.
+            device (`torch.device`, *optional*):
+                The device to process the images on. If unset, the device is inferred from the input images.
         """
         patch_size = patch_size if patch_size is not None else self.patch_size
         patch_size = get_size_dict(patch_size, default_to_square=True)
@@ -267,9 +254,8 @@ class PixtralImageProcessorFast(BaseImageProcessorFast):
         image_mean = image_mean if image_mean is not None else self.image_mean
         image_std = image_std if image_std is not None else self.image_std
         do_convert_rgb = do_convert_rgb if do_convert_rgb is not None else self.do_convert_rgb
-        device = kwargs.pop("device", None)
 
-        validate_kwargs(captured_kwargs=kwargs.keys(), valid_processor_keys=self._valid_processor_keys)
+        validate_kwargs(captured_kwargs=kwargs.keys(), valid_processor_keys=self.valid_extra_kwargs)
 
         images_list = make_list_of_images(images)
         image_type = get_image_type(images_list[0][0])
@@ -311,8 +297,8 @@ class PixtralImageProcessorFast(BaseImageProcessorFast):
 
         if do_rescale and do_normalize:
             # fused rescale and normalize
-            new_mean = torch.tensor(image_mean, device=images_list[0][0].device) * (1.0 / rescale_factor)
-            new_std = torch.tensor(image_std, device=images_list[0][0].device) * (1.0 / rescale_factor)
+            image_mean = torch.tensor(image_mean, device=images_list[0][0].device) * (1.0 / rescale_factor)
+            image_std = torch.tensor(image_std, device=images_list[0][0].device) * (1.0 / rescale_factor)
 
         batch_images = []
         batch_image_sizes = []
@@ -333,13 +319,10 @@ class PixtralImageProcessorFast(BaseImageProcessorFast):
                         interpolation=interpolation,
                     )
 
-                if do_rescale and do_normalize:
-                    # fused rescale and normalize
-                    image = F.normalize(image.to(dtype=torch.float32), new_mean, new_std)
-                elif do_rescale:
-                    image = image * rescale_factor
-                elif do_normalize:
-                    image = F.normalize(image, image_mean, image_std)
+                # Fused rescale and normalize
+                image = self.rescale_and_normalize(
+                    image, do_rescale, rescale_factor, do_normalize, image_mean, image_std
+                )
 
                 images.append(image)
                 image_sizes.append(get_image_size(image, input_data_format))

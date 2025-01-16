@@ -17,13 +17,16 @@
 import unittest
 
 from transformers.testing_utils import require_torch, require_vision
-from transformers.utils import is_vision_available
+from transformers.utils import is_torchvision_available, is_vision_available
 
 from ...test_image_processing_common import ImageProcessingTestMixin, prepare_image_inputs
 
 
 if is_vision_available():
     from transformers import SiglipImageProcessor
+
+    if is_torchvision_available():
+        from transformers import SiglipImageProcessorFast
 
 
 class SiglipImageProcessingTester(unittest.TestCase):
@@ -90,6 +93,7 @@ class SiglipImageProcessingTester(unittest.TestCase):
 # Copied from tests.models.clip.test_image_processing_clip.CLIPImageProcessingTest with CLIP->Siglip
 class SiglipImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
     image_processing_class = SiglipImageProcessor if is_vision_available() else None
+    fast_image_processing_class = SiglipImageProcessorFast if is_torchvision_available() else None
 
     def setUp(self):
         super().setUp()
@@ -101,25 +105,27 @@ class SiglipImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
 
     # Ignore copy
     def test_image_processor_properties(self):
-        image_processing = self.image_processing_class(**self.image_processor_dict)
-        self.assertTrue(hasattr(image_processing, "do_resize"))
-        self.assertTrue(hasattr(image_processing, "size"))
-        self.assertTrue(hasattr(image_processing, "resample"))
-        self.assertTrue(hasattr(image_processing, "do_rescale"))
-        self.assertTrue(hasattr(image_processing, "rescale_factor"))
-        self.assertTrue(hasattr(image_processing, "do_normalize"))
-        self.assertTrue(hasattr(image_processing, "image_mean"))
-        self.assertTrue(hasattr(image_processing, "image_std"))
+        for image_processing_class in self.image_processor_list:
+            image_processing = image_processing_class(**self.image_processor_dict)
+            self.assertTrue(hasattr(image_processing, "do_resize"))
+            self.assertTrue(hasattr(image_processing, "size"))
+            self.assertTrue(hasattr(image_processing, "resample"))
+            self.assertTrue(hasattr(image_processing, "do_rescale"))
+            self.assertTrue(hasattr(image_processing, "rescale_factor"))
+            self.assertTrue(hasattr(image_processing, "do_normalize"))
+            self.assertTrue(hasattr(image_processing, "image_mean"))
+            self.assertTrue(hasattr(image_processing, "image_std"))
 
     # Ignore copy
     def test_image_processor_from_dict_with_kwargs(self):
-        image_processor = self.image_processing_class.from_dict(self.image_processor_dict)
-        self.assertEqual(image_processor.size, {"height": 18, "width": 18})
+        for image_processing_class in self.image_processor_list:
+            image_processor = image_processing_class.from_dict(self.image_processor_dict)
+            self.assertEqual(image_processor.size, {"height": 18, "width": 18})
 
-        image_processor = self.image_processing_class.from_dict(
-            self.image_processor_dict, size={"height": 84, "width": 84}
-        )
-        self.assertEqual(image_processor.size, {"height": 84, "width": 84})
+            image_processor = self.image_processing_class.from_dict(
+                self.image_processor_dict, size={"height": 84, "width": 84}
+            )
+            self.assertEqual(image_processor.size, {"height": 84, "width": 84})
 
     @unittest.skip(reason="not supported")
     # Ignore copy

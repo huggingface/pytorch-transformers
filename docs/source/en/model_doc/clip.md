@@ -251,6 +251,11 @@ The resource should ideally demonstrate something new instead of duplicating an 
 [[autodoc]] CLIPImageProcessor
     - preprocess
 
+## CLIPImageProcessorFast
+
+[[autodoc]] CLIPImageProcessorFast
+    - preprocess
+
 ## CLIPFeatureExtractor
 
 [[autodoc]] CLIPFeatureExtractor

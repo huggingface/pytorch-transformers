@@ -98,6 +98,11 @@ DeiT を始めるのに役立つ公式 Hugging Face およびコミュニティ 
 [[autodoc]] DeiTImageProcessor
     - preprocess
 
+## DeiTImageProcessorFast
+
+[[autodoc]] DeiTImageProcessorFast
+    - preprocess
+
 <frameworkcontent>
 <pt>
 

@@ -215,6 +215,11 @@ Below is an expected speedup diagram that compares inference time between the na
 [[autodoc]] SiglipImageProcessor
     - preprocess
 
+## SiglipImageProcessorFast
+
+[[autodoc]] SiglipImageProcessorFast
+    - preprocess
+
 ## SiglipProcessor
 
 [[autodoc]] SiglipProcessor

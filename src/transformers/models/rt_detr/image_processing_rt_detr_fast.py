@@ -470,6 +470,7 @@ class RTDetrImageProcessorFast(BaseImageProcessorFast):
         data_format: Union[str, ChannelDimension] = ChannelDimension.FIRST,
         input_data_format: Optional[Union[str, ChannelDimension]] = None,
         pad_size: Optional[Dict[str, int]] = None,
+        device: Optional["torch.device"] = None,
         **kwargs,
     ) -> BatchFeature:
         """
@@ -545,6 +546,8 @@ class RTDetrImageProcessorFast(BaseImageProcessorFast):
                 The size `{"height": int, "width" int}` to pad the images to. Must be larger than any image size
                 provided for preprocessing. If `pad_size` is not provided, images will be padded to the largest
                 height and width in the batch.
+            device (`torch.device`, *optional*):
+                The device to process the images on. If unset, the device is inferred from the input images.
         """
         do_resize = self.do_resize if do_resize is None else do_resize
         size = self.size if size is None else size
@@ -562,7 +565,6 @@ class RTDetrImageProcessorFast(BaseImageProcessorFast):
         pad_size = self.pad_size if pad_size is None else pad_size
         format = self.format if format is None else format
         return_tensors = "pt" if return_tensors is None else return_tensors
-        device = kwargs.pop("device", None)
 
         # Make hashable for cache
         size = SizeDict(**size)

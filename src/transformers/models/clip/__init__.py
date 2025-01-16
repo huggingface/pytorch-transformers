@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from .configuration_clip import *
     from .feature_extraction_clip import *
     from .image_processing_clip import *
+    from .image_processing_clip_fast import *
     from .modeling_clip import *
     from .modeling_flax_clip import *
     from .modeling_tf_clip import *

@@ -15,15 +15,17 @@
 
 import warnings
 from math import ceil
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 
 from .image_utils import (
     ChannelDimension,
     ImageInput,
+    SizeDict,
     get_channel_dimension_axis,
     get_image_size,
+    get_image_size_for_max_height_width,
     infer_channel_dimension_format,
 )
 from .utils import ExplicitEnum, TensorType, is_jax_tensor, is_tf_tensor, is_torch_tensor
@@ -214,6 +216,45 @@ def to_pil_image(
 
     image = image.astype(np.uint8)
     return PIL.Image.fromarray(image, mode=image_mode)
+
+
+def get_size_with_aspect_ratio(image_size, size, max_size=None) -> Tuple[int, int]:
+    """
+    Computes the output image size given the input image size and the desired output size.
+
+    Args:
+        image_size (`Tuple[int, int]`):
+            The input image size.
+        size (`int`):
+            The desired output size.
+        max_size (`int`, *optional*):
+            The maximum allowed output size.
+    """
+    height, width = image_size
+    raw_size = None
+    if max_size is not None:
+        min_original_size = float(min((height, width)))
+        max_original_size = float(max((height, width)))
+        if max_original_size / min_original_size * size > max_size:
+            raw_size = max_size * min_original_size / max_original_size
+            size = int(round(raw_size))
+
+    if (height <= width and height == size) or (width <= height and width == size):
+        oh, ow = height, width
+    elif width < height:
+        ow = size
+        if max_size is not None and raw_size is not None:
+            oh = int(raw_size * height / width)
+        else:
+            oh = int(size * height / width)
+    else:
+        oh = size
+        if max_size is not None and raw_size is not None:
+            ow = int(raw_size * width / height)
+        else:
+            ow = int(size * width / height)
+
+    return (oh, ow)
 
 
 # Logic adapted from torchvision resizing logic: https://github.com/pytorch/vision/blob/511924c1ced4ce0461197e5caa64ce5b9e558aab/torchvision/transforms/functional.py#L366
@@ -821,32 +862,37 @@ def _cast_tensor_to_float(x):
     return x.float()
 
 
-class FusedRescaleNormalize:
+def group_images_by_shape(
+    images: List["torch.Tensor"],
+) -> Tuple[Dict[Tuple[int, int], List["torch.Tensor"]], Dict[int, Tuple[Tuple[int, int], int]]]:
     """
-    Rescale and normalize the input image in one step.
+    Groups images by shape.
+    Returns a dictionary with the shape as key and a list of images with that shape as value,
+    and a dictionary with the index of the image in the original list as key and the shape and index in the grouped list as value.
     """
+    grouped_images = {}
+    grouped_images_index = {}
+    for i, image in enumerate(images):
+        shape = image.shape[1:]
+        if shape not in grouped_images:
+            grouped_images[shape] = []
+        grouped_images[shape].append(image)
+        grouped_images_index[i] = (shape, len(grouped_images[shape]) - 1)
+    # stack images with the same shape
+    grouped_images = {shape: torch.stack(images, dim=0) for shape, images in grouped_images.items()}
+    return grouped_images, grouped_images_index
 
-    def __init__(self, mean, std, rescale_factor: float = 1.0, inplace: bool = False):
-        self.mean = torch.tensor(mean) * (1.0 / rescale_factor)
-        self.std = torch.tensor(std) * (1.0 / rescale_factor)
-        self.inplace = inplace
 
-    def __call__(self, image: "torch.Tensor"):
-        image = _cast_tensor_to_float(image)
-        return F.normalize(image, self.mean, self.std, inplace=self.inplace)
-
-
-class Rescale:
+def reorder_images(
+    processed_images: Dict[Tuple[int, int], "torch.Tensor"], grouped_images_index: Dict[int, Tuple[int, int]]
+) -> List["torch.Tensor"]:
     """
-    Rescale the input image by rescale factor: image *= rescale_factor.
+    Reconstructs a list of images in the original order.
     """
-
-    def __init__(self, rescale_factor: float = 1.0):
-        self.rescale_factor = rescale_factor
-
-    def __call__(self, image: "torch.Tensor"):
-        image = image * self.rescale_factor
-        return image
+    return [
+        processed_images[grouped_images_index[i][0]][grouped_images_index[i][1]]
+        for i in range(len(grouped_images_index))
+    ]
 
 
 class NumpyToTensor:
@@ -858,3 +904,158 @@ class NumpyToTensor:
         # Same as in PyTorch, we assume incoming numpy images are in HWC format
         # c.f. https://github.com/pytorch/vision/blob/61d97f41bc209e1407dcfbd685d2ee2da9c1cdad/torchvision/transforms/functional.py#L154
         return torch.from_numpy(image.transpose(2, 0, 1)).contiguous()
+
+
+if is_torch_available():
+
+    class GroupByShape(torch.nn.Module):
+        """
+        Groups images by shape.
+        Returns a dictionary with the shape as key and a list of images with that shape as value,
+        and a dictionary with the index of the image in the original list as key and the shape and index in the grouped list as value.
+        """
+
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, images: List["torch.Tensor"]):
+            grouped_images, grouped_images_index = group_images_by_shape(images)
+            return {"grouped_images": grouped_images, "grouped_images_index": grouped_images_index}
+
+    class Resize(torch.nn.Module):
+        """
+        Resize the input images to the specified size.
+        The input images can be a torch.Tensor or images grouped by shape.
+        See `GroupByShape` for more information on grouping images by shape.
+        """
+
+        def __init__(
+            self,
+            size: SizeDict,
+            interpolation: "F.InterpolationMode" = None,
+        ):
+            super().__init__()
+            self.size = size
+            self.interpolation = interpolation if interpolation is not None else F.InterpolationMode.BILINEAR
+
+        def forward(self, images: Union["torch.Tensor", dict]):
+            def _get_size_tuple(image_group: "torch.Tensor", size: SizeDict):
+                if size.shortest_edge and size.longest_edge:
+                    # Resize the image so that the shortest edge or the longest edge is of the given size
+                    # while maintaining the aspect ratio of the original image.
+                    size_tuple = get_size_with_aspect_ratio(
+                        image_group.size()[-2:],
+                        size.shortest_edge,
+                        size.longest_edge,
+                    )
+                elif size.shortest_edge:
+                    size_tuple = get_resize_output_image_size(
+                        image_group,
+                        size=size.shortest_edge,
+                        default_to_square=False,
+                        input_data_format=ChannelDimension.FIRST,
+                    )
+                elif size.max_height and size.max_width:
+                    size_tuple = get_image_size_for_max_height_width(
+                        image_group.size()[-2:], size.max_height, size.max_width
+                    )
+                elif size.height and size.width:
+                    size_tuple = (size.height, size.width)
+                else:
+                    raise ValueError(
+                        "Size must contain 'height' and 'width' keys, or 'max_height' and 'max_width', or 'shortest_edge' key. Got"
+                        f" {size}."
+                    )
+                return size_tuple
+
+            if isinstance(images, dict):
+                grouped_images = images["grouped_images"]
+                grouped_images_index = images["grouped_images_index"]
+                resized_images = {}
+                for shape, image_group in grouped_images.items():
+                    resized_images[shape] = F.resize(
+                        image_group, size=_get_size_tuple(image_group, self.size), interpolation=self.interpolation
+                    )
+                return {"grouped_images": resized_images, "grouped_images_index": grouped_images_index}
+            elif isinstance(images, torch.Tensor):
+                return F.resize(images, size=_get_size_tuple(images, self.size), interpolation=self.interpolation)
+
+            raise ValueError(
+                "Inputs to Resize must be a list of torch.Tensor or a dictionary with 'grouped_images' and 'grouped_images_index' keys, got {images}."
+            )
+
+    class Normalize(torch.nn.Module):
+        def __init__(self, mean: Union[float, List[float]], std: Union[float, List[float]]):
+            super().__init__()
+            self.mean = mean
+            self.std = std
+
+        def forward(self, images: Union["torch.Tensor", dict]):
+            if isinstance(images, dict):
+                grouped_images = images["grouped_images"]
+                grouped_images_index = images["grouped_images_index"]
+                normalized_images = {}
+                for shape, image_group in grouped_images.items():
+                    image_group = _cast_tensor_to_float(image_group)
+                    normalized_images[shape] = F.normalize(image_group, mean=self.mean, std=self.std)
+
+                return {"grouped_images": normalized_images, "grouped_images_index": grouped_images_index}
+            elif isinstance(images, torch.Tensor):
+                return F.normalize(_cast_tensor_to_float(images), mean=self.mean, std=self.std)
+
+            raise ValueError(
+                f"Inputs to Normalize must be a list of torch.Tensor or a dictionary with 'grouped_images' and 'grouped_images_index' keys, got {images}."
+            )
+
+    class Rescale(torch.nn.Module):
+        def __init__(self, rescale_factor: float):
+            super().__init__()
+            self.rescale_factor = rescale_factor
+
+        def forward(self, images: Union["torch.Tensor", dict]):
+            if isinstance(images, dict):
+                grouped_images = images["grouped_images"]
+                grouped_images_index = images["grouped_images_index"]
+                rescaled_images = {}
+                for shape, image_group in grouped_images.items():
+                    image_group = torch.stack(image_group, dim=0)
+                    rescaled_images[shape] = image_group * self.rescale_factor
+                return {"grouped_images": rescaled_images, "grouped_images_index": grouped_images_index}
+            elif isinstance(images, torch.Tensor):
+                return images * self.rescale_factor
+
+            raise ValueError(
+                f"Inputs to Rescale must be a list of torch.Tensor or a dictionary with 'grouped_images' and 'grouped_images_index' keys, got {images}."
+            )
+
+    class CenterCrop(torch.nn.Module):
+        def __init__(self, size: Tuple[int, int]):
+            super().__init__()
+            self.size = size
+
+        def forward(self, images: Union["torch.Tensor", dict]):
+            if isinstance(images, dict):
+                grouped_images = images["grouped_images"]
+                grouped_images_index = images["grouped_images_index"]
+                cropped_images = {}
+                for shape, image_group in grouped_images.items():
+                    cropped_images[shape] = F.center_crop(image_group, self.size)
+                return {"grouped_images": cropped_images, "grouped_images_index": grouped_images_index}
+            elif isinstance(images, torch.Tensor):
+                return F.center_crop(images, self.size)
+
+            raise ValueError(
+                f"Inputs to CenterCrop must be a torch.Tensor or a dictionary with 'grouped_images' and 'grouped_images_index' keys, got {images}."
+            )
+
+    class ReorderImages(torch.nn.Module):
+        """
+        Reorders images back to the original order.
+        This transform is used to reorder images after they have been grouped by shape.
+        """
+
+        def __init__(self):
+            super().__init__()
+
+        def forward(self, images: dict):
+            return reorder_images(images["grouped_images"], images["grouped_images_index"])

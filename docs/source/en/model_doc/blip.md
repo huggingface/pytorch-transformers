@@ -61,6 +61,11 @@ The original code can be found [here](https://github.com/salesforce/BLIP).
 [[autodoc]] BlipImageProcessor
     - preprocess
 
+## BlipImageProcessorFast
+
+[[autodoc]] BlipImageProcessorFast
+    - preprocess
+
 <frameworkcontent>
 <pt>
 

@@ -20,7 +20,7 @@ import numpy as np
 from transformers.image_utils import OPENAI_CLIP_MEAN, OPENAI_CLIP_STD
 from transformers.models.llava_next.image_processing_llava_next import select_best_resolution
 from transformers.testing_utils import require_torch, require_vision
-from transformers.utils import is_torch_available, is_vision_available
+from transformers.utils import is_torch_available, is_torchvision_available, is_vision_available
 
 from ...test_image_processing_common import ImageProcessingTestMixin, prepare_image_inputs
 
@@ -32,6 +32,9 @@ if is_vision_available():
     from PIL import Image
 
     from transformers import LlavaNextImageProcessor
+
+    if is_torchvision_available():
+        from transformers import LlavaNextImageProcessorFast
 
 
 class LlavaNextImageProcessingTester:
@@ -52,6 +55,7 @@ class LlavaNextImageProcessingTester:
         image_std=OPENAI_CLIP_STD,
         do_convert_rgb=True,
     ):
+        super().__init__()
         size = size if size is not None else {"shortest_edge": 20}
         crop_size = crop_size if crop_size is not None else {"height": 18, "width": 18}
         self.parent = parent
@@ -102,6 +106,7 @@ class LlavaNextImageProcessingTester:
 @require_vision
 class LlavaNextImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
     image_processing_class = LlavaNextImageProcessor if is_vision_available() else None
+    fast_image_processing_class = LlavaNextImageProcessorFast if is_torchvision_available() else None
 
     # Copied from tests.models.clip.test_image_processing_clip.CLIPImageProcessingTest.setUp with CLIP->LlavaNext
     def setUp(self):
@@ -114,26 +119,28 @@ class LlavaNextImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         return self.image_processor_tester.prepare_image_processor_dict()
 
     def test_image_processor_properties(self):
-        image_processing = self.image_processing_class(**self.image_processor_dict)
-        self.assertTrue(hasattr(image_processing, "do_resize"))
-        self.assertTrue(hasattr(image_processing, "size"))
-        self.assertTrue(hasattr(image_processing, "do_center_crop"))
-        self.assertTrue(hasattr(image_processing, "center_crop"))
-        self.assertTrue(hasattr(image_processing, "do_normalize"))
-        self.assertTrue(hasattr(image_processing, "image_mean"))
-        self.assertTrue(hasattr(image_processing, "image_std"))
-        self.assertTrue(hasattr(image_processing, "do_convert_rgb"))
-        self.assertTrue(hasattr(image_processing, "image_grid_pinpoints"))
+        for image_processing_class in self.image_processor_list:
+            image_processing = image_processing_class(**self.image_processor_dict)
+            self.assertTrue(hasattr(image_processing, "do_resize"))
+            self.assertTrue(hasattr(image_processing, "size"))
+            self.assertTrue(hasattr(image_processing, "do_center_crop"))
+            self.assertTrue(hasattr(image_processing, "center_crop"))
+            self.assertTrue(hasattr(image_processing, "do_normalize"))
+            self.assertTrue(hasattr(image_processing, "image_mean"))
+            self.assertTrue(hasattr(image_processing, "image_std"))
+            self.assertTrue(hasattr(image_processing, "do_convert_rgb"))
+            self.assertTrue(hasattr(image_processing, "image_grid_pinpoints"))
 
     # Copied from tests.models.clip.test_image_processing_clip.CLIPImageProcessingTest.test_image_processor_from_dict_with_kwargs
     def test_image_processor_from_dict_with_kwargs(self):
-        image_processor = self.image_processing_class.from_dict(self.image_processor_dict)
-        self.assertEqual(image_processor.size, {"shortest_edge": 20})
-        self.assertEqual(image_processor.crop_size, {"height": 18, "width": 18})
+        for image_processing_class in self.image_processor_list:
+            image_processor = image_processing_class.from_dict(self.image_processor_dict)
+            self.assertEqual(image_processor.size, {"shortest_edge": 20})
+            self.assertEqual(image_processor.crop_size, {"height": 18, "width": 18})
 
-        image_processor = self.image_processing_class.from_dict(self.image_processor_dict, size=42, crop_size=84)
-        self.assertEqual(image_processor.size, {"shortest_edge": 42})
-        self.assertEqual(image_processor.crop_size, {"height": 84, "width": 84})
+            image_processor = image_processing_class.from_dict(self.image_processor_dict, size=42, crop_size=84)
+            self.assertEqual(image_processor.size, {"shortest_edge": 42})
+            self.assertEqual(image_processor.crop_size, {"height": 84, "width": 84})
 
     def test_select_best_resolution(self):
         possible_resolutions = [[672, 336], [336, 672], [672, 672], [336, 1008], [1008, 336]]
@@ -143,59 +150,62 @@ class LlavaNextImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         self.assertEqual(best_resolution, (672, 336))
 
     def test_call_pil(self):
-        # Initialize image_processing
-        image_processing = self.image_processing_class(**self.image_processor_dict)
-        # create random PIL images
-        image_inputs = self.image_processor_tester.prepare_image_inputs(equal_resolution=True)
-        for image in image_inputs:
-            self.assertIsInstance(image, Image.Image)
+        for image_processing_class in self.image_processor_list:
+            # Initialize image_processing
+            image_processing = image_processing_class(**self.image_processor_dict)
+            # create random PIL images
+            image_inputs = self.image_processor_tester.prepare_image_inputs(equal_resolution=True)
+            for image in image_inputs:
+                self.assertIsInstance(image, Image.Image)
 
-        # Test not batched input
-        encoded_images = image_processing(image_inputs[0], return_tensors="pt").pixel_values
-        expected_output_image_shape = (1, 1445, 3, 18, 18)
-        self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
+            # Test not batched input
+            encoded_images = image_processing(image_inputs[0], return_tensors="pt").pixel_values
+            expected_output_image_shape = (1, 1445, 3, 18, 18)
+            self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
 
-        # Test batched
-        encoded_images = image_processing(image_inputs, return_tensors="pt").pixel_values
-        expected_output_image_shape = (7, 1445, 3, 18, 18)
-        self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
+            # Test batched
+            encoded_images = image_processing(image_inputs, return_tensors="pt").pixel_values
+            expected_output_image_shape = (7, 1445, 3, 18, 18)
+            self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
 
     def test_call_numpy(self):
-        # Initialize image_processing
-        image_processing = self.image_processing_class(**self.image_processor_dict)
-        # create random numpy tensors
-        image_inputs = self.image_processor_tester.prepare_image_inputs(equal_resolution=True, numpify=True)
-        for image in image_inputs:
-            self.assertIsInstance(image, np.ndarray)
+        for image_processing_class in self.image_processor_list:
+            # Initialize image_processing
+            image_processing = image_processing_class(**self.image_processor_dict)
+            # create random numpy tensors
+            image_inputs = self.image_processor_tester.prepare_image_inputs(equal_resolution=True, numpify=True)
+            for image in image_inputs:
+                self.assertIsInstance(image, np.ndarray)
 
-        # Test not batched input
-        encoded_images = image_processing(image_inputs[0], return_tensors="pt").pixel_values
-        expected_output_image_shape = (1, 1445, 3, 18, 18)
-        self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
+            # Test not batched input
+            encoded_images = image_processing(image_inputs[0], return_tensors="pt").pixel_values
+            expected_output_image_shape = (1, 1445, 3, 18, 18)
+            self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
 
-        # Test batched
-        encoded_images = image_processing(image_inputs, return_tensors="pt").pixel_values
-        expected_output_image_shape = (7, 1445, 3, 18, 18)
-        self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
+            # Test batched
+            encoded_images = image_processing(image_inputs, return_tensors="pt").pixel_values
+            expected_output_image_shape = (7, 1445, 3, 18, 18)
+            self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
 
     def test_call_pytorch(self):
-        # Initialize image_processing
-        image_processing = self.image_processing_class(**self.image_processor_dict)
-        # create random PyTorch tensors
-        image_inputs = self.image_processor_tester.prepare_image_inputs(equal_resolution=True, torchify=True)
+        for image_processing_class in self.image_processor_list:
+            # Initialize image_processing
+            image_processing = image_processing_class(**self.image_processor_dict)
+            # create random PyTorch tensors
+            image_inputs = self.image_processor_tester.prepare_image_inputs(equal_resolution=True, torchify=True)
 
-        for image in image_inputs:
-            self.assertIsInstance(image, torch.Tensor)
+            for image in image_inputs:
+                self.assertIsInstance(image, torch.Tensor)
 
-        # Test not batched input
-        encoded_images = image_processing(image_inputs[0], return_tensors="pt").pixel_values
-        expected_output_image_shape = (1, 1445, 3, 18, 18)
-        self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
+            # Test not batched input
+            encoded_images = image_processing(image_inputs[0], return_tensors="pt").pixel_values
+            expected_output_image_shape = (1, 1445, 3, 18, 18)
+            self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
 
-        # Test batched
-        encoded_images = image_processing(image_inputs, return_tensors="pt").pixel_values
-        expected_output_image_shape = (7, 1445, 3, 18, 18)
-        self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
+            # Test batched
+            encoded_images = image_processing(image_inputs, return_tensors="pt").pixel_values
+            expected_output_image_shape = (7, 1445, 3, 18, 18)
+            self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
 
     @unittest.skip(
         reason="LlavaNextImageProcessor doesn't treat 4 channel PIL and numpy consistently yet"
@@ -204,19 +214,20 @@ class LlavaNextImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         pass
 
     def test_nested_input(self):
-        image_processing = self.image_processing_class(**self.image_processor_dict)
-        image_inputs = self.image_processor_tester.prepare_image_inputs(equal_resolution=True)
+        for image_processing_class in self.image_processor_list:
+            image_processing = image_processing_class(**self.image_processor_dict)
+            image_inputs = self.image_processor_tester.prepare_image_inputs(equal_resolution=True)
 
-        # Test batched as a list of images
-        encoded_images = image_processing(image_inputs, return_tensors="pt").pixel_values
-        expected_output_image_shape = (7, 1445, 3, 18, 18)
-        self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
+            # Test batched as a list of images
+            encoded_images = image_processing(image_inputs, return_tensors="pt").pixel_values
+            expected_output_image_shape = (7, 1445, 3, 18, 18)
+            self.assertEqual(tuple(encoded_images.shape), expected_output_image_shape)
 
-        # Test batched as a nested list of images, where each sublist is one batch
-        image_inputs_nested = [image_inputs[:3], image_inputs[3:]]
-        encoded_images_nested = image_processing(image_inputs_nested, return_tensors="pt").pixel_values
-        expected_output_image_shape = (7, 1445, 3, 18, 18)
-        self.assertEqual(tuple(encoded_images_nested.shape), expected_output_image_shape)
+            # Test batched as a nested list of images, where each sublist is one batch
+            image_inputs_nested = [image_inputs[:3], image_inputs[3:]]
+            encoded_images_nested = image_processing(image_inputs_nested, return_tensors="pt").pixel_values
+            expected_output_image_shape = (7, 1445, 3, 18, 18)
+            self.assertEqual(tuple(encoded_images_nested.shape), expected_output_image_shape)
 
-        # Image processor should return same pixel values, independently of ipnut format
-        self.assertTrue((encoded_images_nested == encoded_images).all())
+            # Image processor should return same pixel values, independently of ipnut format
+            self.assertTrue((encoded_images_nested == encoded_images).all())

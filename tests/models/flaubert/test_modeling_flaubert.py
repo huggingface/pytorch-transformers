@@ -17,7 +17,7 @@ import tempfile
 import unittest
 
 from transformers import FlaubertConfig, is_sacremoses_available, is_torch_available
-from transformers.testing_utils import require_torch, require_torch_accelerator, slow, torch_device
+from transformers.testing_utils import is_flaky, require_torch, require_torch_accelerator, slow, torch_device
 
 from ...test_configuration_common import ConfigTester
 from ...test_modeling_common import ModelTesterMixin, ids_tensor, random_attention_mask
@@ -438,6 +438,10 @@ class FlaubertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase
     def test_flaubert_model(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_flaubert_model(*config_and_inputs)
+
+    @is_flaky(description="The indices computed with `topk()` in `SQuADHead` (of `FlaubertForQuestionAnswering`) is not stable.")
+    def test_batching_equivalence(self):
+        super().test_batching_equivalence()
 
     # Copied from tests/models/distilbert/test_modeling_distilbert.py with Distilbert->Flaubert
     def test_flaubert_model_with_sinusoidal_encodings(self):

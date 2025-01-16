@@ -3274,7 +3274,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                     `device_map`) is redundant and will not provide any benefit in regards to CPU memory usage. However,
                     this should still be enabled if you are passing in a `device_map`.
                 </Tip>
-            torch_dtype (`str` or `torch.dtype`, *optional*):
+            torch_dtype (`str` or `torch.dtype`, *optional*, defaults to `"auto"`):
                 Override the default `torch.dtype` and load the model under a specific `dtype`. The different options
                 are:
 
@@ -3408,7 +3408,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         from_pipeline = kwargs.pop("_from_pipeline", None)
         from_auto_class = kwargs.pop("_from_auto", False)
         _fast_init = kwargs.pop("_fast_init", True)
-        torch_dtype = kwargs.pop("torch_dtype", None)
+        torch_dtype = kwargs.pop("torch_dtype", "auto")
         low_cpu_mem_usage = kwargs.pop("low_cpu_mem_usage", None)
         device_map = kwargs.pop("device_map", None)
         max_memory = kwargs.pop("max_memory", None)

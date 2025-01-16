@@ -232,6 +232,7 @@ from . import (
     rt_detr,
     rwkv,
     sam,
+    sam_hq,
     seamless_m4t,
     seamless_m4t_v2,
     segformer,

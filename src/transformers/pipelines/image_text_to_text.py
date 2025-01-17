@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import enum
+from collections.abc import Iterable  # pylint: disable=g-importing-member
 from typing import Dict, List, Optional, Union
 
 from ..processing_utils import ProcessingKwargs, Unpack
@@ -71,6 +72,8 @@ def retrieve_images_in_messages(
     """
     if images is None:
         images = []
+    elif not isinstance(images, Iterable):
+        images = [images]
     idx_images = 0
     retrieved_images = []
     for message in messages:
@@ -188,14 +191,15 @@ class ImageTextToTextPipeline(Pipeline):
         return_full_text=None,
         return_tensors=None,
         return_type=None,
+        clean_up_tokenization_spaces=None,
+        stop_sequence=None,
         continue_final_message=None,
         **kwargs: Unpack[ProcessingKwargs],
     ):
         forward_kwargs = {}
         preprocess_params = {}
         postprocess_params = {}
-
-        preprocess_params["processing_kwargs"] = kwargs
+        preprocess_params.update(kwargs)
 
         if timeout is not None:
             preprocess_params["timeout"] = timeout
@@ -226,7 +230,16 @@ class ImageTextToTextPipeline(Pipeline):
             postprocess_params["return_type"] = return_type
         if continue_final_message is not None:
             postprocess_params["continue_final_message"] = continue_final_message
-
+        if clean_up_tokenization_spaces is not None:
+            postprocess_params["clean_up_tokenization_spaces"] = clean_up_tokenization_spaces
+        if stop_sequence is not None:
+            stop_sequence_ids = self.processor.tokenizer.encode(stop_sequence, add_special_tokens=False)
+            if len(stop_sequence_ids) > 1:
+                logger.warning_once(
+                    "Stopping on a multiple token sequence is not yet supported on transformers. The first token of"
+                    " the stop sequence will be used as the stop sequence string in the interim."
+                )
+            generate_kwargs["eos_token_id"] = stop_sequence_ids[0]
         return preprocess_params, forward_kwargs, postprocess_params
 
     def __call__(
@@ -264,6 +277,8 @@ class ImageTextToTextPipeline(Pipeline):
             return_full_text (`bool`, *optional*, defaults to `True`):
                 If set to `False` only added text is returned, otherwise the full text is returned. Cannot be
                 specified at the same time as `return_text`.
+            clean_up_tokenization_spaces (`bool`, *optional*, defaults to `True`):
+                Whether or not to clean up the potential extra spaces in the text output.
             continue_final_message( `bool`, *optional*): This indicates that you want the model to continue the
                 last message in the input chat rather than starting a new one, allowing you to "prefill" its response.
                 By default this is `True` when the final message in the input chat has the `assistant` role and
@@ -315,7 +330,7 @@ class ImageTextToTextPipeline(Pipeline):
 
         return super().__call__({"images": images, "text": text}, **kwargs)
 
-    def preprocess(self, inputs=None, timeout=None, continue_final_message=None, processing_kwargs=None):
+    def preprocess(self, inputs=None, timeout=None, continue_final_message=None, **processing_kwargs):
         # In case we only have text inputs
         if isinstance(inputs, (list, tuple, str)):
             images = None
@@ -332,6 +347,7 @@ class ImageTextToTextPipeline(Pipeline):
                     add_generation_prompt=not continue_final_message,
                     continue_final_message=continue_final_message,
                     return_tensors=self.framework,
+                    **processing_kwargs,
                 )
                 inputs_text = inputs
                 images = inputs.images
@@ -340,7 +356,7 @@ class ImageTextToTextPipeline(Pipeline):
                 inputs_text = inputs["text"]
                 images = inputs["images"]
 
-            images = load_images(images)
+            images = load_images(images, timeout=timeout)
 
         # if batched text inputs, we set padding to True unless specified otherwise
         if isinstance(text, (list, tuple)) and len(text) > 1:
@@ -363,7 +379,9 @@ class ImageTextToTextPipeline(Pipeline):
 
         return {"generated_sequence": generated_sequence, "prompt_text": prompt_text, "input_ids": input_ids}
 
-    def postprocess(self, model_outputs, return_type=ReturnType.FULL_TEXT, continue_final_message=None):
+    def postprocess(
+        self, model_outputs, return_type=ReturnType.FULL_TEXT, continue_final_message=None, **postprocess_kwargs
+    ):
         input_texts = model_outputs["prompt_text"]
         input_texts = [input_texts] if isinstance(input_texts, (str, Chat)) else input_texts
         generated_sequence = model_outputs["generated_sequence"]
@@ -375,8 +393,8 @@ class ImageTextToTextPipeline(Pipeline):
             ]
 
         # Decode inputs and outputs the same way to remove input text from generated text if present
-        generated_texts = self.processor.post_process_image_text_to_text(generated_sequence)
-        decoded_inputs = self.processor.post_process_image_text_to_text(input_ids)
+        generated_texts = self.processor.post_process_image_text_to_text(generated_sequence, **postprocess_kwargs)
+        decoded_inputs = self.processor.post_process_image_text_to_text(input_ids, **postprocess_kwargs)
 
         # Force consistent behavior for including the input text in the output
         if return_type in {ReturnType.NEW_TEXT, ReturnType.FULL_TEXT}:

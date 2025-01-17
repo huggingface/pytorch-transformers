@@ -22,7 +22,7 @@ from typing import Callable, Optional
 
 from ..configuration_utils import PretrainedConfig
 from ..models.auto.modeling_auto import MODEL_MAPPING, MODEL_WITH_LM_HEAD_MAPPING
-from ..utils import is_py3nvml_available, is_torch_available, logging
+from ..utils import is_py3nvml_available, is_torch_available, is_torch_cuda_available, logging
 from .benchmark_utils import (
     Benchmark,
     Memory,
@@ -234,7 +234,12 @@ class PyTorchBenchmark(Benchmark):
                     " `--no-memory` or `args.memory=False`"
                 )
             elif self.args.is_gpu:
-                if not is_py3nvml_available():
+                if not is_torch_cuda_available():
+                    logger.warning(
+                        "Memory logging is not curently implemented for non-CUDA GPUs, we won't log GPU memory usage."
+                    )
+                    memory = "N/A"
+                elif not is_py3nvml_available():
                     logger.warning(
                         "py3nvml not installed, we won't log GPU memory usage. "
                         "Install py3nvml (pip install py3nvml) to log information about GPU."

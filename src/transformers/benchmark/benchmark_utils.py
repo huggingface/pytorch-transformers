@@ -33,7 +33,14 @@ from typing import Callable, Iterable, List, NamedTuple, Optional, Union
 
 from .. import AutoConfig, PretrainedConfig
 from .. import __version__ as version
-from ..utils import is_psutil_available, is_py3nvml_available, is_tf_available, is_torch_available, logging
+from ..utils import (
+    is_psutil_available,
+    is_py3nvml_available,
+    is_tf_available,
+    is_torch_available,
+    is_torch_cuda_available,
+    logging,
+)
 from .benchmark_args_utils import BenchmarkArguments
 
 
@@ -813,7 +820,15 @@ class Benchmark(ABC):
             info["use_gpu"] = self.args.is_gpu
             if self.args.is_gpu:
                 info["num_gpus"] = 1  # TODO(PVP) Currently only single GPU is supported
-                if is_py3nvml_available():
+                info["gpu"] = "N/A"
+                info["gpu_ram_mb"] = "N/A"
+                info["gpu_power_watts"] = "N/A"
+                info["gpu_performance_state"] = "N/A"
+                if not is_torch_cuda_available():
+                    logger.warning(
+                        "Memory logging is not curently implemented for non-CUDA GPUs, we won't log GPU memory usage."
+                    )
+                elif is_py3nvml_available():
                     nvml.nvmlInit()
                     handle = nvml.nvmlDeviceGetHandleByIndex(self.args.device_idx)
                     info["gpu"] = nvml.nvmlDeviceGetName(handle)
@@ -826,10 +841,6 @@ class Benchmark(ABC):
                         "py3nvml not installed, we won't log GPU memory usage. "
                         "Install py3nvml (pip install py3nvml) to log information about GPU."
                     )
-                    info["gpu"] = "N/A"
-                    info["gpu_ram_mb"] = "N/A"
-                    info["gpu_power_watts"] = "N/A"
-                    info["gpu_performance_state"] = "N/A"
 
             info["use_tpu"] = self.args.is_tpu
             # TODO(PVP): See if we can add more information about TPU

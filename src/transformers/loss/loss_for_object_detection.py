@@ -279,6 +279,18 @@ class ImageLoss(nn.Module):
                     l_dict = {k + f"_{i}": v for k, v in l_dict.items()}
                     losses.update(l_dict)
 
+        # Encoder losses for two-stage models such as `GroundingDinoForObjectDetection`
+        if "enc_outputs" in outputs:
+            enc_outputs = outputs["enc_outputs"]
+            indices = self.matcher(enc_outputs, targets)
+            for loss in self.losses:
+                if loss == "masks":
+                    # Intermediate masks losses are too costly to compute, we ignore them.
+                    continue
+                l_dict = self.get_loss(loss, enc_outputs, targets, indices, num_boxes)
+                l_dict = {k + "_enc": v for k, v in l_dict.items()}
+                losses.update(l_dict)
+
         return losses
 
 

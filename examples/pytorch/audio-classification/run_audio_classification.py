@@ -369,7 +369,11 @@ def main():
 
     # freeze the convolutional waveform encoder
     if model_args.freeze_feature_encoder:
-        model.freeze_feature_encoder()
+        from transformers import Wav2Vec2BertForSequenceClassification
+        if isinstance(model, Wav2Vec2BertForSequenceClassification):
+            model.freeze_base_model()
+        else:
+            model.freeze_feature_encoder()
 
     if training_args.do_train:
         if data_args.max_train_samples is not None:

@@ -3758,7 +3758,7 @@ class Trainer:
             # We don't use .loss here since the model may return tuples instead of ModelOutput.
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
 
-        if self.args.average_tokens_across_devices and self.model_accepts_loss_kwargs:
+        if self.args.average_tokens_across_devices and (self.model_accepts_loss_kwargs or self.compute_loss_func):
             loss *= self.accelerator.num_processes
 
         return (loss, outputs) if return_outputs else loss

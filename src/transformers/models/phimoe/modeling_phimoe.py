@@ -901,7 +901,6 @@ PHIMOE_START_DOCSTRING = r"""
     "The bare Phimoe Model outputting raw hidden-states without any specific head on top.",
     PHIMOE_START_DOCSTRING,
 )
-# Copied from transformers.models.mixtral.modeling_mixtral.MixtralPreTrainedModel with Mixtral->Phimoe
 class PhimoePreTrainedModel(PreTrainedModel):
     config_class = PhimoeConfig
     base_model_prefix = "model"

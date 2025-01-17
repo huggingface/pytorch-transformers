@@ -803,6 +803,10 @@ class ModelTesterMixin:
                 )
                 msg = f"Batched and Single row outputs are not equal in {model_name} for key={key}."
                 torch.testing.assert_close(batched_row, single_row_object, atol=1e-5, rtol=1e-5, msg=msg)
+                try:
+                    torch.testing.assert_close(batched_row, single_row_object, atol=1e-5, rtol=1e-5, msg=msg)
+                except:
+                    breakpoint()
 
         set_model_tester_for_less_flaky_test(self)
 
@@ -833,8 +837,17 @@ class ModelTesterMixin:
 
             with torch.no_grad():
                 model_batched_output = model(**batched_input_prepared)
+                if hasattr(model, "outputs"):
+                    o1 = copy.deepcopy(model.outputs)
+                    o3 = copy.deepcopy(model.quantizer.outputs)
+                    model.outputs = []
+                    model.quantizer.outputs = []
                 model_row_output = model(**single_row_input)
-
+                if hasattr(model, "outputs"):
+                    o2 = copy.deepcopy(model.outputs)
+                    o4 = copy.deepcopy(model.quantizer.outputs)
+                    model.outputs = []
+                    model.quantizer.outputs = []
             if isinstance(model_batched_output, torch.Tensor):
                 model_batched_output = {"model_output": model_batched_output}
                 model_row_output = {"model_output": model_row_output}
@@ -844,7 +857,11 @@ class ModelTesterMixin:
                 if hasattr(self, "zero_init_hidden_state") and "decoder_hidden_states" in key:
                     model_batched_output[key] = model_batched_output[key][1:]
                     model_row_output[key] = model_row_output[key][1:]
-                recursive_check(model_batched_output[key], model_row_output[key], model_name, key)
+                # breakpoint()
+                try:
+                    recursive_check(model_batched_output[key], model_row_output[key], model_name, key)
+                except:
+                    breakpoint()
 
     def check_training_gradient_checkpointing(self, gradient_checkpointing_kwargs=None):
         if not self.model_tester.is_training:

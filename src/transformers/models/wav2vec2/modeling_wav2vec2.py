@@ -1194,6 +1194,7 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
 
         # can be decayed for training
         self.temperature = 2
+        self.outputs = []
 
     @staticmethod
     def _compute_perplexity(probs, mask=None):
@@ -1210,9 +1211,16 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
     def forward(self, hidden_states, mask_time_indices=None):
         batch_size, sequence_length, hidden_size = hidden_states.shape
 
+        self.outputs.append(hidden_states)
+        self.outputs.append(mask_time_indices)
+
         # project to codevector dim
         hidden_states = self.weight_proj(hidden_states)
+        self.outputs.append(hidden_states)
+
+
         hidden_states = hidden_states.view(batch_size * sequence_length * self.num_groups, -1)
+        self.outputs.append(hidden_states)
 
         if self.training:
             # sample code vector probs via gumbel in differentiateable way
@@ -1229,18 +1237,26 @@ class Wav2Vec2GumbelVectorQuantizer(nn.Module):
             # take argmax in non-differentiable way
             # comptute hard codevector distribution (one hot)
             codevector_idx = hidden_states.argmax(dim=-1)
+            self.outputs.append(codevector_idx)
             codevector_probs = hidden_states.new_zeros(hidden_states.shape).scatter_(
                 -1, codevector_idx.view(-1, 1), 1.0
             )
+            self.outputs.append(codevector_probs)
             codevector_probs = codevector_probs.view(batch_size * sequence_length, self.num_groups, -1)
+            self.outputs.append(codevector_probs)
 
             perplexity = self._compute_perplexity(codevector_probs, mask_time_indices)
+            self.outputs.append(perplexity)
 
         codevector_probs = codevector_probs.view(batch_size * sequence_length, -1)
+        self.outputs.append(codevector_probs)
         # use probs to retrieve codevectors
         codevectors_per_group = codevector_probs.unsqueeze(-1) * self.codevectors
+        self.outputs.append(codevectors_per_group)
         codevectors = codevectors_per_group.view(batch_size * sequence_length, self.num_groups, self.num_vars, -1)
+        self.outputs.append(codevectors)
         codevectors = codevectors.sum(-2).view(batch_size, sequence_length, -1)
+        self.outputs.append(codevectors)
 
         return codevectors, perplexity
 
@@ -1858,6 +1874,8 @@ class Wav2Vec2ForPreTraining(Wav2Vec2PreTrainedModel):
         # Initialize weights and apply final processing
         self.post_init()
 
+        self.outputs = []
+
     def set_gumbel_temperature(self, temperature: int):
         """
         Set the Gumbel softmax temperature to a given value. Only necessary for training
@@ -1989,22 +2007,29 @@ class Wav2Vec2ForPreTraining(Wav2Vec2PreTrainedModel):
 
         # 1. project all transformed features (including masked) to final vq dim
         transformer_features = self.project_hid(outputs[0])
+        self.outputs.append(transformer_features)
 
         # 2. quantize all (unmasked) extracted features and project to final vq dim
         extract_features = self.dropout_features(outputs[1])
+        self.outputs.append(extract_features)
 
         if attention_mask is not None:
             # compute reduced attention_mask correponding to feature vectors
             attention_mask = self._get_feature_vector_attention_mask(
                 extract_features.shape[1], attention_mask, add_adapter=False
             )
+            self.outputs.append(attention_mask)
 
         quantized_features, codevector_perplexity = self.quantizer(
             extract_features, mask_time_indices=mask_time_indices
         )
+        self.outputs.append(mask_time_indices)
+        self.outputs.append(quantized_features)
 
         quantized_features = quantized_features.to(self.project_q.weight.dtype)
+        self.outputs.append(quantized_features)
         quantized_features = self.project_q(quantized_features)
+        self.outputs.append(quantized_features)
 
         loss = contrastive_loss = diversity_loss = None
         if sampled_negative_indices is not None:

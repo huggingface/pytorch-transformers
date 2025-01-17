@@ -1862,7 +1862,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         If the `torchscript` flag is set in the configuration, can't handle parameter sharing so we are cloning the
         weights instead.
         """
-        if getattr(self.config, "tie_word_embeddings", True):
+        if getattr(self.config.get_text_config(decoder=True), "tie_word_embeddings", True):
             output_embeddings = self.get_output_embeddings()
             if output_embeddings is not None:
                 self._tie_or_clone_weights(output_embeddings, self.get_input_embeddings())
@@ -2104,7 +2104,10 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                 new_num_tokens = new_embeddings.weight.shape[0]
 
         # if word embeddings are not tied, make sure that lm head is resized as well
-        if self.get_output_embeddings() is not None and not self.config.tie_word_embeddings:
+        if (
+            self.get_output_embeddings() is not None
+            and not self.config.get_text_config(decoder=True).tie_word_embeddings
+        ):
             old_lm_head = self.get_output_embeddings()
             if isinstance(old_lm_head, torch.nn.Embedding):
                 new_lm_head = self._get_resized_embeddings(old_lm_head, new_num_tokens, mean_resizing=mean_resizing)
@@ -4364,26 +4367,31 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         return model
 
     @staticmethod
-    def _fix_state_dict_key_on_load(key):
+    def _fix_state_dict_key_on_load(key) -> Tuple[str, bool]:
         """Replace legacy parameter names with their modern equivalents. E.g. beta -> bias, gamma -> weight."""
 
-        if "beta" in key:
-            return key.replace("beta", "bias")
-        if "gamma" in key:
-            return key.replace("gamma", "weight")
+        # Rename LayerNorm beta & gamma params for some early models ported from Tensorflow (e.g. Bert)
+        # This rename is logged.
+        if key.endswith("LayerNorm.beta"):
+            return key.replace("LayerNorm.beta", "LayerNorm.bias"), True
+        if key.endswith("LayerNorm.gamma"):
+            return key.replace("LayerNorm.gamma", "LayerNorm.weight"), True
 
-        # to avoid logging parametrized weight norm renaming
+        # Rename weight norm parametrizations to match changes across torch versions.
+        # Impacts a number of speech/wav2vec models. e.g. Hubert, Wav2Vec2, and others.
+        # This rename is not logged.
         if hasattr(nn.utils.parametrizations, "weight_norm"):
-            if "weight_g" in key:
-                return key.replace("weight_g", "parametrizations.weight.original0")
-            if "weight_v" in key:
-                return key.replace("weight_v", "parametrizations.weight.original1")
+            if key.endswith("weight_g"):
+                return key.replace("weight_g", "parametrizations.weight.original0"), True
+            if key.endswith("weight_v"):
+                return key.replace("weight_v", "parametrizations.weight.original1"), True
         else:
-            if "parametrizations.weight.original0" in key:
-                return key.replace("parametrizations.weight.original0", "weight_g")
-            if "parametrizations.weight.original1" in key:
-                return key.replace("parametrizations.weight.original1", "weight_v")
-        return key
+            if key.endswith("parametrizations.weight.original0"):
+                return key.replace("parametrizations.weight.original0", "weight_g"), True
+            if key.endswith("parametrizations.weight.original1"):
+                return key.replace("parametrizations.weight.original1", "weight_v"), True
+
+        return key, False
 
     @classmethod
     def _fix_state_dict_keys_on_load(cls, state_dict):
@@ -4394,15 +4402,15 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         renamed_keys = {}
         state_dict_keys = list(state_dict.keys())
         for key in state_dict_keys:
-            new_key = cls._fix_state_dict_key_on_load(key)
-            if new_key != key:
+            new_key, has_changed = cls._fix_state_dict_key_on_load(key)
+            if has_changed:
                 state_dict[new_key] = state_dict.pop(key)
 
-            # add it once for logging
-            if "gamma" in key and "gamma" not in renamed_keys:
-                renamed_keys["gamma"] = (key, new_key)
-            if "beta" in key and "beta" not in renamed_keys:
-                renamed_keys["beta"] = (key, new_key)
+                # track gamma/beta rename for logging
+                if key.endswith("LayerNorm.gamma"):
+                    renamed_keys["LayerNorm.gamma"] = (key, new_key)
+                elif key.endswith("LayerNorm.beta"):
+                    renamed_keys["LayerNorm.beta"] = (key, new_key)
 
         if renamed_keys:
             warning_msg = f"A pretrained model of type `{cls.__name__}` "
@@ -4415,19 +4423,19 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         return state_dict
 
     @staticmethod
-    def _fix_state_dict_key_on_save(key):
+    def _fix_state_dict_key_on_save(key) -> Tuple[str, bool]:
         """
         Similar to `_fix_state_dict_key_on_load` allows to define hook for state dict key renaming on model save.
-        Do nothing by default, but can be overriden in particular models.
+        Do nothing by default, but can be overridden in particular models.
         """
-        return key
+        return key, False
 
     def _fix_state_dict_keys_on_save(self, state_dict):
         """
         Similar to `_fix_state_dict_keys_on_load` allows to define hook for state dict key renaming on model save.
         Apply `_fix_state_dict_key_on_save` to all keys in `state_dict`.
         """
-        return {self._fix_state_dict_key_on_save(key): value for key, value in state_dict.items()}
+        return {self._fix_state_dict_key_on_save(key)[0]: value for key, value in state_dict.items()}
 
     @classmethod
     def _load_pretrained_model(
@@ -4485,7 +4493,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
             expected_keys = hf_quantizer.update_expected_keys(model, expected_keys, loaded_keys)
 
         original_loaded_keys = loaded_keys
-        loaded_keys = [cls._fix_state_dict_key_on_load(key) for key in loaded_keys]
+        loaded_keys = [cls._fix_state_dict_key_on_load(key)[0] for key in loaded_keys]
 
         if len(prefix) > 0:
             has_prefix_module = any(s.startswith(prefix) for s in loaded_keys)
@@ -4604,7 +4612,10 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                     _loaded_keys = loaded_keys
                 not_initialized_submodules = set_initialized_submodules(model, _loaded_keys)
                 # If we're about to tie the output embeds to the input embeds we don't need to init them
-                if hasattr(model.config, "tie_word_embeddings") and model.config.tie_word_embeddings:
+                if (
+                    hasattr(model.config.get_text_config(decoder=True), "tie_word_embeddings")
+                    and model.config.get_text_config(decoder=True).tie_word_embeddings
+                ):
                     output_embeddings = model.get_output_embeddings()
                     if output_embeddings is not None:
                         # Still need to initialize if there is a bias term since biases are not tied.

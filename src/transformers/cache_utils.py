@@ -63,17 +63,6 @@ class Cache(torch.nn.Module):
         # TODO: deprecate this function in favor of `cache_position`
         raise NotImplementedError("Make sure to implement `get_seq_length` in a subclass.")
 
-    # Deprecate in favor of max-cache-shape because we want to be specifc by what we mean with "max_length"
-    # Prev some cache objects didn't have "max_length" (SlidingWindowCache or SinkCache) because the cache object technically handles
-    # infinite amount of tokens. In the codebase what we really need to check is the max capacity of certain cache instances, so
-    # we change naming to be more explicit
-    def get_max_length(self) -> Optional[int]:
-        logger.warning_once(
-            "`get_max_cache()` is deprecated for all Cache classes. Use `get_max_cache_shape()` instead. "
-            "Calling `get_max_cache()` will raise error from v4.48"
-        )
-        return self.get_max_cache_shape()
-
     def get_max_cache_shape(self) -> Optional[int]:
         """Returns the maximum sequence length (i.e. max capacity) of the cache object"""
         raise NotImplementedError("Make sure to implement `get_max_cache_shape` in a subclass.")
@@ -1142,7 +1131,7 @@ class StaticCache(Cache):
         self.key_cache: List[torch.Tensor] = []
         self.value_cache: List[torch.Tensor] = []
         # Note: There will be significant perf decrease if switching to use 5D tensors instead.
-        cache_shape = (self.batch_size, self.num_key_value_heads, self.max_cache_len, self.head_dim)
+        cache_shape = (self.max_batch_size, self.num_key_value_heads, self.max_cache_len, self.head_dim)
         for idx in range(config.num_hidden_layers):
             if layer_device_map is not None:
                 layer_device = layer_device_map[idx]
@@ -1640,9 +1629,9 @@ class HybridCache(Cache):
         )
         self.key_cache: List[torch.Tensor] = []
         self.value_cache: List[torch.Tensor] = []
-        global_cache_shape = (self.batch_size, self.num_key_value_heads, max_cache_len, self.head_dim)
+        global_cache_shape = (self.max_batch_size, self.num_key_value_heads, max_cache_len, self.head_dim)
         sliding_cache_shape = (
-            self.batch_size,
+            self.max_batch_size,
             self.num_key_value_heads,
             min(config.sliding_window, max_cache_len),
             self.head_dim,

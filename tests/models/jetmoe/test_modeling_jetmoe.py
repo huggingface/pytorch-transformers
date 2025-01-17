@@ -18,7 +18,6 @@ import gc
 import unittest
 
 import pytest
-from parameterized import parameterized
 
 from transformers import AutoTokenizer, JetMoeConfig, is_torch_available
 from transformers.testing_utils import (
@@ -298,10 +297,6 @@ class JetMoeModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMix
     test_cpu_offload = False
     test_disk_offload_bin = False
     test_disk_offload_safetensors = False
-
-    @parameterized.expand([(1, False), (1, True), (4, False)])
-    def test_new_cache_format(self, num_beams, do_sample):
-        pass
 
     def setUp(self):
         self.model_tester = JetMoeModelTester(self)

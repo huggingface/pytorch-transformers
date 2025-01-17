@@ -2283,7 +2283,7 @@ class ModelTesterMixin:
 
     def test_tied_weights_keys(self):
         config, _ = self.model_tester.prepare_config_and_inputs_for_common()
-        config.tie_word_embeddings = True
+        config.get_text_config().tie_word_embeddings = True
         for model_class in self.all_model_classes:
             model_tied = model_class(config)
 

@@ -50,20 +50,22 @@ OWLv2 is, just like its predecessor [OWL-ViT](owlvit), a zero-shot text-conditio
 
 >>> url = "http://images.cocodataset.org/val2017/000000039769.jpg"
 >>> image = Image.open(requests.get(url, stream=True).raw)
->>> texts = [["a photo of a cat", "a photo of a dog"]]
->>> inputs = processor(text=texts, images=image, return_tensors="pt")
+>>> text_labels = [["a photo of a cat", "a photo of a dog"]]
+>>> inputs = processor(text=text_labels, images=image, return_tensors="pt")
 >>> outputs = model(**inputs)
 
 >>> # Target image sizes (height, width) to rescale box predictions [batch_size, 2]
->>> target_sizes = torch.Tensor([image.size[::-1]])
->>> # Convert outputs (bounding boxes and class logits) to Pascal VOC Format (xmin, ymin, xmax, ymax)
->>> results = processor.post_process_object_detection(outputs=outputs, target_sizes=target_sizes, threshold=0.1)
->>> i = 0  # Retrieve predictions for the first image for the corresponding text queries
->>> text = texts[i]
->>> boxes, scores, labels = results[i]["boxes"], results[i]["scores"], results[i]["labels"]
->>> for box, score, label in zip(boxes, scores, labels):
+>>> target_sizes = torch.tensor([(image.height, image.width)])
+>>> # Convert outputs (bounding boxes and class logits) to Pascal VOC format (xmin, ymin, xmax, ymax)
+>>> results = processor.post_process_grounded_object_detection(
+...     outputs=outputs, target_sizes=target_sizes, threshold=0.1, text_labels=text_labels
+... )
+>>> # Retrieve predictions for the first image for the corresponding text queries
+>>> result = results[0]
+>>> boxes, scores, text_labels = result["boxes"], result["scores"], result["text_labels"]
+>>> for box, score, text_label in zip(boxes, scores, text_labels):
 ...     box = [round(i, 2) for i in box.tolist()]
-...     print(f"Detected {text[label]} with confidence {round(score.item(), 3)} at location {box}")
+...     print(f"Detected {text_label} with confidence {round(score.item(), 3)} at location {box}")
 Detected a photo of a cat with confidence 0.614 at location [341.67, 23.39, 642.32, 371.35]
 Detected a photo of a cat with confidence 0.665 at location [6.75, 51.96, 326.62, 473.13]
 ```
@@ -103,6 +105,9 @@ Usage of OWLv2 is identical to [OWL-ViT](owlvit) with a new, updated image proce
 ## Owlv2Processor
 
 [[autodoc]] Owlv2Processor
+    - __call__
+    - post_process_grounded_object_detection
+    - post_process_image_guided_detection
 
 ## Owlv2Model
 

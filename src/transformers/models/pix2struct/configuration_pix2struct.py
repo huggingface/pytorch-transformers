@@ -14,9 +14,6 @@
 # limitations under the License.
 """Pix2Struct model configuration"""
 
-import os
-from typing import Union
-
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
 
@@ -147,26 +144,6 @@ class Pix2StructTextConfig(PretrainedConfig):
             **kwargs,
         )
 
-    @classmethod
-    def from_pretrained(
-        cls, pretrainehidden_size_name_or_path: Union[str, os.PathLike], **kwargs
-    ) -> "PretrainedConfig":
-        cls._set_token_in_kwargs(kwargs)
-
-        config_dict, kwargs = cls.get_config_dict(pretrainehidden_size_name_or_path, **kwargs)
-
-        # get the text config dict if we are loading from Pix2StructConfig
-        if config_dict.get("model_type") == "pix2struct":
-            config_dict = config_dict["text_config"]
-
-        if "model_type" in config_dict and hasattr(cls, "model_type") and config_dict["model_type"] != cls.model_type:
-            logger.warning(
-                f"You are using a model of type {config_dict['model_type']} to instantiate a model of type "
-                f"{cls.model_type}. This is not supported for all configurations of models and can yield errors."
-            )
-
-        return cls.from_dict(config_dict, **kwargs)
-
 
 class Pix2StructVisionConfig(PretrainedConfig):
     r"""
@@ -265,26 +242,6 @@ class Pix2StructVisionConfig(PretrainedConfig):
         self.relative_attention_num_buckets = relative_attention_num_buckets
         self.relative_attention_max_distance = relative_attention_max_distance
         self.d_kv = d_kv
-
-    @classmethod
-    def from_pretrained(
-        cls, pretrainehidden_size_name_or_path: Union[str, os.PathLike], **kwargs
-    ) -> "PretrainedConfig":
-        cls._set_token_in_kwargs(kwargs)
-
-        config_dict, kwargs = cls.get_config_dict(pretrainehidden_size_name_or_path, **kwargs)
-
-        # get the vision config dict if we are loading from Pix2StructConfig
-        if config_dict.get("model_type") == "pix2struct":
-            config_dict = config_dict["vision_config"]
-
-        if "model_type" in config_dict and hasattr(cls, "model_type") and config_dict["model_type"] != cls.model_type:
-            logger.warning(
-                f"You are using a model of type {config_dict['model_type']} to instantiate a model of type "
-                f"{cls.model_type}. This is not supported for all configurations of models and can yield errors."
-            )
-
-        return cls.from_dict(config_dict, **kwargs)
 
 
 class Pix2StructConfig(PretrainedConfig):

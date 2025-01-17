@@ -1914,12 +1914,9 @@ class MoshiForConditionalGeneration(MoshiPreTrainedModel, GenerationMixin):
         self.embed_tokens = nn.ModuleList(
             [nn.Embedding(config.audio_vocab_size + 1, config.hidden_size) for _ in range(2 * config.num_codebooks)]
         )
-        self.audio_encoder = AutoModel.from_config(
-            config.audio_encoder_config, attn_implementation=config._attn_implementation
-        )
+        self.audio_encoder = AutoModel.from_config(config.audio_encoder_config)
         self.decoder = MoshiForCausalLM(config)
 
-        config.depth_decoder_config._attn_implementation_internal = config._attn_implementation
         self.depth_decoder = MoshiDepthDecoder(config.depth_decoder_config)
 
         self.num_codebooks = config.num_codebooks

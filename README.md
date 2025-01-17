@@ -255,16 +255,36 @@ You should install 🤗 Transformers in a [virtual environment](https://docs.pyt
 
 First, create a virtual environment with the version of Python you're going to use and activate it.
 
-Then, you will need to install at least one of Flax, PyTorch, or TensorFlow.
-Please refer to [TensorFlow installation page](https://www.tensorflow.org/install/), [PyTorch installation page](https://pytorch.org/get-started/locally/#start-locally) and/or [Flax](https://github.com/google/flax#quick-install) and [Jax](https://github.com/google/jax#installation) installation pages regarding the specific installation command for your platform.
+**macOS/Linux**
+
+```python -m venv env
+source env/bin/activate
+```
+
+**Windows**
+
+``` python -m venv env
+env\Scripts\activate
+```
+
+To use 🤗 Transformers, you must install at least one of Flax, PyTorch, or TensorFlow. Refer to the official installation guides for platform-specific commands:
+
+[TensorFlow installation page](https://www.tensorflow.org/install/), 
+[PyTorch installation page](https://pytorch.org/get-started/locally/#start-locally) and/or [Flax](https://github.com/google/flax#quick-install) and [Jax](https://github.com/google/jax#installation) 
 
 When one of those backends has been installed, 🤗 Transformers can be installed using pip as follows:
 
-```bash
+```
 pip install transformers
 ```
 
 If you'd like to play with the examples or need the bleeding edge of the code and can't wait for a new release, you must [install the library from source](https://huggingface.co/docs/transformers/installation#installing-from-source).
+
+```
+git clone https://github.com/huggingface/transformers.git
+cd transformers
+pip install
+```
 
 ### With conda
 

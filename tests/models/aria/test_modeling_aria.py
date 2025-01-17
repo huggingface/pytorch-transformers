@@ -268,18 +268,6 @@ class AriaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTesterMi
     def test_sdpa_can_dispatch_on_flash(self):
         pass
 
-    @unittest.skip(reason="")
-    def test_new_cache_format_0(self):
-        pass
-
-    @unittest.skip(reason="")
-    def test_new_cache_format_1(self):
-        pass
-
-    @unittest.skip(reason="")
-    def test_new_cache_format_2(self):
-        pass
-
     @unittest.skip(reason="Feedforward chunking is not yet supported")
     def test_feed_forward_chunking(self):
         pass

@@ -579,7 +579,7 @@ class Cohere2Model(Cohere2PreTrainedModel):
             batch_size, seq_len, _ = inputs_embeds.shape
             past_key_values = HybridCache(
                 self.config,
-                batch_size=batch_size,
+                max_batch_size=batch_size,
                 max_cache_len=seq_len,
                 device=self.device,
                 dtype=inputs_embeds.dtype,

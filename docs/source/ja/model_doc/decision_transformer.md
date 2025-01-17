@@ -23,31 +23,28 @@ Lili Chen, Kevin Lu, Aravind Rajeswaran, Kimin Lee, Aditya Grover, Michael Laski
 
 論文の要約は次のとおりです。
 
-*強化学習（RL）をシーケンスモデリング問題として抽象化するフレームワークを紹介します。
+_強化学習（RL）をシーケンスモデリング問題として抽象化するフレームワークを紹介します。
 これにより、Transformer アーキテクチャのシンプルさとスケーラビリティ、および関連する進歩を活用できるようになります。
- GPT-x や BERT などの言語モデリングで。特に、Decision Transformer というアーキテクチャを紹介します。
- RL の問題を条件付きシーケンス モデリングとして投げかけます。値関数に適合する以前の RL アプローチとは異なり、
- ポリシー勾配を計算すると、Decision Transformer は因果的にマスクされたアルゴリズムを利用して最適なアクションを出力するだけです。
- 変成器。望ましいリターン (報酬)、過去の状態、アクションに基づいて自己回帰モデルを条件付けすることにより、
- Decision Transformer モデルは、望ましいリターンを達成する将来のアクションを生成できます。そのシンプルさにも関わらず、
- Decision Transformer は、最先端のモデルフリーのオフライン RL ベースラインのパフォーマンスと同等、またはそれを超えています。
- Atari、OpenAI Gym、Key-to-Door タスク*
+GPT-x や BERT などの言語モデリングで。特に、Decision Transformer というアーキテクチャを紹介します。
+RL の問題を条件付きシーケンス モデリングとして投げかけます。値関数に適合する以前の RL アプローチとは異なり、
+ポリシー勾配を計算すると、Decision Transformer は因果的にマスクされたアルゴリズムを利用して最適なアクションを出力するだけです。
+変成器。望ましいリターン (報酬)、過去の状態、アクションに基づいて自己回帰モデルを条件付けすることにより、
+Decision Transformer モデルは、望ましいリターンを達成する将来のアクションを生成できます。そのシンプルさにも関わらず、
+Decision Transformer は、最先端のモデルフリーのオフライン RL ベースラインのパフォーマンスと同等、またはそれを超えています。
+Atari、OpenAI Gym、Key-to-Door タスク_
 
 このバージョンのモデルは、状態がベクトルであるタスク用です。
 
-このモデルは、[edbeeching](https://huggingface.co/edbeeching) によって提供されました。元のコードは [ここ](https://github.com/kzl/decion-transformer) にあります。
+このモデルは、[edbeeching](https://huggingface.co/edbeeching) によって提供されました。元のコードは [ここ](https://github.com/kzl/decision-transformer) にあります。
 
 ## DecisionTransformerConfig
 
 [[autodoc]] DecisionTransformerConfig
 
-
 ## DecisionTransformerGPT2Model
 
-[[autodoc]] DecisionTransformerGPT2Model
-    - forward
+[[autodoc]] DecisionTransformerGPT2Model - forward
 
 ## DecisionTransformerModel
 
-[[autodoc]] DecisionTransformerModel
-    - forward
+[[autodoc]] DecisionTransformerModel - forward

@@ -237,6 +237,9 @@ class VisionEncoderDecoderModel(PreTrainedModel, GenerationMixin):
     def get_decoder(self):
         return self.decoder
 
+    def get_input_embeddings(self):
+        return self.decoder.get_input_embeddings()
+
     def get_output_embeddings(self):
         return self.decoder.get_output_embeddings()
 
@@ -658,12 +661,6 @@ class VisionEncoderDecoderModel(PreTrainedModel, GenerationMixin):
 
     def prepare_decoder_input_ids_from_labels(self, labels: torch.Tensor):
         return shift_tokens_right(labels, self.config.pad_token_id, self.config.decoder_start_token_id)
-
-    def resize_token_embeddings(self, *args, **kwargs):
-        raise NotImplementedError(
-            "Resizing the embedding layers via the VisionEncoderDecoderModel directly is not supported.Please use the"
-            " respective methods of the wrapped decoder object (model.decoder.resize_token_embeddings(...))"
-        )
 
     def _reorder_cache(self, past_key_values, beam_idx):
         # apply decoder cache reordering here

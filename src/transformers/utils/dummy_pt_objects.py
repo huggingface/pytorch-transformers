@@ -352,13 +352,6 @@ class LogitsProcessorList(metaclass=DummyObject):
         requires_backends(self, ["torch"])
 
 
-class LogitsWarper(metaclass=DummyObject):
-    _backends = ["torch"]
-
-    def __init__(self, *args, **kwargs):
-        requires_backends(self, ["torch"])
-
-
 class MaxLengthCriteria(metaclass=DummyObject):
     _backends = ["torch"]
 

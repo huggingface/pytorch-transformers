@@ -467,28 +467,6 @@ class GPTNeoXAttention(nn.Module):
         return target_dtype
 
 
-# TODO Remove in deprecation cycle
-class GPTNeoXFlashAttention2(GPTNeoXAttention):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        logger.warning_once(
-            "The `GPTNeoXFlashAttention2` class is deprecated in favor of simply modifying the `config._attn_implementation`"
-            "attribute of the `GPTNeoXAttention` class! It will be removed in v4.48"
-        )
-
-
-# TODO Remove in deprecation cycle
-class GPTNeoXSdpaAttention(GPTNeoXAttention):
-    def __init__(self, config, layer_idx=None):
-        super().__init__(config, layer_idx=layer_idx)
-
-        logger.warning_once(
-            "The `GPTNeoXSdpaAttention` class is deprecated in favor of simply modifying the `config._attn_implementation`"
-            "attribute of the `GPTNeoXAttention` class! It will be removed in v4.48"
-        )
-
-
 # Copied from transformers.models.llama.modeling_llama.LlamaRotaryEmbedding with Llama->GPTNeoX
 class GPTNeoXRotaryEmbedding(nn.Module):
     def __init__(self, config: GPTNeoXConfig, device=None):
@@ -600,14 +578,6 @@ class GPTNeoXMLP(nn.Module):
         return hidden_states
 
 
-GPT_NEOX_ATTENTION_CLASSES = {
-    "eager": GPTNeoXAttention,
-    "flash_attention_2": GPTNeoXFlashAttention2,
-    "sdpa": GPTNeoXSdpaAttention,
-    "flex_attention": GPTNeoXAttention,
-}
-
-
 class GPTNeoXLayer(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
@@ -616,7 +586,7 @@ class GPTNeoXLayer(nn.Module):
         self.post_attention_layernorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.post_attention_dropout = nn.Dropout(config.hidden_dropout)
         self.post_mlp_dropout = nn.Dropout(config.hidden_dropout)
-        self.attention = GPT_NEOX_ATTENTION_CLASSES[config._attn_implementation](config, layer_idx)
+        self.attention = GPTNeoXAttention(config, layer_idx)
         self.mlp = GPTNeoXMLP(config)
 
     def forward(

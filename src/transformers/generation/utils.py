@@ -4702,8 +4702,6 @@ def _relative_top_filter(
     baseline_scores: torch.FloatTensor,
     relative_top: float = 0.1,
     filter_value: float = -float("Inf"),
-    base_filter_value=-1e-3,
-    min_tokens_to_keep: int = 1,
 ) -> torch.FloatTensor:
     """
     Reference: https://github.com/XiangLi1999/ContrastiveDecoding/blob/170e9142e92159c1237d731e240f5eb14aabf428/transformers/src/transformers/generation_logits_process.py#L235
@@ -4711,15 +4709,13 @@ def _relative_top_filter(
     """
     scores_normalized = scores.log_softmax(dim=-1)
     baseline_scores_normalized = baseline_scores.log_softmax(dim=-1)
-    sorted_logits, sorted_indices = torch.sort(scores_normalized, descending=True)
-    min_thresh = sorted_logits[..., min_tokens_to_keep - 1]
     probs_max = torch.max(scores_normalized, dim=-1).values
     probs_thresh = probs_max + np.log(relative_top)
-    probs_thresh = torch.min(min_thresh, probs_thresh)
+    probs_thresh = torch.min(probs_max, probs_thresh)
     probs_thresh = probs_thresh.unsqueeze(-1)
-    baseline_scores_normalized[scores_normalized < probs_thresh] = base_filter_value
-    scores_normalized[scores_normalized < probs_thresh] = filter_value
-    return scores_normalized, baseline_scores_normalized
+    final_scores = scores_normalized - baseline_scores_normalized
+    final_scores[scores_normalized < probs_thresh] = filter_value
+    return final_scores
 
 
 def _dola_select_contrast(
@@ -4729,8 +4725,7 @@ def _dola_select_contrast(
 ) -> torch.FloatTensor:
     if len(candidate_premature_layers) == 1:
         base_logits = candidate_premature_logits[candidate_premature_layers[0]]
-        final_logits, base_logits = _relative_top_filter(final_logits, base_logits)
-        logits = final_logits - base_logits
+        logits = _relative_top_filter(final_logits, base_logits)
         return logits
 
     # 1. Stacking all premature_layers into a new dimension
@@ -4764,6 +4759,5 @@ def _dola_select_contrast(
     premature_layer = candidate_premature_layers[int(js_divs.argmax().cpu().item())]
 
     base_logits = candidate_premature_logits[premature_layer]
-    final_logits, base_logits = _relative_top_filter(final_logits, base_logits)
-    logits = final_logits - base_logits
+    logits = _relative_top_filter(final_logits, base_logits)
     return logits

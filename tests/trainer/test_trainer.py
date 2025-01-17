@@ -46,6 +46,7 @@ from transformers import (
     PretrainedConfig,
     TrainerCallback,
     TrainingArguments,
+    enable_full_determinism,
     get_polynomial_decay_schedule_with_warmup,
     is_torch_available,
     logging,
@@ -96,6 +97,7 @@ from transformers.testing_utils import (
     require_torchdynamo,
     require_vision,
     require_wandb,
+    run_test_using_subprocess,
     slow,
     torch_device,
 )
@@ -575,13 +577,41 @@ if is_torch_available():
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
         )
 
+    def get_language_model_trainer(**kwargs):
+        import datasets
+
+        dataset = datasets.load_dataset("fka/awesome-chatgpt-prompts")
+        model = AutoModelForCausalLM.from_pretrained("openai-community/gpt2")
+        tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2")
+        tokenizer.pad_token = tokenizer.eos_token
+
+        def _tokenize_function(examples):
+            model_inputs = tokenizer(examples["prompt"], padding="max_length", truncation=True)
+            model_inputs["labels"] = np.array(model_inputs["input_ids"]).astype(np.int64)
+            return model_inputs
+
+        tokenized_datasets = dataset.map(_tokenize_function, batched=True)
+        training_args = TrainingArguments(**kwargs)
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=tokenized_datasets["train"],
+        )
+
+        return trainer
+
 
 class TrainerIntegrationCommon:
-    def check_saved_checkpoints(self, output_dir, freq, total, is_pretrained=True, safe_weights=True):
+    def check_saved_checkpoints(
+        self, output_dir, freq, total, is_pretrained=True, safe_weights=True, use_scaler=False
+    ):
         weights_file = WEIGHTS_NAME if not safe_weights else SAFE_WEIGHTS_NAME
         file_list = [weights_file, "training_args.bin", "optimizer.pt", "scheduler.pt", "trainer_state.json"]
         if is_pretrained:
             file_list.append("config.json")
+        if use_scaler:
+            file_list.append("scaler.pt")
         for step in range(freq, total, freq):
             checkpoint = os.path.join(output_dir, f"checkpoint-{step}")
             self.assertTrue(os.path.isdir(checkpoint))
@@ -2908,6 +2938,62 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         with self.assertRaises(Exception) as context:
             trainer.train(resume_from_checkpoint=True)
         self.assertTrue("No valid checkpoint found in output directory" in str(context.exception))
+
+    # require_torch_non_multi_accelerator is necessary because this worker blocks runs when using multiple GPUs, making
+    # the test slower.
+    @require_torch_non_multi_accelerator
+    @run_test_using_subprocess
+    @slow
+    def test_can_resume_training_lm(self):
+        # Check if it works for a simple language modeling example
+        training_steps = 10
+        resume_from_step = 8
+        with tempfile.TemporaryDirectory() as tmpdir:
+            enable_full_determinism(0)
+            kwargs = {
+                "output_dir": tmpdir,
+                "fp16": True,
+                "max_steps": training_steps,
+                "per_device_train_batch_size": 1,
+                "learning_rate": 1e-5,
+                "lr_scheduler_type": "cosine",
+                "save_strategy": "steps",
+                "save_steps": 1,
+                "logging_strategy": "steps",
+                "logging_steps": 1,
+                "report_to": "none",
+            }
+
+            trainer = get_language_model_trainer(**kwargs)
+            trainer.train(resume_from_checkpoint=False)
+            # Get the parameter length of the model
+            model_params = torch.cat([p.cpu().flatten() for p in trainer.model.parameters()])
+            model_param_len = len(model_params)
+            # Sample uniform indexes and save the values of the parameters (considering an unrolled vector with
+            # all of them)
+            indices = torch.randint(0, model_param_len, (1000,))
+            # Save the values of the parameters for later comparison
+            model_params_sample = model_params[indices].detach().clone()
+            state1 = dataclasses.asdict(trainer.state)
+            # Delete the reference
+            del model_params, trainer
+            # Checks if all checkpoints are there, +1 is necessary because range is 1-indexed
+            self.check_saved_checkpoints(
+                tmpdir, freq=1, total=training_steps + 1, is_pretrained=True, safe_weights=True, use_scaler=True
+            )
+
+            # Checkpoint at intermediate step
+            enable_full_determinism(0)
+            checkpoint = os.path.join(tmpdir, f"checkpoint-{resume_from_step+1}")
+            trainer = get_language_model_trainer(**kwargs)
+            trainer.train(resume_from_checkpoint=checkpoint)
+            model_params = torch.cat([p.cpu().flatten() for p in trainer.model.parameters()])
+
+            # Check that the parameters are the same
+            self.assertTrue(torch.allclose(model_params[indices], model_params_sample))
+            state2 = dataclasses.asdict(trainer.state)
+            self.check_trainer_state_are_the_same(state1, state2)
+            del model_params, trainer
 
     @unittest.skip(
         reason="@muellerzr: Fix once Trainer can take an accelerate configuration. Need to set `seedable_sampler=True`."

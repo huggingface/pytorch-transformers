@@ -226,6 +226,7 @@ Flax), PyTorch, and/or TensorFlow.
 |                 [Megatron-GPT2](model_doc/megatron_gpt2)                 |       ✅        |         ✅         |      ✅      |
 |                       [MGP-STR](model_doc/mgp-str)                       |       ✅        |         ❌         |      ❌      |
 |                          [Mimi](model_doc/mimi)                          |       ✅        |         ❌         |      ❌      |
+|                        [MinGRU](model_doc/mingru)                        |       ✅        |         ❌         |      ❌      |
 |                       [Mistral](model_doc/mistral)                       |       ✅        |         ✅         |      ✅      |
 |                       [Mixtral](model_doc/mixtral)                       |       ✅        |         ❌         |      ❌      |
 |                        [Mllama](model_doc/mllama)                        |       ✅        |         ❌         |      ❌      |

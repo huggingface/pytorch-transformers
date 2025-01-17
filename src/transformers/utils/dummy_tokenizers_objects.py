@@ -296,6 +296,13 @@ class MBart50TokenizerFast(metaclass=DummyObject):
         requires_backends(self, ["tokenizers"])
 
 
+class MinGRUTokenizerFast(metaclass=DummyObject):
+    _backends = ["tokenizers"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["tokenizers"])
+
+
 class MobileBertTokenizerFast(metaclass=DummyObject):
     _backends = ["tokenizers"]
 

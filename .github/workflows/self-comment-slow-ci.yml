@@ -1,0 +1,17 @@
+name: PR comment github action tests
+
+on:
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  get-pr-number:
+    runs-on: ubuntu-22.04
+    name: Get PR number
+    steps:
+      - name: Get PR number
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "$PR_NUMBER"

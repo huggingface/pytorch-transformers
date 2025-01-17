@@ -803,10 +803,10 @@ class ModelTesterMixin:
                 )
                 msg = f"Batched and Single row outputs are not equal in {model_name} for key={key}."
                 torch.testing.assert_close(batched_row, single_row_object, atol=1e-5, rtol=1e-5, msg=msg)
-                try:
-                    torch.testing.assert_close(batched_row, single_row_object, atol=1e-5, rtol=1e-5, msg=msg)
-                except:
-                    breakpoint()
+                # try:
+                #     torch.testing.assert_close(batched_row, single_row_object, atol=1e-5, rtol=1e-5, msg=msg)
+                # except:
+                #     breakpoint()
 
         set_model_tester_for_less_flaky_test(self)
 
@@ -858,10 +858,11 @@ class ModelTesterMixin:
                     model_batched_output[key] = model_batched_output[key][1:]
                     model_row_output[key] = model_row_output[key][1:]
                 # breakpoint()
-                try:
-                    recursive_check(model_batched_output[key], model_row_output[key], model_name, key)
-                except:
-                    breakpoint()
+                recursive_check(model_batched_output[key], model_row_output[key], model_name, key)
+                # try:
+                #     recursive_check(model_batched_output[key], model_row_output[key], model_name, key)
+                # except:
+                #     breakpoint()
 
     def check_training_gradient_checkpointing(self, gradient_checkpointing_kwargs=None):
         if not self.model_tester.is_training:

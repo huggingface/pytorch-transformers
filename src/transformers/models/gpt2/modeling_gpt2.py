@@ -137,7 +137,8 @@ def eager_attention_forward(module, query, key, value, attention_mask, head_mask
 
     if attention_mask is not None:
         # Apply the attention mask
-        attn_weights = attn_weights + attention_mask
+        causal_mask = attention_mask[:, :, :, : key.shape[-2]]
+        attn_weights = attn_weights + causal_mask
 
     attn_weights = nn.functional.softmax(attn_weights, dim=-1)
 
@@ -827,6 +828,7 @@ class GPT2Model(GPT2PreTrainedModel):
                     "You should pass an instance of `Cache` instead, e.g. "
                     "`past_key_values=DynamicCache.from_legacy_cache(past_key_values)`."
                 )
+                past_key_values = DynamicCache.from_legacy_cache(past_key_values)
 
         if use_cache and past_key_values is None:
             past_key_values = DynamicCache()

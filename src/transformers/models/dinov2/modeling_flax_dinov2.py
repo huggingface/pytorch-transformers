@@ -184,9 +184,11 @@ class FlaxDinov2Embeddings(nn.Module):
             antialias=False,
         )
         patch_pos_embed = patch_pos_embed.astype(target_dtype)
-        patch_pos_embed = jnp.transpose(patch_pos_embed, (0, 2, 3, 1)).reshape((hidden_states.shape[0], -1, dim))
+        patch_pos_embed = jnp.transpose(patch_pos_embed, (0, 2, 3, 1)).reshape((position_embeddings.shape[0], -1, dim))
+        patch_pos_embed_expanded = jnp.tile(patch_pos_embed, (hidden_states.shape[0], 1, 1))
+        class_pos_embed_expanded = jnp.tile(class_pos_embed, (hidden_states.shape[0], 1, 1))
 
-        return jnp.concatenate((class_pos_embed[jnp.newaxis, :], patch_pos_embed), axis=1)
+        return jnp.concatenate((class_pos_embed_expanded, patch_pos_embed_expanded), axis=1)
 
     def __call__(self, pixel_values, deterministic=True):
         batch_size = pixel_values.shape[0]
@@ -777,7 +779,7 @@ FLAX_VISION_CLASSIFICATION_DOCSTRING = """
     >>> image = Image.open(requests.get(url, stream=True).raw)
 
     >>> image_processor = AutoImageProcessor.from_pretrained("facebook/dinov2-base-imagenet1k-1-layer")
-    >>> model = FlaxDinov2ForImageClassification.from_pretrained("facebook/dinov2-base-imagenet1k-1-layer")
+    >>> model = FlaxDinov2ForImageClassification.from_pretrained("facebook/dinov2-base-imagenet1k-1-layer", from_pt=True)
 
     >>> inputs = image_processor(images=image, return_tensors="np")
     >>> outputs = model(**inputs)

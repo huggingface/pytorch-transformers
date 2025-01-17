@@ -129,6 +129,7 @@ class TorchAoHfQuantizer(HfQuantizer):
                 "int4_weight_only": CustomDtype.INT4,
                 "int8_weight_only": torch.int8,
                 "int8_dynamic_activation_int8_weight": torch.int8,
+                "autoquant": None,
             }
             return map_to_target_dtype[self.quantization_config.quant_type]
         else:
@@ -161,6 +162,9 @@ class TorchAoHfQuantizer(HfQuantizer):
         state_dict: Dict[str, Any],
         **kwargs,
     ) -> bool:
+        if self.quantization_config.quant_type == "autoquant":
+            return False
+
         param_device = kwargs.pop("param_device", None)
         # check if the param_name is not in self.modules_to_not_convert
         if any((key + "." in param_name) or (key == param_name) for key in self.modules_to_not_convert):
@@ -186,6 +190,9 @@ class TorchAoHfQuantizer(HfQuantizer):
         Each nn.Linear layer that needs to be quantized is processsed here.
         First, we set the value the weight tensor, then we move it to the target device. Finally, we quantize the module.
         """
+        if self.quantization_config.quant_type == "autoquant":
+            return
+
         from torchao.quantization import quantize_
 
         module, tensor_name = get_module_from_name(model, param_name)
@@ -200,6 +207,15 @@ class TorchAoHfQuantizer(HfQuantizer):
 
     def _process_model_after_weight_loading(self, model, **kwargs):
         """No process required for torchao quantized model"""
+        if self.quantization_config.quant_type == "autoquant":
+            from torchao import autoquant
+            from torchao.quantization import ALL_AUTOQUANT_CLASS_LIST
+
+            model = torch.compile(model, mode="max-autotune")
+            model = autoquant(
+                model, qtensor_class_list=ALL_AUTOQUANT_CLASS_LIST, **self.quantization_config.quant_type_kwargs
+            )
+            return model
         return
 
     def is_serializable(self, safe_serialization=None):

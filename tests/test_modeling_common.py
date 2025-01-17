@@ -784,6 +784,10 @@ class ModelTesterMixin:
                 return
             elif batched_object.dim() == 0:
                 return
+            # do not compare int or bool outputs as they are mostly computed with max/argmax/topk methods which are
+            # very sensitive to the inputs (e.g. tiny differences may give totally different results)
+            elif not torch.is_floating_point(batched_object):
+                return
             else:
                 # indexing the first element does not always work
                 # e.g. models that output similarity scores of size (N, M) would need to index [0, 0]

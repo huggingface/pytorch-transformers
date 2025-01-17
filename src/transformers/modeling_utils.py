@@ -1290,6 +1290,11 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
     # `config.base_model_tp_plan` during `post_init`.
     _tp_plan = None
 
+    # This flag signal that the model can be used as an efficient backend in TGI and vLLM
+    # In practice, it means that they support attention interface functions, fully pass the kwargs
+    # through all modules up to the Attention layer, and can slice logits with Tensor
+    _supports_attention_backend = False
+
     @property
     def dummy_inputs(self) -> Dict[str, torch.Tensor]:
         """

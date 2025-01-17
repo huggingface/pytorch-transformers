@@ -13,98 +13,61 @@ specific language governing permissions and limitations under the License.
 rendered properly in your Markdown viewer.
 
 -->
-# Compressed Tensors
 
-The [`compressed-tensors`](https://github.com/neuralmagic/compressed-tensors) library provides a versatile and efficient way to store and manage compressed model checkpoints. This library supports various quantization and sparsity schemes, making it a unified format for handling different model optimizations like GPTQ, AWQ, SmoothQuant, INT8, FP8, SparseGPT, and more.
+# compressed-tensors
 
-Some of the supported formats include:
-1. `dense`
-2. `int-quantized` ([sample](https://huggingface.co/nm-testing/tinyllama-w8a8-compressed-hf-quantizer)): INT8 quantized models
-3. `float-quantized` ([sample](https://huggingface.co/nm-testing/Meta-Llama-3-8B-Instruct-fp8-hf_compat)): FP8 quantized models; currently support E4M3
-4. `pack-quantized` ([sample](https://huggingface.co/nm-testing/tinyllama-w4a16-compressed-hf-quantizer)): INT4 or INT8 weight-quantized models, packed into INT32. For INT4, the weights have an INT4 range but are stored as INT8 and then packed into INT32.
+[compressed-tensors](https://github.com/neuralmagic/compressed-tensors) extends [safetensors](https://github.com/huggingface/safetensors) files to compressed tensor data types to provide a unified checkpoint format for storing and loading various quantization and sparsity formats such dense, int-quantized (int8), float-quantized (fp8), and pack-quantized (int4 or int8 weight-quantized packed into int32).
 
-Compressed models can be easily created using [llm-compressor](https://github.com/vllm-project/llm-compressor).
-Alternatively models can be created independently and serialized with a compressed tensors config.
+compressed-tensors supports fine-tuning with [PEFT](https://huggingface.co/docs/peft) and includes the following features as well.
 
-To find existing models on the Hugging Face Model Hub, search for the [`compressed-tensors` tag](https://huggingface.co/models?other=compressed-tensors).
+- fp8, int4, int8 weight and activation precisions.
+- Quantization scales and zero-points strategies for [tensor, channel, group, block, token](https://github.com/neuralmagic/compressed-tensors/blob/83b2e7a969d70606421a76b9a3d112646077c8de/src/compressed_tensors/quantization/quant_args.py#L43-L52).
+- Dynamic per-token activation quantization (or any static strategy).
+- Weight sparsity (unstructured or semi-structured like 2:4) can be composed with quantization for extreme compression.
+- Quantization of arbitrary modules, not just [nn.Linear](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html) modules.
+- Targeted support for specific modules by name or class.
 
-#### Features:
- - Weight and activation precisions: FP8, INT4, INT8 (for Q/DQ arbitrary precision is allowed for INT)
- - Quantization scales and zero-points strategies: [tensor, channel, group, block, token](https://github.com/neuralmagic/compressed-tensors/blob/83b2e7a969d70606421a76b9a3d112646077c8de/src/compressed_tensors/quantization/quant_args.py#L43-L52)
- - Dynamic per-token activation quantization (or any static strategy)
- - Sparsity in weights (unstructured or semi-structured like 2:4) can be composed with quantization for extreme compression
- - Supports quantization of arbitrary modules, not just Linear modules
- - Targeted support or ignoring of modules by name or class
+Install compressed-tensors from [PyPI](https://pypi.org/project/compressed-tensors) to get the latest stable release (recommended) or install it from source to get the latest features.
 
-## Installation
+<hfoptions id="install">
+<hfoption id="PyPI">
 
-It is recommended to install stable releases of compressed-tensors from [PyPI](https://pypi.org/project/compressed-tensors):
 ```bash
 pip install compressed-tensors
 ```
 
-Developers who want to experiment with the latest features can also install the package from source:
+</hfoption>
+<hfoption id="source code">
+
 ```bash
 git clone https://github.com/neuralmagic/compressed-tensors
 cd compressed-tensors
 pip install -e .
 ```
 
-## Quickstart Model Load
-Quantized models can be easily loaded for inference as shown below. Only models that have already been quantized can be loaded at the moment. To quantize a model into the compressed-tensors format see [llm-compressor](https://github.com/vllm-project/llm-compressor).
+</hfoption>
+</hfoptions>
+
+Search using the compressed-tensors [tag](https://huggingface.co/models?other=compressed-tensors) to find a compatible model on the Hugging Face Hub.
+
+Only models that have already been quantized can be loaded at the moment, and once a model is loaded, it cannot be saved. To quantize a model into the compressed-tensors format, see [llm-compressor](https://github.com/vllm-project/llm-compressor). Alternatively, models can be created independently and serizlied with a compressed-tensors config.
 
 ```python
 from transformers import AutoModelForCausalLM
 
-# Load the model in compressed-tensors format
-ct_model = AutoModelForCausalLM.from_pretrained("nm-testing/Meta-Llama-3.1-8B-Instruct-FP8-hf")
+ct_model = AutoModelForCausalLM.from_pretrained("nm-testing/Meta-Llama-3.1-8B-Instruct-FP8-hf", device_map="auto")
 
-# Measure memory usage
+# measure memory usage
 mem_params = sum([param.nelement()*param.element_size() for param in ct_model.parameters()])
 print(f"{mem/2**30:.4f} GB")
 # 8.4575 GB
 ```
 
-We can see just above that the compressed-tensors FP8 checkpoint of Llama 3.1 8B is able to be loaded for inference using half of the memory of the unquantized reference checkpoint.
+## Model checkpoint
 
-## Sample Use Cases - Load and run an FP8 model
+compressed-tensor models are defined through its configuration entry. The following example is taken from the [nm-testing/Meta-Llama-3.1-8B-Instruct-FP8-hf](https://huggingface.co/nm-testing/Meta-Llama-3.1-8B-Instruct-FP8-hf/blob/main/config.json) `config.json` file.
 
-```python
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-prompt = [
-    "Hello, my name is",
-    "The capital of France is",
-    "The future of AI is"
-]
-
-model_name = "nm-testing/Meta-Llama-3-8B-Instruct-fp8-hf_compat"
-
-quantized_model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-inputs = tokenizer(prompt, return_tensors="pt")
-generated_ids = quantized_model.generate(**inputs, max_length=50, do_sample=False)
-outputs = tokenizer.batch_decode(generated_ids)
-
-print(outputs)
-
-"""
-['<|begin_of_text|>Hello, my name is [Name]. I am a [Your Profession/Student] and I am here to learn about the [Course/Program] at [University/Institution]. I am excited to be here and I am looking forward to', '<|begin_of_text|>The capital of France is Paris, which is located in the north-central part of the country. Paris is the most populous city in France and is known for its stunning architecture, art museums, fashion, and romantic atmosphere. The city is home to', "<|begin_of_text|>The future of AI is here, and it's already changing the way we live and work. From virtual assistants to self-driving cars, AI is transforming industries and revolutionizing the way we interact with technology. But what does the future of AI hold"]
-"""
-
-```
-
-The above shows a quick example for running generation using a `compressed-tensors`
-model. Currently, once loaded the model cannot be saved.
-
-## Deep dive into a compressed-tensors model checkpoint
-
-In this example we will examine how the compressed-tensors model nm-testing/Meta-Llama-3.1-8B-Instruct-FP8-hf is defined through its configuration entry and see how this translates to the loaded model representation. 
-
-First, let us look at the [`quantization_config` of the model](https://huggingface.co/nm-testing/Meta-Llama-3.1-8B-Instruct-FP8-hf/blob/main/config.json). At a glance it looks overwhelming with the number of entries but this is because compressed-tensors is a format that allows for flexible expression both during and after model compression.
-
-In practice for checkpoint loading and inference the configuration can be simplified to not include all the default or empty entries, so we will do that here to focus on what compression is actually represented.
+There are a lot of entries to allow for flexible expression both during and after compression, but the entries for loading and inference can be simplified to focus on just a few key entries.
 
 ```yaml
 "quantization_config": {
@@ -130,9 +93,9 @@ In practice for checkpoint loading and inference the configuration can be simpli
 },
 ```
 
-We can see from the above configuration that it is specifying one config group that includes weight and activation quantization to FP8 with a static per-tensor strategy. It is also worth noting that in the `ignore` list there is an entry to skip quantization of the `lm_head` module, so that module should be untouched in the checkpoint.
+The config file specifies the quantization of a config group (`group_0`), which includes weight and activation quantization to fp8 with a static per-tensor strategy. The `lm_head` module is unquantized as shown in the `ignore` key.
 
-To see the result of the configuration in practice, we can simply use the [safetensors viewer](https://huggingface.co/nm-testing/Meta-Llama-3.1-8B-Instruct-FP8-hf?show_file_info=model.safetensors.index.json) on the model card to see the quantized weights, input_scale, and weight_scale for all of the Linear modules in the first model layer (and so on for the rest of the layers).
+For a more detailed look at the model weights, use the [safetensors viewer](https://huggingface.co/nm-testing/Meta-Llama-3.1-8B-Instruct-FP8-hf?show_file_info=model.safetensors.index.json) on the model card to see the quantized weights, input scale, and weight scale for all [nn.Linear](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html) modules.
 
 | Tensors | Shape |	Precision |
 | ------- | ----- | --------- |
@@ -160,7 +123,7 @@ model.layers.0.self_attn.v_proj.input_scale	| [1] | BF16
 model.layers.0.self_attn.v_proj.weight |	[1 024, 4 096]	| F8_E4M3 
 model.layers.0.self_attn.v_proj.weight_scale |	[1] |	BF16 
 
-When we load the model with the compressed-tensors HFQuantizer integration, we can see that all of the Linear modules that are specified within the quantization configuration have been replaced by `CompressedLinear` modules that manage the compressed weights and forward pass for inference. Note that the `lm_head` mentioned before in the ignore list is still kept as an unquantized Linear module.
+When loading a compressed-tensors model with the [`~quantizers.HFQuantizer`] integration, all the [nn.Linear](https://pytorch.org/docs/stable/generated/torch.nn.Linear.html) modules specified in the quantization config are replaced by [CompressedLinear](https://github.com/neuralmagic/compressed-tensors/blob/975cb223b19fcac2b98a4271d17668462d4d6e1d/src/compressed_tensors/linear/compressed_linear.py#L30) modules that manage the compressed weights and forward pass for inference. The `lm_head` module is still kept as an unquantized nn.Linear module.
 
 ```python
 from transformers import AutoModelForCausalLM

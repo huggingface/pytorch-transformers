@@ -14,47 +14,46 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# Tiktoken and interaction with Transformers
+# tiktoken
 
-Support for tiktoken model files is seamlessly integrated in 🤗 transformers when loading models 
-`from_pretrained` with a `tokenizer.model` tiktoken file on the Hub, which is automatically converted into our 
-[fast tokenizer](https://huggingface.co/docs/transformers/main/en/main_classes/tokenizer#transformers.PreTrainedTokenizerFast). 
+[tiktoken](https://github.com/openai/tiktoken) is a [byte-pair encoding (BPE)](./tokenizer_summary#byte-pair-encoding-bpe) tokenizer by OpenAI. It includes several tokenization schemes or encodings for how text should be tokenized.
 
-### Known models that were released with a `tiktoken.model`:
-	- gpt2
-	- llama3
+There are currently two models trained and released with tiktoken, GPT2 and Llama3. Transformers supports models with a [tokenizer.model](https://hf.co/meta-llama/Meta-Llama-3-8B/blob/main/original/tokenizer.model) tiktoken file. The tiktoken file is automatically converted into Transformers Rust-based [`PreTrainedTokenizerFast`].
 
-## Example usage
- 
-In order to load `tiktoken` files in `transformers`, ensure that the `tokenizer.model` file is a tiktoken file and it 
-will automatically be loaded when loading `from_pretrained`. Here is how one would load a tokenizer and a model, which 
- can be loaded from the exact same file:
+Add the `subfolder` parameter to [`~PreTrainedModel.from_pretrained`] to specify where the `tokenizer.model` tiktoken file is located.
 
 ```py
 from transformers import AutoTokenizer
 
-model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
-tokenizer = AutoTokenizer.from_pretrained(model_id, subfolder="original") 
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct", subfolder="original") 
 ```
-## Create tiktoken tokenizer
 
-The `tokenizer.model` file contains no information about additional tokens or pattern strings. If these are important, convert the tokenizer to `tokenizer.json`, the appropriate format for [`PreTrainedTokenizerFast`].
+## Create a tiktoken tokenizer
 
-Generate the `tokenizer.model` file with [tiktoken.get_encoding](https://github.com/openai/tiktoken/blob/63527649963def8c759b0f91f2eb69a40934e468/tiktoken/registry.py#L63) and then convert it to `tokenizer.json` with [`convert_tiktoken_to_fast`].
+The tiktoken `tokenizer.model` file contains no information about additional tokens or pattern strings. If these are important, convert the tokenizer to `tokenizer.json` (the appropriate format for [`PreTrainedTokenizerFast`]).
+
+Generate the tiktoken `tokenizer.model` file with the [tiktoken.get_encoding](https://github.com/openai/tiktoken/blob/63527649963def8c759b0f91f2eb69a40934e468/tiktoken/registry.py#L63) function, and convert it to `tokenizer.json` with [convert_tiktoken_to_fast](https://github.com/huggingface/transformers/blob/99e0ab6ed888136ea4877c6d8ab03690a1478363/src/transformers/integrations/tiktoken.py#L8).
 
 ```py
-
 from transformers.integrations.tiktoken import convert_tiktoken_to_fast
 from tiktoken import get_encoding
 
-# You can load your custom encoding or the one provided by OpenAI
+# Load your custom encoding or the one provided by OpenAI
 encoding = get_encoding("gpt2")
 convert_tiktoken_to_fast(encoding, "config/save/dir")
 ```
 
-The resulting `tokenizer.json` file is saved to the specified directory and can be loaded with [`PreTrainedTokenizerFast`].
+The resulting `tokenizer.json` file is saved to the specified directory and loaded with [`~PreTrainedTokenizerFast.from_pretrained`].
 
 ```py
 tokenizer = PreTrainedTokenizerFast.from_pretrained("config/save/dir")
 ```
 
+Visualize how the tiktoken tokenizer works by selecting Llama3 in the Tokenizer Playground below.
+
+<iframe
+	src="https://xenova-the-tokenizer-playground.static.hf.space"
+	frameborder="0"
+	width="850"
+	height="600"
+></iframe>

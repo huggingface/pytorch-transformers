@@ -14,46 +14,43 @@ rendered properly in your Markdown viewer.
 
 -->
 
-# FBGEMM FP8
+# FBGEMM
 
-With FBGEMM FP8 quantization method, you can quantize your model in FP8 (W8A8):
-- the weights will be quantized in 8bit (FP8) per channel
-- the activation will be quantized in 8bit (FP8) per token
-
-It relies on the [FBGEMM](https://github.com/pytorch/FBGEMM) library which provides efficient low-precision general matrix multiplication for small batch sizes and support for accuracy-loss minimizing techniques such as row-wise quantization and outlier-aware quantization. 
+[FBGEMM (Facebook GEneral Matrix Multiplication)](https://github.com/pytorch/FBGEMM) is a low-precision matrix multiplication library for small batch sizes and support for accuracy-loss minimizing techniques such as row-wise quantization and outlier-aware quantization. With FBGEMM, quantize a models weights to 8-bits/channel and the activations to 8-bits/token (also known as fp8 or w8a8).
 
 > [!TIP]
-> You need a GPU with compute capability>=9 (e.g. H100) 
+> You need a GPU with [compute capability 9+](https://developer.nvidia.com/cuda-gpus#collapseOne) like a H100.
 
-Before you begin, make sure the following libraries are installed with their latest version:
+Install the FBGEMM_GPU package with the command below to ensure you have the latest version.
 
 ```bash
 pip install --upgrade accelerate fbgemm-gpu torch
 ```
 
-If you are having issues with fbgemm-gpu and torch library, you might need to install the nightly release. You can follow the instruction [here](https://pytorch.org/FBGEMM/fbgemm_gpu-development/InstallationInstructions.html#fbgemm-gpu-install-libraries:~:text=found%20here.-,Install%20the%20FBGEMM_GPU%20Package,-Install%20through%20PyTorch)
+If you're having installation issues, try installing the [nightly release](https://pytorch.org/FBGEMM/fbgemm_gpu-development/InstallationInstructions.html#fbgemm-gpu-install-libraries:~:text=found%20here.-,Install%20the%20FBGEMM_GPU%20Package,-Install%20through%20PyTorch).
 
-By default, the weights are loaded in full precision (torch.float32) regardless of the actual data type the weights are stored in such as torch.float16. Set `torch_dtype="auto"` to load the weights in the data type defined in a model's `config.json` file to automatically load the most memory-optimal data type.
+Create a [`FbgemmFp8Config`] and pass it to [`~PreTrainedModel.from_pretrained`] to quantize a model to fp8.
 
 ```py
-from transformers import FbgemmFp8Config, AutoModelForCausalLM, AutoTokenizer
+from transformers import FbgemmFp8Config, AutoModelForCausalLM
 
-model_name = "meta-llama/Meta-Llama-3-8B"
 quantization_config = FbgemmFp8Config()
-quantized_model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", device_map="auto", quantization_config=quantization_config)
-
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-input_text = "What are we having for dinner?"
-input_ids = tokenizer(input_text, return_tensors="pt").to("cuda")
-
-output = quantized_model.generate(**input_ids, max_new_tokens=10)
-print(tokenizer.decode(output[0], skip_special_tokens=True))
+quantized_model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Meta-Llama-3-8B",
+    torch_dtype="auto",
+    device_map="auto",
+    quantization_config=quantization_config
+)
 ```
 
-A quantized model can be saved via "saved_pretrained" and be reused again via the "from_pretrained".
+[`~PreTrainedModel.save_pretrained`] and [`~PreTrainedModel.from_pretrained`] enable saving and loading a quantized model.
 
 ```py
 quant_path = "/path/to/save/quantized/model"
 model.save_pretrained(quant_path)
 model = AutoModelForCausalLM.from_pretrained(quant_path, device_map="auto")
 ```
+
+## Resources
+
+Read the [Open-sourcing FBGEMM for state-of-the-art server-side inference](https://engineering.fb.com/2018/11/07/ml-applications/fbgemm/) blog post for more details on FBGEMM.

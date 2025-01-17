@@ -16,29 +16,47 @@ rendered properly in your Markdown viewer.
 
 # EETQ
 
-The [EETQ](https://github.com/NetEase-FuXi/EETQ) library supports int8 per-channel weight-only quantization for NVIDIA GPUS. The high-performance GEMM and GEMV kernels are from FasterTransformer and TensorRT-LLM. It requires no calibration dataset and does not need to pre-quantize your model. Moreover, the accuracy degradation is negligible owing to the per-channel quantization. 
+The [Easy & Efficient Quantization for Transformers (EETQ)](https://github.com/NetEase-FuXi/EETQ) library supports int8 weight-only per-channel quantization for NVIDIA GPUs. It uses high-performance GEMM and GEMV kernels from [FasterTransformer](https://github.com/NVIDIA/FasterTransformer) and [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM). The attention layer is optimized with [FlashAttention2](https://github.com/Dao-AILab/flash-attention). No calibration dataset is required, and the model doesn't need to be pre-quantized. Accuracy degradation is negligible owing to the per-channel quantization.
 
-Make sure you have eetq installed from the [release page](https://github.com/NetEase-FuXi/EETQ/releases)
-```
+EETQ further supports fine-tuning with [PEFT](https://huggingface.co/docs/peft).
+
+Install EETQ from the [release page](https://github.com/NetEase-FuXi/EETQ/releases) or [source code](https://github.com/NetEase-FuXi/EETQ). CUDA 11.4+ is required for EETQ.
+
+<hfoptions id="install">
+<hfoption id="release page">
+
+```bash
 pip install --no-cache-dir https://github.com/NetEase-FuXi/EETQ/releases/download/v1.0.0/EETQ-1.0.0+cu121+torch2.1.2-cp310-cp310-linux_x86_64.whl
 ```
-or via the source code https://github.com/NetEase-FuXi/EETQ. EETQ requires CUDA capability <= 8.9 and >= 7.0
-```
+
+</hfoption>
+<hfoption id="source code">
+
+```bash
 git clone https://github.com/NetEase-FuXi/EETQ.git
 cd EETQ/
 git submodule update --init --recursive
 pip install .
 ```
 
-An unquantized model can be quantized via "from_pretrained".
+</hfoption>
+</hfoptions>
+
+Quantize a model on-the-fly by defining the quantization data type in [`EetqConfig`].
+
 ```py
 from transformers import AutoModelForCausalLM, EetqConfig
-path = "/path/to/model"
+
 quantization_config = EetqConfig("int8")
-model = AutoModelForCausalLM.from_pretrained(path, device_map="auto", quantization_config=quantization_config)
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-3.1-8B",
+    torch_dtype="auto",
+    device_map="auto",
+    quantization_config=quantization_config
+)
 ```
 
-A quantized model can be saved via "saved_pretrained" and be reused again via the "from_pretrained".
+Save the quantized model with [`~PreTrainedModel.save_pretrained`] so it can be reused again with [`~PreTrainedModel.from_pretrained`].
 
 ```py
 quant_path = "/path/to/save/quantized/model"

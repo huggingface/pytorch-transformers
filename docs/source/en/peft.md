@@ -1,4 +1,4 @@
-<!--Copyright 2023 The HuggingFace Team. All rights reserved.
+<!--Copyright 2024 The HuggingFace Team. All rights reserved.
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 the License. You may obtain a copy of the License at
 http://www.apache.org/licenses/LICENSE-2.0
@@ -9,217 +9,69 @@ specific language governing permissions and limitations under the License.
 rendered properly in your Markdown viewer.
 -->
 
-# Load adapters with 🤗 PEFT
+# PEFT
 
 [[open-in-colab]]
 
-[Parameter-Efficient Fine Tuning (PEFT)](https://huggingface.co/blog/peft) methods freeze the pretrained model parameters during fine-tuning and add a small number of trainable parameters (the adapters) on top of it. The adapters are trained to learn task-specific information. This approach has been shown to be very memory-efficient with lower compute usage while producing results comparable to a fully fine-tuned model. 
+[PEFT](https://huggingface.co/docs/peft/index), a library of parameter-efficient finetuning methods, enable training and storing large models often on consumer GPUs. These methods only finetune a small number of extra model parameters, also known as adapters, on top of the pretrained model. A significant amount of memory is saved because the GPU doesn't need to store the optimizer states and gradients for the pretrained base model. Adapters are very lightweight, making it convenient to share, store, and load them.
 
-Adapters trained with PEFT are also usually an order of magnitude smaller than the full model, making it convenient to share, store, and load them.
+This guide provides a short overview of the PEFT library and how to use it for training with Transformers. For more details, refer to the PEFT [documentation](https://huggingface.co/docs/peft/index).
 
-<div class="flex flex-col justify-center">
-  <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/peft/PEFT-hub-screenshot.png"/>
-  <figcaption class="text-center">The adapter weights for a OPTForCausalLM model stored on the Hub are only ~6MB compared to the full size of the model weights, which can be ~700MB.</figcaption>
-</div>
+Install PEFT with the command below.
 
-If you're interested in learning more about the 🤗 PEFT library, check out the [documentation](https://huggingface.co/docs/peft/index).
-
-## Setup
-
-Get started by installing 🤗 PEFT:
+<hfoptions id="install">
+<hfoption id="pip">
 
 ```bash
-pip install peft
+pip install -U peft
 ```
 
-If you want to try out the brand new features, you might be interested in installing the library from source:
+</hfoption>
+<hfoption id="source">
 
 ```bash
 pip install git+https://github.com/huggingface/peft.git
 ```
 
-## Supported PEFT models
+</hfoption>
+</hfoptions>
 
-🤗 Transformers natively supports some PEFT methods, meaning you can load adapter weights stored locally or on the Hub and easily run or train them with a few lines of code. The following methods are supported:
+> [!TIP]
+> PEFT currently supports the LoRA, IA3, and AdaLoRA methods for Transformers. To use another PEFT method, such as prompt learniing or prompt tuning, you'll need to use the PEFT library directly.
 
-- [Low Rank Adapters](https://huggingface.co/docs/peft/conceptual_guides/lora)
-- [IA3](https://huggingface.co/docs/peft/conceptual_guides/ia3)
-- [AdaLoRA](https://arxiv.org/abs/2303.10512)
-
-If you want to use other PEFT methods, such as prompt learning or prompt tuning, or learn about the 🤗 PEFT library in general, please refer to the [documentation](https://huggingface.co/docs/peft/index).
-
-
-## Load a PEFT adapter
-
-To load and use a PEFT adapter model from 🤗 Transformers, make sure the Hub repository or local directory contains an `adapter_config.json` file and the adapter weights, as shown in the example image above. Then you can load the PEFT adapter model using the `AutoModelFor` class. For example, to load a PEFT adapter model for causal language modeling:
-
-1. specify the PEFT model id
-2. pass it to the [`AutoModelForCausalLM`] class
+[Low-Rank Adaptation (LoRA)](https://huggingface.co/docs/peft/conceptual_guides/adapter#low-rank-adaptation-lora) is a very common PEFT method that decomposes the weight matrix into two smaller trainable matrices. Start by defining a [`~peft.LoraConfig`] object with the parameters shown below.
 
 ```py
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import LoraConfig, TaskType, get_peft_model
+from transformers import AutoModelForCausalLM
 
-peft_model_id = "ybelkada/opt-350m-lora"
-model = AutoModelForCausalLM.from_pretrained(peft_model_id)
-```
-
-<Tip>
-
-You can load a PEFT adapter with either an `AutoModelFor` class or the base model class like `OPTForCausalLM` or `LlamaForCausalLM`.
-
-</Tip>
-
-You can also load a PEFT adapter by calling the `load_adapter` method:
-
-```py
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-model_id = "facebook/opt-350m"
-peft_model_id = "ybelkada/opt-350m-lora"
-
-model = AutoModelForCausalLM.from_pretrained(model_id)
-model.load_adapter(peft_model_id)
-```
-
-Check out the [API documentation](#transformers.integrations.PeftAdapterMixin) section below for more details.
-
-## Load in 8bit or 4bit
-
-The `bitsandbytes` integration supports 8bit and 4bit precision data types, which are useful for loading large models because it saves memory (see the `bitsandbytes` integration [guide](./quantization#bitsandbytes-integration) to learn more). Add the `load_in_8bit` or `load_in_4bit` parameters to [`~PreTrainedModel.from_pretrained`] and set `device_map="auto"` to effectively distribute the model to your hardware:
-
-```py
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-
-peft_model_id = "ybelkada/opt-350m-lora"
-model = AutoModelForCausalLM.from_pretrained(peft_model_id, quantization_config=BitsAndBytesConfig(load_in_8bit=True))
-```
-
-## Add a new adapter
-
-You can use [`~peft.PeftModel.add_adapter`] to add a new adapter to a model with an existing adapter as long as the new adapter is the same type as the current one. For example, if you have an existing LoRA adapter attached to a model:
-
-```py
-from transformers import AutoModelForCausalLM, OPTForCausalLM, AutoTokenizer
-from peft import LoraConfig
-
-model_id = "facebook/opt-350m"
-model = AutoModelForCausalLM.from_pretrained(model_id)
-
+# create LoRA configuration object
 lora_config = LoraConfig(
-    target_modules=["q_proj", "k_proj"],
-    init_lora_weights=False
-)
-
-model.add_adapter(lora_config, adapter_name="adapter_1")
-```
-
-To add a new adapter:
-
-```py
-# attach new adapter with same config
-model.add_adapter(lora_config, adapter_name="adapter_2")
-```
-
-Now you can use [`~peft.PeftModel.set_adapter`] to set which adapter to use:
-
-```py
-# use adapter_1
-model.set_adapter("adapter_1")
-output_disabled = model.generate(**inputs)
-print(tokenizer.decode(output_disabled[0], skip_special_tokens=True))
-
-# use adapter_2
-model.set_adapter("adapter_2")
-output_enabled = model.generate(**inputs)
-print(tokenizer.decode(output_enabled[0], skip_special_tokens=True))
-```
-
-## Enable and disable adapters
-
-Once you've added an adapter to a model, you can enable or disable the adapter module. To enable the adapter module:
-
-```py
-from transformers import AutoModelForCausalLM, OPTForCausalLM, AutoTokenizer
-from peft import PeftConfig
-
-model_id = "facebook/opt-350m"
-adapter_model_id = "ybelkada/opt-350m-lora"
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-text = "Hello"
-inputs = tokenizer(text, return_tensors="pt")
-
-model = AutoModelForCausalLM.from_pretrained(model_id)
-peft_config = PeftConfig.from_pretrained(adapter_model_id)
-
-# to initiate with random weights
-peft_config.init_lora_weights = False
-
-model.add_adapter(peft_config)
-model.enable_adapters()
-output = model.generate(**inputs)
-```
-
-To disable the adapter module:
-
-```py
-model.disable_adapters()
-output = model.generate(**inputs)
-```
-
-## Train a PEFT adapter
-
-PEFT adapters are supported by the [`Trainer`] class so that you can train an adapter for your specific use case. It only requires adding a few more lines of code. For example, to train a LoRA adapter:
-
-<Tip>
-
-If you aren't familiar with fine-tuning a model with [`Trainer`], take a look at the [Fine-tune a pretrained model](training) tutorial.
-
-</Tip>
-
-1. Define your adapter configuration with the task type and hyperparameters (see [`~peft.LoraConfig`] for more details about what the hyperparameters do).
-
-```py
-from peft import LoraConfig
-
-peft_config = LoraConfig(
-    lora_alpha=16,
-    lora_dropout=0.1,
-    r=64,
-    bias="none",
-    task_type="CAUSAL_LM",
+    task_type=TaskType.CAUSAL_LM, # type of task to train on
+    inference_mode=False, # set to False for training
+    r=8, # dimension of the smaller matrices
+    lora_alpha=32, # scaling factor
+    lora_dropout=0.1 # dropout of LoRA layers
 )
 ```
 
-2. Add adapter to the model.
+Add [`~peft.LoraConfig`] to the model with [`~integrations.PeftAdapterMixin.add_adapter`]. The model is ready to be passed to [`Trainer`] for training.
 
 ```py
-model.add_adapter(peft_config)
-```
-
-3. Now you can pass the model to [`Trainer`]!
-
-```py
+model.add_adapter(lora_config, adapter_name="lora_1")
 trainer = Trainer(model=model, ...)
 trainer.train()
 ```
 
-To save your trained adapter and load it back:
+To add an additional trainable adapter on top of a model with an existing adapter attached, specify the modules you want to train in [modules_to_save()](https://huggingface.co/docs/peft/package_reference/lora#peft.LoraConfig.modules_to_save).
+
+For example, to train the `lm_head` module on top of a causal language model with a LoRA adapter attached, set `modules_to_save=["lm_head"]`. Add the adapter to the model as shown below, and then pass it to [`Trainer`].
 
 ```py
-model.save_pretrained(save_dir)
-model = AutoModelForCausalLM.from_pretrained(save_dir)
-```
-
-## Add additional trainable layers to a PEFT adapter
-
-You can also fine-tune additional trainable adapters on top of a model that has adapters attached by passing `modules_to_save` in your PEFT config. For example, if you want to also fine-tune the lm_head on top of a model with a LoRA adapter:
-
-```py
-from transformers import AutoModelForCausalLM, OPTForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM
 from peft import LoraConfig
 
-model_id = "facebook/opt-350m"
-model = AutoModelForCausalLM.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained("google/gemma-2-2b")
 
 lora_config = LoraConfig(
     target_modules=["q_proj", "k_proj"],
@@ -227,25 +79,72 @@ lora_config = LoraConfig(
 )
 
 model.add_adapter(lora_config)
+trainer = Trainer(model=model, ...)
+trainer.train()
 ```
 
-## API docs
+Save your adapter with [`~PreTrainedModel.save_pretrained`] to reuse it.
 
-[[autodoc]] integrations.PeftAdapterMixin
-    - load_adapter
-    - add_adapter
-    - set_adapter
-    - disable_adapters
-    - enable_adapters
-    - active_adapters
-    - get_adapter_state_dict
+## Load adapter
 
+To load an adapter with Transformers, the Hub repository or local directory must contain an `adapter_config.json` file and the adapter weights. Load the adapter with [`~PreTrainedModel.from_pretrained`] or with [`~integrations.PeftAdapterMixin.load_adapter`].
 
+<hfoptions id="load">
+<hfoption id="from_pretrained">
 
+```py
+from transformers import AutoModelForCausalLM
 
-<!--
-TODO: (@younesbelkada @stevhliu)
--   Link to PEFT docs for further details
--   Trainer  
--   8-bit / 4-bit examples ?
--->
+model = AutoModelForCausalLM.from_pretrained("klcsp/gemma7b-lora-alpaca-11-v1")
+```
+
+</hfoption>
+<hfoption id="load_adapter">
+
+```py
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained("google/gemma-7b")
+model.load_adapter("klcsp/gemma7b-lora-alpaca-11-v1")
+```
+
+For very large models, it is helpful to load a quantized version of the model in 8 or 4-bit precision to save memory. Transformers supports quantization with its [bitsandbytes](https://huggingface.co/docs/bitsandbytes/index) integration. Specify in [`BitsAndBytesConfig`] whether you want to load a model in 8 or 4-bit precision.
+
+For multiple devices, add `device_map="auto"` to automatically distribute the model across your hardware.
+
+```py
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+
+model = AutoModelForCausalLM.from_pretrained(
+    "klcsp/gemma7b-lora-alpaca-11-v1",
+    quantization_config=BitsAndBytesConfig(load_in_8bit=True),
+    device_map="auto",
+)
+```
+
+## Set adapter
+
+[`~integrations.PeftAdapterMixin.add_adapter`] adds a new adapter to a model. To add a second adapter, the new adapter must be the same type as the first adapter. Use the [`~integrations.PeftAdapterMixin.add_adapter.adapter_name`] parameter to assign a name to the adapter.
+
+```py
+model.add_adapter(lora_config, adapter_name="lora_2")
+```
+
+Once added, use [`~integrations.PeftAdapterMixin.set_adapter`] to force a model to use the specified adapter and disable the other adapters.
+
+```py
+model.set_adapter("lora_2")
+```
+
+## Enable and disable adapter
+
+[`~integrations.PeftAdapterMixin.enable_adapters`] is a broader function that enables *all* adapters attached to a model, and [`~integrations.PeftAdapterMixin.disable_adapters`] disables *all* attached adapters.
+
+```py
+model.add_adapter(lora_1)
+model.add_adapter(lora_2)
+model.enable_adapters()
+
+# disable all adapters
+model.disable_adapters()
+```

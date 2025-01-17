@@ -147,6 +147,25 @@ class FalconMambaModelTester:
         config.vocab_size = 300
         return config
 
+    def prepare_config_and_inputs_for_decoder(self):
+        (
+            config,
+            input_ids,
+            attention_mask,
+            sequence_labels,
+            token_labels,
+            choice_labels,
+        ) = self.prepare_config_and_inputs()
+
+        return (
+            config,
+            input_ids,
+            attention_mask,
+            sequence_labels,
+            token_labels,
+            choice_labels,
+        )
+
     def create_and_check_falcon_mamba_model(self, config, input_ids, *args):
         config.output_hidden_states = True
         model = FalconMambaModel(config=config)

@@ -1,281 +1,299 @@
-- sections:
+- title: Get started
+  sections:
   - local: index
-    title: 🤗 Transformers
+    title: Transformers
   - local: quicktour
-    title: Quick tour
+    title: Quickstart
   - local: installation
     title: Installation
-  - local: add_new_model
-    title: Adding a new model to `transformers`
-  title: Get started
-- sections:
-  - local: pipeline_tutorial
-    title: Run inference with pipelines
-  - local: autoclass_tutorial
-    title: Write portable code with AutoClass
-  - local: preprocessing
-    title: Preprocess data
-  - local: training
-    title: Fine-tune a pretrained model
-  - local: run_scripts
-    title: Train with a script
-  - local: accelerate
-    title: Set up distributed training with 🤗 Accelerate
-  - local: peft
-    title: Load and train adapters with 🤗 PEFT
-  - local: model_sharing
-    title: Share your model
-  - local: agents
-    title: Agents 101
-  - local: agents_advanced
-    title: Agents, supercharged - Multi-agents, External tools, and more
-  - local: llm_tutorial
-    title: Generation with LLMs
-  - local: conversations
-    title: Chatting with Transformers
-  title: Tutorials
-- sections:
-  - isExpanded: false
+- title: Base classes
+  isExpanded: False
+  sections:
+  - title: Models
     sections:
-    - local: tasks/sequence_classification
-      title: Text classification
-    - local: tasks/token_classification
-      title: Token classification
-    - local: tasks/question_answering
-      title: Question answering
-    - local: tasks/language_modeling
-      title: Causal language modeling
-    - local: tasks/masked_language_modeling
-      title: Masked language modeling
-    - local: tasks/translation
-      title: Translation
-    - local: tasks/summarization
-      title: Summarization
-    - local: tasks/multiple_choice
-      title: Multiple choice
-    title: Natural Language Processing
-  - isExpanded: false
+    - local: models
+      title: Loading
+    - local: custom_models
+      title: Customizing models
+    - local: how_to_hack_models
+      title: Customizing model components
+    - local: model_sharing
+      title: Sharing
+    - local: add_new_model
+      title: Adding a new model
+    - local: modular_transformers
+      title: Modular Transformers
+    - local: task_summary
+      title: What 🤗 Transformers can do
+    - local: tasks_explained
+      title: How 🤗 Transformers solve tasks
+    - local: model_summary
+      title: The Transformer model family
+    - local: attention
+      title: Attention mechanisms
+  - title: Preprocessors
     sections:
-    - local: tasks/audio_classification
-      title: Audio classification
-    - local: tasks/asr
-      title: Automatic speech recognition
-    title: Audio
-  - isExpanded: false
+    - local: fast_tokenizers
+      title: Tokenizers
+    - local: tiktoken
+      title: tiktoken
+    - local: image_processors
+      title: Image processors
+    - local: backbones
+      title: Backbones
+    - local: feature_extractors
+      title: Feature extractors
+    - local: processors
+      title: Processors
+    - local: tokenizer_summary
+      title: Summary of the tokenizers
+    - local: pad_truncation
+      title: Padding and truncation
+- title: Inference
+  isExpanded: False
+  sections:
+  - title: Pipeline API
     sections:
-    - local: tasks/image_classification
-      title: Image classification
-    - local: tasks/semantic_segmentation
-      title: Image segmentation
-    - local: tasks/video_classification
-      title: Video classification
-    - local: tasks/object_detection
-      title: Object detection
-    - local: tasks/zero_shot_object_detection
-      title: Zero-shot object detection
-    - local: tasks/zero_shot_image_classification
-      title: Zero-shot image classification
-    - local: tasks/monocular_depth_estimation
-      title: Depth estimation
-    - local: tasks/image_to_image
-      title: Image-to-Image
-    - local: tasks/image_feature_extraction
-      title: Image Feature Extraction
-    - local: tasks/mask_generation
-      title: Mask Generation
-    - local: tasks/keypoint_detection
-      title: Keypoint Detection
-    - local: tasks/knowledge_distillation_for_image_classification
-      title: Knowledge Distillation for Computer Vision
-    title: Computer Vision
-  - isExpanded: false
+    - local: pipeline_tutorial
+      title: Pipeline
+    - local: pipeline_gradio
+      title: Machine learning apps
+    - local: pipeline_webserver
+      title: Web server inference
+    - local: add_new_pipeline
+      title: Add a new pipeline
+  - title: LLMs
     sections:
-    - local: tasks/image_captioning
-      title: Image captioning
-    - local: tasks/document_question_answering
-      title: Document Question Answering
-    - local: tasks/visual_question_answering
-      title: Visual Question Answering
-    - local: tasks/text-to-speech
-      title: Text to speech
-    - local: tasks/image_text_to_text
-      title: Image-text-to-text
-    - local: tasks/video_text_to_text
-      title: Video-text-to-text
-    title: Multimodal
-  - isExpanded: false
-    sections:
-    - local: generation_strategies
-      title: Customize the generation strategy
-    - local: kv_cache
-      title: Best Practices for Generation with Cache
-    title: Generation
-  - isExpanded: false
-    sections:
-    - local: tasks/idefics
-      title: Image tasks with IDEFICS
     - local: tasks/prompting
-      title: LLM prompting guide
-    title: Prompting
-  title: Task Guides
-- sections:
-  - local: fast_tokenizers
-    title: Use fast tokenizers from 🤗 Tokenizers
+      title: Prompt engineering
+    - local: llm_optims
+      title: Optimize inference
+    - local: kv_cache
+      title: KV cache strategies
+    - local: cache_explanation
+      title: Caching
+    - local: llm_tutorial
+      title: Text generation
+    - local: generation_strategies
+      title: Generation strategies
+    - local: llm_tutorial_optimization
+      title: Getting the most out of LLMs
+    - local: perplexity
+      title: Perplexity of fixed-length models
+  - title: Chat
+    sections:
+    - local: conversations
+      title: Chat pipeline
+    - local: chat_templating
+      title: Templates
+    - local: chat_templating_writing
+      title: Template writing
+    - local: chat_extras
+      title: Tools and RAG
+  - title: Optimization
+    sections:
+    - local: perf_torch_compile
+      title: torch.compile
+    - local: tf_xla
+      title: XLA
+    - local: perf_infer_gpu_one
+      title: GPU
+    - local: perf_infer_gpu_multi
+      title: Distributed GPU inference
+    - local: perf_infer_cpu
+      title: CPU
+  - local: agents
+    title: Agents
+  - local: tools
+    title: Tools
   - local: multilingual
     title: Run inference with multilingual models
-  - local: create_a_model
-    title: Use model-specific APIs
-  - local: custom_models
-    title: Share a custom model
-  - local: chat_templating
-    title: Chat templates
-  - local: trainer
-    title: Trainer
-  - local: sagemaker
-    title: Run training on Amazon SageMaker
+- title: Training
+  isExpanded: False
+  sections:
+  - title: Trainer API
+    sections:
+    - local: trainer
+      title: Trainer
+    - local: training
+      title: Finetuning
+    - local: optimizers
+      title: Optimizers
+    - local: hpo_train
+      title: Hyperparameter search
+  - title: Distributed training
+    sections:
+    - local: accelerate
+      title: Accelerate
+    - local: fsdp
+      title: FullyShardedDataParallel
+    - local: deepspeed
+      title: DeepSpeed
+    - local: perf_train_cpu_many
+      title: Distributed CPUs
+    - local: debugging
+      title: Multi-GPU debugging
+    - local: perf_train_gpu_many
+      title: Parallelism methods
+  - title: Hardware
+    sections:
+    - local: perf_train_gpu_one
+      title: GPU
+    - local: perf_train_cpu
+      title: CPU
+    - local: perf_train_tpu_tf
+      title: TPU
+    - local: perf_train_special
+      title: Apple Silicon
+    - local: perf_hardware
+      title: Build your own machine
+  - local: peft
+    title: PEFT
+  - local: model_memory_anatomy
+    title: Model training anatomy
+- title: Quantization
+  isExpanded: False
+  sections:
+  - local: quantization/overview
+    title: Overview
+  - local: quantization/aqlm
+    title: AQLM
+  - local: quantization/awq
+    title: AWQ
+  - local: quantization/bitnet
+    title: BitNet
+  - local: quantization/bitsandbytes
+    title: bitsandbytes
+  - local: quantization/compressed_tensors
+    title: compressed-tensors
+  - local: quantization/eetq
+    title: EETQ
+  - local: quantization/fbgemm_fp8
+    title: FBGEMM
+  - local: gguf
+    title: GGUF
+  - local: quantization/gptq
+    title: GPTQ
+  - local: quantization/higgs
+    title: HIGGS
+  - local: quantization/hqq
+    title: HQQ
+  - local: quantization/optimum
+    title: Optimum
+  - local: quantization/quanto
+    title: Quanto
+  - local: quantization/torchao
+    title: torchao
+  - local: quantization/vptq
+    title: VPTQ
+  - local: quantization/contribute
+    title: Contribute
+- title: Export to production
+  isExpanded: False
+  sections:
   - local: serialization
-    title: Export to ONNX
+    title: ONNX
   - local: tflite
-    title: Export to TFLite
+    title: LiteRT
   - local: torchscript
-    title: Export to TorchScript
-  - local: benchmarks
-    title: Benchmarks
+    title: TorchScript
+- title: Resources
+  isExpanded: False
+  sections:
+  - title: Task recipes
+    sections:
+    - title: Natural language processing
+      sections:
+      - local: tasks/sequence_classification
+        title: Text classification
+      - local: tasks/token_classification
+        title: Token classification
+      - local: tasks/question_answering
+        title: Question answering
+      - local: tasks/language_modeling
+        title: Causal language modeling
+      - local: tasks/masked_language_modeling
+        title: Masked language modeling
+      - local: tasks/translation
+        title: Translation
+      - local: tasks/summarization
+        title: Summarization
+      - local: tasks/multiple_choice
+        title: Multiple choice
+    - title: Audio
+      sections:
+      - local: tasks/audio_classification
+        title: Audio classification
+      - local: tasks/asr
+        title: Automatic speech recognition
+    - title: Computer vision
+      sections:
+      - local: tasks/image_classification
+        title: Image classification
+      - local: tasks/semantic_segmentation
+        title: Image segmentation
+      - local: tasks/video_classification
+        title: Video classification
+      - local: tasks/object_detection
+        title: Object detection
+      - local: tasks/zero_shot_object_detection
+        title: Zero-shot object detection
+      - local: tasks/zero_shot_image_classification
+        title: Zero-shot image classification
+      - local: tasks/monocular_depth_estimation
+        title: Depth estimation
+      - local: tasks/image_to_image
+        title: Image-to-Image
+      - local: tasks/image_feature_extraction
+        title: Image Feature Extraction
+      - local: tasks/mask_generation
+        title: Mask Generation
+      - local: tasks/keypoint_detection
+        title: Keypoint detection
+      - local: tasks/knowledge_distillation_for_image_classification
+        title: Knowledge Distillation for Computer Vision
+    - title: Multimodal
+      sections:
+      - local: tasks/image_captioning
+        title: Image captioning
+      - local: tasks/document_question_answering
+        title: Document Question Answering
+      - local: tasks/visual_question_answering
+        title: Visual Question Answering
+      - local: tasks/text-to-speech
+        title: Text to speech
+      - local: tasks/idefics
+        title: Image tasks with IDEFICS
+      - local: tasks/image_text_to_text
+        title: Image-text-to-text
+      - local: tasks/video_text_to_text
+        title: Video-text-to-text
+  - local: run_scripts
+    title: Training scripts
+  - local: glossary
+    title: Glossary
+  - local: philosophy
+    title: Philosophy
   - local: notebooks
     title: Notebooks with examples
   - local: community
     title: Community resources
   - local: troubleshooting
     title: Troubleshoot
-  - local: gguf
-    title: Interoperability with GGUF files
-  - local: tiktoken
-    title: Interoperability with TikToken files
-  - local: modular_transformers
-    title: Modularity in `transformers`
-  - local: how_to_hack_models
-    title: Model Hacking (overwriting a class to your usage)
-  title: Developer guides
-- sections:
-  - local: quantization/overview
-    title: Getting started
-  - local: quantization/bitsandbytes
-    title: bitsandbytes
-  - local: quantization/gptq
-    title: GPTQ
-  - local: quantization/awq
-    title: AWQ
-  - local: quantization/aqlm
-    title: AQLM
-  - local: quantization/vptq
-    title: VPTQ
-  - local: quantization/quanto
-    title: Quanto
-  - local: quantization/eetq
-    title: EETQ
-  - local: quantization/higgs
-    title: HIGGS
-  - local: quantization/hqq
-    title: HQQ
-  - local: quantization/fbgemm_fp8
-    title: FBGEMM_FP8
-  - local: quantization/optimum
-    title: Optimum
-  - local: quantization/torchao
-    title: TorchAO
-  - local: quantization/bitnet
-    title: BitNet
-  - local: quantization/compressed_tensors
-    title: compressed-tensors
-  - local: quantization/contribute
-    title: Contribute new quantization method
-  title: Quantization Methods
-- sections:
-  - local: performance
-    title: Overview
-  - local: llm_optims
-    title: LLM inference optimization
-  - sections:
-    - local: perf_train_gpu_one
-      title: Methods and tools for efficient training on a single GPU
-    - local: perf_train_gpu_many
-      title: Multiple GPUs and parallelism
-    - local: fsdp
-      title: Fully Sharded Data Parallel
-    - local: deepspeed
-      title: DeepSpeed
-    - local: perf_train_cpu
-      title: Efficient training on CPU
-    - local: perf_train_cpu_many
-      title: Distributed CPU training
-    - local: perf_train_tpu_tf
-      title: Training on TPU with TensorFlow
-    - local: perf_train_special
-      title: PyTorch training on Apple silicon
-    - local: perf_hardware
-      title: Custom hardware for training
-    - local: hpo_train
-      title: Hyperparameter Search using Trainer API
-    title: Efficient training techniques
-  - sections:
-    - local: perf_infer_cpu
-      title: CPU inference
-    - local: perf_infer_gpu_one
-      title: GPU inference
-    - local: perf_infer_gpu_multi
-      title: Multi-GPU inference
-    title: Optimizing inference
-  - local: big_models
-    title: Instantiate a big model
-  - local: debugging
-    title: Debugging
-  - local: tf_xla
-    title: XLA Integration for TensorFlow Models
-  - local: perf_torch_compile
-    title: Optimize inference using `torch.compile()`
-  title: Performance and scalability
-- sections:
+- title: Contribute
+  isExpanded: False
+  sections:
   - local: contributing
-    title: How to contribute to 🤗 Transformers?
-  - local: add_new_model
-    title: How to add a model to 🤗 Transformers?
-  - local: add_new_pipeline
-    title: How to add a pipeline to 🤗 Transformers?
+    title: Contribute to Transformers
   - local: testing
-    title: Testing
+    title: Transformers model tests
   - local: pr_checks
-    title: Checks on a Pull Request
-  title: Contribute
-- sections:
-  - local: philosophy
-    title: Philosophy
-  - local: glossary
-    title: Glossary
-  - local: task_summary
-    title: What 🤗 Transformers can do
-  - local: tasks_explained
-    title: How 🤗 Transformers solve tasks
-  - local: model_summary
-    title: The Transformer model family
-  - local: tokenizer_summary
-    title: Summary of the tokenizers
-  - local: attention
-    title: Attention mechanisms
-  - local: pad_truncation
-    title: Padding and truncation
-  - local: bertology
-    title: BERTology
-  - local: perplexity
-    title: Perplexity of fixed-length models
-  - local: pipeline_webserver
-    title: Pipelines for webserver inference
-  - local: model_memory_anatomy
-    title: Model training anatomy
-  - local: llm_tutorial_optimization
-    title: Getting the most out of LLMs
-  title: Conceptual guides
-- sections:
-  - sections:
+    title: Pull request checks
+- title: API
+  isExpanded: False
+  sections:
+  - title: Main classes
+    sections:
     - local: main_classes/agent
       title: Agents and Tools
     - local: model_doc/auto
@@ -302,6 +320,8 @@
       title: Optimization
     - local: main_classes/output
       title: Model outputs
+    - local: main_classes/peft
+      title: PEFT
     - local: main_classes/pipelines
       title: Pipelines
     - local: main_classes/processors
@@ -320,9 +340,9 @@
       title: Feature Extractor
     - local: main_classes/image_processor
       title: Image Processor
-    title: Main Classes
-  - sections:
-    - isExpanded: false
+  - title: Models
+    sections:
+    - title: Text models
       sections:
       - local: model_doc/albert
         title: ALBERT
@@ -630,8 +650,7 @@
         title: YOSO
       - local: model_doc/zamba
         title: Zamba
-      title: Text models
-    - isExpanded: false
+    - title: Vision models
       sections:
       - local: model_doc/beit
         title: BEiT
@@ -751,8 +770,7 @@
         title: YOLOS
       - local: model_doc/zoedepth
         title: ZoeDepth
-      title: Vision models
-    - isExpanded: false
+    - title: Audio models
       sections:
       - local: model_doc/audio-spectrogram-transformer
         title: Audio Spectrogram Transformer
@@ -818,8 +836,7 @@
         title: XLS-R
       - local: model_doc/xlsr_wav2vec2
         title: XLSR-Wav2Vec2
-      title: Audio models
-    - isExpanded: false
+    - title: Video models
       sections:
       - local: model_doc/timesformer
         title: TimeSformer
@@ -827,8 +844,7 @@
         title: VideoMAE
       - local: model_doc/vivit
         title: ViViT
-      title: Video models
-    - isExpanded: false
+    - title: Multimodal models
       sections:
       - local: model_doc/align
         title: ALIGN
@@ -962,15 +978,13 @@
         title: VisualBERT
       - local: model_doc/xclip
         title: X-CLIP
-      title: Multimodal models
-    - isExpanded: false
+    - title: Reinforcement learning models
       sections:
       - local: model_doc/decision_transformer
         title: Decision Transformer
       - local: model_doc/trajectory_transformer
         title: Trajectory Transformer
-      title: Reinforcement learning models
-    - isExpanded: false
+    - title: Time series models
       sections:
       - local: model_doc/autoformer
         title: Autoformer
@@ -982,14 +996,12 @@
         title: PatchTST
       - local: model_doc/time_series_transformer
         title: Time Series Transformer
-      title: Time series models
-    - isExpanded: false
+    - title: Graph models
       sections:
       - local: model_doc/graphormer
         title: Graphormer
-      title: Graph models
-    title: Models
-  - sections:
+  - title: Internal helpers
+    sections:
     - local: internal/modeling_utils
       title: Custom Layers and Utilities
     - local: internal/pipelines_utils
@@ -1008,5 +1020,4 @@
       title: General Utilities
     - local: internal/time_series_utils
       title: Utilities for Time Series
-    title: Internal Helpers
-  title: API
+      

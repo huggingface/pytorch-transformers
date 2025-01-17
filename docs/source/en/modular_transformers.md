@@ -1,88 +1,55 @@
-# Modular transformers
+# Modular Transformers
 
-`transformers` is an opinionated framework; our philosophy is defined in the following [conceptual guide](./philosophy).
+Modular Transformers lowers the bar for contributing models and significantly reduces the code required to add a model by allowing imports and inheritance.
 
-The core of that philosophy is exemplified by the [single model, single file](https://huggingface.co/blog/transformers-design-philosophy)
-aspect of the library. This component's downside is that it limits the inheritance and importability of components from
-files to others in the toolkit.
+One of Transformers' core design feature is the [single model, single file](https://huggingface.co/blog/transformers-design-philosophy) policy. Model components - such as attention layers - are repeated across many files and any independent implementations tend to diverge as fixes and changes are applied to specific parts of the code.
 
-As a result, model components tend to be repeated across many files. There are as many attention layers defined
-in `transformers` as there are models, and a significant number of those are identical to each other. 
-The unfortunate consequence is that independent implementations tend to diverge as fixes and changes get applied
-to specific parts of the code.
+The [`# Copied from`](./pr_checks#check-copies) statements prevents the code from diverging, and it is enforced by our continuous integration tests and local commands. The downside is that this approach is tedious and adds significantly more lines of code, most of which is boilerplate.
 
-In order to balance this issue, we introduced the concept of "copies" across the library. By adding a comment indicating
-that code is a copy of another, we can enforce through CI and local commands that copies do not diverge. However,
-while the complexity is low, this is often quite tedious to do.
+## Motivation
 
-And, finally, this contributes to adding a significant overhead to contributing models which we would like to remove.
-This approach often requires model contributions to add modeling code (~1k lines), processor (~500 lines), tests, docs,
-etc. Model contribution PRs rarely add less than 3-5k lines of code, with much of this code being boilerplate.
+Modular Transformers addresses these issues by adding a *modular* file to a model folder. The modular file can import code from other models and inherit code from other classes unlike traditional modeling and processing files.
 
-This raises the bar for contributions, and with Modular Transformers, we're aiming to lower the bar to a much more
-acceptable point.
+> [!TIP]
+> Modular Transformers isn't meant to replace the modeling code, and if your model isn't based on an existing model, you'll need to add a `modeling.py` file manually.
 
-If you plan to add a model to `transformers` make sure you read [How to add a model to 🤗 Transformers?](https://huggingface.co/docs/transformers/add_new_model).
-For any kind of contributions, see [CONTRIBUTING.md](https://github.com/huggingface/transformers/blob/main/CONTRIBUTING.md).
+A modular file contains model, processor, and configuration class code that would otherwise be in separate files under the single model, single file policy.
 
-## What is it?
+Model users still import and use the single-file interface they've grown familiar with. In doing so, we hope to enable simpler contributions while sticking to our philosophy.
 
-Modular Transformers introduces the concept of a "modular" file to a model folder. This modular file accepts code
-that isn't typically accepted in modeling/processing files, as it allows importing from neighbouring models as well
-as inheritance from classes to others.
+## Create a modeling.py file
 
-This modular file defines models, processors, and the configuration class that would otherwise be defined in their
-respective modules.
+A linter "unravels" the modular file into a `modeling.py` file to preserve the single model, single file directory structure (modeling, processor, etc.). Inheritance is flattened to only a **single** level.
 
-Finally, this feature introduces a new `linter` which will "unravel" the modular file into the "single model, single 
-file" directory structure. These files will get auto-generated every time the script is run; reducing the required
-contributions to the modular file, and therefore only to the changes between the contributed model and others.
-
-Model users will end up importing and using the single-file interface, so no change is expected here. Doing this, we
-hope to combine the best of both worlds: enabling simple contributions while sticking to our philosophy.
-
-This is therefore a replacement for the `# Copied from` markers, and previously contributed models can be expected to
-be moved to the new Modular Transformers format in the coming months.
-
-### Details 
-
-To generate a single file from the modular file, run the following command.
+Run the command below to automatically generate a `modeling.py` file from a modular file.
 
 ```bash
 python utils/modular_model_converter.py --files-to-parse src/transformers/models/<your_model>/modular_<your_model>.py
 ```
 
-The "linter", which unravels the inheritance and creates all single-files from the modular file, will flatten the 
-inheritance while trying to be invisible to Python users. At this time, the linter flattens a **single** level of
-inheritance.
-
 For example:
-- If a configuration class inherits from another and adds/deletes an argument, the generated file will either directly 
-  reference it (in case of addition) or completely remove it (in case of deletion).
-- If a class inherits from another, for example: class GemmaModel(LlamaModel):, dependencies are automatically 
-  inferred. All submodules will be automatically inferred from the superclass.
-- If you define new functions in the `modular` and use them inside classes, the linter will automatically infer the 
 
-You should be able to write everything (the tokenizer, the image processor, the model, the config) in this `modular` 
-file, and the corresponding files will be created for you. 
+- If a configuration class inherits from another class, but adds and deletes an argument, the generated file directly references it if an argument is added or completely removes it if an argument is deleted.
+- If a class inherits from another, like `GemmaModel(LlamaModel)`, the dependencies are automatically inferred. All submodules are also automatically inferred from the superclass.
+- If a new function is defined in the modular file and used inside classes, the linter automatically infers these as well.
 
-### Enforcement
+You should be able to write everything (tokenizer, image processor, model, config, etc.) in a modular and their corresponding single-files are generated.
 
-Run the command below to ensure the generated content matches `modular_<your_model>.py`
+Run the command below to ensure the generated content matches `modular_<your_model>.py`.
 
 ```bash
 python utils/check_modular_conversion.py --files src/transformers/models/<your_model>/modular_<your_model>.py
 ```
 
-### Examples
+The example below demonstrates how a model can be added with significantly fewer lines of code with Modular Transformers.
 
-Here is a quick example with BERT and RoBERTa. The two models are intimately related: their modeling implementation 
-differs solely by a change in the embedding layer.
+### BERT and RoBERTa
 
-Instead of redefining the model entirely, here is what the `modular_roberta.py` file looks like for the modeling &
-configuration classes (for the sake of the example, the tokenizer is ignored at this time as very different).
+BERT and RoBERTa, two very similar models, differ solely in how the embedding layer is implemented.
 
-```python
+Instead of redefining the model entirely, consider the `modular_roberta.py` file shown below for the modeling and configuration classes (the tokenizer isn't shown in this example).
+
+```py
 from torch import nn
 from ..bert.configuration_bert import BertConfig
 from ..bert.modeling_bert import (
@@ -91,11 +58,11 @@ from ..bert.modeling_bert import (
     BertForMaskedLM
 )
 
-# The RoBERTa config is identical to BERT's config
+# RoBERTa and BERT config is identical
 class RobertaConfig(BertConfig):
   model_type = 'roberta'
 
-# We redefine the embeddings here to highlight the padding ID difference, and we redefine the position embeddings
+# Redefine the embeddings to highlight the padding id difference, and redefine the position embeddings
 class RobertaEmbeddings(BertEmbeddings):
     def __init__(self, config):
         super().__init__(config())
@@ -105,42 +72,31 @@ class RobertaEmbeddings(BertEmbeddings):
             config.max_position_embeddings, config.hidden_size, padding_idx=self.padding_idx
         )
 
-# The RoBERTa model is identical to the BERT model, except for the embedding layer. 
-# We redefine the embeddings above, so here there is no need to do additional work
+# RoBERTa and BERT model is identical except for the embedding layer, which is defined above, so no need for additional changes here
 class RobertaModel(BertModel):
   def __init__(self, config):
     super().__init__(config)
     self.embeddings = RobertaEmbeddings(config)
 
       
-# The heads now only need to redefine the model inside to the correct `RobertaModel`
+# The model heads now only need to redefine the model inside to `RobertaModel`
 class RobertaForMaskedLM(BertForMaskedLM):
   def __init__(self, config):
     super().__init__(config)
     self.model = RobertaModel(config)
 ```
 
-Note that if you do not use the dependency that you defined, you will have the following error:
+If you don't use the defined dependency, you'll receive the following error.
 
-```bash
-ValueError: You defined `RobertaEmbeddings` in the modular_roberta.py, it should be used
-                                    when you define `BertModel`, as it is one of it's direct dependencies. Make sure
-                                    you use it in the `__init__` function.
+```
+ValueError: You defined `RobertaEmbeddings` in the modular_roberta.py, it should be used when you define `BertModel`, as it is one of it's direct dependencies. Make sure you use it in the `__init__` function.
 ```
 
-Additionally, you may find a list of examples here:
+## Removing attributes and functions
 
-## What it is not
+Use `del` to remove attributes that aren't used in your model or if you don't want to include it in the unravelled `modeling.py` file. The example [`GemmaModel`] below removes the `embed_tokens` from the original [`LlamaModel`] it inherits from.
 
-It is not a replacement for the modeling code (yet?), and if your model is not based on anything else that ever existed, then you can add a `modeling` file as usual.
-
-
-## Advanced usage
-
-### Removing attributes and functions
-To remove attributes that are not used in your modular model, and that you don't want to see in the unravelled modeling: 
-
-```python
+```py
 class GemmaModel(LlamaModel):                 |           class GemmaModel(PreTrainedModel):
     def __init__(self, config):               |              def __init__(self, config):
         super().__init__(self, eos_token)     |                 super().__init__(config)
@@ -157,11 +113,10 @@ class GemmaModel(LlamaModel):                 |           class GemmaModel(PreTr
                                               |                 # Initialize weights and apply final processing
                                               |                 self.post_init()
 ```
-If you check the original `LlamaModel`, it has a `embed_tokens` which was removed here (as you would expect!)
 
-Removing a function is pretty similar, you just need to write it with a `raise ValueError("")` to mimick the behaviour you actually want when you remove a parent function in python.
+Remove a function by writing it with a `raise AttributeError("")` to mimic the behavior you actually want when you remove a parent function in Python.
 
-```python
+```py
 class GemmaTokenizer(LlamaTokenizer):
     ...
 
@@ -172,11 +127,11 @@ class GemmaTokenizer(LlamaTokenizer):
         raise AttributeError("Not needed for Gemma")
 ```
 
-### Define new functions
+## Define new functions
 
-If you define a new function in the `modular` file to be used inside a class, say
+New functions can be defined in the modular file and used inside a class. The new function - and recursively, any other new function called in its body - is automatically copy-pasted in the file where it is used.
 
-```python
+```py
 def my_new_function(*args, **kwargs):
   # Do something here
   pass
@@ -185,26 +140,29 @@ class GemmaModel(LlamaModel):
     def forward(*args, **kwargs):
       # Call the function
       example = my_new_function(*args, **kwargs)
-      # continue here
+      # Continue here
 ```
 
-the `my_new_function` function (and, recursively, any other new functions called in its body) will be automatically copy-pasted 
-in the file where it is used.
+## Calling super()
 
-### Calling `super()`
-We recently shipped a few features that allow you to go from:
-```python
+You don't have to unravel a call to `super()` or if you want to differentiate which `super().__init__()` call you're doing.
+
+The example below shows how you only need to add `eos_token` to the `__init__` instead of calling `super().__init__(eos_token)`.
+
+```py
 class GemmaTokenizer(LlamaTokenizer, PretrainedTokenizerFast):         |           class GemmaModel(nn.Module):
     def __init__(self, eos_token="</s>"):                              |             def __init__(self):
         eos_token = AddedToken(eos_token)                              |                eos_token = AddedToken(eos_token)
         PretrainedTokenizerFast.__init__(self, eos_token)              |                super().__init__(eos_token)
 ```
-This is useful want you **don't** want to unravel the call to `super()`, and you want to differentiate which super init call you are doing!
 
-### Special naming
-We now also support special cases like
-```python
+## Special naming
+
+Special naming for classes is also supported, which is useful for composite models.
+
+The example below shows how you can use `GemmaVisionModel` even though it's not the same as the modular Gemma model.
+
+```py
 class GemmaVisionModel(CLIPModel):                                 
     pass
 ```
-where the name of your class `GemmaVision` is not the same as the modular `Gemma`. This is super useful for composite models.

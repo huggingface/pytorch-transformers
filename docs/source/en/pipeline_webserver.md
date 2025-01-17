@@ -1,34 +1,40 @@
-<!--⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
+<!--Copyright 2024 The HuggingFace Team. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+the License. You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+specific language governing permissions and limitations under the License.
+
+⚠️ Note that this file is in Markdown but contain specific syntax for our doc-builder (similar to MDX) that may not be
 rendered properly in your Markdown viewer.
+
 -->
 
-# Using pipelines for a webserver
+# Web server inference
 
-<Tip>
-Creating an inference engine is a complex topic, and the "best" solution 
-will most likely depend on your problem space. Are you on CPU or GPU? Do
-you want the lowest latency, the highest throughput, support for
-many models, or just highly optimize 1 specific model?
-There are many ways to tackle this topic, so what we are going to present is a good default
-to get started which may not necessarily be the most optimal solution for you.
-</Tip>
+A web server is basically a system that waits for requests and serves them as they come in. This means you can use [`Pipeline`] as an inference engine on the web server, since you can use an iterator (similar to how you would [iterate over a dataset](./pipeline_tutorial#large-datasets)) to handle each incoming request.
 
+Designing a web server with [`Pipeline`] is unique though because they're fundamentally different. Web servers are multiplexed (multithreaded, async, etc.) to handle multiple requests concurrently. [`Pipeline`] and its underlying model on the other hand are not designed for parallelism because they take a lot of memory. It's best to give a [`Pipeline`] all the available resources when they're running or for a compute intensive job.
 
-The key thing to understand is that we can use an iterator, just like you would [on a
-dataset](pipeline_tutorial#using-pipelines-on-a-dataset), since a webserver is basically a system that waits for requests and
-treats them as they come in.
+This guide shows how to work around this difference by using the web server to handle the light load of receiving and sending requests, and having a single thread to handle the heavier load of running [`Pipeline`].
 
-Usually webservers are multiplexed (multithreaded, async, etc..) to handle various
-requests concurrently. Pipelines on the other hand (and mostly the underlying models)
-are not really great for parallelism; they take up a lot of RAM, so it's best to give them all the available resources when they are running or it's a compute-intensive job.
+## Create a server
 
-We are going to solve that by having the webserver handle the light load of receiving
-and sending requests, and having a single thread handling the actual work.
-This example is going to use `starlette`. The actual framework is not really
-important, but you might have to tune or change the code if you are using another
-one to achieve the same effect.
+[Starlette](https://www.starlette.io/) is a lightweight framework for building web servers. You can use any other framework you'd like, but you may have to make some changes to the code below.
 
-Create `server.py`:
+Before you begin, make sure Starlette and [uvicorn](http://www.uvicorn.org/) are installed.
+
+```py
+!pip install starlette uvicorn
+```
+
+Now you can create a simple web server in a `server.py` file. The key is to only load the model **once** to prevent unnecessary copies of it from consuming memory.
+
+Create a pipeline to fill in the masked token, `[MASK]`.
 
 ```py
 from starlette.applications import Starlette
@@ -36,7 +42,6 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from transformers import pipeline
 import asyncio
-
 
 async def homepage(request):
     payload = await request.body()
@@ -46,21 +51,18 @@ async def homepage(request):
     output = await response_q.get()
     return JSONResponse(output)
 
-
 async def server_loop(q):
-    pipe = pipeline(model="google-bert/bert-base-uncased")
+    pipeline = pipeline(task="fill-mask",model="google-bert/bert-base-uncased")
     while True:
         (string, response_q) = await q.get()
-        out = pipe(string)
+        out = pipeline(string)
         await response_q.put(out)
-
 
 app = Starlette(
     routes=[
         Route("/", homepage, methods=["POST"]),
     ],
 )
-
 
 @app.on_event("startup")
 async def startup_event():
@@ -69,30 +71,48 @@ async def startup_event():
     asyncio.create_task(server_loop(q))
 ```
 
-Now you can start it with:
+Start the server with the following command.
+
 ```bash
 uvicorn server:app
 ```
 
-And you can query it:
+The server can be queried now with a POST request.
+
 ```bash
-curl -X POST -d "test [MASK]" http://localhost:8000/
-#[{"score":0.7742936015129089,"token":1012,"token_str":".","sequence":"test."},...]
+curl -X POST -d "Paris is the [MASK] of France." http://localhost:8000/
+[{'score': 0.9969332218170166,
+  'token': 3007,
+  'token_str': 'capital',
+  'sequence': 'paris is the capital of france.'},
+ {'score': 0.0005914849461987615,
+  'token': 2540,
+  'token_str': 'heart',
+  'sequence': 'paris is the heart of france.'},
+ {'score': 0.00043787318281829357,
+  'token': 2415,
+  'token_str': 'center',
+  'sequence': 'paris is the center of france.'},
+ {'score': 0.0003378340043127537,
+  'token': 2803,
+  'token_str': 'centre',
+  'sequence': 'paris is the centre of france.'},
+ {'score': 0.00026995912776328623,
+  'token': 2103,
+  'token_str': 'city',
+  'sequence': 'paris is the city of france.'}]
 ```
 
-And there you go, now you have a good idea of how to create a webserver!
+## Queuing requests
 
-What is really important is that we load the model only **once**, so there are no copies
-of the model on the webserver. This way, no unnecessary RAM is being used.
-Then the queuing mechanism allows you to do fancy stuff like maybe accumulating a few
-items before inferring to use dynamic batching:
+The server's queuing mechanism can be used for some interesting applications such as dynamic batching. With dynamic batching, you can accumulate several requests first before processing them with the [`Pipeline`].
 
-<Tip warning={true}>
+The example below is written in pseudocode for readability rather than performance, in particular, you'll notice that:
 
-The code sample below is intentionally written like pseudo-code for readability.
-Do not run this without checking if it makes sense for your system resources!
+1. There is no batch size limit.
+2. The timeout is reset on every queue fetch, so you could end up waiting much longer than the `timeout` value before processing a request. This would also delay the first inference request by that amount of time. The web server always waits 1ms even if the queue is empty, which is inefficient, because you could be using that time to start inference. It could make sense though if batching is essential to your use case.
 
-</Tip>
+    It would be better to have a single 1ms deadline, instead of resetting it on every fetch.
 
 ```py
 (string, rq) = await q.get()
@@ -100,69 +120,35 @@ strings = []
 queues = []
 while True:
     try:
-        (string, rq) = await asyncio.wait_for(q.get(), timeout=0.001)  # 1ms
+        (string, rq) = await asyncio.wait_for(q.get(), timeout=0.001)
     except asyncio.exceptions.TimeoutError:
         break
     strings.append(string)
     queues.append(rq)
 strings
-outs = pipe(strings, batch_size=len(strings))
+outs = pipeline(strings, batch_size=len(strings))
 for rq, out in zip(queues, outs):
     await rq.put(out)
 ```
 
-Again, the proposed code is optimized for readability, not for being the best code.
-First of all, there's no batch size limit which is usually not a 
-great idea. Next, the timeout is reset on every queue fetch, meaning you could
-wait much more than 1ms before running the inference (delaying the first request 
-by that much). 
+## Error checking
 
-It would be better to have a single 1ms deadline.
+There are many things that can go wrong in production. You could run out-of-memory, out of space, fail to load a model, have an incorrect model configuration, have an incorrect query, and so much more!
 
-This will always wait for 1ms even if the queue is empty, which might not be the
-best since you probably want to start doing inference if there's nothing in the queue.
-But maybe it does make sense if batching is really crucial for your use case.
-Again, there's really no one best solution.
+Adding `try...except` statements could be helpful to return these errors to the user for debugging. Keep in mind that this could pose a security risk though if you shouldn't be revealing certain information.
 
+## Circuit breaking
 
-## Few things you might want to consider
+It is better to return errors when the server is overloaded instead of forcing a user to wait indefinitely. Try to return a 503 or 504 error instead of making a user wait for a really long time.
 
-### Error checking
+It is relatively simple to implement these error types since it's only a single queue. You should look at the queue size to determine when to start returning errors before your server fails under load.
 
-There's a lot that can go wrong in production: out of memory, out of space,
-loading the model might fail, the query might be wrong, the query might be
-correct but still fail to run because of a model misconfiguration, and so on.
+## Block the main thread
 
-Generally, it's good if the server outputs the errors to the user, so
-adding a lot of `try..except` statements to show those errors is a good
-idea. But keep in mind it may also be a security risk to reveal all those errors depending 
-on your security context.
+PyTorch is not async aware, so computation will block the main thread from running.
 
-### Circuit breaking
+For this reason, it's better to run PyTorch on its own separate thread or process. When inference of a single request is especially long (> 1s), it's even more important because it means every query during inference must wait 1s before even receiving an error.
 
-Webservers usually look better when they do circuit breaking. It means they 
-return proper errors when they're overloaded instead of just waiting for the query indefinitely. Return a 503 error instead of waiting for a super long time or a 504 after a long time.
+## Dynamic batching
 
-This is relatively easy to implement in the proposed code since there is a single queue.
-Looking at the queue size is a basic way to start returning errors before your 
-webserver fails under load.
-
-### Blocking the main thread
-
-Currently PyTorch is not async aware, and computation will block the main
-thread while running. That means it would be better if PyTorch was forced to run
-on its own thread/process. This wasn't done here because the code is a lot more
-complex (mostly because threads and async and queues don't play nice together).
-But ultimately it does the same thing.
-
-This would be important if the inference of single items were long (> 1s) because 
-in this case, it means every query during inference would have to wait for 1s before
-even receiving an error.
-
-### Dynamic batching
-
-In general, batching is not necessarily an improvement over passing 1 item at 
-a time (see [batching details](./main_classes/pipelines#pipeline-batching) for more information). But it can be very effective
-when used in the correct setting. In the API, there is no dynamic
-batching by default (too much opportunity for a slowdown). But for BLOOM inference -
-which is a very large model - dynamic batching is **essential** to provide a decent experience for everyone.
+Dynamic batching can be very effective when used in the correct setting, but it's not necessary when you're only passing 1 request at a time (see [batch inference](./pipeline_tutorial#batch-inference) for more details).

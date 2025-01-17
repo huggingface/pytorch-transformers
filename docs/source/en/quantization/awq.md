@@ -16,23 +16,17 @@ rendered properly in your Markdown viewer.
 
 # AWQ
 
-<Tip>
-
-Try AWQ quantization with this [notebook](https://colab.research.google.com/drive/1HzZH89yAXJaZgwJDhQj9LqSBux932BvY)!
-
-</Tip>
-
-[Activation-aware Weight Quantization (AWQ)](https://hf.co/papers/2306.00978) doesn't quantize all the weights in a model, and instead, it preserves a small percentage of weights that are important for LLM performance. This significantly reduces quantization loss such that you can run models in 4-bit precision without experiencing any performance degradation.
+[Activation-aware Weight Quantization (AWQ)](https://hf.co/papers/2306.00978) preserves a small fraction of the weights that are important for LLM performance to compress a model to 4-bits with minimal performance degradation.
 
 There are several libraries for quantizing models with the AWQ algorithm, such as [llm-awq](https://github.com/mit-han-lab/llm-awq), [autoawq](https://github.com/casper-hansen/AutoAWQ) or [optimum-intel](https://huggingface.co/docs/optimum/main/en/intel/optimization_inc). Transformers supports loading models quantized with the llm-awq and autoawq libraries. This guide will show you how to load models quantized with autoawq, but the process is similar for llm-awq quantized models.
 
-Make sure you have autoawq installed:
+Run the command below to install autoawq
 
 ```bash
 pip install autoawq
 ```
 
-AWQ-quantized models can be identified by checking the `quantization_config` attribute in the model's [config.json](https://huggingface.co/TheBloke/zephyr-7B-alpha-AWQ/blob/main/config.json) file:
+Identify an AWQ-quantized model by checking the `quant_method` key in the models [config.json](https://huggingface.co/TheBloke/zephyr-7B-alpha-AWQ/blob/main/config.json) file.
 
 ```json
 {
@@ -53,62 +47,59 @@ AWQ-quantized models can be identified by checking the `quantization_config` att
 }
 ```
 
-A quantized model is loaded with the [`~PreTrainedModel.from_pretrained`] method. If you loaded your model on the CPU, make sure to move it to a GPU device first. Use the `device_map` parameter to specify where to place the model:
+Load the AWQ-quantized model with [`~PreTrainedModel.from_pretrained`]. This automatically sets the other weights to fp16 by default for performance reasons. Use the `torch_dtype` parameter to load these other weights in a different format.
+
+If the model is loaded on the CPU, use the `device_map` parameter to move it to a GPU.
 
 ```py
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model_id = "TheBloke/zephyr-7B-alpha-AWQ"
-model = AutoModelForCausalLM.from_pretrained(model_id, device_map="cuda:0")
+model = AutoModelForCausalLM.from_pretrained(
+  "TheBloke/zephyr-7B-alpha-AWQ",
+  torch_dtype=torch.float32,
+  device_map="cuda:0"
+)
 ```
 
-Loading an AWQ-quantized model automatically sets other weights to fp16 by default for performance reasons. If you want to load these other weights in a different format, use the `torch_dtype` parameter:
+Use `attn_implementation` to enable [FlashAttention2](../perf_infer_gpu_one#flashattention-2) to further accelerate inference.
 
 ```py
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model_id = "TheBloke/zephyr-7B-alpha-AWQ"
-model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float32)
-```
-
-AWQ quantization can also be combined with [FlashAttention-2](../perf_infer_gpu_one#flashattention-2) to further accelerate inference:
-
-```py
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-model = AutoModelForCausalLM.from_pretrained("TheBloke/zephyr-7B-alpha-AWQ", attn_implementation="flash_attention_2", device_map="cuda:0")
+model = AutoModelForCausalLM.from_pretrained(
+  "TheBloke/zephyr-7B-alpha-AWQ",
+  attn_implementation="flash_attention_2",
+  device_map="cuda:0"
+)
 ```
 
 ## Fused modules
 
-Fused modules offers improved accuracy and performance and it is supported out-of-the-box for AWQ modules for [Llama](https://huggingface.co/meta-llama) and [Mistral](https://huggingface.co/mistralai/Mistral-7B-v0.1) architectures, but you can also fuse AWQ modules for unsupported architectures.
+Fused modules offer improved accuracy and performance. They are supported out-of-the-box for AWQ modules for [Llama](https://huggingface.co/meta-llama) and [Mistral](https://huggingface.co/mistralai/Mistral-7B-v0.1) architectures, but you can also fuse AWQ modules for unsupported architectures.
 
-<Tip warning={true}>
-
-Fused modules cannot be combined with other optimization techniques such as FlashAttention-2.
-
-</Tip>
+> [!WARNING]
+> Fused modules cannot be combined with other optimization techniques such as FlashAttention2.
 
 <hfoptions id="fuse">
 <hfoption id="supported architectures">
 
-To enable fused modules for supported architectures, create an [`AwqConfig`] and set the parameters `fuse_max_seq_len` and `do_fuse=True`. The `fuse_max_seq_len` parameter is the total sequence length and it should include the context length and the expected generation length. You can set it to a larger value to be safe.
+Create an [`AwqConfig`] and set the parameters `fuse_max_seq_len` and `do_fuse=True` to enable fused modules. The `fuse_max_seq_len` parameter is the total sequence length and it should include the context length and the expected generation length. Set it to a larger value to be safe.
 
-For example, to fuse the AWQ modules of the [TheBloke/Mistral-7B-OpenOrca-AWQ](https://huggingface.co/TheBloke/Mistral-7B-OpenOrca-AWQ) model.
+The example below fuses the AWQ modules of the [TheBloke/Mistral-7B-OpenOrca-AWQ](https://huggingface.co/TheBloke/Mistral-7B-OpenOrca-AWQ) model.
 
 ```python
 import torch
 from transformers import AwqConfig, AutoModelForCausalLM
-
-model_id = "TheBloke/Mistral-7B-OpenOrca-AWQ"
 
 quantization_config = AwqConfig(
     bits=4,
     fuse_max_seq_len=512,
     do_fuse=True,
 )
-
-model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=quantization_config).to(0)
+model = AutoModelForCausalLM.from_pretrained(
+  "TheBloke/Mistral-7B-OpenOrca-AWQ",
+  quantization_config=quantization_config
+).to(0)
 ```
 
 The [TheBloke/Mistral-7B-OpenOrca-AWQ](https://huggingface.co/TheBloke/Mistral-7B-OpenOrca-AWQ) model was benchmarked with `batch_size=1` with and without fused modules.
@@ -153,13 +144,13 @@ The speed and throughput of fused and unfused modules were also tested with the 
 </hfoption>
 <hfoption id="unsupported architectures">
 
-For architectures that don't support fused modules yet, you need to create a custom fusing mapping to define which modules need to be fused with the `modules_to_fuse` parameter. For example, to fuse the AWQ modules of the [TheBloke/Yi-34B-AWQ](https://huggingface.co/TheBloke/Yi-34B-AWQ) model.
+For architectures that don't support fused modules, create an [`AwqConfig`] and define a custom fusing mapping in `modules_to_fuse` to determine which modules need to be fused.
+
+The example below fuses the AWQ modules of the [TheBloke/Yi-34B-AWQ](https://huggingface.co/TheBloke/Yi-34B-AWQ) model.
 
 ```python
 import torch
 from transformers import AwqConfig, AutoModelForCausalLM
-
-model_id = "TheBloke/Yi-34B-AWQ"
 
 quantization_config = AwqConfig(
     bits=4,
@@ -175,35 +166,46 @@ quantization_config = AwqConfig(
     }
 )
 
-model = AutoModelForCausalLM.from_pretrained(model_id, quantization_config=quantization_config).to(0)
+model = AutoModelForCausalLM.from_pretrained(
+  "TheBloke/Yi-34B-AWQ",
+  quantization_config=quantization_config
+).to(0)
 ```
 
-The parameter `modules_to_fuse` should include:
+The parameter `modules_to_fuse` should include the following keys.
 
 - `"attention"`: The names of the attention layers to fuse in the following order: query, key, value and output projection layer. If you don't want to fuse these layers, pass an empty list.
 - `"layernorm"`: The names of all the LayerNorm layers you want to replace with a custom fused LayerNorm. If you don't want to fuse these layers, pass an empty list.
 - `"mlp"`: The names of the MLP layers you want to fuse into a single MLP layer in the order: (gate (dense, layer, post-attention) / up / down layers).
 - `"use_alibi"`: If your model uses ALiBi positional embedding.
 - `"num_attention_heads"`: The number of attention heads.
-- `"num_key_value_heads"`: The number of key value heads that should be used to implement Grouped Query Attention (GQA). If `num_key_value_heads=num_attention_heads`, the model will use Multi Head Attention (MHA), if `num_key_value_heads=1` the model will use Multi Query Attention (MQA), otherwise GQA is used.
+- `"num_key_value_heads"`: The number of key value heads that should be used to implement Grouped Query Attention (GQA).
+
+  | parameter value | attention |
+  |---|---|
+  | `num_key_value_heads=num_attention_heads` | Multi-Head Attention |
+  | `num_key_value_heads=1` | Multi-Query Attention |
+  | `num_key_value_heads=...` | Grouped Query Attention |
+
 - `"hidden_size"`: The dimension of the hidden representations.
 
 </hfoption>
 </hfoptions>
 
+## ExLlamaV2
 
-
-## ExLlama-v2 support
-
-Recent versions of `autoawq` supports ExLlama-v2 kernels for faster prefill and decoding. To get started, first install the latest version of `autoawq` by running:
+[ExLlamaV2](https://github.com/turboderp/exllamav2) kernels support faster prefill and decoding. Run the command below to install the latest version of autoawq with ExLlamaV2 support.
 
 ```bash
 pip install git+https://github.com/casper-hansen/AutoAWQ.git
 ```
 
-Get started by passing an `AwqConfig()` with `version="exllama"`.
+Set `version="exllama"` in [`AwqConfig`] to enable ExLlamaV2 kernels.
 
-```python
+> [!TIP]
+> ExLlamaV2 is supported on AMD GPUs.
+
+```py
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, AwqConfig
 
@@ -214,34 +216,18 @@ model = AutoModelForCausalLM.from_pretrained(
     quantization_config=quantization_config,
     device_map="auto",
 )
-
-input_ids = torch.randint(0, 100, (1, 128), dtype=torch.long, device="cuda")
-output = model(input_ids)
-print(output.logits)
-
-tokenizer = AutoTokenizer.from_pretrained("TheBloke/Mistral-7B-Instruct-v0.1-AWQ")
-input_ids = tokenizer.encode("How to make a cake", return_tensors="pt").to(model.device)
-output = model.generate(input_ids, do_sample=True, max_length=50, pad_token_id=50256)
-print(tokenizer.decode(output[0], skip_special_tokens=True))
 ```
 
-<Tip warning={true}>
+## CPU
 
-Note this feature is supported on AMD GPUs.
-
-</Tip>
-
-
-## CPU support
-
-Recent versions of `autoawq` supports CPU with ipex op optimizations. To get started, first install the latest version of `autoawq` by running:
+[Intel Extension for PyTorch (IPEX)](https://intel.github.io/intel-extension-for-pytorch/cpu/latest/) is designed to enable performance optimizations on Intel hardware. Run the command below to install the latest version of autoawq with IPEX support.
 
 ```bash
 pip install intel-extension-for-pytorch
 pip install git+https://github.com/casper-hansen/AutoAWQ.git
 ```
 
-Get started by passing an `AwqConfig()` with `version="ipex"`.
+Set `version="ipex"` in [`AwqConfig`] to enable ExLlamaV2 kernels.
 
 ```python
 import torch
@@ -254,20 +240,8 @@ model = AutoModelForCausalLM.from_pretrained(
     quantization_config=quantization_config,
     device_map="cpu",
 )
-
-input_ids = torch.randint(0, 100, (1, 128), dtype=torch.long, device="cpu")
-output = model(input_ids)
-print(output.logits)
-
-tokenizer = AutoTokenizer.from_pretrained("TheBloke/TinyLlama-1.1B-Chat-v0.3-AWQ")
-input_ids = tokenizer.encode("How to make a cake", return_tensors="pt")
-pad_token_id = tokenizer.eos_token_id
-output = model.generate(input_ids, do_sample=True, max_length=50, pad_token_id=pad_token_id)
-print(tokenizer.decode(output[0], skip_special_tokens=True))
 ```
 
-<Tip warning={true}>
+## Resources
 
-Note this feature is supported on Intel CPUs.
-
-</Tip>
+Run the AWQ demo [notebook](https://colab.research.google.com/drive/1HzZH89yAXJaZgwJDhQj9LqSBux932BvY#scrollTo=Wwsg6nCwoThm) for more examples of how to quantize a model, push a quantized model to the Hub, and more.

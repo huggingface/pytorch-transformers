@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import dataclasses
+import io
 import json
 import os
 import sys
@@ -435,3 +436,52 @@ class HfArgumentParser(ArgumentParser):
         """
         outputs = self.parse_dict(yaml.safe_load(Path(yaml_file).read_text()), allow_extra_keys=allow_extra_keys)
         return tuple(outputs)
+
+    def _to(
+        self,
+        serializer: Callable[[Dict, io.TextIOWrapper], None],
+        args: Tuple[DataClass, ...],
+        file_path: str,
+    ):
+        ret = {}
+        for arg in args:
+            ret.update(dataclasses.asdict(arg))
+        with open(file_path, "w") as fout:
+            serializer(ret, fout)
+
+    def to_json(self, args: Tuple[DataClass, ...], file_path: str):
+        """
+        Serializes the given dataclass instances into a JSON file.
+
+        This method converts dataclass instances to a dictionary using `dataclasses.asdict`,
+        and then serializes this dictionary to a JSON file specified by `file_path`.
+
+        Args:
+            args (Tuple[DataClass, ...]): A tuple containing instances of dataclasses. These instances
+                are intended to be the ones that have been filled by parsing command-line arguments or by
+                another method of initialization.
+            file_path (str): The file path where the output JSON should be saved. If the file already
+                exists, it will be overwritten.
+
+        Returns:
+            None. The output is written to a file specified by `file_path`.
+        """
+        return self._to(json.dump, args, file_path)
+
+    def to_yaml(self, args: Tuple[DataClass, ...], file_path: str):
+        """
+        Serializes the given dataclass instances into a YAML file.
+
+        Similar to `to_json`, this method first converts the dataclass instances to a dictionary and
+        then serializes this dictionary to a YAML file. The output file is specified by the `file_path` argument.
+
+        Args:
+            args (Tuple[DataClass, ...]): A tuple of dataclass instances. These are typically the instances
+                populated from the command-line arguments or through direct initialization.
+            file_path (str): The path to the YAML file where the serialized data should be saved. If the file
+                exists, it will be overwritten with the new content.
+
+        Returns:
+            None. The serialized data is saved to the specified YAML file.
+        """
+        return self._to(yaml.dump, args, file_path)

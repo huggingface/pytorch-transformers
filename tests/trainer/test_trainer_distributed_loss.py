@@ -21,7 +21,7 @@ from transformers.testing_utils import (
 )
 
 
-class TestTrainerDistributed(TestCasePlus):
+class TestTrainerDistributedLoss(TestCasePlus):
     @require_torch_multi_gpu
     def test_trainer(self):
         device_count = torch.cuda.device_count()
@@ -57,7 +57,7 @@ class TestTrainerDistributed(TestCasePlus):
         self.assertLess(relative_broken, 0.1)
 
 
-def run_training(training_args):
+def run_distributed_training(training_args):
     set_seed(42)
     model_name = "nickypro/tinyllama-15M"
     dataset_name = "wikitext"
@@ -100,4 +100,4 @@ def run_training(training_args):
 if __name__ == "__main__":
     parser = HfArgumentParser((TrainingArguments,))
     training_args = parser.parse_args_into_dataclasses()[0]
-    run_training(training_args)
+    run_distributed_training(training_args)

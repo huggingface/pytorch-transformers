@@ -141,8 +141,8 @@
     title: transformers에서의 모듈성
   title: (번역중) 개발자 가이드
 - sections:
-  - local: in_translation
-    title: (번역중) Getting started
+  - local: quantization/overview
+    title: 시작하기
   - local: quantization/bitsandbytes
     title: bitsandbytes
   - local: quantization/gptq

@@ -306,7 +306,7 @@ class GPT2Attention(nn.Module):
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs=cache_kwargs)
 
         is_cross_attention = encoder_hidden_states is not None
-        is_causal = attention_mask is None and query_states.shape[-2] > 1 and not is_cross_attention
+        self.is_causal = attention_mask is None and query_states.shape[-2] > 1 and not is_cross_attention
 
         using_eager = self.config._attn_implementation == "eager"
         attention_interface: Callable = eager_attention_forward
@@ -336,7 +336,6 @@ class GPT2Attention(nn.Module):
                 attention_mask,
                 head_mask=head_mask,
                 dropout=self.attn_dropout.p if self.training else 0.0,
-                is_causal=is_causal,
                 **kwargs,
             )
 
@@ -440,7 +439,7 @@ class GPT2Block(nn.Module):
         # residual connection
         hidden_states = residual + feed_forward_hidden_states
 
-        return (hidden_states, ) + outputs  # hidden_states, (attentions, cross_attentions)
+        return (hidden_states,) + outputs  # hidden_states, (attentions, cross_attentions)
 
 
 class GPT2PreTrainedModel(PreTrainedModel):
@@ -850,7 +849,9 @@ class GPT2Model(GPT2PreTrainedModel):
 
         # Attention mask.
         # ._update_causal_mask() and ._prepare_4d_causal_attention_mask_with_cache_position() copied from LlamaModel
-        attention_mask = attention_mask.view(batch_size, -1) if attention_mask is not None and attention_mask.ndim < 4 else None
+        attention_mask = (
+            attention_mask.view(batch_size, -1) if attention_mask is not None and attention_mask.ndim < 4 else None
+        )
         causal_mask = self._update_causal_mask(
             attention_mask, inputs_embeds, cache_position, past_key_values, output_attentions
         )

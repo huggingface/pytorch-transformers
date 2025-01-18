@@ -34,6 +34,7 @@ else:
         "GraniteForCausalLM",
         "GraniteModel",
         "GranitePreTrainedModel",
+        "GraniteForSequenceClassification",
     ]
 
 if TYPE_CHECKING:
@@ -47,6 +48,7 @@ if TYPE_CHECKING:
     else:
         from .modeling_granite import (
             GraniteForCausalLM,
+            GraniteForSequenceClassification,
             GraniteModel,
             GranitePreTrainedModel,
         )

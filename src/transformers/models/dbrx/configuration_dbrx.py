@@ -57,7 +57,7 @@ class DbrxAttentionConfig(PretrainedConfig):
         self.kv_n_heads = kv_n_heads
         self.rope_theta = rope_theta
 
-        for k in ["model_type", "attn_implementation", "transformers_version", "_commit_hash"]:
+        for k in ["model_type", "attn_implementation", "transformers_version", "_commit_hash", "torch_dtype"]:
             if k in kwargs:
                 kwargs.pop(k)
         if len(kwargs) != 0:
@@ -109,7 +109,7 @@ class DbrxFFNConfig(PretrainedConfig):
         self.moe_loss_weight = moe_loss_weight
         self.moe_normalize_expert_weights = moe_normalize_expert_weights
 
-        for k in ["model_type", "attn_implementation", "transformers_version", "_commit_hash"]:
+        for k in ["model_type", "attn_implementation", "transformers_version", "_commit_hash", "torch_dtype"]:
             if k in kwargs:
                 kwargs.pop(k)
         if len(kwargs) != 0:

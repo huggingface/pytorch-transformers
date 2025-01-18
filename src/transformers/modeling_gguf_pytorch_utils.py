@@ -18,7 +18,7 @@ import re
 from typing import Dict, NamedTuple, Optional
 
 import numpy as np
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from .integrations import (
     GGUF_CONFIG_MAPPING,

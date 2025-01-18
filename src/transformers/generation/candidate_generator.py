@@ -124,7 +124,7 @@ class AssistedCandidateGenerator(CandidateGenerator):
         # Prepare the kwargs for the assistant model
         assistant_kwargs = {}
         for key, value in model_kwargs.items():  # deepcopy crashes if we attempt to copy encoder outputs with grads
-            if key not in ("encoder_outputs", "assistant_encoder_outputs", "past_key_values"):
+            if key not in ("encoder_outputs", "past_key_values"):
                 assistant_kwargs[key] = (
                     value.detach().to(device) if isinstance(value, torch.Tensor) else copy.deepcopy(value)
                 )
@@ -133,9 +133,8 @@ class AssistedCandidateGenerator(CandidateGenerator):
         if "num_logits_to_keep" in assistant_kwargs.keys() and not assistant_model._supports_num_logits_to_keep():
             del assistant_kwargs["num_logits_to_keep"]
 
-        if "assistant_encoder_outputs" in model_kwargs:
-            assistant_kwargs["encoder_outputs"] = model_kwargs["assistant_encoder_outputs"]
-        elif assistant_model.config.is_encoder_decoder:
+        # If the assistant is an encoder-decoder model, assume the encoder is different on the assistant.
+        if assistant_model.config.is_encoder_decoder:
             inputs_tensor, model_input_name, assistant_kwargs = assistant_model._prepare_model_inputs(
                 inputs_tensor, assistant_model.generation_config.bos_token_id, assistant_kwargs
             )

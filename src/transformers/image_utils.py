@@ -113,6 +113,7 @@ VideoInput = Union[
 class ChannelDimension(ExplicitEnum):
     FIRST = "channels_first"
     LAST = "channels_last"
+    NONE = "none"
 
 
 class AnnotationFormat(ExplicitEnum):
@@ -257,6 +258,10 @@ def infer_channel_dimension_format(
         first_dim, last_dim = 0, 2
     elif image.ndim == 4:
         first_dim, last_dim = 1, 3
+    elif image.ndim == 2:
+        raise ValueError(
+            "must specify input_data_format = ChannelDimension.NONE and use supported image processor to use (height, width) image"
+        )
     else:
         raise ValueError(f"Unsupported number of image dimensions: {image.ndim}")
 

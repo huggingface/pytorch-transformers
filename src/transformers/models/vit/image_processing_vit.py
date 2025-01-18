@@ -207,7 +207,7 @@ class ViTImageProcessor(BaseImageProcessor):
                 from the input image. Can be one of:
                 - `"channels_first"` or `ChannelDimension.FIRST`: image in (num_channels, height, width) format.
                 - `"channels_last"` or `ChannelDimension.LAST`: image in (height, width, num_channels) format.
-                - `"none"` or `ChannelDimension.NONE`: image in (height, width) format.
+                - `"none"` or `ChannelDimension.NONE`: image in (height, width) format - must be specifed to use the format.
             do_convert_rgb (`bool`, *optional*, defaults to `self.do_convert_rgb`):
                 Whether to convert the image to RGB.
         """
@@ -242,7 +242,12 @@ class ViTImageProcessor(BaseImageProcessor):
         )
 
         if do_convert_rgb:
-            images = [convert_to_rgb(image) for image in images]
+            if not input_data_format == ChannelDimension.NONE:
+                images = [convert_to_rgb(image) for image in images]
+            # handle HW PIL images to HWC by conversion to RGB - 3 channel allows for normalization with imagenet mean
+            else:
+                images = [convert_to_rgb(np.stack([image] * 3, axis=-1)) for image in images]
+                input_data_format = ChannelDimension.LAST
 
         # All transformations expect numpy arrays.
         images = [to_numpy_array(image) for image in images]

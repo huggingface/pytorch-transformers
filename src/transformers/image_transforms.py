@@ -82,8 +82,11 @@ def to_channel_dimension_format(
 
     if input_channel_dim is None:
         input_channel_dim = infer_channel_dimension_format(image)
-
     target_channel_dim = ChannelDimension(channel_dim)
+
+    if target_channel_dim == ChannelDimension.NONE and input_channel_dim != ChannelDimension.NONE:
+        raise ValueError(f"Can't convert from dim format {input_channel_dim} to {target_channel_dim}")
+
     if input_channel_dim == target_channel_dim:
         return image
 
@@ -200,11 +203,12 @@ def to_pil_image(
     elif not isinstance(image, np.ndarray):
         raise ValueError("Input image type not supported: {}".format(type(image)))
 
-    # If the channel has been moved to first dim, we put it back at the end.
-    image = to_channel_dimension_format(image, ChannelDimension.LAST, input_data_format)
+    # If the channel has been moved to first dim, we put it back at the end if not 2d image
+    if input_data_format != ChannelDimension.NONE and image.shape != 2:
+        image = to_channel_dimension_format(image, ChannelDimension.LAST, input_data_format)
 
-    # If there is a single channel, we squeeze it, as otherwise PIL can't handle it.
-    image = np.squeeze(image, axis=-1) if image.shape[-1] == 1 else image
+        # If there is a single channel, we squeeze it, as otherwise PIL can't handle it.
+        image = np.squeeze(image, axis=-1) if image.shape[-1] == 1 else image
 
     # PIL.Image can only store uint8 values so we rescale the image to be between 0 and 255 if needed.
     do_rescale = _rescale_for_pil_conversion(image) if do_rescale is None else do_rescale
@@ -346,9 +350,11 @@ def resize(
         # so we need to add it back if necessary.
         resized_image = np.expand_dims(resized_image, axis=-1) if resized_image.ndim == 2 else resized_image
         # The image is always in channels last format after converting from a PIL image
-        resized_image = to_channel_dimension_format(
-            resized_image, data_format, input_channel_dim=ChannelDimension.LAST
-        )
+        # if was initally a HW image then the added dim will be at the end already
+        if input_data_format != ChannelDimension.NONE:
+            resized_image = to_channel_dimension_format(
+                resized_image, data_format, input_channel_dim=ChannelDimension.LAST
+            )
         # If an image was rescaled to be in the range [0, 255] before converting to a PIL image, then we need to
         # rescale it back to the original range.
         resized_image = rescale(resized_image, 1 / 255) if do_rescale else resized_image
@@ -384,6 +390,11 @@ def normalize(
 
     if input_data_format is None:
         input_data_format = infer_channel_dimension_format(image)
+
+    # if of ChannelDimension.NONE and not made HWC by resize, handle here
+    if input_data_format == ChannelDimension.NONE:
+        input_data_format = ChannelDimension.LAST
+        image = np.expand_dims(image, axis=-1) if image.ndim == 2 else image
 
     channel_axis = get_channel_dimension_axis(image, input_data_format=input_data_format)
     num_channels = image.shape[channel_axis]

@@ -808,6 +808,7 @@ class GPT2Model(GPT2PreTrainedModel):
             self.warn_if_padding_and_no_attention_mask(input_ids, attention_mask)
             input_shape = input_ids.size()
             input_ids = input_ids.view(-1, input_shape[-1])
+            batch_size = input_ids.shape[0]
         elif inputs_embeds is not None:
             input_shape = inputs_embeds.size()[:-1]
         else:
@@ -849,6 +850,7 @@ class GPT2Model(GPT2PreTrainedModel):
 
         # Attention mask.
         # ._update_causal_mask() and ._prepare_4d_causal_attention_mask_with_cache_position() copied from LlamaModel
+        attention_mask = attention_mask.view(batch_size, -1) if attention_mask is not None and attention_mask.ndim < 4 else None
         causal_mask = self._update_causal_mask(
             attention_mask, inputs_embeds, cache_position, past_key_values, output_attentions
         )

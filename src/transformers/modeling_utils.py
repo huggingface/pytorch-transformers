@@ -2778,7 +2778,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                 logger.info(
                     "Detected adapters on the model, saving the model in the PEFT format, only adapter weights will be saved."
                 )
-                state_dict = model_to_save.get_adapter_state_dict()
+                state_dict = model_to_save.get_adapter_state_dict(state_dict=state_dict)
 
                 if save_peft_format:
                     logger.info(

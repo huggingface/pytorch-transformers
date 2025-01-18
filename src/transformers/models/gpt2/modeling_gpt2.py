@@ -27,7 +27,7 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
-from ...cache_utils import Cache, DynamicCache, StaticCache
+from ...cache_utils import Cache, DynamicCache, EncoderDecoderCache, StaticCache
 from ...generation import GenerationMixin
 from ...modeling_attn_mask_utils import AttentionMaskConverter, _prepare_4d_attention_mask_for_sdpa
 from ...modeling_outputs import (
@@ -281,7 +281,8 @@ class GPT2Attention(nn.Module):
         output_attentions: Optional[bool] = False,
         **kwargs,
     ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]], ...]:
-        if encoder_hidden_states is not None:
+        is_cross_attention = encoder_hidden_states is not None
+        if is_cross_attention:
             if not hasattr(self, "q_attn"):
                 raise ValueError(
                     "If class is used as cross attention, the weights `q_attn` have to be defined. "
@@ -302,12 +303,16 @@ class GPT2Attention(nn.Module):
         value_states = value_states.reshape(shape_kv).transpose(1, 2)
 
         if past_key_value is not None:
+            if isinstance(past_key_value, EncoderDecoderCache):
+                if is_cross_attention:
+                    past_key_value = past_key_value.cross_attention_cache
+                else:
+                    past_key_value = past_key_value.self_attention_cache
             cache_kwargs = {"cache_position": cache_position}
             key_states, value_states = past_key_value.update(
                 key_states, value_states, self.layer_idx, cache_kwargs=cache_kwargs
             )
 
-        is_cross_attention = encoder_hidden_states is not None
         self.is_causal = attention_mask is None and query_states.shape[-2] > 1 and not is_cross_attention
 
         using_eager = self.config._attn_implementation == "eager"
@@ -424,6 +429,7 @@ class GPT2Block(nn.Module):
             hidden_states = self.ln_cross_attn(hidden_states)
             cross_attn_outputs = self.crossattention(
                 hidden_states,
+                past_key_value=past_key_value,
                 attention_mask=attention_mask,
                 head_mask=head_mask,
                 encoder_hidden_states=encoder_hidden_states,
@@ -433,7 +439,7 @@ class GPT2Block(nn.Module):
             attn_output = cross_attn_outputs[0]
             # residual connection
             hidden_states = residual + attn_output
-            outputs = outputs + cross_attn_outputs[2:]  # add cross attentions if we output attention weights
+            outputs = outputs + cross_attn_outputs[1:]  # add cross attentions if we output attention weights
 
         residual = hidden_states
         hidden_states = self.ln_2(hidden_states)
@@ -823,18 +829,34 @@ class GPT2Model(GPT2PreTrainedModel):
 
         # based on pattern from src/transformers/models/whisper/modeling_whisper.py::WhisperDecoder
         return_legacy_cache = False
-        if use_cache or past_key_values is not None:
-            if not isinstance(past_key_values, Cache):
+        if use_cache:
+            if past_key_values is not None:
+                if isinstance(past_key_values, Cache):
+                    if self.config.add_cross_attention and not isinstance(past_key_values, EncoderDecoderCache):
+                        past_key_values = EncoderDecoderCache(past_key_values, DynamicCache())
+                elif not isinstance(past_key_values, Cache):
+                    return_legacy_cache = True
+                    logger.warning_once(
+                        "Passing a tuple of `past_key_values` is deprecated and will be removed in Transformers v4.49.0. "
+                        "You should pass an instance of `Cache` instead, e.g. "
+                        "`past_key_values=DynamicCache.from_legacy_cache(past_key_values)`."
+                    )
+                    if self.config.add_cross_attention:
+                        past_key_values = EncoderDecoderCache.from_legacy_cache(past_key_values)
+                    else:
+                        past_key_values = DynamicCache.from_legacy_cache(past_key_values)
+            elif past_key_values is None:
                 return_legacy_cache = True
                 logger.warning_once(
-                    "Passing a tuple of `past_key_values` is deprecated and will be removed in Transformers v4.49.0. "
-                    "You should pass an instance of `Cache` instead, e.g. "
+                    "Passing `use_cache=True` and `past_key_values=None` will is produce cache output in legacy format.  "
+                    "This behavior is deprecated and will be changed in Transformers v4.49.0. "
+                    "To obtain output past_key_values as `Cache` instance you should pass an instance of `Cache` instead, e.g. "
                     "`past_key_values=DynamicCache.from_legacy_cache(past_key_values)`."
                 )
-                past_key_values = DynamicCache.from_legacy_cache(past_key_values)
-
-        if use_cache and past_key_values is None:
-            past_key_values = DynamicCache()
+                if self.config.add_cross_attention:
+                    past_key_values = EncoderDecoderCache()
+                else:
+                    past_key_values = DynamicCache()
 
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)

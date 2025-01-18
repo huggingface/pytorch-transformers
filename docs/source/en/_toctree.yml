@@ -699,6 +699,8 @@
         title: NAT
       - local: model_doc/poolformer
         title: PoolFormer
+      - local: model_doc/prompt_depth_anything
+        title: Prompt Depth Anything
       - local: model_doc/pvt
         title: Pyramid Vision Transformer (PVT)
       - local: model_doc/pvt_v2

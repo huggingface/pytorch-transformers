@@ -123,6 +123,7 @@ else:
             ("pix2struct", ("Pix2StructImageProcessor",)),
             ("pixtral", ("PixtralImageProcessor", "PixtralImageProcessorFast")),
             ("poolformer", ("PoolFormerImageProcessor",)),
+            ("prompt_depth_anything", ("PromptDepthAnythingImageProcessor",)),
             ("pvt", ("PvtImageProcessor",)),
             ("pvt_v2", ("PvtImageProcessor",)),
             ("qwen2_vl", ("Qwen2VLImageProcessor",)),

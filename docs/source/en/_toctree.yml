@@ -982,6 +982,8 @@
         title: PatchTST
       - local: model_doc/time_series_transformer
         title: Time Series Transformer
+      - local: model_doc/timesfm
+        title: TimesFM
       title: Time series models
     - isExpanded: false
       sections:

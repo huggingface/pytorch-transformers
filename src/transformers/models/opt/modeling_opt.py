@@ -882,7 +882,7 @@ class OPTDecoder(OPTPreTrainedModel):
         if self.project_in is not None:
             inputs_embeds = self.project_in(inputs_embeds)
 
-        hidden_states = inputs_embeds + pos_embeds
+        hidden_states = inputs_embeds + pos_embeds.to(inputs_embeds.device)
 
         if self.gradient_checkpointing and self.training:
             if use_cache:

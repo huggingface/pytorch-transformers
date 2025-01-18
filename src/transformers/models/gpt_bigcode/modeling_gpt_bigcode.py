@@ -959,7 +959,7 @@ class GPTBigCodeModel(GPTBigCodePreTrainedModel):
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
         position_embeds = self.wpe(position_ids)
-        hidden_states = inputs_embeds + position_embeds
+        hidden_states = inputs_embeds + position_embeds.to(inputs_embeds.device)
 
         if token_type_ids is not None:
             token_type_embeds = self.wte(token_type_ids)

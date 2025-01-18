@@ -594,7 +594,9 @@ class XGLMModel(XGLMPreTrainedModel):
                 encoder_attention_mask, inputs_embeds.dtype, tgt_len=input_shape[-1]
             )
 
-        hidden_states = inputs_embeds + self.embed_positions(position_ids, past_key_values_length)
+        hidden_states = inputs_embeds + self.embed_positions(position_ids, past_key_values_length).to(
+            inputs_embeds.device
+        )
         hidden_states = nn.functional.dropout(hidden_states, p=float(self.dropout), training=self.training)
 
         if self.gradient_checkpointing and self.training:

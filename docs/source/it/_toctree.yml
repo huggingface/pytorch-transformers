@@ -21,6 +21,8 @@
     title: Condividere un modello
   title: Esercitazione
 - sections:
+  - local: performance
+    title: panoramica
   - local: create_a_model
     title: Crea un'architettura personalizzata
   - local: custom_models

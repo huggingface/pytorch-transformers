@@ -636,6 +636,12 @@ class Trainer:
                 k.kind == inspect.Parameter.VAR_KEYWORD for k in forward_params.values()
             )
 
+        if _is_peft_model(unwrapped_model):
+            self.model_name = unwrapped_model.base_model.model._get_name()
+        else:
+            self.model_name = unwrapped_model._get_name()
+
+
         self.neftune_noise_alpha = args.neftune_noise_alpha
 
         self.compute_metrics = compute_metrics
@@ -3740,15 +3746,10 @@ class Trainer:
             self._past = outputs[self.args.past_index]
 
         if labels is not None:
-            unwrapped_model = self.accelerator.unwrap_model(model)
-            if _is_peft_model(unwrapped_model):
-                model_name = unwrapped_model.base_model.model._get_name()
-            else:
-                model_name = unwrapped_model._get_name()
             # User-defined compute_loss function
             if self.compute_loss_func is not None:
                 loss = self.compute_loss_func(outputs, labels, num_items_in_batch=num_items_in_batch)
-            elif model_name in MODEL_FOR_CAUSAL_LM_MAPPING_NAMES.values():
+            elif self.model_name in MODEL_FOR_CAUSAL_LM_MAPPING_NAMES.values():
                 loss = self.label_smoother(outputs, labels, shift_labels=True)
             else:
                 loss = self.label_smoother(outputs, labels)

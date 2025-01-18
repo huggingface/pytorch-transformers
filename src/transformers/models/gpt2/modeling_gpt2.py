@@ -854,7 +854,7 @@ class GPT2Model(GPT2PreTrainedModel):
                     "`past_key_values=DynamicCache.from_legacy_cache(past_key_values)`."
                 )
                 if self.config.add_cross_attention:
-                    past_key_values = EncoderDecoderCache()
+                    past_key_values = EncoderDecoderCache(DynamicCache(), DynamicCache())
                 else:
                     past_key_values = DynamicCache()
 

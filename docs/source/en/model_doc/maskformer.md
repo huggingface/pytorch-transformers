@@ -72,6 +72,14 @@ This model was contributed by [francesco](https://huggingface.co/francesco). The
     - post_process_instance_segmentation
     - post_process_panoptic_segmentation
 
+## MaskFormerImageProcessorFast
+
+[[autodoc]] MaskFormerImageProcessorFast
+    - preprocess
+    - post_process_semantic_segmentation
+    - post_process_instance_segmentation
+    - post_process_panoptic_segmentation
+
 ## MaskFormerFeatureExtractor
 
 [[autodoc]] MaskFormerFeatureExtractor

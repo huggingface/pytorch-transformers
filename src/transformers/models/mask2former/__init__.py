@@ -20,6 +20,7 @@ from ...utils.import_utils import define_import_structure
 if TYPE_CHECKING:
     from .configuration_mask2former import *
     from .image_processing_mask2former import *
+    from .image_processing_mask2former_fast import *
     from .modeling_mask2former import *
 else:
     import sys

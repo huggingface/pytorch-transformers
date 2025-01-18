@@ -1245,6 +1245,10 @@ class AcceleratorConfig:
             Whether or not to use a pre-configured `AcceleratorState` or `PartialState` defined
             before calling `TrainingArguments`. If `True`, an `Accelerator` or `PartialState`
             must be initialized. May lead to issues using sweeps or hyperparameter tuning.
+        use_stateful_dataloader (`bool`, *optional*, defaults to `False`):
+            Whether or not to have the dataloaders prepared by the Accelerator be backed by
+            `[torchdata.StatefulDataLoader]`(https://github.com/pytorch/data/tree/main/torchdata/stateful_dataloader).
+            This requires `accelerate` version 1.0.0 or higher, and `torchdata` version 0.8.0 to be installed."
 
     """
 
@@ -1312,6 +1316,13 @@ class AcceleratorConfig:
         metadata={
             "help": "Whether or not to use a pre-configured `AcceleratorState` or `PartialState` defined before calling `TrainingArguments`."
             "If `True`, an `Accelerator` or `PartialState` must be initialized. May lead to issues using sweeps or hyperparameter tuning."
+        },
+    )
+
+    use_stateful_dataloader: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether or not to have the dataloaders prepared by the Accelerator be backed by`[torchdata.StatefulDataLoader]`(https://github.com/pytorch/data/tree/main/torchdata/stateful_dataloader). This requires `accelerate` version 1.0.0 or higher, and `torchdata` version 0.8.0 to be installed."
         },
     )
 

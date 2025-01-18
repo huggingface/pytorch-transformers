@@ -2150,6 +2150,12 @@ class Trainer:
             state = TrainerState.load_from_json(os.path.join(resume_from_checkpoint, TRAINER_STATE_NAME))
             if state.train_batch_size is not None:
                 self._train_batch_size = state.train_batch_size
+            if state.train_dataloader_state_dict is None and self.use_stateful_dataloader:
+                raise ValueError(
+                    "TrainerArguments.accelerator_config.use_stateful_dataloader is true, however a checkpoint with"
+                    "no saved dataloader state_dict has been loaded. If this is the correct checkpoint to be loaded,"
+                    "please set `accelerator_config.use_stateful_dataloader` to false."
+                )
 
         # If model was re-initialized, put it on the right device and update self.model_wrapped
         if model_reloaded:
@@ -2466,7 +2472,10 @@ class Trainer:
             rng_to_sync = False
             steps_skipped = 0
             if steps_trained_in_current_epoch > 0:
-                epoch_dataloader = skip_first_batches(epoch_dataloader, steps_trained_in_current_epoch)
+                if self.use_stateful_dataloader:
+                    epoch_dataloader.load_state_dict(self.state.train_dataloader_state_dict)
+                else:
+                    epoch_dataloader = skip_first_batches(epoch_dataloader, steps_trained_in_current_epoch)
                 steps_skipped = steps_trained_in_current_epoch
                 steps_trained_in_current_epoch = 0
                 rng_to_sync = True
@@ -2595,10 +2604,12 @@ class Trainer:
                             # Delay optimizer scheduling until metrics are generated
                             if not isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
                                 self.lr_scheduler.step()
-
                         model.zero_grad()
                         self.state.global_step += 1
                         self.state.epoch = epoch + (step + 1 + steps_skipped) / steps_in_epoch
+                        # Maybe we should only update the state dict right before checkpointing?
+                        if self.use_stateful_dataloader:
+                            self.state.train_dataloader_state_dict = epoch_dataloader.state_dict()
                         self.control = self.callback_handler.on_step_end(args, self.state, self.control)
                         self._maybe_log_save_evaluate(
                             tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval, start_time
@@ -5060,6 +5071,15 @@ class Trainer:
             dataloader_config.non_blocking = non_blocking
         # this would have been updated above, no need for it anymore
         accelerator_config.pop("gradient_accumulation_kwargs")
+
+        use_stateful_dataloader = accelerator_config.pop("use_stateful_dataloader")
+        if use_stateful_dataloader:
+            if not is_accelerate_available("1.0.0"):
+                raise ImportError(
+                    "`use_stateful_dataloader` is only supported in accelerate v1.0.0 and above. Please upgrade accelerate to use this feature."
+                )
+            dataloader_config.use_stateful_dataloader = use_stateful_dataloader
+        self.use_stateful_dataloader = use_stateful_dataloader
 
         args = {
             "deepspeed_plugin": self.args.deepspeed_plugin,

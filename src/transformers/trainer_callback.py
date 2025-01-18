@@ -19,7 +19,7 @@ Callbacks to use with the Trainer class and customize the training loop.
 import dataclasses
 import json
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from tqdm.auto import tqdm
@@ -88,6 +88,9 @@ class TrainerState:
         stateful_callbacks (`List[StatefulTrainerCallback]`, *optional*):
             Callbacks attached to the `Trainer` that should have their states be saved or restored.
             Relevent callbacks should implement a `state` and `from_state` function.
+        train_dataloader_state_dict (`Dict[str, Any]`, *optional*):
+            Present if the trainer is using a stateful dataloader to serve training data.
+            State dict which tracks the inner state of a training dataset StatefulDataLoader.
     """
 
     epoch: Optional[float] = None
@@ -109,6 +112,7 @@ class TrainerState:
     trial_name: str = None
     trial_params: Dict[str, Union[str, float, int, bool]] = None
     stateful_callbacks: List["TrainerCallback"] = None
+    train_dataloader_state_dict: Dict[str, Any] = None
 
     def __post_init__(self):
         if self.log_history is None:

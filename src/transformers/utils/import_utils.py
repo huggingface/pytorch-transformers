@@ -91,6 +91,7 @@ TORCH_FX_REQUIRED_VERSION = version.parse("1.10")
 ACCELERATE_MIN_VERSION = "0.26.0"
 FSDP_MIN_VERSION = "1.12.0"
 GGUF_MIN_VERSION = "0.10.0"
+TORCHDATA_MIN_VERSION = "0.8.0"
 XLA_FSDPV2_MIN_VERSION = "2.2.0"
 HQQ_MIN_VERSION = "0.2.1"
 VPTQ_MIN_VERSION = "0.0.4"
@@ -109,6 +110,7 @@ _galore_torch_available = _is_package_available("galore_torch")
 _lomo_available = _is_package_available("lomo_optim")
 _grokadamw_available = _is_package_available("grokadamw")
 _schedulefree_available = _is_package_available("schedulefree")
+_torchdata_available, _torchdata_version = _is_package_available("torchdata", return_version=True)
 # `importlib.metadata.version` doesn't work with `bs4` but `beautifulsoup4`. For `importlib.util.find_spec`, reversed.
 _bs4_available = importlib.util.find_spec("bs4") is not None
 _coloredlogs_available = _is_package_available("coloredlogs")
@@ -326,6 +328,10 @@ def is_torch_available():
 
 def is_accelerate_available(min_version: str = ACCELERATE_MIN_VERSION):
     return _accelerate_available and version.parse(_accelerate_version) >= version.parse(min_version)
+
+
+def is_torchdata_available(min_version: str = TORCHDATA_MIN_VERSION):
+    return _torchdata_available and version.parse(_torchdata_version) >= version.parse(min_version)
 
 
 def is_torch_deterministic():

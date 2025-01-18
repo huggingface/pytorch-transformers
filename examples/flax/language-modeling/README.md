@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Language model training examples
+# Language model training and inference examples
 
 The following example showcases how to train a language model from scratch
 using the JAX/Flax backend.
@@ -542,3 +542,27 @@ python3 -m torch.distributed.launch --nproc_per_node ${NUM_GPUS} run_mlm.py \
     --report_to="tensorboard" \
     --save_strategy="no"
 ```
+
+## Language model inference with bfloat16
+
+The following example demonstrates performing inference with a language model using the JAX/Flax backend.
+
+The example script run_bert_flax.py uses bert-base-uncased, and the model is loaded into `FlaxBertModel`.
+The input data are randomly generated tokens, and the model is also jitted with JAX.
+By default, it uses float32 precision for inference. To enable bfloat16, add the flag shown in the command below.
+
+```bash
+python3 run_bert_flax.py --precision bfloat16
+> NOTE: For JAX Versions after v0.4.33 or later, users will need to set the below environment variables as a \
+> temporary workaround to use Bfloat16 datatype. \
+> This restriction is expected to be removed in future version
+```bash
+export XLA_FLAGS=--xla_cpu_use_thunk_runtime=false
+```
+bfloat16 gives better performance on GPUs and also Intel CPUs (Sapphire Rapids or later) with Advanced Matrix Extension (Intel AMX).  
+By changing the dtype for `FlaxBertModel `to `jax.numpy.bfloat16`, you get the performance benefits of the underlying hardware.
+```python
+import jax
+model = FlaxBertModel.from_pretrained("bert-base-uncased", config=config, dtype=jax.numpy.bfloat16)
+```
+Switching from float32 to bfloat16 can increase the speed of an AWS c7i.4xlarge with Intel Sapphire Rapids by more than 2x.

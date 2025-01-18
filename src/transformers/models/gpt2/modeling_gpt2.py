@@ -27,7 +27,7 @@ from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from ...activations import ACT2FN
-from ...cache_utils import Cache, DynamicCache, StaticCache  # noqa: F401
+from ...cache_utils import Cache, DynamicCache, StaticCache
 from ...generation import GenerationMixin
 from ...modeling_attn_mask_utils import AttentionMaskConverter, _prepare_4d_attention_mask_for_sdpa
 from ...modeling_outputs import (
@@ -303,7 +303,9 @@ class GPT2Attention(nn.Module):
 
         if past_key_value is not None:
             cache_kwargs = {"cache_position": cache_position}
-            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs=cache_kwargs)
+            key_states, value_states = past_key_value.update(
+                key_states, value_states, self.layer_idx, cache_kwargs=cache_kwargs
+            )
 
         is_cross_attention = encoder_hidden_states is not None
         self.is_causal = attention_mask is None and query_states.shape[-2] > 1 and not is_cross_attention

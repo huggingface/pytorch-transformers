@@ -769,7 +769,7 @@ def number_of_arguments(func):
 
 
 def find_executable_batch_size(
-    function: callable = None, starting_batch_size: int = 128, auto_find_batch_size: bool = False
+    function: callable = None, starting_batch_size: int = 128, auto_find_batch_size: bool = False, reduce_batch_size_fn: callable = None,
 ):
     """
     Args:
@@ -794,7 +794,7 @@ def find_executable_batch_size(
         requires_backends(find_executable_batch_size, "accelerate")
         from accelerate.utils import find_executable_batch_size as accelerate_find_executable_batch_size
 
-        return accelerate_find_executable_batch_size(function=function, starting_batch_size=starting_batch_size)
+        return accelerate_find_executable_batch_size(function=function, starting_batch_size=starting_batch_size, reduce_batch_size_fn=reduce_batch_size_fn)
 
     return functools.partial(function, batch_size=starting_batch_size)
 

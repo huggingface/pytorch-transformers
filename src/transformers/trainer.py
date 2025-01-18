@@ -2157,8 +2157,18 @@ class Trainer:
                 self._move_model_to_device(self.model, args.device)
             self.model_wrapped = self.model
 
+
+        def reduce_batch_size_fn_wrapper(train_batch_size, args):
+            effective_batch_size = args.gradient_accumulation_steps * train_batch_size
+            def reduce_batch_size_fn():
+                nonlocal train_batch_size
+                train_batch_size = train_batch_size // 2
+                args.gradient_accumulation_steps = effective_batch_size // train_batch_size
+                return train_batch_size
+            return reduce_batch_size_fn
+
         inner_training_loop = find_executable_batch_size(
-            self._inner_training_loop, self._train_batch_size, args.auto_find_batch_size
+            self._inner_training_loop, self._train_batch_size, args.auto_find_batch_size, reduce_batch_size_fn_wrapper(self._train_batch_size, args)
         )
         if args.push_to_hub:
             try:

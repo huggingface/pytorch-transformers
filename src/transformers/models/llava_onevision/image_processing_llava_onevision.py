@@ -364,9 +364,10 @@ class LlavaOnevisionImageProcessor(BaseImageProcessor):
 
         paste_x = (target_width - new_width) // 2
         paste_y = (target_height - new_height) // 2
+        paste_x2 = target_width - new_width - paste_x
+        paste_y2 = target_height - new_height - paste_y
 
-        padded_image = self.pad(image, padding=((paste_y, paste_y), (paste_x, paste_x)))
-
+        padded_image = self.pad(image, padding=((paste_y, paste_y2), (paste_x, paste_x2)))
         return padded_image
 
     # Copied from transformers.models.llava_next.image_processing_llava_next.LlavaNextImageProcessor.get_image_patches

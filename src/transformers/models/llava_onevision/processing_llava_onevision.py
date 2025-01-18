@@ -20,6 +20,8 @@ import math
 import os
 from typing import Iterable, List, Union
 
+import numpy as np
+
 from ...feature_extraction_utils import BatchFeature
 from ...image_processing_utils import select_best_resolution
 from ...image_utils import ImageInput, VideoInput, get_image_size, to_numpy_array
@@ -164,7 +166,11 @@ class LlavaOnevisionProcessor(ProcessorMixin):
         if videos is not None:
             video_inputs = self.video_processor(videos, **output_kwargs["videos_kwargs"])
 
-            one_video = to_numpy_array(video_inputs.get("pixel_values_videos")[0])
+            one_video = video_inputs.get("pixel_values_videos")[0]
+            if isinstance(video_inputs.get("pixel_values_videos")[0], (list, tuple)):
+                one_video = np.array(one_video)
+            else:
+                one_video = to_numpy_array(one_video)
             height, width = get_image_size(one_video[0], channel_dim=output_kwargs["images_kwargs"].get("data_format"))
             num_frames = one_video.shape[0]  # frame dim is always after batch dim
             patches_height_width = int(math.sqrt(self.num_image_tokens))

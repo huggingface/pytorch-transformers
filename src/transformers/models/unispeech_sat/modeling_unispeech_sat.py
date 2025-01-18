@@ -814,8 +814,8 @@ class UniSpeechSatSdpaAttention(UniSpeechSatAttention):
         # but we are fine here as `_shape` do call `.contiguous()`. Reference: https://github.com/pytorch/pytorch/issues/112577
         attn_output = torch.nn.functional.scaled_dot_product_attention(
             query_states,
-            key_states,
-            value_states,
+            key_states.to(query_states.device),
+            value_states.to(query_states.device),
             attn_mask=attention_mask,
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=is_causal,

@@ -3374,7 +3374,14 @@ class GenerationIntegrationTests(unittest.TestCase, GenerationIntegrationTestsMi
             assistant_model=assistant,
             min_new_tokens=10,
         )
-        self.assertTrue((input_length + 10) <= out.shape[-1] <= 20)
+        self.assertTrue((input_length + 10) <= out.shape[-1])
+
+        out = model.generate(
+            input_ids,
+            assistant_model=assistant,
+            max_new_tokens=7,
+        )
+        self.assertTrue(out.shape[-1] <= (input_length + 7))
 
     def test_model_kwarg_assisted_decoding_decoder_only(self):
         # PT-only test: TF doesn't support assisted decoding yet.

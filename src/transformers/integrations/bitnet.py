@@ -1,3 +1,4 @@
+from ..pytorch_utils import torch_compile
 from ..utils import is_accelerate_available, is_torch_available, logging
 
 
@@ -54,7 +55,7 @@ def pack_weights(quantized_weights: torch.Tensor) -> torch.Tensor:
     return packed
 
 
-@torch.compile
+@torch_compile
 def unpack_weights(packed: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
     """
     Unpacks a tensor of quantized weights that were stored in a packed format using 2 bits per value.
@@ -150,7 +151,7 @@ class BitLinear(nn.Module):
         else:
             self.bias = None
 
-    @torch.compile
+    @torch_compile
     def activation_quant(self, input, num_bits=8):
         """
         Activation function : Performs symmetric, per-token quantization on the input activations.
@@ -174,7 +175,7 @@ class BitLinear(nn.Module):
         result = (input * scale).round().clamp(Qn, Qp)
         return result.to(torch.int8), scale
 
-    @torch.compile
+    @torch_compile
     def post_quant_process(self, input, input_scale, weight_scale):
         out = input / (input_scale * weight_scale)
         return out

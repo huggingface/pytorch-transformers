@@ -780,7 +780,7 @@ def is_torch_compile_available():
 
     # We don't do any version check here to support nighlies marked as 1.14. Ultimately needs to check version against
     # 2.0 but let's do it later.
-    return hasattr(torch, "compile")
+    return hasattr(torch, "compile") and is_triton_available()
 
 
 def is_torchdynamo_compiling():

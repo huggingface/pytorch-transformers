@@ -24,7 +24,7 @@ import torch.utils.checkpoint
 from torch import nn
 
 from ...activations import ACT2FN
-from ...cache_utils import Cache, DynamicCache
+from ...cache_utils import Cache, DynamicCache, EncoderDecoderCache
 from ...modeling_outputs import BaseModelOutputWithPastAndCrossAttentions
 from ...modeling_utils import ALL_ATTENTION_FUNCTIONS, PreTrainedModel
 from ...pytorch_utils import Conv1D, find_pruneable_heads_and_indices, prune_conv1d_layer
@@ -271,7 +271,8 @@ class DecisionTransformerGPT2Attention(nn.Module):
         output_attentions: Optional[bool] = False,
         **kwargs,
     ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]], ...]:
-        if encoder_hidden_states is not None:
+        is_cross_attention = encoder_hidden_states is not None
+        if is_cross_attention:
             if not hasattr(self, "q_attn"):
                 raise ValueError(
                     "If class is used as cross attention, the weights `q_attn` have to be defined. "
@@ -292,12 +293,16 @@ class DecisionTransformerGPT2Attention(nn.Module):
         value_states = value_states.reshape(shape_kv).transpose(1, 2)
 
         if past_key_value is not None:
+            if isinstance(past_key_value, EncoderDecoderCache):
+                if is_cross_attention:
+                    past_key_value = past_key_value.cross_attention_cache
+                else:
+                    past_key_value = past_key_value.self_attention_cache
             cache_kwargs = {"cache_position": cache_position}
             key_states, value_states = past_key_value.update(
                 key_states, value_states, self.layer_idx, cache_kwargs=cache_kwargs
             )
 
-        is_cross_attention = encoder_hidden_states is not None
         self.is_causal = attention_mask is None and query_states.shape[-2] > 1 and not is_cross_attention
 
         using_eager = self.config._attn_implementation == "eager"
@@ -419,6 +424,7 @@ class DecisionTransformerGPT2Block(nn.Module):
             hidden_states = self.ln_cross_attn(hidden_states)
             cross_attn_outputs = self.crossattention(
                 hidden_states,
+                past_key_value=past_key_value,
                 attention_mask=attention_mask,
                 head_mask=head_mask,
                 encoder_hidden_states=encoder_hidden_states,
@@ -428,7 +434,7 @@ class DecisionTransformerGPT2Block(nn.Module):
             attn_output = cross_attn_outputs[0]
             # residual connection
             hidden_states = residual + attn_output
-            outputs = outputs + cross_attn_outputs[2:]  # add cross attentions if we output attention weights
+            outputs = outputs + cross_attn_outputs[1:]  # add cross attentions if we output attention weights
 
         residual = hidden_states
         hidden_states = self.ln_2(hidden_states)

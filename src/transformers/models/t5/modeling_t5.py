@@ -498,8 +498,14 @@ class T5Attention(nn.Module):
         current_states = key_value_states if is_cross_attention else hidden_states
         if is_cross_attention and past_key_value is not None and is_updated:
             # reuse k,v, cross_attentions
-            key_states = curr_past_key_value.key_cache[self.layer_idx]
-            value_states = curr_past_key_value.value_cache[self.layer_idx]
+            # get cross attn sequence length.
+            cross_seq_length = current_states.shape[1]
+
+            key_states_full = curr_past_key_value.key_cache[self.layer_idx]
+            value_states_full = curr_past_key_value.value_cache[self.layer_idx]
+            # slice into state b/c cache may be larger:
+            key_states = key_states_full[:batch_size, :, :cross_seq_length, :]
+            value_states = value_states_full[:batch_size, :, :cross_seq_length, :]
         else:
             key_states = self.k(current_states)
             value_states = self.v(current_states)
@@ -508,13 +514,26 @@ class T5Attention(nn.Module):
 
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
-                cache_position = cache_position if not is_cross_attention else None
-                key_states, value_states = curr_past_key_value.update(
-                    key_states, value_states, self.layer_idx, {"cache_position": cache_position}
-                )
-                # set flag that curr layer for cross-attn is already updated so we can re-use in subsequent calls
                 if is_cross_attention:
+                    cross_seq_length = current_states.shape[1]
+                    cache_position = torch.arange(
+                        0, cross_seq_length
+                    )  # Save into specific cells is there a alternative to passing a varying length position?
+                    key_states_full, value_states_full = curr_past_key_value.update(
+                        key_states, value_states, self.layer_idx, {"cache_position": cache_position}
+                    )
+                    # set flag that curr layer for cross-attn is already updated so we can re-use in subsequent calls
                     past_key_value.is_updated[self.layer_idx] = True
+                    # slice into state b/c cache may be larger:
+                    key_states = key_states_full[:batch_size, :, :cross_seq_length, :]
+                    value_states = value_states_full[:batch_size, :, :cross_seq_length, :]
+                else:
+                    cache_position = cache_position
+                    key_states_full, value_states_full = curr_past_key_value.update(
+                        key_states, value_states, self.layer_idx, {"cache_position": cache_position}
+                    )
+                    key_states = key_states_full[:batch_size, :, :, :]
+                    value_states = value_states_full[:batch_size, :, :, :]
 
         # compute scores, equivalent of torch.einsum("bnqd,bnkd->bnqk", query_states, key_states), compatible with onnx op>9
         scores = torch.matmul(query_states, key_states.transpose(3, 2))

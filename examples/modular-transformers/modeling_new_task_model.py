@@ -455,8 +455,9 @@ class NewTaskModelForNewTask(NewTaskModelPreTrainedModel, GenerationMixin):
         self,
         new_num_tokens: Optional[int] = None,
         pad_to_multiple_of=None,
+        mean_resizing=True
     ) -> nn.Embedding:
-        model_embeds = self.language_model.resize_token_embeddings(new_num_tokens, pad_to_multiple_of)
+        model_embeds = self.language_model.resize_token_embeddings(new_num_tokens, pad_to_multiple_of, mean_resizing)
 
         # Update vocab size
         self.config.text_config.vocab_size = model_embeds.num_embeddings

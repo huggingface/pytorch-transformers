@@ -1072,9 +1072,11 @@ class LxmertForPreTraining(LxmertPreTrainedModel):
             }
         self.visual_losses = visual_losses
 
-    def resize_token_embeddings(self, new_num_tokens: int, pad_to_multiple_of: Optional[int] = None) -> nn.Embedding:
+    def resize_token_embeddings(
+        self, new_num_tokens: int, pad_to_multiple_of: Optional[int] = None, mean_resizing: bool = True
+    ) -> nn.Embedding:
         # Adding the following steps to resize bias to match the shape of resized embeddings
-        new_embeddings = super().resize_token_embeddings(new_num_tokens, pad_to_multiple_of)
+        new_embeddings = super().resize_token_embeddings(new_num_tokens, pad_to_multiple_of, mean_resizing)
         self.cls.predictions.bias = self._resize_bias(self.cls.predictions.bias, new_num_tokens)
         return new_embeddings
 

@@ -651,16 +651,18 @@ class GPT2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin
         outputs = model.generate(
             input_ids=input_ids,
             attention_mask=inputs["attention_mask"].to(torch_device),
+            max_length=model.config.max_length,
         )
 
         outputs_tt = model.generate(
             input_ids=input_ids,
             attention_mask=inputs["attention_mask"].to(torch_device),
             token_type_ids=token_type_ids,
+            max_length=model.config.max_length,
         )
 
         inputs_non_padded = tokenizer(sentences[0], return_tensors="pt").input_ids.to(torch_device)
-        output_non_padded = model.generate(input_ids=inputs_non_padded)
+        output_non_padded = model.generate(input_ids=inputs_non_padded, max_length=model.config.max_length)
 
         num_paddings = inputs_non_padded.shape[-1] - inputs["attention_mask"][-1].long().sum().cpu().item()
         inputs_padded = tokenizer(sentences[1], return_tensors="pt").input_ids.to(torch_device)
@@ -711,12 +713,14 @@ class GPT2ModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin
         outputs = model.generate(
             input_ids=input_ids,
             attention_mask=inputs["attention_mask"].to(torch_device),
+            max_length=model.config.max_length,
         )
 
         outputs_tt = model.generate(
             input_ids=input_ids,
             attention_mask=inputs["attention_mask"].to(torch_device),
             token_type_ids=token_type_ids,
+            max_length=model.config.max_length,
         )
 
         inputs_non_padded = tokenizer(sentences[0], return_tensors="pt").input_ids.to(torch_device)

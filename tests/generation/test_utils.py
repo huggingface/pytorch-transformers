@@ -3215,7 +3215,7 @@ class GenerationIntegrationTests(unittest.TestCase, GenerationIntegrationTestsMi
         out = model.generate(input_ids, output_logits=True, output_scores=True, return_dict_in_generate=True)
         out_with_temp = model.generate(
             input_ids,
-            temperature=0.5,
+            temperature=0.6,
             do_sample=True,
             output_logits=True,
             output_scores=True,

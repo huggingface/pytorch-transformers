@@ -1134,39 +1134,42 @@ def parse_commit_message(commit_message: str) -> Dict[str, bool]:
 
 
 JOB_TO_TEST_FILE = {
-    "tests_torch_and_tf": r"tests/models/.*/test_modeling_(?:tf_|(?!flax)).*",
-    "tests_torch_and_flax": r"tests/models/.*/test_modeling_(?:flax|(?!tf)).*",
-    "tests_tf": r"tests/models/.*/test_modeling_tf_.*",
-    "tests_torch": r"tests/models/.*/test_modeling_(?!(?:flax_|tf_)).*",
-    "tests_generate": r"tests/models/.*/test_modeling_(?!(?:flax_|tf_)).*",
-    "tests_tokenization": r"tests/models/.*/test_tokenization.*",
-    "tests_processors": r"tests/models/.*/test_(?!(?:modeling_|tokenization_)).*",  # takes feature extractors, image processors, processors
-    "examples_torch": r"examples/pytorch/.*test_.*",
-    "examples_tensorflow": r"examples/tensorflow/.*test_.*",
-    "tests_exotic_models": r"tests/models/.*(?=layoutlmv|nat|deta|udop|nougat).*",
-    "tests_custom_tokenizers": r"tests/models/.*/test_tokenization_(?=bert_japanese|openai|clip).*",
-    # "repo_utils": r"tests/[^models].*test.*", TODO later on we might want to do
-    "pipelines_tf": r"tests/models/.*/test_modeling_tf_.*",
-    "pipelines_torch": r"tests/models/.*/test_modeling_(?!(?:flax_|tf_)).*",
-    "tests_hub": r"tests/.*",
-    "tests_onnx": r"tests/models/.*/test_modeling_(?:tf_|(?!flax)).*",
-    "tests_non_model": r"tests/[^/]*?/test_.*\.py",
+    "tests_torch_and_tf": [r"tests/models/.*/test_modeling_(?:tf_|(?!flax)).*"],
+    "tests_torch_and_flax": [r"tests/models/.*/test_modeling_(?:flax|(?!tf)).*"],
+    "tests_tf": [r"tests/models/.*/test_modeling_tf_.*"],
+    "tests_torch": [r"tests/models/.*/test_modeling_(?!(?:flax_|tf_)).*"],
+    "tests_generate": [r"tests/models/.*/test_modeling_(?!(?:flax_|tf_)).*", r"tests/generation/.*"],
+    "tests_tokenization": [r"tests/models/.*/test_tokenization.*"],
+    # takes feature extractors, image processors, processors
+    "tests_processors": [r"tests/models/.*/test_(?!(?:modeling_|tokenization_)).*"],
+    "examples_torch": [r"examples/pytorch/.*test_.*"],
+    "examples_tensorflow": [r"examples/tensorflow/.*test_.*"],
+    "tests_exotic_models": [r"tests/models/.*(?=layoutlmv|nat|deta|udop|nougat).*"],
+    "tests_custom_tokenizers": [r"tests/models/.*/test_tokenization_(?=bert_japanese|openai|clip).*"],
+    # "repo_utils": [r"tests/[^models].*test.*"], TODO later on we might want to do
+    "pipelines_tf": [r"tests/models/.*/test_modeling_tf_.*"],
+    "pipelines_torch": [r"tests/models/.*/test_modeling_(?!(?:flax_|tf_)).*"],
+    "tests_hub": [r"tests/.*"],
+    "tests_onnx": [r"tests/models/.*/test_modeling_(?:tf_|(?!flax)).*"],
+    "tests_non_model": [r"tests/[^/]*?/test_.*\.py"],
 }
 
 
 def create_test_list_from_filter(full_test_list, out_path):
     os.makedirs(out_path, exist_ok=True)
     all_test_files = "\n".join(full_test_list)
-    for job_name, _filter in JOB_TO_TEST_FILE.items():
-        file_name = os.path.join(out_path, f"{job_name}_test_list.txt")
-        if job_name == "tests_hub":
-            files_to_test = ["tests"]
-        else:
-            files_to_test = list(re.findall(_filter, all_test_files))
+    for job_name, _filters in JOB_TO_TEST_FILE.items():
+        files_to_test = set()  # Using sets to avoid duplicates when multiple filters match the same file
+        for _filter in _filters:
+            file_name = os.path.join(out_path, f"{job_name}_test_list.txt")
+            if job_name == "tests_hub":
+                files_to_test.add("tests")
+            else:
+                files_to_test = files_to_test.union(set(re.findall(_filter, all_test_files)))
         print(job_name, file_name)
         if len(files_to_test) > 0:  # No tests -> no file with test list
             with open(file_name, "w") as f:
-                f.write("\n".join(files_to_test))
+                f.write("\n".join(sorted(files_to_test)))
 
 
 if __name__ == "__main__":

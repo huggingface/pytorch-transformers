@@ -24,7 +24,7 @@ import os
 import random
 import sys
 import warnings
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, Union, get_args
 
 import torch
 import torch.utils._pytree as pytree
@@ -1053,18 +1053,21 @@ class HFTracer(Tracer):
                 raise NotImplementedError(
                     f"Symbolic trace with past_key_values input is not supported yet for the model {model.config.model_type}. Please open an issue or a PR in Transformers repository if you would like to see the support added."
                 )
-            num_heads = model.config.num_attention_heads
-            head_dim = model.config.hidden_size // model.config.num_attention_heads
+            if getattr(self, "use_cache_class", None):
+                inputs_dict[input_name] = DynamicCache()
+            else:
+                num_heads = model.config.num_attention_heads
+                head_dim = model.config.hidden_size // model.config.num_attention_heads
 
-            cache_shape = (shape[0], num_heads, kv_cache_length, head_dim)
-            pkv = tuple(
-                (
-                    torch.rand(cache_shape, dtype=torch.float, device=device),
-                    torch.rand(cache_shape, dtype=torch.float, device=device),
+                cache_shape = (shape[0], num_heads, kv_cache_length, head_dim)
+                pkv = tuple(
+                    (
+                        torch.rand(cache_shape, dtype=torch.float, device=device),
+                        torch.rand(cache_shape, dtype=torch.float, device=device),
+                    )
+                    for _ in range(model.config.num_hidden_layers)
                 )
-                for i in range(model.config.num_hidden_layers)
-            )
-            inputs_dict[input_name] = pkv
+                inputs_dict[input_name] = pkv
         else:
             shape_with_hidden_size = shape + [model.config.hidden_size]
             inputs_dict[input_name] = torch.zeros(shape_with_hidden_size, dtype=torch.float, device=device)
@@ -1073,6 +1076,11 @@ class HFTracer(Tracer):
 
     def create_proxy(self, kind, target, args, kwargs, name=None, type_expr=None, proxy_factory_fn=None):
         rv = super().create_proxy(kind, target, args, kwargs, name, type_expr, proxy_factory_fn)
+
+        use_cache_class = getattr(self, "use_cache_class", None)
+        if use_cache_class and kind == "placeholder" and target == "past_key_values":
+            rv.__class__ = HFCacheProxy
+            rv.install_orig_cache_cls(Cache)
 
         if kind == "placeholder" and target in self.meta_args:
             rv.install_metadata(self.meta_args[target])
@@ -1281,6 +1289,18 @@ class HFTracer(Tracer):
 
         input_names = sig.parameters.keys() - concrete_args.keys()
 
+        if "past_key_values" in input_names:
+            annotation = inspect.Parameter.empty
+            for p in sig.parameters.values():
+                if p.name == "past_key_values":
+                    annotation = p.annotation
+            if annotation is inspect.Parameter.empty:
+                raise RuntimeError("Could not infer if past_key_values use Cache class or a tuple.")
+
+            self.use_cache_class = Cache in get_args(annotation)
+        else:
+            self.use_cache_class = False
+
         # Creating a random input shape to generate dummy inputs.
         batch_size = _generate_random_int()
         sequence_length = _generate_random_int()
@@ -1352,6 +1372,8 @@ class HFTracer(Tracer):
             # Without this, return type annotation "Tuple" is causing code execution failure.
             if node.op == "output":
                 node.type = None
+
+        self.use_cache_class = None
 
         return self.graph
 

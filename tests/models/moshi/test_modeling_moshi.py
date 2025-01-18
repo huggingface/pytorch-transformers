@@ -673,6 +673,18 @@ class MoshiTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
     def test_contrastive_generate_low_memory(self):
         pass
 
+    @unittest.skip(
+        "Moshi either needs deafult generation config or fix for fullgraph compile because it hardcodes SlidingWindowCache in custom generation loop."
+    )
+    def test_greedy_generate_dict_outputs_use_cache(self):
+        pass
+
+    @unittest.skip(
+        "Moshi either needs deafult generation config or fix for fullgraph compile because it hardcodes SlidingWindowCache in custom generation loop."
+    )
+    def test_beam_search_generate_dict_outputs_use_cache(self):
+        pass
+
     @unittest.skip("Adapting this test is costly. `test_eager_matches_sdpa_generate` tests this already.")
     @parameterized.expand([("float16",), ("bfloat16",), ("float32",)])
     @require_torch_sdpa

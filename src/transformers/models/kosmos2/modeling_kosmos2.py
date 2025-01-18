@@ -1694,6 +1694,7 @@ class Kosmos2TextForCausalLM(Kosmos2PreTrainedModel, GenerationMixin):
         past_key_values=None,
         attention_mask=None,
         use_cache=None,
+        cache_position=None,
         **model_kwargs,
     ):
         # Overwritten -- in specific circumstances we don't want to forward image inputs to the model
@@ -1704,17 +1705,21 @@ class Kosmos2TextForCausalLM(Kosmos2PreTrainedModel, GenerationMixin):
             attention_mask = input_ids.new_ones(input_shape)
 
         position_ids = None
+        if cache_position is None:
+            past_length = past_key_values[0][0].shape[2] if past_key_values is not None else 0
+            cache_position = torch.arange(past_length, input_ids.shape[1], dtype=torch.long, device=input_ids.device)
 
-        # cut input_ids if past_key_values is used
         if past_key_values is not None:
             position_ids = create_position_ids_from_input_ids(
                 input_ids,
                 padding_idx=self.config.pad_token_id,
                 past_key_values_length=0,
-            )[:, -1:]
+            )
 
-            input_ids = input_ids[:, -1:]
-            # the image info. is already encoded into the past keys/values
+            if input_ids.shape[1] != cache_position.shape[0]:
+                input_ids = input_ids[:, cache_position]
+                position_ids = position_ids[:, -input_ids.shape[1] :]
+
             image_embeds = None
             image_embeds_position_mask = None
         elif image_embeds_position_mask is not None:

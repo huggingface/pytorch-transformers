@@ -441,6 +441,9 @@ INSTRUCTBLIP_INPUTS_DOCSTRING = r"""
             Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
         interpolate_pos_encoding (`bool`, *optional*, defaults to `False`):
             Whether to interpolate the pre-trained position encodings.
+        use_cache (`bool`, *optional*):
+            If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding (see
+            `past_key_values`).
 """
 
 
@@ -1375,6 +1378,7 @@ class InstructBlipForConditionalGeneration(InstructBlipPreTrainedModel, Generati
         labels: Optional[torch.LongTensor] = None,
         return_dict: Optional[bool] = None,
         interpolate_pos_encoding: bool = False,
+        use_cache: Optional[bool] = None,
     ) -> Union[Tuple, InstructBlipForConditionalGenerationModelOutput]:
         r"""
         labels (`torch.LongTensor` of shape `(batch_size,)`, *optional*):
@@ -1485,6 +1489,7 @@ class InstructBlipForConditionalGeneration(InstructBlipPreTrainedModel, Generati
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
+                use_cache=use_cache,
             )
             logits = outputs.logits if return_dict else outputs[0]
             loss = None
@@ -1510,6 +1515,7 @@ class InstructBlipForConditionalGeneration(InstructBlipPreTrainedModel, Generati
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
                 labels=labels,
+                use_cache=use_cache,
             )
             loss = outputs.loss if return_dict else outputs[0]
             logits = outputs.logits if return_dict else outputs[1]

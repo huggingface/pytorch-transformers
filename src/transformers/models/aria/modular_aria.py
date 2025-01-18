@@ -1530,6 +1530,7 @@ class AriaForConditionalGeneration(AriaPreTrainedModel, GenerationMixin):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
             num_logits_to_keep=num_logits_to_keep,
+            cache_position=cache_position,
         )
 
         logits = outputs[0]

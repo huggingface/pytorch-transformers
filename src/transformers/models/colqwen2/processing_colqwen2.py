@@ -99,7 +99,8 @@ class ColQwen2Processor(ProcessorMixin):
 
     attributes = ["image_processor", "tokenizer"]
     valid_kwargs = ["chat_template"]
-    image_processor_class = "ColQwen2ImageProcessor"
+
+    image_processor_class = "Qwen2VLImageProcessor"
     tokenizer_class = ("Qwen2Tokenizer", "Qwen2TokenizerFast")
 
     def __init__(
@@ -108,7 +109,7 @@ class ColQwen2Processor(ProcessorMixin):
         tokenizer=None,
         chat_template=None,
         visual_prompt_prefix: str = "<|im_start|>user\n<|vision_start|><|image_pad|><|vision_end|>Describe the image.<|im_end|><|endoftext|>",
-        query_prefix: str = "Question: ",
+        query_prefix: str = "Query: ",
         num_image_tokens: int = 768,
         **kwargs,
     ):
@@ -206,13 +207,13 @@ class ColQwen2Processor(ProcessorMixin):
             if image_grid_thw is not None:
                 merge_length = self.image_processor.merge_size**2
                 index = 0
-                for i in range(len(text)):
-                    while self.image_token in text[i]:
-                        text[i] = text[i].replace(
+                for i in range(len(texts_doc)):
+                    while self.image_token in texts_doc[i]:
+                        texts_doc[i] = texts_doc[i].replace(
                             self.image_token, "<|placeholder|>" * (image_grid_thw[index].prod() // merge_length), 1
                         )
                         index += 1
-                    text[i] = text[i].replace("<|placeholder|>", self.image_token)
+                    texts_doc[i] = texts_doc[i].replace("<|placeholder|>", self.image_token)
 
             text_inputs = self.tokenizer(texts_doc, **output_kwargs["text_kwargs"])
 
@@ -251,9 +252,8 @@ class ColQwen2Processor(ProcessorMixin):
             texts_query: List[str] = []
 
             for query in text:
-                query = self.tokenizer.bos_token + self.query_prefix + query + suffix
-                query += "\n"  # make input ISO to PaliGemma's processor
-                texts_query.append(query)
+                augmented_query = self.query_prefix + query + suffix
+                texts_query.append(augmented_query)
 
             output_kwargs["text_kwargs"]["max_length"] = output_kwargs["text_kwargs"].get("max_length", 50)
 

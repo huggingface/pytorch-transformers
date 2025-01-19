@@ -65,6 +65,7 @@ class LayoutXLMProcessor(ProcessorMixin):
 
         super().__init__(image_processor, tokenizer)
 
+    #  TODO uniformize signature
     def __call__(
         self,
         images,

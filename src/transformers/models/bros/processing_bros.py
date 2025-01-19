@@ -44,6 +44,7 @@ class BrosProcessor(ProcessorMixin):
 
         super().__init__(tokenizer)
 
+    #  TODO uniformize signature if possible, or move to text-only (only bboxes needed)
     def __call__(
         self,
         text: Union[TextInput, PreTokenizedInput, List[TextInput], List[PreTokenizedInput]] = None,

@@ -75,6 +75,7 @@ class Pix2StructProcessor(ProcessorMixin):
         tokenizer.return_token_type_ids = False
         super().__init__(image_processor, tokenizer)
 
+    #  TODO uniformize signature
     def __call__(
         self,
         images=None,

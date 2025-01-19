@@ -389,6 +389,13 @@ def check_support_param_buffer_assignment(model_to_load, state_dict, start_prefi
     if is_deepspeed_zero3_enabled():
         return False
 
+    try:
+        from deepspeed.moe.utils import has_moe_layers
+        if has_moe_layers(model_to_load)[0]:
+            return False
+    except:
+        pass
+
     # Some models explicitly do not support param buffer assignment
     if not getattr(model_to_load, "_supports_param_buffer_assignment", True):
         logger.debug(

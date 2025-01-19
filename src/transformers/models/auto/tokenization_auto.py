@@ -430,6 +430,7 @@ else:
                 ),
             ),
             ("qwen2_vl", ("Qwen2Tokenizer", "Qwen2TokenizerFast" if is_tokenizers_available() else None)),
+            ("colqwen2", ("ColQwen2Tokenizer", "ColQwen2TokenizerFast" if is_tokenizers_available() else None)),
             ("rag", ("RagTokenizer", None)),
             ("realm", ("RealmTokenizer", "RealmTokenizerFast" if is_tokenizers_available() else None)),
             (

@@ -92,6 +92,7 @@ PROCESSOR_MAPPING_NAMES = OrderedDict(
         ("pop2piano", "Pop2PianoProcessor"),
         ("qwen2_audio", "Qwen2AudioProcessor"),
         ("qwen2_vl", "Qwen2VLProcessor"),
+        ("colqwen2", "ColQwen2Processor"),
         ("sam", "SamProcessor"),
         ("seamless_m4t", "SeamlessM4TProcessor"),
         ("sew", "Wav2Vec2Processor"),

@@ -21,10 +21,11 @@
 
 
 from copy import deepcopy
+from typing import Any, Dict
 
 from ...configuration_utils import PretrainedConfig
 from ...utils import logging
-from ..auto import CONFIG_MAPPING, AutoConfig
+from ..auto import CONFIG_MAPPING
 
 
 logger = logging.get_logger(__name__)
@@ -47,8 +48,6 @@ class ColQwen2Config(PretrainedConfig):
     Args:
         vlm_config (`PretrainedConfig`, *optional*):
             Configuration of the VLM backbone model.
-        text_config (`PretrainedConfig`, *optional*):
-            Configuration of the text backbone model. Overrides the `text_config` attribute of the `vlm_config` if provided.
         embedding_dim (`int`, *optional*, defaults to 128):
             Dimension of the multi-vector embeddings produced by the model.
 
@@ -63,12 +62,11 @@ class ColQwen2Config(PretrainedConfig):
     """
 
     model_type = "colqwen2"
-    sub_configs = {"vlm_config": PretrainedConfig, "text_config": AutoConfig}
+    sub_configs: Dict[str, Any] = {"vlm_config": PretrainedConfig}
 
     def __init__(
         self,
         vlm_config=None,
-        text_config=None,
         embedding_dim: int = 128,
         **kwargs,
     ):
@@ -87,8 +85,12 @@ class ColQwen2Config(PretrainedConfig):
                 raise ValueError(
                     f"Invalid model type for `vlm_config`. Expected `qwen2_vl`, but got {vlm_config['model_type']}."
                 )
-            vlm_config = CONFIG_MAPPING[vlm_config["model_type"]](**vlm_config)
+            vlm_config = CONFIG_MAPPING["qwen2_vl"](**vlm_config)
         elif isinstance(vlm_config, PretrainedConfig):
+            if vlm_config.model_type != "qwen2_vl":
+                raise ValueError(
+                    f"Invalid model type for `vlm_config`. Expected `qwen2_vl`, but got {vlm_config.model_type}."
+                )
             vlm_config = vlm_config
         else:
             raise TypeError(
@@ -96,11 +98,8 @@ class ColQwen2Config(PretrainedConfig):
             )
 
         self.vlm_config = vlm_config
-        self.text_config = text_config = text_config if text_config is not None else vlm_config.text_config
-        if isinstance(self.text_config, dict):
-            text_config["model_type"] = text_config["model_type"] if "model_type" in text_config else "qwen2"
-            self.text_config = CONFIG_MAPPING[text_config["model_type"]](**text_config)
-
         self.embedding_dim = embedding_dim
-
         super().__init__(**kwargs)
+
+
+__all__ = ["ColQwen2Config"]

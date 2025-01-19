@@ -17,7 +17,7 @@
 import math
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import ClassVar, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
 from transformers.models.qwen2_vl.processing_qwen2_vl import Qwen2VLProcessor
 
@@ -44,7 +44,7 @@ from ...utils import (
     logging,
     replace_return_docstrings,
 )
-from ..auto import CONFIG_MAPPING, AutoConfig
+from ..auto import CONFIG_MAPPING
 
 
 if is_torch_available():
@@ -90,8 +90,6 @@ class ColQwen2Config(PretrainedConfig):
     Args:
         vlm_config (`PretrainedConfig`, *optional*):
             Configuration of the VLM backbone model.
-        text_config (`PretrainedConfig`, *optional*):
-            Configuration of the text backbone model. Overrides the `text_config` attribute of the `vlm_config` if provided.
         embedding_dim (`int`, *optional*, defaults to 128):
             Dimension of the multi-vector embeddings produced by the model.
 
@@ -106,12 +104,11 @@ class ColQwen2Config(PretrainedConfig):
     """
 
     model_type = "colqwen2"
-    sub_configs = {"vlm_config": PretrainedConfig, "text_config": AutoConfig}
+    sub_configs: Dict[str, Any] = {"vlm_config": PretrainedConfig}
 
     def __init__(
         self,
         vlm_config=None,
-        text_config=None,
         embedding_dim: int = 128,
         **kwargs,
     ):
@@ -130,8 +127,12 @@ class ColQwen2Config(PretrainedConfig):
                 raise ValueError(
                     f"Invalid model type for `vlm_config`. Expected `qwen2_vl`, but got {vlm_config['model_type']}."
                 )
-            vlm_config = CONFIG_MAPPING[vlm_config["model_type"]](**vlm_config)
+            vlm_config = CONFIG_MAPPING["qwen2_vl"](**vlm_config)
         elif isinstance(vlm_config, PretrainedConfig):
+            if vlm_config.model_type != "qwen2_vl":
+                raise ValueError(
+                    f"Invalid model type for `vlm_config`. Expected `qwen2_vl`, but got {vlm_config.model_type}."
+                )
             vlm_config = vlm_config
         else:
             raise TypeError(
@@ -139,13 +140,7 @@ class ColQwen2Config(PretrainedConfig):
             )
 
         self.vlm_config = vlm_config
-        self.text_config = text_config = text_config if text_config is not None else vlm_config.text_config
-        if isinstance(self.text_config, dict):
-            text_config["model_type"] = text_config["model_type"] if "model_type" in text_config else "qwen2"
-            self.text_config = CONFIG_MAPPING[text_config["model_type"]](**text_config)
-
         self.embedding_dim = embedding_dim
-
         super().__init__(**kwargs)
 
 
@@ -591,7 +586,7 @@ class ColQwen2PreTrainedModel(PreTrainedModel):
         std = (
             self.config.initializer_range
             if hasattr(self.config, "initializer_range")
-            else self.config.vlm_config.text_config.initializer_range
+            else self.config.vlm_config.initializer_range
         )
 
         if isinstance(module, (nn.Linear, nn.Conv2d)):
@@ -708,16 +703,13 @@ class ColQwen2ForRetrieval(PreTrainedModel):
     def __init__(self, config: ColQwen2Config):
         super().__init__(config)
         self.config = config
-        self.vocab_size = config.vlm_config.text_config.vocab_size
+        self.vocab_size = config.vlm_config.vocab_size
 
-        vlm = AutoModelForImageTextToText.from_config(config.vlm_config)
-        if vlm.language_model._tied_weights_keys is not None:
-            self._tied_weights_keys = [f"vlm.language_model.{k}" for k in vlm.language_model._tied_weights_keys]
-        self.vlm = vlm
+        self.vlm = AutoModelForImageTextToText.from_config(config.vlm_config)
 
         self.embedding_dim = self.config.embedding_dim
         self.embedding_proj_layer = nn.Linear(
-            self.config.vlm_config.text_config.hidden_size,
+            self.config.vlm_config.hidden_size,
             self.embedding_dim,
         )
 

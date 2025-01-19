@@ -82,12 +82,6 @@ def load_original_state_dict(model_id: str, revision: Optional[str] = None) -> D
                 for key in f.keys():
                     original_state_dict[key] = f.get_tensor(key)
 
-    # Some weights are tied, so `lm.head`` is not saved. Let's clone to load state dict.
-    if "lm_head.weight" not in original_state_dict:
-        original_state_dict["vlm.language_model.lm_head.weight"] = original_state_dict[
-            "model.language_model.model.embed_tokens.weight"
-        ].clone()
-
     return original_state_dict
 
 
@@ -139,10 +133,6 @@ def convert_colqwen2_weights_to_hf(
     # Load the original weights
     model.load_state_dict(original_state_dict)
     print("Loaded original model weights")
-
-    # Tie the weights (following ColQwen2's `__init__`` step)
-    if model.vlm.language_model._tied_weights_keys is not None:
-        model._tied_weights_keys = [f"vlm.language_model.{k}" for k in model.vlm.language_model._tied_weights_keys]
 
     # Sanity check: ensure all keys are the same
     state_dict_keys_old = set(original_state_dict.keys())

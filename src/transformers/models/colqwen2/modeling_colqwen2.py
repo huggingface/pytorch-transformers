@@ -73,7 +73,7 @@ class ColQwen2PreTrainedModel(PreTrainedModel):
         std = (
             self.config.initializer_range
             if hasattr(self.config, "initializer_range")
-            else self.config.vlm_config.text_config.initializer_range
+            else self.config.vlm_config.initializer_range
         )
 
         if isinstance(module, (nn.Linear, nn.Conv2d)):
@@ -190,16 +190,13 @@ class ColQwen2ForRetrieval(PreTrainedModel):
     def __init__(self, config: ColQwen2Config):
         super().__init__(config)
         self.config = config
-        self.vocab_size = config.vlm_config.text_config.vocab_size
+        self.vocab_size = config.vlm_config.vocab_size
 
-        vlm = AutoModelForImageTextToText.from_config(config.vlm_config)
-        if vlm.language_model._tied_weights_keys is not None:
-            self._tied_weights_keys = [f"vlm.language_model.{k}" for k in vlm.language_model._tied_weights_keys]
-        self.vlm = vlm
+        self.vlm = AutoModelForImageTextToText.from_config(config.vlm_config)
 
         self.embedding_dim = self.config.embedding_dim
         self.embedding_proj_layer = nn.Linear(
-            self.config.vlm_config.text_config.hidden_size,
+            self.config.vlm_config.hidden_size,
             self.embedding_dim,
         )
 

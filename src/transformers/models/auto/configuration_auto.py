@@ -242,7 +242,6 @@ CONFIG_MAPPING_NAMES = OrderedDict(
         ("qwen2_audio_encoder", "Qwen2AudioEncoderConfig"),
         ("qwen2_moe", "Qwen2MoeConfig"),
         ("qwen2_vl", "Qwen2VLConfig"),
-        ("colqwen2", "ColQwen2Config"),
         ("rag", "RagConfig"),
         ("realm", "RealmConfig"),
         ("recurrent_gemma", "RecurrentGemmaConfig"),

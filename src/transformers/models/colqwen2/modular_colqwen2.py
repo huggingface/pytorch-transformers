@@ -50,6 +50,7 @@ from ..auto import CONFIG_MAPPING, AutoConfig
 
 if is_torch_available():
     import torch
+    from torch import nn
 
 
 logger = logging.get_logger(__name__)
@@ -660,16 +661,17 @@ COLQWEN2_FOR_RETRIEVAL_INPUT_DOCSTRING = r"""
     """
     # TODO: Update
     ColQwen2 leverages Vision Language Models (VLMs) to construct efficient multi-vector embeddings in the visual space for document retrieval.
-    By feeding the ViT output patches from PaliGemma-3B to a linear projection, we create a multi-vector representation of documents. The model
+    By feeding the ViT output patches from Qwen2-VL to a linear projection, we create a multi-vector representation of documents. The model
     is trained to maximize the similarity between these document embeddings and the query embeddings, following the ColBERT method.
 
     Using ColQwen2 removes the need for potentially complex and brittle layout recognition and OCR pipelines with a single model that can take into account
     both the textual and visual content (layout, charts, ...) of a document.
 
-    ColQwen2 was introduced in the following paper: [*ColQwen2: Efficient Document Retrieval with Vision Language Models*](https://arxiv.org/abs/2407.01449).
+    ColQwen2 is part of the ColVision model family, which was introduced with ColPali in the following paper: [*ColPali: Efficient Document Retrieval with
+    Vision Language Models*](https://arxiv.org/abs/2407.01449).
 
     Resources:
-    - A blog post detailing ColQwen2, a vision retrieval model, can be found [here](https://huggingface.co/blog/manu/colpali). 📝
+    - A blog post detailing ColPali, a vision retrieval model, can be found [here](https://huggingface.co/blog/manu/colpali). 📝
     - The code for using and training the original ColQwen2 model and for the `colpali-engine` package can be found [here](https://github.com/illuin-tech/colpali). 🌎
     - Cookbooks for learning to use the Hf version of ColQwen2, fine-tuning, and similarity maps generation can be found [here](https://github.com/tonywu71/colpali-cookbooks). 📚
     """

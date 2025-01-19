@@ -15,10 +15,12 @@
 import unittest
 
 from datasets import load_dataset
+from huggingface_hub import VisualQuestionAnsweringOutputElement
 
 from transformers import MODEL_FOR_VISUAL_QUESTION_ANSWERING_MAPPING, is_vision_available
 from transformers.pipelines import pipeline
 from transformers.testing_utils import (
+    compare_pipeline_output_to_hub_spec,
     is_pipeline_test,
     is_torch_available,
     nested_simplify,
@@ -90,6 +92,9 @@ class VisualQuestionAnsweringPipelineTests(unittest.TestCase):
                 [{"score": ANY(float), "answer": ANY(str)}],
             ],
         )
+        for output in outputs:
+            for element in output:
+                compare_pipeline_output_to_hub_spec(element, VisualQuestionAnsweringOutputElement)
 
     @require_torch
     def test_small_model_pt(self):
@@ -101,11 +106,15 @@ class VisualQuestionAnsweringPipelineTests(unittest.TestCase):
         self.assertEqual(
             outputs, [{"score": ANY(float), "answer": ANY(str)}, {"score": ANY(float), "answer": ANY(str)}]
         )
+        for element in outputs:
+            compare_pipeline_output_to_hub_spec(element, VisualQuestionAnsweringOutputElement)
 
         outputs = vqa_pipeline({"image": image, "question": question}, top_k=2)
         self.assertEqual(
             outputs, [{"score": ANY(float), "answer": ANY(str)}, {"score": ANY(float), "answer": ANY(str)}]
         )
+        for element in outputs:
+            compare_pipeline_output_to_hub_spec(element, VisualQuestionAnsweringOutputElement)
 
     @require_torch
     @require_torch_accelerator
@@ -137,6 +146,8 @@ class VisualQuestionAnsweringPipelineTests(unittest.TestCase):
 
         outputs = vqa_pipeline(image=image, question=question)
         self.assertEqual(outputs, [{"answer": ANY(str)}])
+        for element in outputs:
+            compare_pipeline_output_to_hub_spec(element, VisualQuestionAnsweringOutputElement)
 
     @slow
     @require_torch
@@ -162,6 +173,9 @@ class VisualQuestionAnsweringPipelineTests(unittest.TestCase):
             nested_simplify(outputs, decimals=4),
             [[{"score": 0.8799, "answer": "2"}, {"score": 0.296, "answer": "1"}]] * 2,
         )
+        for output in outputs:
+            for element in output:
+                compare_pipeline_output_to_hub_spec(element, VisualQuestionAnsweringOutputElement)
 
     @slow
     @require_torch
@@ -187,6 +201,9 @@ class VisualQuestionAnsweringPipelineTests(unittest.TestCase):
 
         outputs = vqa_pipeline([{"image": image, "question": question}, {"image": image, "question": question}])
         self.assertEqual(outputs, [[{"answer": "two"}]] * 2)
+        for output in outputs:
+            for element in output:
+                compare_pipeline_output_to_hub_spec(element, VisualQuestionAnsweringOutputElement)
 
     @require_torch
     def test_small_model_pt_image_list(self):
@@ -200,6 +217,9 @@ class VisualQuestionAnsweringPipelineTests(unittest.TestCase):
         self.assertEqual(
             outputs, [[{"score": ANY(float), "answer": ANY(str)}], [{"score": ANY(float), "answer": ANY(str)}]]
         )
+        for output in outputs:
+            for element in output:
+                compare_pipeline_output_to_hub_spec(element, VisualQuestionAnsweringOutputElement)
 
     @require_torch
     def test_small_model_pt_question_list(self):
@@ -211,6 +231,9 @@ class VisualQuestionAnsweringPipelineTests(unittest.TestCase):
         self.assertEqual(
             outputs, [[{"score": ANY(float), "answer": ANY(str)}], [{"score": ANY(float), "answer": ANY(str)}]]
         )
+        for output in outputs:
+            for element in output:
+                compare_pipeline_output_to_hub_spec(element, VisualQuestionAnsweringOutputElement)
 
     @require_torch
     def test_small_model_pt_both_list(self):
@@ -231,6 +254,9 @@ class VisualQuestionAnsweringPipelineTests(unittest.TestCase):
                 [{"score": ANY(float), "answer": ANY(str)}],
             ],
         )
+        for output in outputs:
+            for element in output:
+                compare_pipeline_output_to_hub_spec(element, VisualQuestionAnsweringOutputElement)
 
     @require_torch
     def test_small_model_pt_dataset(self):
@@ -246,6 +272,9 @@ class VisualQuestionAnsweringPipelineTests(unittest.TestCase):
                 [{"score": ANY(float), "answer": ANY(str)}],
             ],
         )
+        for output in outputs:
+            for element in output:
+                compare_pipeline_output_to_hub_spec(element, VisualQuestionAnsweringOutputElement)
 
     @require_tf
     @unittest.skip(reason="Visual question answering not implemented in TF")

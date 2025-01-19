@@ -375,7 +375,7 @@ class ColQwen2ForRetrieval(ColQwen2PreTrainedModel):
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
-        inputs_embeds: Optional[torch.FloatTensor] = None,
+        inputs_embeds: Optional[torch.Tensor] = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
@@ -390,11 +390,11 @@ class ColQwen2ForRetrieval(ColQwen2PreTrainedModel):
         training with multiple GPUs.
         """
         if inputs_embeds is None:
-            inputs_embeds = self.model.embed_tokens(input_ids)
+            inputs_embeds = self.vlm.model.embed_tokens(input_ids)
 
             if pixel_values is not None:
-                pixel_values = pixel_values.type(self.visual.get_dtype())
-                image_embeds = self.visual(pixel_values, grid_thw=image_grid_thw)
+                pixel_values = pixel_values.type(self.vlm.visual.get_dtype())
+                image_embeds = self.vlm.visual(pixel_values, grid_thw=image_grid_thw)
                 image_mask = (
                     (input_ids == self.config.vlm_config.image_token_id).unsqueeze(-1).expand_as(inputs_embeds)
                 )
@@ -402,8 +402,8 @@ class ColQwen2ForRetrieval(ColQwen2PreTrainedModel):
                 inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
 
             if pixel_values_videos is not None:
-                pixel_values_videos = pixel_values_videos.type(self.visual.get_dtype())
-                video_embeds = self.visual(pixel_values_videos, grid_thw=video_grid_thw)
+                pixel_values_videos = pixel_values_videos.type(self.vlm.visual.get_dtype())
+                video_embeds = self.vlm.visual(pixel_values_videos, grid_thw=video_grid_thw)
                 video_mask = (
                     (input_ids == self.config.vlm_config.video_token_id).unsqueeze(-1).expand_as(inputs_embeds)
                 )
@@ -434,8 +434,10 @@ class ColQwen2ForRetrieval(ColQwen2PreTrainedModel):
         input_ids: torch.LongTensor,
         pixel_values: torch.FloatTensor = None,
         attention_mask: Optional[torch.Tensor] = None,
+        output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        use_cache: Optional[bool] = None,
         *args,
         **kwargs,
     ) -> Union[Tuple, ColQwen2ForRetrievalOutput]:  # noqa: F821
@@ -453,17 +455,17 @@ class ColQwen2ForRetrieval(ColQwen2PreTrainedModel):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         position_ids, rope_deltas = self.get_rope_index(
-            input_ids=kwargs["input_ids"],
+            input_ids=input_ids,
             image_grid_thw=kwargs.get("image_grid_thw", None),
             video_grid_thw=None,
-            attention_mask=kwargs.get("attention_mask", None),
+            attention_mask=attention_mask,
         )
 
         outputs = self.inner_forward(
             input_ids=input_ids,
             attention_mask=attention_mask,
             position_ids=position_ids,
-            use_cache=False,
+            use_cache=use_cache,
             output_attentions=output_attentions,
             output_hidden_states=True,
             return_dict=return_dict,

@@ -1,26 +1,14 @@
-# Copyright 2021 The HuggingFace Team, the AllenNLP library authors. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-"""
-Script to close stale issue. Taken in part from the AllenNLP repository.
-https://github.com/allenai/allennlp.
-"""
 import os
+import logging
 from datetime import datetime as dt
+from typing import List
 
-import github.GithubException
-from github import Github
+import github
+from github import Github, GithubException
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 LABELS_TO_EXEMPT = [
     "good first issue",
@@ -31,43 +19,72 @@ LABELS_TO_EXEMPT = [
     "wip",
 ]
 
+STALE_COMMENT = (
+    "This issue has been automatically marked as stale because it has not had "
+    "recent activity. If you think this still needs to be addressed "
+    "please comment on this thread.\n\nPlease note that issues that do not follow the "
+    "[contributing guidelines](https://github.com/huggingface/transformers/blob/main/CONTRIBUTING.md) "
+    "are likely to be ignored."
+)
 
-def main():
-    g = Github(os.environ["GITHUB_TOKEN"])
-    repo = g.get_repo("huggingface/transformers")
+
+def close_stale_issues(repo):
+    """Close stale issues based on the criteria defined."""
     open_issues = repo.get_issues(state="open")
 
     for i, issue in enumerate(open_issues):
-        print(i, issue)
-        comments = sorted(list(issue.get_comments()), key=lambda i: i.created_at, reverse=True)
-        last_comment = comments[0] if len(comments) > 0 else None
-        if (
-            last_comment is not None and last_comment.user.login == "github-actions[bot]"
-            and (dt.utcnow() - issue.updated_at.replace(tzinfo=None)).days > 7
-            and (dt.utcnow() - issue.created_at.replace(tzinfo=None)).days >= 30
-            and not any(label.name.lower() in LABELS_TO_EXEMPT for label in issue.get_labels())
-        ):
-            # print(f"Would close issue {issue.number} since it has been 7 days of inactivity since bot mention.")
-            try:
-                issue.edit(state="closed")
-            except github.GithubException as e:
-                print("Couldn't close the issue:", repr(e))
-        elif (
-            (dt.utcnow() - issue.updated_at.replace(tzinfo=None)).days > 23
-            and (dt.utcnow() - issue.created_at.replace(tzinfo=None)).days >= 30
-            and not any(label.name.lower() in LABELS_TO_EXEMPT for label in issue.get_labels())
-        ):
-            # print(f"Would add stale comment to {issue.number}")
-            try:
-                issue.create_comment(
-                    "This issue has been automatically marked as stale because it has not had "
-                    "recent activity. If you think this still needs to be addressed "
-                    "please comment on this thread.\n\nPlease note that issues that do not follow the "
-                    "[contributing guidelines](https://github.com/huggingface/transformers/blob/main/CONTRIBUTING.md) "
-                    "are likely to be ignored."
-                )
-            except github.GithubException as e:
-                print("Couldn't create comment:", repr(e))
+        logger.info(f"Processing issue #{issue.number}: {issue.title}")
+        comments = sorted(issue.get_comments(), key=lambda c: c.created_at, reverse=True)
+        last_comment = comments[0] if comments else None
+
+        if should_close_issue(issue, last_comment):
+            close_issue(issue)
+        elif should_mark_stale(issue):
+            mark_issue_stale(issue)
+
+
+def should_close_issue(issue, last_comment) -> bool:
+    """Determine if an issue should be closed."""
+    return (
+        last_comment is not None and last_comment.user.login == "github-actions[bot]"
+        and (dt.utcnow() - issue.updated_at.replace(tzinfo=None)).days > 7
+        and (dt.utcnow() - issue.created_at.replace(tzinfo=None)).days >= 30
+        and not any(label.name.lower() in LABELS_TO_EXEMPT for label in issue.get_labels())
+    )
+
+
+def close_issue(issue):
+    """Close the given issue."""
+    try:
+        issue.edit(state="closed")
+        logger.info(f"Closed issue #{issue.number}")
+    except GithubException as e:
+        logger.error(f"Couldn't close issue #{issue.number}: {repr(e)}")
+
+
+def should_mark_stale(issue) -> bool:
+    """Determine if an issue should be marked as stale."""
+    return (
+        (dt.utcnow() - issue.updated_at.replace(tzinfo=None)).days > 23
+        and (dt.utcnow() - issue.created_at.replace(tzinfo=None)).days >= 30
+        and not any(label.name.lower() in LABELS_TO_EXEMPT for label in issue.get_labels())
+    )
+
+
+def mark_issue_stale(issue):
+    """Mark the given issue as stale by creating a comment."""
+    try:
+        issue.create_comment(STALE_COMMENT)
+        logger.info(f"Marked issue #{issue.number} as stale.")
+    except GithubException as e:
+        logger.error(f"Couldn't create comment for issue #{issue.number}: {repr(e)}")
+
+
+def main():
+    """Main function to close stale issues."""
+    g = Github(os.environ["GITHUB_TOKEN"])
+    repo = g.get_repo("huggingface/transformers")
+    close_stale_issues(repo)
 
 
 if __name__ == "__main__":

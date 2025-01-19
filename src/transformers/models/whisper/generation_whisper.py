@@ -534,8 +534,8 @@ class WhisperGenerationMixin(GenerationMixin):
         >>> inputs = processor(audio, return_tensors="pt", truncation=False, padding="longest", return_attention_mask=True, sampling_rate=16_000)
         >>> inputs = inputs.to("cuda", torch.float32)
 
-        >>> # transcribe audio to ids
-        >>> generated_ids = model.generate(**inputs)
+        >>> # transcribe audio to ids, and set `return_timestamps=True` for long-form transcription
+        >>> generated_ids = model.generate(**inputs, return_timestamps=True)
 
         >>> transcription = processor.batch_decode(generated_ids, skip_special_tokens=True)
         >>> transcription[0]

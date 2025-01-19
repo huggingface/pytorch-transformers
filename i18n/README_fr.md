@@ -210,32 +210,32 @@ Le tokenizer est responsable de toutes les étapes de prétraitement que le mod�
 
 Le modèle lui-même est un module [`nn.Module` PyTorch](https://pytorch.org/docs/stable/nn.html#torch.nn.Module) ou un modèle [`tf.keras.Model` TensorFlow](https://www.tensorflow.org/api_docs/python/tf/keras/Model) (selon votre backend) que vous pouvez utiliser comme d'habitude. [Ce tutoriel](https://huggingface.co/docs/transformers/training) explique comment intégrer un tel modèle dans une boucle d'entraînement classique PyTorch ou TensorFlow, ou comment utiliser notre API `Trainer` pour affiner rapidement sur un nouvel ensemble de données.
 
-## Pourquoi devrais-je utiliser transformers ?
+## Pourquoi devrais-je utiliser transformers?
 
-1. Des modèles de pointe faciles à utiliser :
+1. Des modèles de pointe faciles à utiliser:
     - Hautes performances en compréhension et génération de langage naturel, en vision par ordinateur et en tâches audio.
     - Faible barrière à l'entrée pour les éducateurs et les praticiens.
     - Peu d'abstractions visibles pour l'utilisateur avec seulement trois classes à apprendre.
     - Une API unifiée pour utiliser tous nos modèles préentraînés.
 
-1. Coûts informatiques réduits, empreinte carbone plus petite :
+1. Coûts informatiques réduits, empreinte carbone plus petite:
     - Les chercheurs peuvent partager des modèles entraînés au lieu de toujours les réentraîner.
     - Les praticiens peuvent réduire le temps de calcul et les coûts de production.
     - Des dizaines d'architectures avec plus de 400 000 modèles préentraînés dans toutes les modalités.
 
-1. Choisissez le bon framework pour chaque partie de la vie d'un modèle :
+1. Choisissez le bon framework pour chaque partie de la vie d'un modèle:
     - Entraînez des modèles de pointe en 3 lignes de code.
-    - Trasnférer un seul modèle entre les frameworks TF2.0/PyTorch/JAX à volonté.
+    - Transférez un seul modèle entre les frameworks TF2.0/PyTorch/JAX à volonté.
     - Choisissez facilement le bon framework pour l'entraînement, l'évaluation et la production.
 
-1. Personnalisez facilement un modèle ou un exemple selon vos besoins :
+1. Personnalisez facilement un modèle ou un exemple selon vos besoins:
     - Nous fournissons des exemples pour chaque architecture afin de reproduire les résultats publiés par ses auteurs originaux.
     - Les détails internes du modèle sont exposés de manière aussi cohérente que possible.
     - Les fichiers de modèle peuvent être utilisés indépendamment de la bibliothèque pour des expériences rapides.
 
-## Pourquoi ne devrais-je pas utiliser transformers ?
+## Pourquoi ne devrais-je pas utiliser transformers?
 
-- Cette bibliothèque n'est pas une boîte à outils modulaire de blocs de construction pour les réseaux neuronaux. Le code dans les fichiers de modèle n'est pas refactored avec des abstractions supplémentaires à dessein, afin que les chercheurs puissent itérer rapidement sur chacun des modèles sans plonger dans des abstractions/fichiers supplémentaires.
+- Cette bibliothèque n'est pas une boîte à outils modulaire de blocs de construction pour les réseaux neuronaux. Le code dans les fichiers de modèle n'est pas refactorisé avec des abstractions supplémentaires à dessein, afin que les chercheurs puissent itérer rapidement sur chacun des modèles sans plonger dans des abstractions/fichiers supplémentaires.
 - L'API d'entraînement n'est pas destinée à fonctionner avec n'importe quel modèle, mais elle est optimisée pour fonctionner avec les modèles fournis par la bibliothèque. Pour des boucles génériques d'apprentissage automatique, vous devriez utiliser une autre bibliothèque (éventuellement, [Accelerate](https://huggingface.co/docs/accelerate)).
 - Bien que nous nous efforcions de présenter autant de cas d'utilisation que possible, les scripts de notre [dossier d'exemples](https://github.com/huggingface/transformers/tree/main/examples) ne sont que cela : des exemples. Il est prévu qu'ils ne fonctionnent pas immédiatement sur votre problème spécifique et que vous devrez probablement modifier quelques lignes de code pour les adapter à vos besoins.
 

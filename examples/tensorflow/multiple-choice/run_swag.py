@@ -25,7 +25,7 @@ import sys
 from dataclasses import dataclass, field
 from itertools import chain
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import datasets
 import tensorflow as tf
@@ -37,6 +37,7 @@ from transformers import (
     TF2_WEIGHTS_NAME,
     AutoConfig,
     AutoTokenizer,
+    DataCollatorForMultipleChoice,
     DefaultDataCollator,
     HfArgumentParser,
     PushToHubCallback,
@@ -45,77 +46,13 @@ from transformers import (
     create_optimizer,
     set_seed,
 )
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase
-from transformers.utils import PaddingStrategy, check_min_version, send_example_telemetry
+from transformers.utils import check_min_version, send_example_telemetry
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 check_min_version("4.49.0.dev0")
 
 logger = logging.getLogger(__name__)
-
-
-# region Helper classes and functions
-
-
-@dataclass
-class DataCollatorForMultipleChoice:
-    """
-    Data collator that will dynamically pad the inputs for multiple choice received.
-
-    Args:
-        tokenizer ([`PreTrainedTokenizer`] or [`PreTrainedTokenizerFast`]):
-            The tokenizer used for encoding the data.
-        padding (`bool`, `str` or [`~utils.PaddingStrategy`], *optional*, defaults to `True`):
-            Select a strategy to pad the returned sequences (according to the model's padding side and padding index)
-            among:
-
-            - `True` or `'longest'`: Pad to the longest sequence in the batch (or no padding if only a single sequence
-              if provided).
-            - `'max_length'`: Pad to a maximum length specified with the argument `max_length` or to the maximum
-              acceptable input length for the model if that argument is not provided.
-            - `False` or `'do_not_pad'` (default): No padding (i.e., can output a batch with sequences of different
-              lengths).
-        max_length (`int`, *optional*):
-            Maximum length of the returned list and optionally padding length (see above).
-        pad_to_multiple_of (`int`, *optional*):
-            If set will pad the sequence to a multiple of the provided value.
-
-            This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >=
-            7.5 (Volta).
-    """
-
-    tokenizer: PreTrainedTokenizerBase
-    padding: Union[bool, str, PaddingStrategy] = True
-    max_length: Optional[int] = None
-    pad_to_multiple_of: Optional[int] = None
-
-    def __call__(self, features):
-        label_name = "label" if "label" in features[0].keys() else "labels"
-        labels = [feature.pop(label_name) for feature in features]
-        batch_size = len(features)
-        num_choices = len(features[0]["input_ids"])
-        flattened_features = [
-            [{k: v[i] for k, v in feature.items()} for i in range(num_choices)] for feature in features
-        ]
-        flattened_features = list(chain(*flattened_features))
-
-        batch = self.tokenizer.pad(
-            flattened_features,
-            padding=self.padding,
-            max_length=self.max_length,
-            pad_to_multiple_of=self.pad_to_multiple_of,
-            return_tensors="np",
-        )
-
-        # Un-flatten
-        batch = {k: tf.reshape(v, (batch_size, num_choices, -1)) for k, v in batch.items()}
-        # Add back labels
-        batch["labels"] = tf.convert_to_tensor(labels, dtype=tf.int64)
-        return batch
-
-
-# endregion
 
 
 # region Arguments
@@ -424,8 +361,7 @@ def main():
     if data_args.pad_to_max_length:
         data_collator = DefaultDataCollator(return_tensors="np")
     else:
-        # custom class defined above, as HF has no data collator for multiple choice
-        data_collator = DataCollatorForMultipleChoice(tokenizer)
+        data_collator = DataCollatorForMultipleChoice(tokenizer, return_tensors="tf")
     # endregion
 
     with training_args.strategy.scope():

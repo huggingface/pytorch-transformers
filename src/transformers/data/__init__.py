@@ -14,6 +14,7 @@
 
 from .data_collator import (
     DataCollatorForLanguageModeling,
+    DataCollatorForMultipleChoice,
     DataCollatorForPermutationLanguageModeling,
     DataCollatorForSeq2Seq,
     DataCollatorForSOP,

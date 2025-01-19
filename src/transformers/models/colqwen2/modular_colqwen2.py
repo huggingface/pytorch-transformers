@@ -697,7 +697,7 @@ COLQWEN2_FOR_RETRIEVAL_INPUT_DOCSTRING = r"""
     - Cookbooks for learning to use the Hf version of ColQwen2, fine-tuning, and similarity maps generation can be found [here](https://github.com/tonywu71/colpali-cookbooks). 📚
     """
 )
-class ColQwen2ForRetrieval(PreTrainedModel):
+class ColQwen2ForRetrieval(ColQwen2PreTrainedModel):
     main_input_name: ClassVar[str] = "input_ids"
 
     def __init__(self, config: ColQwen2Config):
@@ -715,31 +715,24 @@ class ColQwen2ForRetrieval(PreTrainedModel):
 
         self.post_init()
 
-    # Copied from transformers.models.qwen2_vl.modeling_qwen2_vl.Qwen2VLForConditionalGeneration.get_input_embeddings
     def get_input_embeddings(self):
-        return self.model.embed_tokens
+        return self.vlm.model.embed_tokens
 
-    # Copied from transformers.models.qwen2_vl.modeling_qwen2_vl.Qwen2VLForConditionalGeneration.set_input_embeddings
     def set_input_embeddings(self, value):
-        self.model.embed_tokens = value
+        self.vlm.model.embed_tokens = value
 
-    # Copied from transformers.models.qwen2_vl.modeling_qwen2_vl.Qwen2VLForConditionalGeneration.get_output_embeddings
     def get_output_embeddings(self):
-        return self.lm_head
+        return self.vlm.lm_head
 
-    # Copied from transformers.models.qwen2_vl.modeling_qwen2_vl.Qwen2VLForConditionalGeneration.set_output_embeddings
     def set_output_embeddings(self, new_embeddings):
-        self.lm_head = new_embeddings
+        self.vlm.lm_head = new_embeddings
 
-    # Copied from transformers.models.qwen2_vl.modeling_qwen2_vl.Qwen2VLForConditionalGeneration.set_decoder
     def set_decoder(self, decoder):
-        self.model = decoder
+        self.vlm.model = decoder
 
-    # Copied from transformers.models.qwen2_vl.modeling_qwen2_vl.Qwen2VLForConditionalGeneration.get_decoder
     def get_decoder(self):
-        return self.model
+        return self.vlm.model
 
-    # Copied from transformers.models.qwen2_vl.modeling_qwen2_vl.Qwen2VLForConditionalGeneration.get_rope_index
     def get_rope_index(
         self,
         input_ids: Optional[torch.LongTensor] = None,
@@ -791,10 +784,10 @@ class ColQwen2ForRetrieval(PreTrainedModel):
             position_ids (`torch.LongTensor` of shape `(3, batch_size, sequence_length)`)
             mrope_position_deltas (`torch.Tensor` of shape `(batch_size)`)
         """
-        spatial_merge_size = self.config.vision_config.spatial_merge_size
-        image_token_id = self.config.image_token_id
-        video_token_id = self.config.video_token_id
-        vision_start_token_id = self.config.vision_start_token_id
+        spatial_merge_size = self.config.vlm_config.vision_config.spatial_merge_size
+        image_token_id = self.config.vlm_config.image_token_id
+        video_token_id = self.config.vlm_config.video_token_id
+        vision_start_token_id = self.config.vlm_config.vision_start_token_id
         mrope_position_deltas = []
         if input_ids is not None and (image_grid_thw is not None or video_grid_thw is not None):
             total_input_ids = input_ids
@@ -915,14 +908,18 @@ class ColQwen2ForRetrieval(PreTrainedModel):
             if pixel_values is not None:
                 pixel_values = pixel_values.type(self.visual.get_dtype())
                 image_embeds = self.visual(pixel_values, grid_thw=image_grid_thw)
-                image_mask = (input_ids == self.config.image_token_id).unsqueeze(-1).expand_as(inputs_embeds)
+                image_mask = (
+                    (input_ids == self.config.vlm_config.image_token_id).unsqueeze(-1).expand_as(inputs_embeds)
+                )
                 image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
                 inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
 
             if pixel_values_videos is not None:
                 pixel_values_videos = pixel_values_videos.type(self.visual.get_dtype())
                 video_embeds = self.visual(pixel_values_videos, grid_thw=video_grid_thw)
-                video_mask = (input_ids == self.config.video_token_id).unsqueeze(-1).expand_as(inputs_embeds)
+                video_mask = (
+                    (input_ids == self.config.vlm_config.video_token_id).unsqueeze(-1).expand_as(inputs_embeds)
+                )
                 video_embeds = video_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
                 inputs_embeds = inputs_embeds.masked_scatter(video_mask, video_embeds)
 

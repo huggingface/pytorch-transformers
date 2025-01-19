@@ -577,6 +577,32 @@ class ColQwen2Processor(Qwen2VLProcessor):
         return torch.cat(scores, dim=0)
 
 
+@add_start_docstrings(
+    "The bare ColQwen2 model outputting raw hidden-states without any specific head on top.",
+    COLQWEN2_START_DOCSTRING,
+)
+class ColQwen2PreTrainedModel(PreTrainedModel):
+    config_class = ColQwen2Config
+    base_model_prefix = "model"
+    _no_split_modules = []
+
+    def _init_weights(self, module):
+        std = (
+            self.config.initializer_range
+            if hasattr(self.config, "initializer_range")
+            else self.config.vlm_config.text_config.initializer_range
+        )
+
+        if isinstance(module, (nn.Linear, nn.Conv2d)):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+
+
 @dataclass
 class ColQwen2ForRetrievalOutput(BaseModelOutputWithPast):
     """

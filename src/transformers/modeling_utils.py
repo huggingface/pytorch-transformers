@@ -786,6 +786,7 @@ def _load_state_dict_into_meta_model(
 
     is_torch_e4m3fn_available = hasattr(torch, "float8_e4m3fn")
 
+    data_ptrs = set()
     for param_name, param in state_dict.items():
         if param_name not in expected_keys:
             continue
@@ -869,8 +870,14 @@ def _load_state_dict_into_meta_model(
             if is_fsdp_enabled():
                 param_device = "cpu" if is_local_dist_rank_0() else "meta"
 
+            # avoid tied weights
+            if set_module_kwargs["value"].data_ptr() in data_ptrs:
+                set_module_kwargs["value"] = set_module_kwargs["value"].clone()
+
             # For backward compatibility with older versions of `accelerate` and for non-quantized params
             set_module_tensor_to_device(model, param_name, param_device, **set_module_kwargs)
+            # Add `data_ptr` of `model.state_dict()[param_name]` to avoid tied weights
+            data_ptrs.add(model.state_dict()[param_name].data_ptr())
         else:
             hf_quantizer.create_quantized_param(model, param, param_name, param_device, state_dict, unexpected_keys)
             # For quantized modules with FSDP/DeepSpeed Stage 3, we need to quantize the parameter on the GPU

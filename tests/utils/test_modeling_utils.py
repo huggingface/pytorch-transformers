@@ -53,6 +53,7 @@ from transformers.testing_utils import (
     is_staging_test,
     require_accelerate,
     require_flax,
+    require_read_token,
     require_safetensors,
     require_tf,
     require_torch,
@@ -94,6 +95,7 @@ if is_torch_available():
         BertModel,
         CLIPTextModel,
         GenerationMixin,
+        LlamaForCausalLM,
         PreTrainedModel,
         T5Config,
         T5ForConditionalGeneration,
@@ -107,7 +109,9 @@ if is_torch_available():
     from transformers.modeling_utils import (
         _find_disjoint,
         _find_identical,
+        _load_state_dict_into_meta_model,
         dtype_byte_size,
+        load_state_dict,
     )
     from transformers.pytorch_utils import isin_mps_friendly
 
@@ -2588,3 +2592,85 @@ class TestTensorSharing(TestCasePlus):
         shared_names, identical_names = _find_identical([{"a", "b"}], state_dict)
         self.assertEqual(shared_names, [{"a", "b"}])
         self.assertEqual(identical_names, [])
+
+
+@require_torch
+@require_read_token
+class TestFromPretrained(unittest.TestCase):
+    def test_tie_word_embeddings_false_load_weights_as_untied(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            checkpoint = "meta-llama/Llama-2-7b-hf"
+            config = AutoConfig.from_pretrained(checkpoint)
+            config.tie_word_embeddings = True
+
+            config.hidden_size = 16
+            config.intermediate_size = 16
+            config.max_position_embeddings = 16
+            config.num_attention_heads = 4
+            config.num_hidden_layers = 2
+            config.num_key_value_heads = 4
+
+            model = LlamaForCausalLM(config=config)
+
+            local_path = tempdir
+            model.save_pretrained(local_path, safe_serialization=False)
+            pytorch_bin = os.path.join(local_path, "pytorch_model.bin")
+
+            # These are prepared similarly to how `from_pretrained` is calling `_load_state_dict_into_meta_model`
+            state_dict = load_state_dict(pytorch_bin)
+            expected_keys = list(model.state_dict().keys())
+
+            def check(torch_dtype, tie_word_embeddings, device_map):
+                model = LlamaForCausalLM(config=config)
+
+                _load_state_dict_into_meta_model(
+                    model=model,
+                    state_dict=state_dict,
+                    start_prefix="",
+                    expected_keys=expected_keys,
+                    device_map={"": torch.device(device_map)},
+                    dtype=torch_dtype,
+                )
+                # check the change in `_load_state_dict_into_meta_model` in PR #33913 works as expected
+                # https://github.com/huggingface/transformers/pull/33913/files
+                assert (
+                    model.state_dict()["model.embed_tokens.weight"].data_ptr()
+                    != model.state_dict()["lm_head.weight"].data_ptr()
+                )
+
+                # load model
+                model = AutoModelForCausalLM.from_pretrained(
+                    local_path,
+                    torch_dtype=torch_dtype,
+                    tie_word_embeddings=tie_word_embeddings,
+                    device_map=device_map,
+                )
+
+                # modify lm head
+                with torch.no_grad():
+                    model.lm_head.weight += 1
+
+                # check `embed_tokens` is modified or not according to `tie_word_embeddings`
+                # see: https://github.com/huggingface/transformers/issues/33689
+                if tie_word_embeddings:
+                    assert torch.equal(model.lm_head.weight, model.model.embed_tokens.weight)
+                else:
+                    assert not torch.equal(model.lm_head.weight, model.model.embed_tokens.weight)
+
+                # check `save_pretrained` works
+                # see: https://github.com/huggingface/transformers/issues/33688
+                with tempfile.TemporaryDirectory() as tempdir_2:
+                    model.save_pretrained(tempdir_2, safe_serialization=True)
+
+            test_params = [
+                (torch.float32, False, "cpu"),
+                (torch.float32, True, "cpu"),
+                (torch.float16, False, "cpu"),
+                (torch.float16, True, "cpu"),
+                (torch.float32, False, "cuda"),
+                (torch.float32, True, "cuda"),
+                (torch.float16, False, "cuda"),
+                (torch.float16, True, "cuda"),
+            ]
+            for params in test_params:
+                check(*params)

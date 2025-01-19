@@ -315,6 +315,7 @@ MODEL_FOR_PRETRAINING_MAPPING_NAMES = OrderedDict(
         ("bloom", "BloomForCausalLM"),
         ("camembert", "CamembertForMaskedLM"),
         ("colpali", "ColPaliForRetrieval"),
+        ("colqwen2", "ColQwen2ForRetrieval"),
         ("ctrl", "CTRLLMHeadModel"),
         ("data2vec-text", "Data2VecTextForMaskedLM"),
         ("deberta", "DebertaForMaskedLM"),

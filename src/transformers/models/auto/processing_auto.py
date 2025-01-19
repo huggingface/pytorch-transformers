@@ -59,6 +59,7 @@ PROCESSOR_MAPPING_NAMES = OrderedDict(
         ("clipseg", "CLIPSegProcessor"),
         ("clvp", "ClvpProcessor"),
         ("colpali", "ColPaliProcessor"),
+        ("colqwen2", "ColQwen2Processor"),
         ("emu3", "Emu3Processor"),
         ("flava", "FlavaProcessor"),
         ("fuyu", "FuyuProcessor"),

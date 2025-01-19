@@ -1267,7 +1267,6 @@ else:
     _import_structure["models.poolformer"].extend(["PoolFormerFeatureExtractor", "PoolFormerImageProcessor"])
     _import_structure["models.pvt"].extend(["PvtImageProcessor"])
     _import_structure["models.qwen2_vl"].extend(["Qwen2VLImageProcessor"])
-    _import_structure["models.colqwen2"].extend(["ColQwen2ImageProcessor"])
     _import_structure["models.rt_detr"].extend(["RTDetrImageProcessor"])
     _import_structure["models.sam"].extend(["SamImageProcessor"])
     _import_structure["models.segformer"].extend(["SegformerFeatureExtractor", "SegformerImageProcessor"])
@@ -3306,7 +3305,7 @@ else:
     )
     _import_structure["models.colqwen2"].extend(
         [
-            "ColQwenForRetrieval",
+            "ColQwen2ForRetrieval",
             "ColQwen2PreTrainedModel",
         ]
     )
@@ -5340,6 +5339,10 @@ if TYPE_CHECKING:
         ColPaliConfig,
         ColPaliProcessor,
     )
+    from .models.colqwen2 import (
+        ColQwen2Config,
+        ColQwen2Processor,
+    )
     from .models.conditional_detr import (
         ConditionalDetrConfig,
     )
@@ -5798,10 +5801,6 @@ if TYPE_CHECKING:
     from .models.qwen2_vl import (
         Qwen2VLConfig,
         Qwen2VLProcessor,
-    )
-    from .models.colqwen2 import (
-        ColQwen2Config,
-        ColQwen2Processor,
     )
     from .models.rag import RagConfig, RagRetriever, RagTokenizer
     from .models.recurrent_gemma import RecurrentGemmaConfig
@@ -6371,7 +6370,6 @@ if TYPE_CHECKING:
         )
         from .models.pvt import PvtImageProcessor
         from .models.qwen2_vl import Qwen2VLImageProcessor
-        from .models.colqwen2 import ColQwen2ImageProcessor
         from .models.rt_detr import RTDetrImageProcessor
         from .models.sam import SamImageProcessor
         from .models.segformer import SegformerFeatureExtractor, SegformerImageProcessor
@@ -6850,6 +6848,10 @@ if TYPE_CHECKING:
         from .models.colpali import (
             ColPaliForRetrieval,
             ColPaliPreTrainedModel,
+        )
+        from .models.colqwen2 import (
+            ColQwen2ForRetrieval,
+            ColQwen2PreTrainedModel,
         )
         from .models.conditional_detr import (
             ConditionalDetrForObjectDetection,
@@ -8007,11 +8009,6 @@ if TYPE_CHECKING:
             Qwen2VLForConditionalGeneration,
             Qwen2VLModel,
             Qwen2VLPreTrainedModel,
-        )
-        from .models.colqwen2 import (
-            ColQwen2ForConditionalGeneration,
-            ColQwen2Model,
-            ColQwen2PreTrainedModel,
         )
         from .models.rag import (
             RagModel,

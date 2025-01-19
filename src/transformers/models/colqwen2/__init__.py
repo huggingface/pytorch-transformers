@@ -19,7 +19,6 @@ from ...utils.import_utils import define_import_structure
 
 if TYPE_CHECKING:
     from .configuration_colqwen2 import *
-    from .image_processing_colqwen2 import *
     from .modeling_colqwen2 import *
     from .processing_colqwen2 import *
 else:

@@ -3215,6 +3215,44 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
             self.assertEqual(b, b1)
             self.check_trainer_state_are_the_same(state, state1)
 
+    @parameterized.expand([(9, 1), (10, 1), (11, 1), (20, 1), (21, 1), (9, 2)])
+    def test_resume_training_with_iterable_dataset(self, dataset_length, gradient_accumulation_steps):
+        with tempfile.TemporaryDirectory() as tmpdir:
+
+            def get_trainer():
+                config = RegressionModelConfig()
+                train_dataset = SampleIterableDataset(length=dataset_length)
+                model = RegressionRandomPreTrainedModel(config)
+                args = RegressionTrainingArguments(
+                    output_dir=tmpdir,
+                    learning_rate=0.1,
+                    max_steps=20,
+                    save_steps=10,
+                    per_device_train_batch_size=1,
+                    gradient_accumulation_steps=gradient_accumulation_steps,
+                )
+                return Trainer(model=model, args=args, train_dataset=train_dataset)
+
+            # Train from scratch.
+            trainer = get_trainer()
+            trainer.train()
+            self.assertEqual(trainer.state.global_step, 20)
+            (a, b) = trainer.model.a.item(), trainer.model.b.item()
+            state = dataclasses.asdict(trainer.state)
+
+            # Train from a checkpoint.
+            checkpoint = os.path.join(tmpdir, "checkpoint-10")
+            trainer = get_trainer()
+            trainer.train(resume_from_checkpoint=checkpoint)
+            self.assertEqual(trainer.state.global_step, 20)
+            (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
+            state1 = dataclasses.asdict(trainer.state)
+
+            # Check that the resumed model is the same as the original one.
+            self.assertEqual(a, a1)
+            self.assertEqual(b, b1)
+            self.check_trainer_state_are_the_same(state, state1)
+
     def test_load_best_model_at_end(self):
         total = int(self.n_epochs * 64 / self.batch_size)
         with tempfile.TemporaryDirectory() as tmpdir:

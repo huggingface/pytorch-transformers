@@ -1705,7 +1705,7 @@ drwxrwxr-x 2 stas stas 4.0K Mar 25 19:52 global_step1/
 -rw-rw-r-- 1 stas stas 774K Mar 27 20:42 spiece.model
 -rw-rw-r-- 1 stas stas 1.9K Mar 27 20:42 tokenizer_config.json
 -rw-rw-r-- 1 stas stas  339 Mar 27 20:42 trainer_state.json
--rw-rw-r-- 1 stas stas 2.3K Mar 27 20:42 training_args.bin
+-rw-rw-r-- 1 stas stas 2.3K Mar 27 20:42 training_args.json
 -rwxrw-r-- 1 stas stas 5.5K Mar 27 13:16 zero_to_fp32.py*
 ```
 

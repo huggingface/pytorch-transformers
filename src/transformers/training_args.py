@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import contextlib
+import inspect
 import io
 import json
 import math
@@ -21,8 +22,9 @@ import warnings
 from dataclasses import asdict, dataclass, field, fields
 from datetime import timedelta
 from enum import Enum
+from functools import wraps
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 from huggingface_hub import get_full_repo_name
 from packaging import version
@@ -66,6 +68,25 @@ from .utils.import_utils import is_optimum_neuron_available
 logger = logging.get_logger(__name__)
 log_levels = logging.get_log_levels_dict().copy()
 trainer_log_levels = dict(**log_levels, passive=-1)
+
+T = TypeVar("T", bound="TrainingArguments")
+
+
+def serialize(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        bound_args = inspect.signature(func).bind(self, *args, **kwargs)
+        bound_args.apply_defaults()
+
+        for name, value in bound_args.arguments.items():
+            if name not in ["self", "args"] and value is not None:
+                if name in self.__dataclass_fields__.keys():
+                    self.__training_args_params__[name] = serialize_parameter(name, value)
+
+        return func(self, *args, **kwargs)
+
+    return wrapper
+
 
 if is_torch_available():
     import torch
@@ -216,7 +237,6 @@ def _convert_str_dict(passed_value: dict):
     return passed_value
 
 
-# TODO: `TrainingArguments` users rely on it being fully mutable. In the future see if we can narrow this to a few keys: https://github.com/huggingface/transformers/pull/25903
 @dataclass
 class TrainingArguments:
     """
@@ -1546,6 +1566,19 @@ class TrainingArguments:
         },
     )
 
+    def __new__(self, *args, **kwargs):
+        # catch and save only the parameters that the user passed
+        self.__training_args_params__ = {}
+        param_names = list(self.__dataclass_fields__.keys())
+
+        for i in range(len(args)):
+            self.__training_args_params__[param_names[i]] = serialize_parameter(param_names[i], args[i])
+
+        for k, v in kwargs.items():
+            self.__training_args_params__[k] = serialize_parameter(k, v)
+
+        return super().__new__(self)
+
     def __post_init__(self):
         # Parse in args that could be `dict` sent in from the CLI as a string
         for field in _VALID_DICT_FIELDS:
@@ -1567,6 +1600,8 @@ class TrainingArguments:
             self.logging_dir = os.path.join(self.output_dir, default_logdir())
         if self.logging_dir is not None:
             self.logging_dir = os.path.expanduser(self.logging_dir)
+        # set logging_dir in __training_args_params__
+        self.__training_args_params__["logging_dir"] = self.logging_dir
 
         if self.disable_tqdm is None:
             self.disable_tqdm = logger.getEffectiveLevel() > logging.WARN
@@ -2517,24 +2552,33 @@ class TrainingArguments:
         d = {field.name: getattr(self, field.name) for field in fields(self) if field.init}
 
         for k, v in d.items():
-            if isinstance(v, Enum):
-                d[k] = v.value
-            if isinstance(v, list) and len(v) > 0 and isinstance(v[0], Enum):
-                d[k] = [x.value for x in v]
-            if k.endswith("_token"):
-                d[k] = f"<{k.upper()}>"
-            # Handle the accelerator_config if passed
-            if is_accelerate_available() and isinstance(v, AcceleratorConfig):
-                d[k] = v.to_dict()
-        self._dict_torch_dtype_to_str(d)
+            # serialize parameters in json compatible format, example :
+            # converted torch.dtype to string (e.g. torch.float32 -> "float32")
+            d[k] = serialize_parameter(k, v)
 
         return d
 
     def to_json_string(self):
         """
-        Serializes this instance to a JSON string.
+        Serializes the TrainingArguments into a JSON string.
         """
-        return json.dumps(self.to_dict(), indent=2)
+        return json.dumps(self.__training_args_params__, indent=2)
+
+    def to_json_file(self, json_file_path: str):
+        """
+        Save this instance's parameters to a json file.
+        """
+        with open(json_file_path, "w", encoding="utf-8") as writer:
+            writer.write(self.to_json_string())
+
+    @classmethod
+    def from_json_file(cls: Type[T], json_file_path: str) -> T:
+        """
+        Loads and initializes the TrainingArguments from a json file.
+        """
+        with open(json_file_path, "r", encoding="utf-8") as reader:
+            params = json.load(reader)
+        return cls(**params)
 
     def to_sanitized_dict(self) -> Dict[str, Any]:
         """
@@ -2550,6 +2594,7 @@ class TrainingArguments:
         return {k: v if type(v) in valid_types else str(v) for k, v in d.items()}
 
     # The following methods are there to simplify the instantiation of `TrainingArguments`
+    @serialize
     def set_training(
         self,
         learning_rate: float = 5e-5,
@@ -2625,6 +2670,7 @@ class TrainingArguments:
         self.gradient_checkpointing = gradient_checkpointing
         return self
 
+    @serialize
     def set_evaluate(
         self,
         strategy: Union[str, IntervalStrategy] = "no",
@@ -2686,6 +2732,7 @@ class TrainingArguments:
         self.jit_mode_eval = jit_mode
         return self
 
+    @serialize
     def set_testing(
         self,
         batch_size: int = 8,
@@ -2726,6 +2773,7 @@ class TrainingArguments:
         self.jit_mode_eval = jit_mode
         return self
 
+    @serialize
     def set_save(
         self,
         strategy: Union[str, IntervalStrategy] = "steps",
@@ -2775,6 +2823,7 @@ class TrainingArguments:
         self.save_on_each_node = on_each_node
         return self
 
+    @serialize
     def set_logging(
         self,
         strategy: Union[str, IntervalStrategy] = "steps",
@@ -2850,6 +2899,7 @@ class TrainingArguments:
         self.log_level_replica = replica_level
         return self
 
+    @serialize
     def set_push_to_hub(
         self,
         model_id: str,
@@ -2920,6 +2970,7 @@ class TrainingArguments:
         self.hub_always_push = always_push
         return self
 
+    @serialize
     def set_optimizer(
         self,
         name: Union[str, OptimizerNames] = "adamw_torch",
@@ -2971,6 +3022,7 @@ class TrainingArguments:
         self.optim_args = args
         return self
 
+    @serialize
     def set_lr_scheduler(
         self,
         name: Union[str, SchedulerType] = "linear",
@@ -3016,6 +3068,7 @@ class TrainingArguments:
         self.warmup_steps = warmup_steps
         return self
 
+    @serialize
     def set_dataloader(
         self,
         train_batch_size: int = 8,
@@ -3092,3 +3145,21 @@ class ParallelMode(Enum):
     SAGEMAKER_MODEL_PARALLEL = "sagemaker_model_parallel"
     SAGEMAKER_DATA_PARALLEL = "sagemaker_data_parallel"
     TPU = "tpu"
+
+
+def serialize_parameter(k, v):
+    if k == "torch_dtype" and not isinstance(v, str):
+        return str(v).split(".")[1]
+    if isinstance(v, dict):
+        return {key: serialize_parameter(key, value) for key, value in v.items()}
+    if isinstance(v, Enum):
+        return v.value
+    if isinstance(v, list) and len(v) > 0 and isinstance(v[0], Enum):
+        l = [x.value for x in v]
+        return l
+    if k.endswith("_token"):
+        return f"<{k.upper()}>"
+    # Handle the accelerator_config if passed
+    if is_accelerate_available() and isinstance(v, AcceleratorConfig):
+        return v.to_dict()
+    return v

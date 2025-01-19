@@ -221,7 +221,7 @@ def train(args, train_dataset, model, tokenizer, train_highway=False):
                         model.module if hasattr(model, "module") else model
                     )  # Take care of distributed/parallel training
                     model_to_save.save_pretrained(output_dir)
-                    torch.save(args, os.path.join(output_dir, "training_args.bin"))
+                    args.to_json_file(os.path.join(output_dir, "training_args.json"))
                     logger.info("Saving model checkpoint to %s", output_dir)
 
             if args.max_steps > 0 and global_step > args.max_steps:
@@ -672,7 +672,7 @@ def main():
         tokenizer.save_pretrained(args.output_dir)
 
         # Good practice: save your training arguments together with the trained model
-        torch.save(args, os.path.join(args.output_dir, "training_args.bin"))
+        args.to_json_file(os.path.join(args.output_dir, "training_args.json"))
 
         # Load a trained model and vocabulary that you have fine-tuned
         model = model_class.from_pretrained(args.output_dir)

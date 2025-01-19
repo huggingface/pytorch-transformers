@@ -756,7 +756,7 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
 
     def check_saved_checkpoints_deepspeed(self, output_dir, freq, total, stage, dtype):
         # adapted from TrainerIntegrationCommon.check_saved_checkpoints
-        file_list = [SAFE_WEIGHTS_NAME, "training_args.bin", "trainer_state.json", "config.json"]
+        file_list = [SAFE_WEIGHTS_NAME, "training_args.json", "trainer_state.json", "config.json"]
 
         if stage == ZERO2:
             ds_file_list = ["mp_rank_00_model_states.pt"]

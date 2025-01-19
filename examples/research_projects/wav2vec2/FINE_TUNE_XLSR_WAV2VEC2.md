@@ -122,7 +122,7 @@ Having finished the training you should find the following files/folders under t
 - `special_tokens_map.json` - the special token map of the tokenizer
 - `tokenizer_config.json` - the parameters of the tokenizer
 - `vocab.json` - the vocabulary of the tokenizer
-- `checkpoint-{...}/` - the saved checkpoints saved during training. Each checkpoint should contain the files: `config.json`, `optimizer.pt`, `pytorch_model.bin`, `scheduler.pt`, `training_args.bin`. The files `config.json` and `pytorch_model.bin` define your model.
+- `checkpoint-{...}/` - the saved checkpoints saved during training. Each checkpoint should contain the files: `config.json`, `optimizer.pt`, `pytorch_model.bin`, `scheduler.pt`, `training_args.json`. The files `config.json` and `pytorch_model.bin` define your model.
 
 If you are happy with your training results it is time to upload your model! 
 Download the following files to your local computer: **`preprocessor_config.json`, `special_tokens_map.json`, `tokenizer_config.json`, `vocab.json`, `config.json`, `pytorch_model.bin`**. Those files fully define a XLSR-Wav2Vec2 model checkpoint.

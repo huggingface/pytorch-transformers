@@ -579,7 +579,7 @@ if is_torch_available():
 class TrainerIntegrationCommon:
     def check_saved_checkpoints(self, output_dir, freq, total, is_pretrained=True, safe_weights=True):
         weights_file = WEIGHTS_NAME if not safe_weights else SAFE_WEIGHTS_NAME
-        file_list = [weights_file, "training_args.bin", "optimizer.pt", "scheduler.pt", "trainer_state.json"]
+        file_list = [weights_file, "optimizer.pt", "scheduler.pt", "trainer_state.json", "training_args.json"]
         if is_pretrained:
             file_list.append("config.json")
         for step in range(freq, total, freq):

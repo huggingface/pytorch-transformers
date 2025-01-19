@@ -16,19 +16,18 @@
 
 import math
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import ClassVar, List, Optional, Tuple, Union
 
-from transformers.models.qwen2_vl.modeling_qwen2_vl import (
-    Qwen2VLCausalLMOutputWithPast,
-    Qwen2VLForConditionalGeneration,
-)
 from transformers.models.qwen2_vl.processing_qwen2_vl import Qwen2VLProcessor
 
 from ...cache_utils import Cache
 from ...configuration_utils import PretrainedConfig
 from ...feature_extraction_utils import BatchFeature
 from ...image_utils import ImageInput, is_valid_image
+from ...modeling_outputs import BaseModelOutputWithPast
 from ...modeling_utils import PreTrainedModel
+from ...models.auto import AutoModelForImageTextToText
 from ...processing_utils import (
     ProcessingKwargs,
     Unpack,
@@ -579,7 +578,7 @@ class ColQwen2Processor(Qwen2VLProcessor):
 
 
 @dataclass
-class ColQwen2ForRetrievalOutput(ModelOutput):
+class ColQwen2ForRetrievalOutput(BaseModelOutputWithPast):
     """
     Base class for ColQwen2 embeddings output.
 
@@ -684,7 +683,7 @@ class ColQwen2ForRetrieval(PreTrainedModel):
         self.config = config
         self.vocab_size = config.vlm_config.text_config.vocab_size
 
-        vlm = Qwen2VLForConditionalGeneration(config.vlm_config)
+        vlm = AutoModelForImageTextToText.from_config(config.vlm_config)
         if vlm.language_model._tied_weights_keys is not None:
             self._tied_weights_keys = [f"vlm.language_model.{k}" for k in vlm.language_model._tied_weights_keys]
         self.vlm = vlm
@@ -712,7 +711,7 @@ class ColQwen2ForRetrieval(PreTrainedModel):
         pixel_values_videos: Optional[torch.FloatTensor] = None,
         image_grid_thw: Optional[torch.LongTensor] = None,
         video_grid_thw: Optional[torch.LongTensor] = None,
-    ) -> Union[Tuple, Qwen2VLCausalLMOutputWithPast]:
+    ) -> Union[Tuple, ModelOutput]:
         """
         Forward through the Qwen2VL VLM backbone. Uses a custom forward method to fix gradient flow when using
         training with multiple GPUs.
@@ -752,7 +751,7 @@ class ColQwen2ForRetrieval(PreTrainedModel):
         return outputs
 
     @add_start_docstrings_to_model_forward(COLQWEN2_FOR_RETRIEVAL_INPUT_DOCSTRING)
-    @replace_return_docstrings(output_type=ColQwen2ForRetrievalOutput, config_class="ColQwen2Config")
+    @replace_return_docstrings(output_type=ColQwen2ForRetrievalOutput, config_class=_CONFIG_FOR_DOC)
     def forward(
         self,
         input_ids: torch.LongTensor,

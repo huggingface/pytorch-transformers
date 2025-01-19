@@ -337,3 +337,6 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
     def prepare_for_tokenization(self, text, **kwargs):
         text = unicodedata.normalize("NFC", text)
         return (text, kwargs)
+
+
+__all__ = ['Qwen2Tokenizer']

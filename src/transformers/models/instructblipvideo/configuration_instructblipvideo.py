@@ -337,3 +337,6 @@ class InstructBlipVideoConfig(PretrainedConfig):
             text_config=text_config.to_dict(),
             **kwargs,
         )
+
+
+__all__ = ['InstructBlipVideoConfig', 'InstructBlipVideoQFormerConfig', 'InstructBlipVideoVisionConfig']

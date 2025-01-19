@@ -1052,3 +1052,6 @@ class TFMistralForSequenceClassification(TFMistralPreTrainedModel, TFSequenceCla
         if getattr(self, "score", None) is not None:
             with tf.name_scope(self.score.name):
                 self.score.build((self.config.hidden_size,))
+
+
+__all__ = ['TFMistralModel', 'TFMistralForCausalLM', 'TFMistralForSequenceClassification', 'TFMistralPreTrainedModel']

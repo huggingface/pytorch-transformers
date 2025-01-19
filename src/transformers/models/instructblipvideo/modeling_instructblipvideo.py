@@ -1668,3 +1668,6 @@ class InstructBlipVideoForConditionalGeneration(InstructBlipVideoPreTrainedModel
         outputs = self.language_model.generate(**inputs, **generate_kwargs)
 
         return outputs
+
+
+__all__ = ['InstructBlipVideoQFormerModel', 'InstructBlipVideoPreTrainedModel', 'InstructBlipVideoForConditionalGeneration', 'InstructBlipVideoVisionModel']

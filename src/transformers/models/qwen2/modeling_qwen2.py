@@ -1127,3 +1127,6 @@ class Qwen2ForQuestionAnswering(Qwen2PreTrainedModel):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = ['Qwen2ForCausalLM', 'Qwen2ForQuestionAnswering', 'Qwen2Model', 'Qwen2PreTrainedModel', 'Qwen2ForSequenceClassification', 'Qwen2ForTokenClassification']

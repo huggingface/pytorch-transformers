@@ -2586,3 +2586,6 @@ class MusicgenMelodyForConditionalGeneration(PreTrainedModel, GenerationMixin):
             )
 
         return model_kwargs
+
+
+__all__ = ['MusicgenMelodyForConditionalGeneration', 'MusicgenMelodyForCausalLM', 'MusicgenMelodyModel', 'MusicgenMelodyPreTrainedModel']

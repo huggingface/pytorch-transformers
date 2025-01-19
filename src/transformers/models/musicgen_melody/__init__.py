@@ -1,4 +1,4 @@
-# Copyright 2024 The HuggingFace Team. All rights reserved.
+# Copyright 2025 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,74 +13,15 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import (
-    OptionalDependencyNotAvailable,
-    _LazyModule,
-    is_torch_available,
-    is_torchaudio_available,
-)
-
-
-_import_structure = {
-    "configuration_musicgen_melody": [
-        "MusicgenMelodyConfig",
-        "MusicgenMelodyDecoderConfig",
-    ],
-}
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_musicgen_melody"] = [
-        "MusicgenMelodyForConditionalGeneration",
-        "MusicgenMelodyForCausalLM",
-        "MusicgenMelodyModel",
-        "MusicgenMelodyPreTrainedModel",
-    ]
-
-try:
-    if not is_torchaudio_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["feature_extraction_musicgen_melody"] = ["MusicgenMelodyFeatureExtractor"]
-    _import_structure["processing_musicgen_melody"] = ["MusicgenMelodyProcessor"]
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
 
 if TYPE_CHECKING:
-    from .configuration_musicgen_melody import (
-        MusicgenMelodyConfig,
-        MusicgenMelodyDecoderConfig,
-    )
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_musicgen_melody import (
-            MusicgenMelodyForCausalLM,
-            MusicgenMelodyForConditionalGeneration,
-            MusicgenMelodyModel,
-            MusicgenMelodyPreTrainedModel,
-        )
-
-    try:
-        if not is_torchaudio_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .feature_extraction_musicgen_melody import MusicgenMelodyFeatureExtractor
-        from .processing_musicgen_melody import MusicgenMelodyProcessor
-
-
+    from .configuration_musicgen_melody import *
+    from .modeling_musicgen_melody import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

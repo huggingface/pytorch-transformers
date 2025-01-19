@@ -879,3 +879,6 @@ class GraniteForCausalLM(GranitePreTrainedModel, GenerationMixin):
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
         )
+
+
+__all__ = ['GraniteForCausalLM', 'GraniteModel', 'GranitePreTrainedModel']

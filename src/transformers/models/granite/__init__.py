@@ -13,45 +13,15 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from ...utils import (
-    OptionalDependencyNotAvailable,
-    _LazyModule,
-    is_torch_available,
-)
+from ...utils import _LazyModule
+from ...utils.import_utils import define_import_structure
 
-
-_import_structure = {
-    "configuration_granite": ["GraniteConfig"],
-}
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_granite"] = [
-        "GraniteForCausalLM",
-        "GraniteModel",
-        "GranitePreTrainedModel",
-    ]
 
 if TYPE_CHECKING:
-    from .configuration_granite import GraniteConfig
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_granite import (
-            GraniteForCausalLM,
-            GraniteModel,
-            GranitePreTrainedModel,
-        )
-
+    from .modeling_granite import *
+    from .configuration_granite import *
 else:
     import sys
 
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure, module_spec=__spec__)
+    _file = globals()["__file__"]
+    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)

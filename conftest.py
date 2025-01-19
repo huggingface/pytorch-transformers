@@ -20,12 +20,11 @@ import sys
 import warnings
 from os.path import abspath, dirname, join
 
-import _pytest
-import pytest
+import pytest  # Removed unused import of _pytest
 
 from transformers.testing_utils import HfDoctestModule, HfDocTestParser
 
-
+# Tests that are not device-specific
 NOT_DEVICE_TESTS = {
     "test_tokenization",
     "test_processor",
@@ -67,24 +66,22 @@ NOT_DEVICE_TESTS = {
     "test_model_is_small",
     "test_tf_from_pt_safetensors",
     "test_flax_from_pt_safetensors",
-    "ModelTest::test_pipeline_",  # None of the pipeline tests from PipelineTesterMixin (of which XxxModelTest inherits from) are running on device
+    "ModelTest::test_pipeline_",
     "ModelTester::test_pipeline_",
     "/repo_utils/",
     "/utils/",
     "/agents/",
 }
 
-# allow having multiple repository checkouts and not needing to remember to rerun
-# `pip install -e '.[dev]'` when switching between checkouts and running tests.
-git_repo_path = abspath(join(dirname(__file__), "src"))
-sys.path.insert(1, git_repo_path)
+# Add the "src" directory to sys.path to ensure modules are discoverable
+repo_src_path = abspath(join(dirname(__file__), "src"))
+sys.path.insert(1, repo_src_path)  # Renamed for clarity
 
-# silence FutureWarning warnings in tests since often we can't act on them until
-# they become normal warnings - i.e. the tests still need to test the current functionality
+# Suppress FutureWarning globally to avoid cluttering test logs
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-
 def pytest_configure(config):
+    """Configure pytest with custom markers."""
     config.addinivalue_line(
         "markers", "is_pt_tf_cross_test: mark test to run only when PT and TF interactions are tested"
     )
@@ -97,46 +94,40 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "agent_tests: mark the agent tests that are run on their specific schedule")
     config.addinivalue_line("markers", "not_device_test: mark the tests always running on cpu")
 
-
 def pytest_collection_modifyitems(items):
+    """Modify test collection to add markers for NOT_DEVICE_TESTS."""
     for item in items:
         if any(test_name in item.nodeid for test_name in NOT_DEVICE_TESTS):
             item.add_marker(pytest.mark.not_device_test)
 
-
 def pytest_addoption(parser):
+    """Add shared pytest options."""
     from transformers.testing_utils import pytest_addoption_shared
-
     pytest_addoption_shared(parser)
 
-
 def pytest_terminal_summary(terminalreporter):
+    """Generate custom test summary reports."""
     from transformers.testing_utils import pytest_terminal_summary_main
 
     make_reports = terminalreporter.config.getoption("--make-reports")
     if make_reports:
         pytest_terminal_summary_main(terminalreporter, id=make_reports)
 
-
 def pytest_sessionfinish(session, exitstatus):
-    # If no tests are collected, pytest exists with code 5, which makes the CI fail.
-    if exitstatus == 5:
+    """Ensure exit status doesn't fail CI when no tests are collected."""
+    if exitstatus == 5:  # Exit status 5 indicates no tests collected
         session.exitstatus = 0
 
-
-# Doctest custom flag to ignore output.
+# Register custom doctest flag to ignore result output
 IGNORE_RESULT = doctest.register_optionflag("IGNORE_RESULT")
 
-OutputChecker = doctest.OutputChecker
-
-
-class CustomOutputChecker(OutputChecker):
+class CustomOutputChecker(doctest.OutputChecker):
+    """Custom output checker to handle IGNORE_RESULT flag."""
     def check_output(self, want, got, optionflags):
         if IGNORE_RESULT & optionflags:
             return True
-        return OutputChecker.check_output(self, want, got, optionflags)
-
+        return super().check_output(want, got, optionflags)
 
 doctest.OutputChecker = CustomOutputChecker
-_pytest.doctest.DoctestModule = HfDoctestModule
+pytest.DoctestModule = HfDoctestModule  # Corrected reference for pytest doctest module
 doctest.DocTestParser = HfDocTestParser

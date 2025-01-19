@@ -218,15 +218,35 @@ def load_conv_layer(full_name, value, feature_extractor, unused_weights, use_gro
 
 @torch.no_grad()
 def convert_wav2vec2_conformer_checkpoint(
-    checkpoint_path, pytorch_dump_folder_path, config_path=None, dict_path=None, is_finetuned=True
+    checkpoint_path,
+    pytorch_dump_folder_path,
+    sample_rate=16000,
+    config_path=None,
+    dict_path=None,
+    is_finetuned=True,
 ):
     """
     Copy/paste/tweak model's weights to transformers design.
     """
+
     if config_path is not None:
         config = Wav2Vec2ConformerConfig.from_pretrained(config_path, hidden_act="swish")
     else:
         config = Wav2Vec2ConformerConfig()
+
+    if is_finetuned:
+        model, _, _ = fairseq.checkpoint_utils.load_model_ensemble_and_task(
+            [checkpoint_path], arg_overrides={"data": "/".join(dict_path.split("/")[:-1])}
+        )
+    else:
+        task_arg = argparse.Namespace(task="audio_pretraining")
+        task = fairseq.tasks.setup_task(task_arg)
+
+        model, _, _ = fairseq.checkpoint_utils.load_model_ensemble_and_task([checkpoint_path], task=task)
+
+    model = model[0].eval()
+
+    config.post_layer_norm = model.w2v_encoder.w2v_model.encoder.layer_norm_first
 
     if "rope" in checkpoint_path:
         config.position_embeddings_type = "rotary"
@@ -265,7 +285,7 @@ def convert_wav2vec2_conformer_checkpoint(
             return_attention_mask = True if config.feat_extract_norm == "layer" else False
             feature_extractor = Wav2Vec2FeatureExtractor(
                 feature_size=1,
-                sampling_rate=16000,
+                sampling_rate=sample_rate,
                 padding_value=0,
                 do_normalize=True,
                 return_attention_mask=return_attention_mask,
@@ -277,18 +297,6 @@ def convert_wav2vec2_conformer_checkpoint(
     else:
         hf_wav2vec = Wav2Vec2ConformerForPreTraining(config)
 
-    if is_finetuned:
-        model, _, _ = fairseq.checkpoint_utils.load_model_ensemble_and_task(
-            [checkpoint_path], arg_overrides={"data": "/".join(dict_path.split("/")[:-1])}
-        )
-    else:
-        task_arg = argparse.Namespace(task="audio_pretraining")
-        task = fairseq.tasks.setup_task(task_arg)
-
-        model, _, _ = fairseq.checkpoint_utils.load_model_ensemble_and_task([checkpoint_path], task=task)
-
-    model = model[0].eval()
-
     recursively_load_weights(model, hf_wav2vec, not is_finetuned)
 
     hf_wav2vec.save_pretrained(pytorch_dump_folder_path)
@@ -298,6 +306,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--pytorch_dump_folder_path", default=None, type=str, help="Path to the output PyTorch model.")
     parser.add_argument("--checkpoint_path", default=None, type=str, help="Path to fairseq checkpoint")
+    parser.add_argument("--sample_rate", default=16000, type=int, help="Sample rate of the model")
     parser.add_argument("--dict_path", default=None, type=str, help="Path to dict of fine-tuned model")
     parser.add_argument("--config_path", default=None, type=str, help="Path to hf config.json of model to convert")
     parser.add_argument(
@@ -305,5 +314,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     convert_wav2vec2_conformer_checkpoint(
-        args.checkpoint_path, args.pytorch_dump_folder_path, args.config_path, args.dict_path, not args.not_finetuned
+        args.checkpoint_path,
+        args.pytorch_dump_folder_path,
+        args.sample_rate,
+        args.config_path,
+        args.dict_path,
+        not args.not_finetuned,
     )

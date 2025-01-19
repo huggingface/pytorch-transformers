@@ -84,6 +84,7 @@ class Wav2Vec2ConformerModelTester:
         hidden_dropout_prob=0.1,
         intermediate_size=20,
         layer_norm_eps=1e-5,
+        post_layer_norm=True,
         hidden_act="gelu",
         initializer_range=0.02,
         mask_time_prob=0.5,
@@ -118,6 +119,7 @@ class Wav2Vec2ConformerModelTester:
         self.hidden_dropout_prob = hidden_dropout_prob
         self.intermediate_size = intermediate_size
         self.layer_norm_eps = layer_norm_eps
+        self.post_layer_norm = post_layer_norm
         self.hidden_act = hidden_act
         self.initializer_range = initializer_range
         self.vocab_size = vocab_size
@@ -168,6 +170,7 @@ class Wav2Vec2ConformerModelTester:
             hidden_dropout_prob=self.hidden_dropout_prob,
             intermediate_size=self.intermediate_size,
             layer_norm_eps=self.layer_norm_eps,
+            post_layer_norm=self.post_layer_norm,
             do_stable_layer_norm=self.do_stable_layer_norm,
             hidden_act=self.hidden_act,
             initializer_range=self.initializer_range,
@@ -182,6 +185,27 @@ class Wav2Vec2ConformerModelTester:
         )
 
     def create_and_check_model(self, config, input_values, attention_mask):
+        model = Wav2Vec2ConformerModel(config=config)
+        model.to(torch_device)
+        model.eval()
+        result = model(input_values, attention_mask=attention_mask)
+        self.parent.assertEqual(
+            result.last_hidden_state.shape, (self.batch_size, self.output_seq_length, self.hidden_size)
+        )
+
+    def create_and_check_model_with_feature_projection(self, config, input_values, attention_mask):
+        config.hidden_size = 32
+        assert config.conv_dim[-1] == config.hidden_size
+        model = Wav2Vec2ConformerModel(config=config)
+        model.to(torch_device)
+        model.eval()
+        result = model(input_values, attention_mask=attention_mask)
+        self.parent.assertEqual(
+            result.last_hidden_state.shape, (self.batch_size, self.output_seq_length, config.hidden_size)
+        )
+
+    def create_and_check_model_with_no_post_layer_norm(self, config, input_values, attention_mask):
+        config.post_layer_norm = False
         model = Wav2Vec2ConformerModel(config=config)
         model.to(torch_device)
         model.eval()
@@ -463,6 +487,14 @@ class Wav2Vec2ConformerModelTest(ModelTesterMixin, PipelineTesterMixin, unittest
     def test_model_with_no_rel_pos(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs(position_embeddings_type=None)
         self.model_tester.create_and_check_model(*config_and_inputs)
+
+    def test_model_with_projection(self):
+        config_and_inputs = self.model_tester.prepare_config_and_inputs()
+        self.model_tester.create_and_check_model_with_feature_projection(*config_and_inputs)
+
+    def test_model_with_no_post_layer_norm(self):
+        config_and_inputs = self.model_tester.prepare_config_and_inputs()
+        self.model_tester.create_and_check_model_with_no_post_layer_norm(*config_and_inputs)
 
     def test_model_with_adapter(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()

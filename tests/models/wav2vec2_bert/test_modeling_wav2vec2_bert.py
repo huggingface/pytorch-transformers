@@ -57,9 +57,7 @@ if is_torch_available():
     )
 
 
-# Copied from tests.models.wav2vec2_conformer.test_modeling_wav2vec2_conformer.Wav2Vec2ConformerModelTester with Conformer->Bert, input_values->input_features
 class Wav2Vec2BertModelTester:
-    # Ignore copy
     def __init__(
         self,
         parent,
@@ -126,7 +124,6 @@ class Wav2Vec2BertModelTester:
         for _ in range(num_adapter_layers):
             self.adapter_output_seq_length = (self.adapter_output_seq_length - 1) // adapter_stride + 1
 
-    # Ignore copy
     def prepare_config_and_inputs(self, position_embeddings_type="relative"):
         input_shape = [self.batch_size, self.seq_length, self.feature_projection_input_dim]
 
@@ -137,7 +134,6 @@ class Wav2Vec2BertModelTester:
 
         return config, input_features, attention_mask
 
-    # Ignore copy
     def get_config(self, position_embeddings_type="relative"):
         return Wav2Vec2BertConfig(
             hidden_size=self.hidden_size,
@@ -194,7 +190,6 @@ class Wav2Vec2BertModelTester:
             result.logits.shape, (self.batch_size, self.adapter_output_seq_length, self.vocab_size)
         )
 
-    # Ignore copy
     def create_and_check_model_with_intermediate_ffn_before_adapter(self, config, input_features, attention_mask):
         config.add_adapter = True
         config.use_intermediate_ffn_before_adapter = True
@@ -281,7 +276,6 @@ class Wav2Vec2BertModelTester:
         model.eval()
 
         input_features = input_features[:3]
-        # Ignore copy
         attention_mask = torch.ones(input_features.shape[:2], device=torch_device, dtype=torch.long)
 
         input_lengths = [input_features.shape[1] // i for i in [4, 2, 1]]
@@ -310,7 +304,6 @@ class Wav2Vec2BertModelTester:
         model.eval()
 
         input_features = input_features[:3]
-        # Ignore copy
         attention_mask = torch.ones(input_features.shape[:2], device=torch_device, dtype=torch.long)
 
         input_lengths = [input_features.shape[1] // i for i in [4, 2, 1]]
@@ -334,7 +327,6 @@ class Wav2Vec2BertModelTester:
         model.to(torch_device)
         model.train()
 
-        # Ignore copy
         input_features = input_features[:3]
 
         input_lengths = [input_features.shape[1] // i for i in [4, 2, 1]]
@@ -366,7 +358,6 @@ class Wav2Vec2BertModelTester:
 
         input_features = input_features[:3]
 
-        # Ignore copy
         input_lengths = [input_features.shape[1] // i for i in [4, 2, 1]]
         labels = ids_tensor((input_features.shape[0], 1), len(model.config.id2label))
 
@@ -423,9 +414,7 @@ class Wav2Vec2BertModelTester:
 
 
 @require_torch
-# Copied from tests.models.wav2vec2_conformer.test_modeling_wav2vec2_conformer.Wav2Vec2ConformerModelTest with Conformer->Bert, input_values->input_features
 class Wav2Vec2BertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
-    # Ignore copy
     all_model_classes = (
         (
             Wav2Vec2BertForCTC,
@@ -467,7 +456,6 @@ class Wav2Vec2BertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.Test
         config_and_inputs = self.model_tester.prepare_config_and_inputs(position_embeddings_type="relative")
         self.model_tester.create_and_check_model(*config_and_inputs)
 
-    # Ignore copy
     def test_model_with_relative_key(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs(position_embeddings_type="relative_key")
         self.model_tester.create_and_check_model(*config_and_inputs)
@@ -488,7 +476,6 @@ class Wav2Vec2BertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.Test
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_model_with_adapter_for_ctc(*config_and_inputs)
 
-    # Ignore copy
     def test_model_with_intermediate_ffn_before_adapter(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_model_with_intermediate_ffn_before_adapter(*config_and_inputs)
@@ -503,7 +490,6 @@ class Wav2Vec2BertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.Test
         config_and_inputs = self.model_tester.prepare_config_and_inputs(position_embeddings_type="relative")
         self.model_tester.create_and_check_model_float16(*config_and_inputs)
 
-    # Ignore copy
     @require_torch_accelerator
     @require_torch_fp16
     def test_model_float16_with_relative_key(self):
@@ -540,33 +526,27 @@ class Wav2Vec2BertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.Test
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.check_labels_out_of_vocab(*config_and_inputs)
 
-    # Ignore copy
     @unittest.skip(reason="Wav2Vec2Bert has no inputs_embeds")
     def test_inputs_embeds(self):
         pass
 
-    # Ignore copy
     @unittest.skip(reason="`input_ids` is renamed to `input_features`")
     def test_forward_signature(self):
         pass
 
-    # Ignore copy
     @unittest.skip(reason="Wav2Vec2Bert has no tokens embeddings")
     def test_resize_tokens_embeddings(self):
         pass
 
-    # Ignore copy
     @unittest.skip(reason="Wav2Vec2Bert has no inputs_embeds")
     def test_model_get_set_embeddings(self):
         pass
 
-    # Ignore copy
     @unittest.skip(reason="non-robust architecture does not exist in Flax")
     @is_pt_flax_cross_test
     def test_equivalence_flax_to_pt(self):
         pass
 
-    # Ignore copy
     @unittest.skip(reason="non-robust architecture does not exist in Flax")
     @is_pt_flax_cross_test
     def test_equivalence_pt_to_flax(self):
@@ -669,12 +649,10 @@ class Wav2Vec2BertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.Test
         if hasattr(module, "masked_spec_embed") and module.masked_spec_embed is not None:
             module.masked_spec_embed.data.fill_(3)
 
-    # Ignore copy
     @unittest.skip(reason="Kept to make #Copied from working")
     def test_mask_feature_prob_ctc(self):
         pass
 
-    # Ignore copy
     @unittest.skip(reason="Kept to make #Copied from working")
     def test_mask_time_prob_ctc(self):
         pass
@@ -685,13 +663,11 @@ class Wav2Vec2BertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.Test
 
     @slow
     def test_model_from_pretrained(self):
-        # Ignore copy
         model = Wav2Vec2BertModel.from_pretrained("facebook/w2v-bert-2.0")
         self.assertIsNotNone(model)
 
 
 @require_torch
-# Copied from tests.models.wav2vec2_conformer.test_modeling_wav2vec2_conformer.Wav2Vec2ConformerUtilsTest with Conformer->Bert, input_values->input_features
 class Wav2Vec2BertUtilsTest(unittest.TestCase):
     def test_compute_mask_indices(self):
         batch_size = 4
@@ -783,7 +759,6 @@ class Wav2Vec2BertUtilsTest(unittest.TestCase):
         # make sure that non-padded examples cannot be padded
         self.assertFalse(mask[0][attention_mask[0].to(torch.bool).cpu()].any())
 
-    # Ignore copy
     @unittest.skip(reason="Kept to make #Copied from working. Test a class used for pretraining, not yet supported.")
     def test_compute_perplexity(self):
         pass

@@ -276,6 +276,17 @@ class Wav2Vec2ModelTester:
             result.last_hidden_state.shape, (self.batch_size, self.adapter_output_seq_length, self.hidden_size)
         )
 
+    def create_and_check_model_with_feature_projection(self, config, input_values, attention_mask):
+        config.hidden_size = 32
+        assert config.conv_dim[-1] == config.hidden_size
+        model = Wav2Vec2Model(config=config)
+        model.to(torch_device)
+        model.eval()
+        result = model(input_values, attention_mask=attention_mask)
+        self.parent.assertEqual(
+            result.last_hidden_state.shape, (self.batch_size, self.output_seq_length, config.hidden_size)
+        )
+
     def create_and_check_model_with_adapter_for_ctc(self, config, input_values, attention_mask):
         config.add_adapter = True
         config.output_hidden_size = 2 * config.hidden_size
@@ -519,6 +530,10 @@ class Wav2Vec2ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase
     def test_model_with_adapter(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_model_with_adapter(*config_and_inputs)
+
+    def test_model_with_projection(self):
+        config_and_inputs = self.model_tester.prepare_config_and_inputs()
+        self.model_tester.create_and_check_model_with_feature_projection(*config_and_inputs)
 
     def test_model_with_adapter_for_ctc(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()

@@ -68,6 +68,8 @@ class Wav2Vec2ConformerConfig(PretrainedConfig):
             The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
         layer_norm_eps (`float`, *optional*, defaults to 1e-12):
             The epsilon used by the layer normalization layers.
+        post_layer_norm (`bool`, *optional*, defaults to `True`):
+            Apply layer-norm after the Transformer layer. Otherwise, apply it in the feature projection and prior to the Transformer layer.
         feat_extract_norm (`str`, *optional*, defaults to `"group"`):
             The norm to be applied to 1D convolutional layers in feature encoder. One of `"group"` for group
             normalization of only the first 1D convolutional layer or `"layer"` for layer normalization of all 1D
@@ -223,6 +225,7 @@ class Wav2Vec2ConformerConfig(PretrainedConfig):
         layerdrop=0.1,
         initializer_range=0.02,
         layer_norm_eps=1e-5,
+        post_layer_norm=True,
         feat_extract_norm="group",
         feat_extract_activation="gelu",
         conv_dim=(512, 512, 512, 512, 512, 512, 512),
@@ -290,6 +293,7 @@ class Wav2Vec2ConformerConfig(PretrainedConfig):
         self.final_dropout = final_dropout
         self.layerdrop = layerdrop
         self.layer_norm_eps = layer_norm_eps
+        self.post_layer_norm = post_layer_norm
         self.initializer_range = initializer_range
         self.vocab_size = vocab_size
         self.use_weighted_layer_sum = use_weighted_layer_sum

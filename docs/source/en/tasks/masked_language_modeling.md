@@ -133,7 +133,7 @@ Here is a first preprocessing function to join the list of strings for each exam
 
 ```py
 >>> def preprocess_function(examples):
-...     return tokenizer([" ".join(x) for x in examples["answers.text"]])
+...     return tokenizer(" ".join(eli5["train"][0]["answers"]["text"]))
 ```
 
 To apply this preprocessing function over the entire dataset, use the 🤗 Datasets [`~datasets.Dataset.map`] method. You can speed up the `map` function by setting `batched=True` to process multiple elements of the dataset at once, and increasing the number of processes with `num_proc`. Remove any columns you don't need:

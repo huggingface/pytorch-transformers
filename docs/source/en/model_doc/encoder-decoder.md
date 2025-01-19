@@ -178,3 +178,52 @@ were contributed by [ydshieh](https://github.com/ydshieh).
 
 </jax>
 </frameworkcontent>
+
+## Create a model
+
+To create an `EncoderDecoderModel`, you can use the `from_encoder_decoder_pretrained` method. This method allows you to initialize the model from a pretrained encoder and decoder checkpoint. Here is an example:
+
+```python
+from transformers import EncoderDecoderModel
+
+# Initialize a Bert2Bert model from pretrained checkpoints
+model = EncoderDecoderModel.from_encoder_decoder_pretrained("bert-base-uncased", "bert-base-uncased")
+
+# Save the model
+model.save_pretrained("./bert2bert")
+
+# Load the model
+model = EncoderDecoderModel.from_pretrained("./bert2bert")
+```
+
+## Finetune a model
+
+Once the model is created, it can be fine-tuned similar to BART, T5, or any other encoder-decoder model. Here is an example:
+
+```python
+from transformers import BertTokenizer, EncoderDecoderModel
+
+tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+model = EncoderDecoderModel.from_encoder_decoder_pretrained("bert-base-uncased", "bert-base-uncased")
+
+model.config.decoder_start_token_id = tokenizer.cls_token_id
+model.config.pad_token_id = tokenizer.pad_token_id
+
+input_ids = tokenizer(
+    "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building, and the tallest structure in Paris. Its base is square, measuring 125 metres (410 ft) on each side.During its construction, the Eiffel Tower surpassed the Washington Monument to become the tallest man-made structure in the world, a title it held for 41 years until the Chrysler Building in New York City was  finished in 1930. It was the first structure to reach a height of 300 metres. Due to the addition of a broadcasting aerial at the top of the tower in 1957, it is now taller than the Chrysler Building by 5.2 metres (17 ft).Excluding transmitters, the Eiffel Tower is the second tallest free-standing structure in France after the Millau Viaduct.",
+    return_tensors="pt",
+).input_ids
+
+labels = tokenizer(
+    "the eiffel tower surpassed the washington monument to become the tallest structure in the world. it was the first structure to reach a height of 300 metres in paris in 1930. it is now taller than the chrysler building by 5. 2 metres ( 17 ft ) and is the second tallest free - standing structure in paris.",
+    return_tensors="pt",
+).input_ids
+
+# The forward function automatically creates the correct decoder_input_ids
+loss = model(input_ids=input_ids, labels=labels).loss
+```
+
+## Warning about configuration values
+
+> [!WARNING]
+> It is important to correctly set the configuration values for the `EncoderDecoderModel`. Incorrect configuration values can lead to unexpected behavior. For more information on how to set the configuration values, refer to the [related issue](https://github.com/huggingface/transformers/issues/15479).

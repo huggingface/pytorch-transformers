@@ -32,7 +32,7 @@ from transformers import (
     is_torch_available,
 )
 from transformers.testing_utils import require_torch
-from transformers.trainer_callback import ExportableState
+from transformers.trainer_callback import ExportableState, TrainerControl
 
 
 if is_torch_available():
@@ -44,11 +44,18 @@ if is_torch_available():
 class MyTestExportableCallback(TrainerCallback, ExportableState):
     def __init__(self, my_test_state="test"):
         self.my_test_state = my_test_state
+        self.my_step_counter = 0
+
+    def on_step_begin(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        self.my_step_counter = self.my_step_counter + 1
 
     def state(self):
         return {
             "args": {
                 "my_test_state": self.my_test_state,
+            },
+            "attributes": {
+                "my_step_counter": self.my_step_counter,
             },
         }
 
@@ -381,7 +388,9 @@ class TrainerCallbackTest(unittest.TestCase):
         ]
         assert len(cbs) == 2
         assert cbs[0].my_test_state == "first"
+        assert cbs[0].my_step_counter > 2
         assert cbs[1].my_test_state == "second"
+        assert cbs[1].my_step_counter > 2
 
     def test_missing_stateful_callback(self):
         cb = EarlyStoppingCallback()

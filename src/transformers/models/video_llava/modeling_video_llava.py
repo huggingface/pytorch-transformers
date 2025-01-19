@@ -373,8 +373,8 @@ class VideoLlavaForConditionalGeneration(VideoLlavaPreTrainedModel, GenerationMi
             image_features (`torch.Tensor`): Image feature tensor of shape `(num_images, image_length, embed_dim)`).
         """
 
-        image_outputs = self.image_tower(pixel_values_images, output_hidden_states=True)
-        image_outputs = image_outputs.hidden_states[vision_feature_layer].squeeze(1)
+        image_outputs = self.image_tower(pixel_values_images, output_hidden_states=[vision_feature_layer])
+        image_outputs = image_outputs.hidden_states[0].squeeze(1)
 
         if vision_feature_select_strategy == "default":
             image_outputs = image_outputs[:, 1:]
@@ -403,8 +403,8 @@ class VideoLlavaForConditionalGeneration(VideoLlavaPreTrainedModel, GenerationMi
         batch_size_vid, num_frames, channels, height, width = pixel_values_videos.shape
 
         pixel_values = pixel_values_videos.reshape(batch_size_vid * num_frames, channels, height, width)
-        video_outputs = self.video_tower(pixel_values, output_hidden_states=True)
-        video_features = video_outputs.hidden_states[vision_feature_layer].squeeze(1)
+        video_outputs = self.video_tower(pixel_values, output_hidden_states=[vision_feature_layer])
+        video_features = video_outputs.hidden_states[0].squeeze(1)
         video_features = self.multi_modal_projector(video_features)
 
         return video_features, num_frames

@@ -131,11 +131,15 @@ class Blip2TextModelOutput(ModelOutput):
             The text embeddings obtained by applying the projection layer to the pooler_output.
         last_hidden_state (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`):
             Sequence of hidden-states at the output of the last layer of the model.
-        hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`):
+        hidden_states (`tuple(torch.FloatTensor)`, *optional*,
+            returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`,
+            or when a list of selected indices e.g. `output_hidden_states=[-2]` is passed or when `config.output_hidden_states=[-2]`
+        ):
             Tuple of `torch.FloatTensor` (one for the output of the embeddings, if the model has an embedding layer, +
             one for the output of each layer) of shape `(batch_size, sequence_length, hidden_size)`.
 
-            Hidden-states of the model at the output of each layer plus the optional initial embedding outputs.
+            Hidden-states of the model at the output of each layer plus the optional initial embedding outputs, or
+            hidden-states of the model at the output of the selected layers.
         attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or when `config.output_attentions=True`):
             Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, num_heads, sequence_length,
             sequence_length)`.
@@ -161,11 +165,15 @@ class Blip2VisionModelOutput(ModelOutput):
             The image embeddings obtained by applying the projection layer to the pooler_output.
         last_hidden_state (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`):
             Sequence of hidden-states at the output of the last layer of the model.
-        hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`):
+        hidden_states (`tuple(torch.FloatTensor)`, *optional*,
+            returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`,
+            or when a list of selected indices e.g. `output_hidden_states=[-2]` is passed or when `config.output_hidden_states=[-2]`
+        ):
             Tuple of `torch.FloatTensor` (one for the output of the embeddings, if the model has an embedding layer, +
             one for the output of each layer) of shape `(batch_size, sequence_length, hidden_size)`.
 
-            Hidden-states of the model at the output of each layer plus the optional initial embedding outputs.
+            Hidden-states of the model at the output of each layer plus the optional initial embedding outputs, or
+            hidden-states of the model at the output of the selected layers.
         attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or when `config.output_attentions=True`):
             Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, num_heads, sequence_length,
             sequence_length)`.

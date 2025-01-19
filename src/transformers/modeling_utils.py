@@ -3791,25 +3791,30 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
                         )
                         if resolved_archive_file is not None:
                             is_sharded = True
-                        elif use_safetensors:
-                            if revision == "main":
+                        elif revision == "main" or revision is None:
+                            try:
                                 resolved_archive_file, revision, is_sharded = auto_conversion(
                                     pretrained_model_name_or_path, **cached_file_kwargs
                                 )
-                            cached_file_kwargs["revision"] = revision
-                            if resolved_archive_file is None:
+                                print(resolved_archive_file)
+                            except Exception:
+                                logger.debug("Error during auto conversion, will error out or use PyTorch bin file.")
+
+                        if resolved_archive_file is None:
+                            if use_safetensors:
                                 raise EnvironmentError(
                                     f"{pretrained_model_name_or_path} does not appear to have a file named"
                                     f" {_add_variant(SAFE_WEIGHTS_NAME, variant)} or {_add_variant(SAFE_WEIGHTS_INDEX_NAME, variant)} "
                                     "and thus cannot be loaded with `safetensors`. Please make sure that the model has "
                                     "been saved with `safe_serialization=True` or do not set `use_safetensors=True`."
                                 )
-                        else:
-                            # This repo has no safetensors file of any kind, we switch to PyTorch.
-                            filename = _add_variant(WEIGHTS_NAME, variant)
-                            resolved_archive_file = cached_file(
-                                pretrained_model_name_or_path, filename, **cached_file_kwargs
-                            )
+                            else:
+                                # This repo has no safetensors file of any kind, we switch to PyTorch.
+                                filename = _add_variant(WEIGHTS_NAME, variant)
+                                resolved_archive_file = cached_file(
+                                    pretrained_model_name_or_path, filename, **cached_file_kwargs
+                                )
+
                     if resolved_archive_file is None and filename == _add_variant(WEIGHTS_NAME, variant):
                         # Maybe the checkpoint is sharded, we try to grab the index name in this case.
                         resolved_archive_file = cached_file(

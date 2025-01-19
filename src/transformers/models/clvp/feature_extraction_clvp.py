@@ -21,7 +21,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 
-from ...audio_utils import mel_filter_bank, spectrogram, window_function
+from ...audio_utils import mel_filter_bank, spectrogram, spectrogram_batch, window_function
 from ...feature_extraction_sequence_utils import SequenceFeatureExtractor
 from ...feature_extraction_utils import BatchFeature
 from ...utils import TensorType, logging
@@ -128,6 +128,27 @@ class ClvpFeatureExtractor(SequenceFeatureExtractor):
 
         return log_spec
 
+    def _np_extract_fbank_features_batch(self, waveforms: List[np.array]) -> np.ndarray:
+        """
+        Batch version of `_np_extract_fbank_features`.
+        """
+        log_specs = spectrogram_batch(
+            waveforms,
+            window_function(self.n_fft, "hann"),
+            frame_length=self.n_fft,
+            hop_length=self.hop_length,
+            power=2.0,
+            mel_filters=self.mel_filters,
+            log_mel=None,
+        )
+
+        log_specs = np.log(np.clip(log_specs, a_min=1e-5, a_max=None))
+
+        if self.mel_norms is not None:
+            log_specs = log_specs / np.array(self.mel_norms)[:, None, None]
+
+        return log_specs
+
     def __call__(
         self,
         raw_speech: Union[np.ndarray, List[float], List[np.ndarray], List[List[float]]],
@@ -226,9 +247,7 @@ class ClvpFeatureExtractor(SequenceFeatureExtractor):
         # make sure list is in array format
         input_features = padded_inputs.get("input_features").transpose(2, 0, 1)
 
-        input_features = [
-            self._np_extract_fbank_features(waveform).astype(np.float32) for waveform in input_features[0]
-        ]
+        input_features = self._np_extract_fbank_features_batch(list(input_features[0])).astype(np.float32)
 
         if isinstance(input_features[0], List):
             padded_inputs["input_features"] = [np.asarray(feature) for feature in input_features]

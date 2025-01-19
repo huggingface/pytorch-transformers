@@ -26,7 +26,7 @@ from ...utils import is_torch_available
 if is_torch_available():
     import torch
 
-from ...audio_utils import mel_filter_bank, spectrogram, window_function
+from ...audio_utils import mel_filter_bank, spectrogram, spectrogram_batch, window_function
 from ...feature_extraction_sequence_utils import SequenceFeatureExtractor
 from ...feature_extraction_utils import BatchFeature
 from ...utils import PaddingStrategy, TensorType, logging
@@ -141,6 +141,37 @@ class SeamlessM4TFeatureExtractor(SequenceFeatureExtractor):
         ).T
         return features
 
+    def _extract_fbank_features_batch(
+        self,
+        waveforms: List[np.ndarray],
+    ) -> List[np.ndarray]:
+        """
+        Get mel-filter bank features using TorchAudio for a batch of waveforms. Note that TorchAudio requires 16-bit signed integers as inputs
+        and hence the waveforms should not be normalized before feature extraction.
+        """
+        processed_waveforms = [
+            np.squeeze(waveform[0] if len(waveform.shape) == 2 else waveform) * (2**15) for waveform in waveforms
+        ]
+
+        features_batch = spectrogram_batch(
+            processed_waveforms,
+            self.window,
+            frame_length=400,
+            hop_length=160,
+            fft_length=512,
+            power=2.0,
+            center=False,
+            preemphasis=0.97,
+            mel_filters=self.mel_filters,
+            log_mel="log",
+            mel_floor=1.192092955078125e-07,
+            remove_dc_offset=True,
+        )
+
+        features_batch = [features.T for features in features_batch]
+
+        return features_batch
+
     def __call__(
         self,
         raw_speech: Union[np.ndarray, List[float], List[np.ndarray], List[List[float]]],
@@ -251,12 +282,12 @@ class SeamlessM4TFeatureExtractor(SequenceFeatureExtractor):
         elif isinstance(raw_speech, np.ndarray) and raw_speech.dtype is np.dtype(np.float64):
             raw_speech = raw_speech.astype(np.float32)
 
-        # always return batch
-        if not is_batched:
-            raw_speech = [raw_speech]
-
-        # extract fbank features
-        features = [self._extract_fbank_features(waveform) for waveform in raw_speech]
+        # Extract fbank features, ensuring the result is always a batch
+        features = (
+            [self._extract_fbank_features(raw_speech)]
+            if not is_batched
+            else self._extract_fbank_features_batch(raw_speech)
+        )
 
         if do_normalize_per_mel_bins:
             # torch defaults to ddof=1, and numpy defaults to ddof=0

@@ -20,7 +20,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 
-from ...audio_utils import mel_filter_bank, spectrogram, window_function
+from ...audio_utils import mel_filter_bank, spectrogram, spectrogram_batch, window_function
 from ...feature_extraction_sequence_utils import SequenceFeatureExtractor
 from ...feature_extraction_utils import BatchFeature
 from ...utils import PaddingStrategy, TensorType, is_speech_available, logging
@@ -125,6 +125,46 @@ class Speech2TextFeatureExtractor(SequenceFeatureExtractor):
                 remove_dc_offset=True,
             ).T
         return features
+
+    def _extract_fbank_features_batch(
+        self,
+        waveform_list: List[np.ndarray],
+    ) -> List[np.ndarray]:
+        """
+        Batch version of `_extract_fbank_features`.
+        """
+        waveform_list = [waveform * (2**15) for waveform in waveform_list]
+        if is_speech_available():
+            features_list = []
+            for waveform in waveform_list:
+                waveform_torch = torch.from_numpy(waveform).unsqueeze(0)
+
+                features = ta_kaldi.fbank(
+                    waveform_torch, num_mel_bins=self.num_mel_bins, sample_frequency=self.sampling_rate
+                )
+                features = features.numpy()
+
+                features_list.append(features)
+
+        else:
+            waveform_list = [np.squeeze(waveform) for waveform in waveform_list]
+            features_list = spectrogram_batch(
+                waveform_list,
+                self.window,
+                frame_length=400,
+                hop_length=160,
+                fft_length=512,
+                power=2.0,
+                center=False,
+                preemphasis=0.97,
+                mel_filters=self.mel_filters,
+                log_mel="log",
+                mel_floor=1.192092955078125e-07,
+                remove_dc_offset=True,
+            )
+            features_list = [features.T for features in features_list]
+
+        return features_list
 
     @staticmethod
     def utterance_cmvn(
@@ -251,12 +291,12 @@ class Speech2TextFeatureExtractor(SequenceFeatureExtractor):
         elif isinstance(raw_speech, np.ndarray) and raw_speech.dtype is np.dtype(np.float64):
             raw_speech = raw_speech.astype(np.float32)
 
-        # always return batch
-        if not is_batched:
-            raw_speech = [raw_speech]
-
-        # extract fbank features
-        features = [self._extract_fbank_features(waveform) for waveform in raw_speech]
+        # Extract fbank features, ensuring the result is always a batch
+        features = (
+            [self._extract_fbank_features(raw_speech)]
+            if not is_batched
+            else self._extract_fbank_features_batch(raw_speech)
+        )
 
         # convert into correct format for padding
         encoded_inputs = BatchFeature({"input_features": features})

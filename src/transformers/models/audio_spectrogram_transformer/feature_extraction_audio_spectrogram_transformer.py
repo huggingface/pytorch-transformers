@@ -20,7 +20,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 
-from ...audio_utils import mel_filter_bank, spectrogram, window_function
+from ...audio_utils import mel_filter_bank, spectrogram, spectrogram_batch, window_function
 from ...feature_extraction_sequence_utils import SequenceFeatureExtractor
 from ...feature_extraction_utils import BatchFeature
 from ...utils import TensorType, is_speech_available, is_torch_available, logging
@@ -155,6 +155,61 @@ class ASTFeatureExtractor(SequenceFeatureExtractor):
 
         return fbank
 
+    def _extract_fbank_features_batch(
+        self,
+        waveform_list: List[np.ndarray],
+        max_length: int,
+    ) -> List[np.ndarray]:
+        """
+        Batch version of `_extract_fbank_features`.
+        """
+        features_list = []
+
+        if is_speech_available():
+            fbank_list = []
+            for waveform in waveform_list:
+                waveform_tensor = torch.from_numpy(waveform).unsqueeze(0)
+                fbank = ta_kaldi.fbank(
+                    waveform_tensor,
+                    sample_frequency=self.sampling_rate,
+                    window_type="hanning",
+                    num_mel_bins=self.num_mel_bins,
+                )
+                fbank_list.append(fbank)
+        else:
+            waveform_list = [np.squeeze(waveform) for waveform in waveform_list]
+            fbank_list = spectrogram_batch(
+                waveform_list,
+                window=self.window,
+                frame_length=400,
+                hop_length=160,
+                fft_length=512,
+                power=2.0,
+                center=False,
+                preemphasis=0.97,
+                mel_filters=self.mel_filters,
+                log_mel="log",
+                mel_floor=1.192092955078125e-07,
+                remove_dc_offset=True,
+            )
+            fbank_list = [torch.from_numpy(fbank.T) for fbank in fbank_list]
+
+        for fbank in fbank_list:
+            n_frames = fbank.shape[0]
+            difference = max_length - n_frames
+
+            # pad or truncate, depending on difference
+            if difference > 0:
+                pad_module = torch.nn.ZeroPad2d((0, 0, 0, difference))
+                fbank = pad_module(fbank)
+            elif difference < 0:
+                fbank = fbank[0:max_length, :]
+
+            fbank = fbank.numpy()
+            features_list.append(fbank)
+
+        return features_list
+
     def normalize(self, input_values: np.ndarray) -> np.ndarray:
         return (input_values - (self.mean)) / (self.std * 2)
 
@@ -211,9 +266,12 @@ class ASTFeatureExtractor(SequenceFeatureExtractor):
         elif isinstance(raw_speech, np.ndarray) and raw_speech.dtype is np.dtype(np.float64):
             raw_speech = raw_speech.astype(np.float32)
 
-        # always return batch
-        if not is_batched:
-            raw_speech = [raw_speech]
+        # Extract fbank features, ensuring the result is always a batch
+        features = (
+            [self._extract_fbank_features(raw_speech)]
+            if not is_batched
+            else self._extract_fbank_features_batch(raw_speech)
+        )
 
         # extract fbank features and pad/truncate to max_length
         features = [self._extract_fbank_features(waveform, max_length=self.max_length) for waveform in raw_speech]

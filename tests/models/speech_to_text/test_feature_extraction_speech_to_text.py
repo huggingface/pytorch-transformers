@@ -144,6 +144,40 @@ class Speech2TextFeatureExtractionTest(SequenceFeatureExtractionTestMixin, unitt
         for enc_seq_1, enc_seq_2 in zip(encoded_sequences_1, encoded_sequences_2):
             self.assertTrue(np.allclose(enc_seq_1, enc_seq_2, atol=1e-3))
 
+    def test_dither(self):
+        np.random.seed(42)  # seed the dithering randn()
+
+        # Tests that features with and without little dithering are similar, but not the same
+        dict_no_dither = self.feat_extract_tester.prepare_feat_extract_dict()
+        dict_no_dither["dither"] = 0.0
+
+        dict_dither = self.feat_extract_tester.prepare_feat_extract_dict()
+        dict_dither["dither"] = 1.0
+
+        feature_extractor_no_dither = self.feature_extraction_class(**dict_no_dither)
+        feature_extractor_dither = self.feature_extraction_class(**dict_dither)
+
+        # create three inputs of length 800, 1000, and 1200
+        speech_inputs = [floats_list((1, x))[0] for x in range(800, 1400, 200)]
+        np_speech_inputs = [np.asarray(speech_input) for speech_input in speech_inputs]
+
+        # compute features
+        input_features_no_dither = feature_extractor_no_dither(
+            np_speech_inputs, padding=True, return_tensors="np"
+        ).input_features
+        input_features_dither = feature_extractor_dither(
+            np_speech_inputs, padding=True, return_tensors="np"
+        ).input_features
+
+        # test there is a difference between features (there's added noise to input signal)
+        diff = input_features_dither - input_features_no_dither
+
+        # features are not identical
+        self.assertTrue(np.abs(diff).mean() > 1e-5)
+        # features are not too different
+        self.assertTrue(np.abs(diff).mean() <= 1e-3)
+        self.assertTrue(np.abs(diff).max() <= 1e-2)
+
     def test_cepstral_mean_and_variance_normalization(self):
         feature_extractor = self.feature_extraction_class(**self.feat_extract_tester.prepare_feat_extract_dict())
         speech_inputs = [floats_list((1, x))[0] for x in range(800, 1400, 200)]

@@ -57,6 +57,14 @@ class WhisperFeatureExtractor(SequenceFeatureExtractor):
             Size of the Fourier transform.
         padding_value (`float`, *optional*, defaults to 0.0):
             Padding value used to pad the audio. Should correspond to silences.
+        dither (`float`, *optional*, defaults to 0.0):
+            Adds dithering. In other words, adds a small Gaussian noise to each frame.
+            E.g. use 0.0001 to add dithering with a normal distribution centered
+            around 0.0 with standard deviation 0.0001 (assuming [-1,+1] range of raw_speech).
+            The value 0.0 means no dithering.
+            Dithering has similar effect as `spectrogram(mel_floor=...)`. It reduces
+            the high log_mel_fbank values for signals with hard-zero sections,
+            when VAD cutoff is present in the signal.
     """
 
     model_input_names = ["input_features"]
@@ -69,6 +77,7 @@ class WhisperFeatureExtractor(SequenceFeatureExtractor):
         chunk_length=30,
         n_fft=400,
         padding_value=0.0,
+        dither=0.0,
         return_attention_mask=False,  # pad inputs to max length with silence token (zero) and no attention mask
         **kwargs,
     ):
@@ -85,6 +94,7 @@ class WhisperFeatureExtractor(SequenceFeatureExtractor):
         self.n_samples = chunk_length * sampling_rate
         self.nb_max_frames = self.n_samples // hop_length
         self.sampling_rate = sampling_rate
+        self.dither = dither
         self.mel_filters = mel_filter_bank(
             num_frequency_bins=1 + n_fft // 2,
             num_mel_filters=feature_size,
@@ -114,6 +124,7 @@ class WhisperFeatureExtractor(SequenceFeatureExtractor):
                 frame_length=self.n_fft,
                 hop_length=self.hop_length,
                 power=2.0,
+                dither=self.dither,
                 mel_filters=self.mel_filters,
                 log_mel="log10",
             )
@@ -135,6 +146,13 @@ class WhisperFeatureExtractor(SequenceFeatureExtractor):
         if device != "cpu":
             waveform = waveform.to(device)
             window = window.to(device)
+
+        # Note: it would be better to dither the chunked waveform,
+        # so overlapping signal does not get the same dithering.
+        # But, chunking is happening inside pytorch, so it is here.
+        if self.dither != 0.0:
+            waveform += self.dither * torch.randn(waveform.shape, dtype=waveform.dtype, device=waveform.device)
+
         stft = torch.stft(waveform, self.n_fft, self.hop_length, window=window, return_complex=True)
         magnitudes = stft[..., :-1].abs() ** 2
 

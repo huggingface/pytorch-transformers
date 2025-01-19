@@ -815,6 +815,30 @@ class GPT2Model(GPT2PreTrainedModel):
             position_ids = torch.arange(past_length, input_shape[-1] + past_length, dtype=torch.long, device=device)
             position_ids = position_ids.unsqueeze(0)
 
+        # Convert 4D attention mask to 2D if necessary
+        if attention_mask is not None and attention_mask.dim() == 4:
+            # Extract the relevant information from the 4D mask
+            # Assuming mask of shape [batch_size, 1, seq_len, seq_len]
+            # where 0 means "attend" and negative infinity means "don't attend"
+            attention_mask = (attention_mask[:, 0, 0] > -1).float()  # Convert to [batch_size, seq_len]
+            attention_mask = attention_mask.view(batch_size, -1)
+
+        # GPT2's original attention mask handling
+        if attention_mask is not None:
+            if batch_size <= 0:
+                raise ValueError("batch_size has to be defined and > 0")
+            attention_mask = attention_mask.view(batch_size, -1)
+            # We create a 3D attention mask from a 2D tensor mask.
+            # Sizes are [batch_size, 1, 1, to_seq_length]
+            # So we can broadcast to [batch_size, num_heads, from_seq_length, to_seq_length]
+            attention_mask = attention_mask[:, None, None, :]
+
+            # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
+            # masked positions, this operation will create a tensor which is 0.0 for
+            # positions we want to attend and the dtype's smallest value for masked positions.
+            attention_mask = attention_mask.to(dtype=self.dtype)  # fp16 compatibility
+            attention_mask = (1.0 - attention_mask) * torch.finfo(self.dtype).min
+
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
         position_embeds = self.wpe(position_ids)

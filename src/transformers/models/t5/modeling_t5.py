@@ -477,6 +477,16 @@ class T5Attention(nn.Module):
         """
         Self-attention (if key_value_states is None) or attention over source sentence (provided by key_value_states).
         """
+        if cache_position is None:
+            if past_key_value is not None:
+                logger.warning_once(
+                    f"{self.__class__.__name__} forward called without cache_position when using cache, which might result in errors. "
+                    "Please provide a cache_position when calling this function. "
+                    "See 'Best Practices for Generation with Cache' in the docs for more information. "
+                    "Assuming cache position starts at 0."
+                )
+            cache_position = torch.arange(hidden_states.shape[1])
+
         # Input is (batch_size, seq_length, dim)
         # Mask is (batch_size, 1, 1, key_length) (non-causal encoder) or (batch_size, 1, seq_length, key_length) (causal decoder)
         batch_size, seq_length = hidden_states.shape[:2]

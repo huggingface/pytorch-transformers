@@ -845,32 +845,29 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         if post_processor is not None:
             trained_tokenizer_json = json.loads(tokenizer.to_str())
             # Almost done, we just have to adjust the token IDs in the post processor
-            if "special_tokens" in post_processor:
-                for key in post_processor["special_tokens"]:
-                    tokens = post_processor["special_tokens"][key]["tokens"]
-                    if special_tokens_map is not None:
-                        tokens = [special_tokens_map.get(token, token) for token in tokens]
-                    post_processor["special_tokens"][key]["tokens"] = tokens
-                    for token in tokens:
+            _post_processors = [post_processor]
+            # If the post-processor is of type Sequence, handle the individual processors
+            if "processors" in post_processor:
+                _post_processors.extend(post_processor["processors"])
+
+            for _post_processor in _post_processors:
+                if "special_tokens" in _post_processor:
+                    for key in _post_processor["special_tokens"]:
+                        tokens = _post_processor["special_tokens"][key]["tokens"]
+                        if special_tokens_map is not None:
+                            tokens = [special_tokens_map.get(token, token) for token in tokens]
+                        _post_processor["special_tokens"][key]["tokens"] = tokens
+                        _post_processor["special_tokens"][key]["ids"] = [
+                            tokenizer.token_to_id(token) for token in tokens
+                        ]
+
+                for special_token in ["cls", "sep"]:
+                    if special_token in _post_processor:
+                        token, _ = _post_processor[special_token]
+                        if special_tokens_map is not None and token in special_tokens_map:
+                            token = special_tokens_map[token]
                         token_id = tokenizer.token_to_id(token)
-                        if token_id is None:
-                            raise ValueError(
-                                "Attempted to set a token in the post processor that does not exist in the mapping"
-                            )
-
-                    post_processor["special_tokens"][key]["ids"] = [tokenizer.token_to_id(token) for token in tokens]
-
-            for special_token in ["cls", "sep"]:
-                if special_token in post_processor:
-                    token, _ = post_processor[special_token]
-                    if special_tokens_map is not None and token in special_tokens_map:
-                        token = special_tokens_map[token]
-                    token_id = tokenizer.token_to_id(token)
-                    if token_id is None:
-                        raise ValueError(
-                            "Attempted to set a token in the post processor that does not exist in the mapping"
-                        )
-                    post_processor[special_token] = [token, token_id]
+                        _post_processor[special_token] = [token, token_id]
 
             trained_tokenizer_json["post_processor"] = post_processor
             tokenizer = TokenizerFast.from_str(json.dumps(trained_tokenizer_json))

@@ -122,6 +122,23 @@ class PreTrainedTokenizationFastTest(TokenizerTesterMixin, unittest.TestCase):
         encoding_ids = new_tokenizer.encode("a🤗")
         self.assertEqual(encoding_ids, [64, 172, 253, 97, 245])
 
+    def test_training_new_tokenizer_with_sequence_postprocessor(self):
+        tokenizer_fast = self.rust_tokenizer_class.from_pretrained("hf-internal-testing/llama-3-8b-internal")
+
+        toy_text_iterator = ("a" for _ in range(1000))
+        new_tokenizer = tokenizer_fast.train_new_from_iterator(
+            text_iterator=toy_text_iterator, length=1000, vocab_size=300
+        )
+        bos_token = "<|begin_of_text|>"
+        new_bos_token_id = new_tokenizer._tokenizer.get_vocab(True)[bos_token]
+        cfg = json.loads(new_tokenizer._tokenizer.to_str())
+        # Check if "<|begin_of_text|>" id is changed correctly
+        template_post_processor_json = cfg["post_processor"]["processors"][1]
+        processor_token_id = template_post_processor_json["special_tokens"][bos_token]["ids"][0]
+        self.assertEqual(processor_token_id, new_bos_token_id)
+        # Check if "<|begin_of_text|>" is correct in encoded text
+        self.assertEqual(new_tokenizer.encode("a🤗")[0], new_bos_token_id)
+
     def test_init_from_tokenizers_model(self):
         from tokenizers import Tokenizer
 

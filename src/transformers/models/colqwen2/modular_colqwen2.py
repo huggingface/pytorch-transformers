@@ -15,9 +15,9 @@
 
 
 import math
+from copy import deepcopy
 from typing import ClassVar, List, Optional, Tuple, Union
 
-from transformers.models.qwen2_vl.configuration_qwen2_vl import Qwen2VLConfig
 from transformers.models.qwen2_vl.modeling_qwen2_vl import (
     Qwen2VLCausalLMOutputWithPast,
     Qwen2VLForConditionalGeneration,
@@ -45,7 +45,7 @@ from ...utils import (
     logging,
     replace_return_docstrings,
 )
-from ..auto import CONFIG_MAPPING
+from ..auto import CONFIG_MAPPING, AutoConfig
 
 
 if is_torch_available():
@@ -75,27 +75,78 @@ COLQWEN2_START_DOCSTRING = r"""
 
 class ColQwen2Config(PretrainedConfig):
     r"""
-    # TODO: fill docstring
+    Configuration class to store the configuration of a [`ColQ2en2ForRetrieval`]. It is used to instantiate an instance
+    of `ColQwen2ForRetrieval` according to the specified arguments, defining the model architecture following the methodology
+    from the "ColQwen2: Efficient Document Retrieval with Vision Language Models" paper.
+
+    Creating a configuration with the default settings will result in a configuration where the VLM backbone is set to the
+    default PaliGemma configuration, i.e the one from [vidore/colpali-v1.2](https://huggingface.co/vidore/colpali-v1.2).
+
+    The ColQwen2 config is very similar to [`Qwen2VLConfig`], but with an extra attribute defining the embedding dimension.
+
+    Configuration objects inherit from [`PretrainedConfig`] and can be used to control the model outputs. Read the
+    documentation from [`PretrainedConfig`] for more information.
+
+    Args:
+        vlm_config (`PretrainedConfig`, *optional*):
+            Configuration of the VLM backbone model.
+        text_config (`PretrainedConfig`, *optional*):
+            Configuration of the text backbone model. Overrides the `text_config` attribute of the `vlm_config` if provided.
+        embedding_dim (`int`, *optional*, defaults to 128):
+            Dimension of the multi-vector embeddings produced by the model.
+
+    Example:
+
+    ```python
+    from transformers.models.colpali import ColQwen2Config, ColQwen2ForRetrieval
+
+    config = ColQwen2Config()
+    model = ColQwen2ForRetrieval(config)
+    ```
     """
+
+    model_type = "colqwen2"
+    sub_configs = {"vlm_config": PretrainedConfig, "text_config": AutoConfig}
 
     def __init__(
         self,
-        vlm_backbone_config: Qwen2VLConfig = None,
+        vlm_config=None,
+        text_config=None,
         embedding_dim: int = 128,
         **kwargs,
     ):
-        if isinstance(vlm_backbone_config, dict):
-            vlm_backbone_config["model_type"] = (
-                vlm_backbone_config["model_type"] if "model_type" in vlm_backbone_config else "paligemma"
+        if vlm_config is None:
+            vlm_config = CONFIG_MAPPING["qwen2_vl"]()
+            logger.info(
+                "`vlm_config` is `None`. Initializing `vlm_config` with the `Qwen2VLConfig` with default values."
             )
-            vlm_backbone_config = CONFIG_MAPPING[vlm_backbone_config["model_type"]](**vlm_backbone_config)
-        elif vlm_backbone_config is None:
-            vlm_backbone_config = CONFIG_MAPPING["paligemma"]()
-        self.embedding_dim = embedding_dim
-        super().__init__(**kwargs)
+        elif isinstance(vlm_config, dict):
+            vlm_config = deepcopy(vlm_config)
+            if "model_type" not in vlm_config:
+                raise KeyError(
+                    "The `model_type` key is missing in the `vlm_config` dictionary. Please provide the model type."
+                )
+            elif vlm_config["model_type"] != "qwen2_vl":
+                raise ValueError(
+                    f"Invalid model type for `vlm_config`. Expected `qwen2_vl`, but got {vlm_config['model_type']}."
+                )
+            vlm_config = CONFIG_MAPPING[vlm_config["model_type"]](**vlm_config)
+        elif isinstance(vlm_config, PretrainedConfig):
+            vlm_config = vlm_config
+        else:
+            raise TypeError(
+                f"Invalid type for `vlm_config`. Expected `PretrainedConfig`, `dict`, or `None`, but got {type(vlm_config)}."
+            )
 
-    def ignore_index(self):
-        raise AttributeError("Not needed for ColQwen2")
+        self.vlm_config = vlm_config
+        self.text_config = text_config = text_config if text_config is not None else vlm_config.text_config
+        if isinstance(self.text_config, dict):
+            text_config["model_type"] = text_config["model_type"] if "model_type" in text_config else "qwen2"
+            self.text_config = CONFIG_MAPPING[text_config["model_type"]](**text_config)
+
+        self.embedding_dim = embedding_dim
+
+        super().__init__(**kwargs)
 
 
 class ColQwen2ProcessorKwargs(ProcessingKwargs, total=False):
@@ -146,7 +197,6 @@ def floor_by_factor(number: float, factor: int) -> int:
 
 class ColQwen2Processor(Qwen2VLProcessor):
     r"""
-    # TODO: Validate docstring
     Constructs a ColQwen2 processor which wraps a Qwen2VLProcessor and special methods to process images and queries, as
     well as to compute the late-interaction retrieval score.
 
@@ -164,12 +214,15 @@ class ColQwen2Processor(Qwen2VLProcessor):
 
     def __init__(
         self,
+        image_processor=None,
+        tokenizer=None,
+        chat_template=None,
         visual_prompt_prefix: str = "<|im_start|>user\n<|vision_start|><|image_pad|><|vision_end|>Describe the image.<|im_end|><|endoftext|>",
         query_prefix: str = "Question: ",
+        num_image_tokens: int = 768,
         **kwargs,
     ):
-        num_image_tokens = kwargs.pop("num_image_tokens", 768)
-        super().__init__(**kwargs)
+        super().__init__(image_processor, tokenizer, chat_template=chat_template, **kwargs)
 
         self.visual_prompt_prefix = visual_prompt_prefix
         self.query_prefix = query_prefix
@@ -181,6 +234,145 @@ class ColQwen2Processor(Qwen2VLProcessor):
         self.factor = 28
         self.max_ratio = 200
 
+    def __call__(
+        self,
+        images: ImageInput = None,
+        text: Union[TextInput, PreTokenizedInput, List[TextInput], List[PreTokenizedInput]] = None,
+        audio=None,
+        videos=None,
+        **kwargs: Unpack[ColQwen2ProcessorKwargs],
+    ) -> BatchFeature:
+        """
+        # TODO: Validate docstring
+
+        Main method to prepare for the model either (1) one or several texts, either (2) one or several image(s). This method is custom
+        wrapper around the Qwen2VLProcessor's [`~Qwen2VLProcessor.__call__`] method adapted for the ColQwen2 model. It cannot process
+        both text and images at the same time.
+
+        When preparing the the text(s), this method forwards the `text` and `kwargs` arguments to LlamaTokenizerFast's
+        [`~LlamaTokenizerFast.__call__`].
+        When preparing the the image(s), this method forwards the `images` and `kwargs` arguments to SiglipImageProcessor's
+        [`~SiglipImageProcessor.__call__`].
+        Please refer to the doctsring of the above two methods for more information.
+
+        Args:
+            images (`PIL.Image.Image`, `np.ndarray`, `torch.Tensor`, `List[PIL.Image.Image]`, `List[np.ndarray]`, `List[torch.Tensor]`):
+                The image or batch of images to be prepared. Each image can be a PIL image, NumPy array or PyTorch
+                tensor. In case of a NumPy array/PyTorch tensor, each image should be of shape (C, H, W), where C is a
+                number of channels, H and W are image height and width.
+            text (`str`, `List[str]`, `List[List[str]]`):
+                The sequence or batch of sequences to be encoded. Each sequence can be a string or a list of strings
+                (pretokenized string). If the sequences are provided as list of strings (pretokenized), you must set
+                `is_split_into_words=True` (to lift the ambiguity with a batch of sequences).
+            return_tensors (`str` or [`~utils.TensorType`], *optional*):
+                If set, will return tensors of a particular framework. Acceptable values are:
+
+                - `'tf'`: Return TensorFlow `tf.constant` objects.
+                - `'pt'`: Return PyTorch `torch.Tensor` objects.
+                - `'np'`: Return NumPy `np.ndarray` objects.
+                - `'jax'`: Return JAX `jnp.ndarray` objects.
+
+        Returns:
+            [`BatchFeature`]: A [`BatchFeature`] with the following fields:
+
+            - **input_ids** -- List of token ids to be fed to a model.
+            - **attention_mask** -- List of indices specifying which tokens should be attended to by the model (when
+              `return_attention_mask=True` or if *"attention_mask"* is in `self.model_input_names` and if `text` is not
+              `None`).
+            - **pixel_values** -- Pixel values to be fed to a model. Returned when `images` is not `None`.
+        """
+        kwargs["padding"] = "longest" if "padding" not in kwargs else kwargs["padding"]
+        kwargs["return_tensors"] = "pt" if "return_tensors" not in kwargs else kwargs["return_tensors"]
+        output_kwargs = self._merge_kwargs(
+            ColQwen2ProcessorKwargs,
+            tokenizer_init_kwargs=self.tokenizer.init_kwargs,
+            **kwargs,
+        )
+        suffix = output_kwargs["text_kwargs"].pop("suffix", None)
+
+        return_token_type_ids = True if suffix is not None else False
+
+        if text is None and images is None:
+            raise ValueError("Either text or images must be provided")
+        if text is not None and images is not None:
+            raise ValueError("Only one of text or images can be processed at a time")
+
+        if images is not None:
+            if is_valid_image(images):
+                images = [images]
+            elif isinstance(images, list) and is_valid_image(images[0]):
+                pass
+            elif not (isinstance(images, list) and isinstance(images[0], list) and is_valid_image(images[0][0])):
+                raise ValueError("images must be an image, list of images or list of list of images")
+
+            texts_doc = [self.visual_prompt_prefix] * len(images)
+            images: List[ImageInput] = [self.smart_resize(image.convert("RGB")) for image in images]
+
+            image_inputs = self.image_processor(images=images, videos=None, **output_kwargs["images_kwargs"])
+            image_grid_thw = image_inputs["image_grid_thw"]
+
+            if image_grid_thw is not None:
+                merge_length = self.image_processor.merge_size**2
+                index = 0
+                for i in range(len(text)):
+                    while self.image_token in text[i]:
+                        text[i] = text[i].replace(
+                            self.image_token, "<|placeholder|>" * (image_grid_thw[index].prod() // merge_length), 1
+                        )
+                        index += 1
+                    text[i] = text[i].replace("<|placeholder|>", self.image_token)
+
+            text_inputs = self.tokenizer(texts_doc, **output_kwargs["text_kwargs"])
+
+            return_data = BatchFeature(data={**text_inputs, **image_inputs})
+
+            # NOTE: Make sure the scatter operation in DDP is done correctly when training on multiple GPUs.
+            offsets = return_data["image_grid_thw"][:, 1] * return_data["image_grid_thw"][:, 2]
+
+            # Separate pixel_values for each image.
+            pixel_values = torch.split(return_data["pixel_values"], offsets.tolist())
+
+            # Pad pixel_values to the same sequence length to later stack it into a single tensor.
+            max_length = max([len(pixel_value) for pixel_value in pixel_values])
+
+            pixel_values = [
+                torch.cat([pv, torch.zeros((max_length - len(pv), pv.shape[1]), dtype=pv.dtype, device=pv.device)])
+                for pv in pixel_values
+            ]
+            return_data["pixel_values"] = torch.stack(pixel_values)
+
+            if return_token_type_ids:
+                labels = return_data["input_ids"].masked_fill(return_data["token_type_ids"] == 0, -100)
+                return_data.update({"labels": labels})
+
+            return return_data
+
+        elif text is not None:
+            if isinstance(text, str):
+                text = [text]
+            elif not (isinstance(text, list) and isinstance(text[0], str)):
+                raise ValueError("Text must be a string or a list of strings")
+
+            if suffix is None:
+                suffix = self.query_augmentation_token * 10
+
+            texts_query: List[str] = []
+
+            for query in text:
+                query = self.tokenizer.bos_token + self.query_prefix + query + suffix
+                query += "\n"  # make input ISO to PaliGemma's processor
+                texts_query.append(query)
+
+            output_kwargs["text_kwargs"]["max_length"] = output_kwargs["text_kwargs"].get("max_length", 50)
+
+            batch_query = self.tokenizer(
+                texts_query,
+                return_token_type_ids=False,
+                **output_kwargs["text_kwargs"],
+            )
+
+            return batch_query
+
     @property
     def query_augmentation_token(self) -> str:
         """
@@ -189,15 +381,6 @@ class ColQwen2Processor(Qwen2VLProcessor):
         Query augmentation buffers are used as reasoning buffers during inference.
         """
         return self.tokenizer.pad_token
-
-    @property
-    def image_token(self) -> str:
-        """
-        Return the image token used by the Qwen2VL processor.
-
-        Query augmentation buffers are used as reasoning buffers during inference.
-        """
-        return self.tokenizer.image_token
 
     @staticmethod
     def smart_resize_helper(
@@ -259,139 +442,6 @@ class ColQwen2Processor(Qwen2VLProcessor):
             max_pixels=self.max_pixels,
         )
         return image.resize((new_width, new_height))
-
-    def __call__(
-        self,
-        images: ImageInput = None,
-        text: Union[TextInput, PreTokenizedInput, List[TextInput], List[PreTokenizedInput]] = None,
-        audio=None,
-        videos=None,
-        **kwargs: Unpack[ColQwen2ProcessorKwargs],
-    ) -> BatchFeature:
-        """
-        # TODO: Validate docstring
-
-        Main method to prepare for the model either (1) one or several texts, either (2) one or several image(s). This method is custom
-        wrapper around the Qwen2VLProcessor's [`~Qwen2VLProcessor.__call__`] method adapted for the ColQwen2 model. It cannot process
-        both text and images at the same time.
-
-        When preparing the the text(s), this method forwards the `text` and `kwargs` arguments to LlamaTokenizerFast's
-        [`~LlamaTokenizerFast.__call__`].
-        When preparing the the image(s), this method forwards the `images` and `kwargs` arguments to SiglipImageProcessor's
-        [`~SiglipImageProcessor.__call__`].
-        Please refer to the doctsring of the above two methods for more information.
-
-        Args:
-            images (`PIL.Image.Image`, `np.ndarray`, `torch.Tensor`, `List[PIL.Image.Image]`, `List[np.ndarray]`, `List[torch.Tensor]`):
-                The image or batch of images to be prepared. Each image can be a PIL image, NumPy array or PyTorch
-                tensor. In case of a NumPy array/PyTorch tensor, each image should be of shape (C, H, W), where C is a
-                number of channels, H and W are image height and width.
-            text (`str`, `List[str]`, `List[List[str]]`):
-                The sequence or batch of sequences to be encoded. Each sequence can be a string or a list of strings
-                (pretokenized string). If the sequences are provided as list of strings (pretokenized), you must set
-                `is_split_into_words=True` (to lift the ambiguity with a batch of sequences).
-            return_tensors (`str` or [`~utils.TensorType`], *optional*):
-                If set, will return tensors of a particular framework. Acceptable values are:
-
-                - `'tf'`: Return TensorFlow `tf.constant` objects.
-                - `'pt'`: Return PyTorch `torch.Tensor` objects.
-                - `'np'`: Return NumPy `np.ndarray` objects.
-                - `'jax'`: Return JAX `jnp.ndarray` objects.
-
-        Returns:
-            [`BatchFeature`]: A [`BatchFeature`] with the following fields:
-
-            - **input_ids** -- List of token ids to be fed to a model.
-            - **attention_mask** -- List of indices specifying which tokens should be attended to by the model (when
-              `return_attention_mask=True` or if *"attention_mask"* is in `self.model_input_names` and if `text` is not
-              `None`).
-            - **pixel_values** -- Pixel values to be fed to a model. Returned when `images` is not `None`.
-        """
-        output_kwargs = self._merge_kwargs(
-            ColQwen2ProcessorKwargs,
-            tokenizer_init_kwargs=self.tokenizer.init_kwargs,
-            **kwargs,
-        )
-        suffix = output_kwargs["text_kwargs"].pop("suffix", None)
-
-        return_token_type_ids = True if suffix is not None else False
-
-        if text is None and images is None:
-            raise ValueError("Either text or images must be provided")
-        if text is not None and images is not None:
-            raise ValueError("Only one of text or images can be processed at a time")
-
-        if images is not None:
-            if is_valid_image(images):
-                images = [images]
-            elif isinstance(images, list) and is_valid_image(images[0]):
-                pass
-            elif not (isinstance(images, list) and isinstance(images[0], list) and is_valid_image(images[0][0])):
-                raise ValueError("images must be an image, list of images or list of list of images")
-
-            texts_doc = [self.visual_prompt_prefix] * len(images)
-            images: List[ImageInput] = [self.smart_resize(image.convert("RGB")) for image in images]
-
-            # TODO: maybe add:
-            # if not isinstance(text, list):
-            #     text = [text]
-            # TODO: ask Yoni if possible to call self. If not, just copy code from processing_qwen2_vl.py
-
-            return_data = self(
-                text=texts_doc,
-                images=images,
-                padding="longest",
-                return_tensors="pt",
-            )
-
-            # NOTE: Make sure the scatter operation in DDP is done correctly when training on multiple GPUs.
-            offsets = return_data["image_grid_thw"][:, 1] * return_data["image_grid_thw"][:, 2]
-
-            # Separate pixel_values for each image.
-            pixel_values = torch.split(return_data["pixel_values"], offsets.tolist())
-
-            # Pad pixel_values to the same sequence length to later stack it into a single tensor.
-            max_length = max([len(pixel_value) for pixel_value in pixel_values])
-
-            pixel_values = [
-                torch.cat([pv, torch.zeros((max_length - len(pv), pv.shape[1]), dtype=pv.dtype, device=pv.device)])
-                for pv in pixel_values
-            ]
-            return_data["pixel_values"] = torch.stack(pixel_values)
-
-            if return_token_type_ids:
-                labels = return_data["input_ids"].masked_fill(
-                    return_data["token_type_ids"] == 0, -100
-                )  # TODO: check if correct
-                return_data.update({"labels": labels})
-
-            return return_data
-
-        elif text is not None:
-            if isinstance(text, str):
-                text = [text]
-            elif not (isinstance(text, list) and isinstance(text[0], str)):
-                raise ValueError("Text must be a string or a list of strings")
-
-            if suffix is None:
-                suffix = self.query_augmentation_token * 10
-
-            texts_query: List[str] = []
-
-            for query in text:
-                query = self.tokenizer.bos_token + self.query_prefix + query + suffix
-                query += "\n"  # make input ISO to PaliGemma's processor
-                texts_query.append(query)
-
-            output_kwargs["text_kwargs"]["max_length"] = output_kwargs["text_kwargs"].get("max_length", 50)
-
-            batch_query = self.tokenizer(
-                texts_query,
-                return_token_type_ids=False,
-                **output_kwargs["text_kwargs"],
-            )
-
-            return batch_query
 
     def process_images(
         self,
@@ -578,7 +628,7 @@ COLQWEN2_FOR_RETRIEVAL_INPUT_DOCSTRING = r"""
         pixel_values (`torch.FloatTensor` of shape `(batch_size, num_channels, image_size, image_size)):
             The tensors corresponding to the input images. Pixel values can be obtained using
             [`AutoImageProcessor`]. See [`SiglipImageProcessor.__call__`] for details ([]`PaliGemmaProcessor`] uses
-            [`SiglipImageProcessor`] for processing images). If none, ColPali will only process text (query embeddings).
+            [`SiglipImageProcessor`] for processing images). If none, ColQwen2 will only process text (query embeddings).
         attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
             Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
             - 1 for tokens that are **not masked**,

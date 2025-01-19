@@ -149,7 +149,7 @@ else:
             ("cohere", (None, "CohereTokenizerFast" if is_tokenizers_available() else None)),
             ("cohere2", (None, "CohereTokenizerFast" if is_tokenizers_available() else None)),
             ("colpali", ("LlamaTokenizer", "LlamaTokenizerFast" if is_tokenizers_available() else None)),
-            ("colqwen2", ("LlamaTokenizer", "LlamaTokenizerFast" if is_tokenizers_available() else None)),
+            ("colqwen2", ("Qwen2Tokenizer", "Qwen2TokenizerFast" if is_tokenizers_available() else None)),
             ("convbert", ("ConvBertTokenizer", "ConvBertTokenizerFast" if is_tokenizers_available() else None)),
             (
                 "cpm",

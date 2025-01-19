@@ -91,8 +91,11 @@ class AudioClassificationPipeline(Pipeline):
     """
 
     def __init__(self, *args, **kwargs):
-        # Default, might be overriden by the model.config.
-        kwargs["top_k"] = kwargs.get("top_k", 5)
+        # Only set default top_k if explicitly provided
+        if "top_k" in kwargs and kwargs["top_k"] is None:
+            kwargs["top_k"] = None
+        elif "top_k" not in kwargs:
+            kwargs["top_k"] = 5
         super().__init__(*args, **kwargs)
 
         if self.framework != "pt":
@@ -141,12 +144,16 @@ class AudioClassificationPipeline(Pipeline):
         return super().__call__(inputs, **kwargs)
 
     def _sanitize_parameters(self, top_k=None, function_to_apply=None, **kwargs):
-        # No parameters on this pipeline right now
         postprocess_params = {}
-        if top_k is not None:
+
+        # If top_k is None, use all labels
+        if top_k is None:
+            postprocess_params["top_k"] = self.model.config.num_labels
+        else:
             if top_k > self.model.config.num_labels:
                 top_k = self.model.config.num_labels
             postprocess_params["top_k"] = top_k
+
         if function_to_apply is not None:
             if function_to_apply not in ["softmax", "sigmoid", "none"]:
                 raise ValueError(

@@ -7,10 +7,8 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and limitations under the License.
 
 import os
 from argparse import ArgumentParser, Namespace
@@ -141,7 +139,18 @@ class TrainCommand(BaseTransformersCLICommand):
         return self.run_torch()
 
     def run_torch(self):
-        raise NotImplementedError
+        # Ensure that the `labels` argument is included in the input when calling the model
+        for batch in self.train_dataset:
+            inputs = {
+                "input_ids": batch["input_ids"],
+                "attention_mask": batch["attention_mask"],
+                "labels": batch["labels"],
+            }
+            outputs = self.pipeline.model(**inputs)
+            loss = outputs.loss
+            loss.backward()
+            self.pipeline.optimizer.step()
+            self.pipeline.optimizer.zero_grad()
 
     def run_tf(self):
         self.pipeline.fit(

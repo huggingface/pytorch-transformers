@@ -32,6 +32,12 @@ when used with other models. When using it with your own model, make sure:
 
 </Tip>
 
+<Note>
+
+To compute the loss, the `labels` argument must be provided in the input when calling the model.
+
+</Note>
+
 ## Trainer[[api-reference]]
 
 [[autodoc]] Trainer

@@ -74,6 +74,8 @@ class ConditionalDetrDecoderOutput(BaseModelOutputWithCrossAttentions):
         intermediate_hidden_states (`torch.FloatTensor` of shape `(config.decoder_layers, batch_size, num_queries, hidden_size)`, *optional*, returned when `config.auxiliary_loss=True`):
             Intermediate decoder activations, i.e. the output of each decoder layer, each of them gone through a
             layernorm.
+        reference_points (`torch.FloatTensor` of shape `(config.decoder_layers, batch_size, num_queries, 2 (anchor points))`):
+            Reference points (reference points of each layer of the decoder).
     """
 
     intermediate_hidden_states: Optional[torch.FloatTensor] = None
@@ -116,6 +118,8 @@ class ConditionalDetrModelOutput(Seq2SeqModelOutput):
         intermediate_hidden_states (`torch.FloatTensor` of shape `(config.decoder_layers, batch_size, sequence_length, hidden_size)`, *optional*, returned when `config.auxiliary_loss=True`):
             Intermediate decoder activations, i.e. the output of each decoder layer, each of them gone through a
             layernorm.
+        reference_points (`torch.FloatTensor` of shape `(config.decoder_layers, batch_size, num_queries, 2 (anchor points))`):
+            Reference points (reference points of each layer of the decoder).
     """
 
     intermediate_hidden_states: Optional[torch.FloatTensor] = None

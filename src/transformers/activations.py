@@ -217,6 +217,7 @@ ACT2CLS = {
     "silu": nn.SiLU,
     "swish": nn.SiLU,
     "tanh": nn.Tanh,
+    "prelu": nn.PReLU,
 }
 ACT2FN = ClassInstantier(ACT2CLS)
 

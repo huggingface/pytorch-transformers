@@ -52,7 +52,7 @@ class ConditionalDetrConfig(PretrainedConfig):
             Number of object queries, i.e. detection slots. This is the maximal number of objects
             [`ConditionalDetrModel`] can detect in a single image. For COCO, we recommend 100 queries.
         d_model (`int`, *optional*, defaults to 256):
-            Dimension of the layers.
+            This parameter is a general dimension parameter, defining dimensions for components such as the encoder layer and projection parameters in the decoder layer, among others.
         encoder_layers (`int`, *optional*, defaults to 6):
             Number of encoder layers.
         decoder_layers (`int`, *optional*, defaults to 6):

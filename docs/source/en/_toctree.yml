@@ -645,6 +645,8 @@
         title: ConvNeXTV2
       - local: model_doc/cvt
         title: CvT
+      - local: model_doc/dab-detr
+        title: DAB-DETR
       - local: model_doc/deformable_detr
         title: Deformable DETR
       - local: model_doc/deit

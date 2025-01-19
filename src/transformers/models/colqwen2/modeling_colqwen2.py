@@ -326,3 +326,6 @@ class ColQwen2ForRetrieval(PreTrainedModel):
             attentions=outputs.attentions,
             image_hidden_states=outputs.image_hidden_states if pixel_values is not None else None,
         )
+
+
+__all__ = ["ColQwen2ForRetrieval", "ColQwen2PreTrainedModel"]

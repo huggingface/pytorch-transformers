@@ -846,5 +846,7 @@ class ColQwen2ForRetrieval(PreTrainedModel):
 
 
 __all__ = [
+    "ColQwen2ForRetrieval",
+    "ColQwen2PreTrainedModel",
     "ColQwen2Processor",
 ]

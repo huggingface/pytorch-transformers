@@ -95,8 +95,6 @@
       title: Eksport ke ONNX
     - local: torchscript
       title: Eksport ke TorchScript
-    - local: benchmarks
-      title: Penanda aras
     - local: Buku nota dengan contoh
       title: Notebooks with examples
     - local: Sumber komuniti

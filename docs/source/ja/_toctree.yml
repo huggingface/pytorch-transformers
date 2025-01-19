@@ -117,8 +117,6 @@
     title: TFLite へのエクスポート
   - local: torchscript
     title: トーチスクリプトへのエクスポート
-  - local: benchmarks
-    title: ベンチマーク
   - local: community
     title: コミュニティリソース
   - local: custom_tools

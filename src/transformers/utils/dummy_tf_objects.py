@@ -2,20 +2,6 @@
 from ..utils import DummyObject, requires_backends
 
 
-class TensorFlowBenchmarkArguments(metaclass=DummyObject):
-    _backends = ["tf"]
-
-    def __init__(self, *args, **kwargs):
-        requires_backends(self, ["tf"])
-
-
-class TensorFlowBenchmark(metaclass=DummyObject):
-    _backends = ["tf"]
-
-    def __init__(self, *args, **kwargs):
-        requires_backends(self, ["tf"])
-
-
 class TFForcedBOSTokenLogitsProcessor(metaclass=DummyObject):
     _backends = ["tf"]
 

@@ -52,8 +52,6 @@
     title: 导出为 TFLite
   - local: torchscript
     title: 导出为 TorchScript
-  - local: benchmarks
-    title: 对模型进行基准测试
   - local: gguf
     title: 与 GGUF 格式的互操作性
   - local: tiktoken
@@ -166,7 +164,4 @@
     - local: internal/time_series_utils
       title: 时序数据工具
     title: 内部辅助工具
-  title: 应用程序接口 (API) 
-
-
-
+  title: 应用程序接口 (API)

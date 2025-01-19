@@ -5,7 +5,6 @@ docs/source/en/add_new_pipeline.md
 docs/source/en/agents.md
 docs/source/en/agents.md
 docs/source/en/attention.md
-docs/source/en/benchmarks.md
 docs/source/en/bertology.md
 docs/source/en/big_models.md
 docs/source/en/community.md
@@ -340,12 +339,6 @@ src/transformers/agents/text_to_speech.py
 src/transformers/agents/tools.py
 src/transformers/agents/translation.py
 src/transformers/audio_utils.py
-src/transformers/benchmark/benchmark.py
-src/transformers/benchmark/benchmark_args.py
-src/transformers/benchmark/benchmark_args_tf.py
-src/transformers/benchmark/benchmark_args_utils.py
-src/transformers/benchmark/benchmark_tf.py
-src/transformers/benchmark/benchmark_utils.py
 src/transformers/commands/add_new_model_like.py
 src/transformers/commands/convert.py
 src/transformers/commands/download.py

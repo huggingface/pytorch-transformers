@@ -139,8 +139,6 @@
     title: Export to TFLite
   - local: torchscript
     title: Export to TorchScript
-  - local: benchmarks
-    title: Benchmarks
   - local: notebooks
     title: Notebooks with examples
   - local: community

@@ -2,20 +2,6 @@
 from ..utils import DummyObject, requires_backends
 
 
-class PyTorchBenchmark(metaclass=DummyObject):
-    _backends = ["torch"]
-
-    def __init__(self, *args, **kwargs):
-        requires_backends(self, ["torch"])
-
-
-class PyTorchBenchmarkArguments(metaclass=DummyObject):
-    _backends = ["torch"]
-
-    def __init__(self, *args, **kwargs):
-        requires_backends(self, ["torch"])
-
-
 class Cache(metaclass=DummyObject):
     _backends = ["torch"]
 

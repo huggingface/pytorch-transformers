@@ -110,7 +110,7 @@
   title: أدلة المهام
 - sections:
   - local: fast_tokenizers
-    title: استخدم مجزئيات النصوص السريعة من 🤗 Tokenizers 
+    title: استخدم مجزئيات النصوص السريعة من 🤗 Tokenizers
   - local: multilingual
     title: الاستدلال باستخدام نماذج متعددة اللغات
   - local: create_a_model
@@ -129,8 +129,6 @@
     title: التصدير إلى TFLite
   - local: torchscript
     title: التصدير إلى TorchScript
-  - local: benchmarks
-    title: المعايير
   - local: notebooks
     title: دفاتر الملاحظات مع الأمثلة
   - local: community
@@ -883,7 +881,7 @@
 #     - local: internal/pipelines_utils
 #       title: مرافق خطوط الأنابيب
 #     - local: internal/tokenization_utils
-#       title: مرافق مقسم النصوص 
+#       title: مرافق مقسم النصوص
 #     - local: internal/trainer_utils
 #       title: مرافق المدرب
 #     - local: internal/generation_utils

@@ -35,7 +35,6 @@ api = HfApi()
 client = WebClient(token=os.environ["CI_SLACK_BOT_TOKEN"])
 
 NON_MODEL_TEST_MODULES = [
-    "benchmark",
     "deepspeed",
     "extended",
     "fixtures",

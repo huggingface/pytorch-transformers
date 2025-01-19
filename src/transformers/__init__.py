@@ -73,7 +73,6 @@ _import_structure = {
         "tool",
     ],
     "audio_utils": [],
-    "benchmark": [],
     "commands": [],
     "configuration_utils": ["PretrainedConfig"],
     "convert_graph_to_onnx": [],
@@ -1321,8 +1320,6 @@ except OptionalDependencyNotAvailable:
     _import_structure["utils.dummy_pt_objects"] = [name for name in dir(dummy_pt_objects) if not name.startswith("_")]
 else:
     _import_structure["activations"] = []
-    _import_structure["benchmark.benchmark"] = ["PyTorchBenchmark"]
-    _import_structure["benchmark.benchmark_args"] = ["PyTorchBenchmarkArguments"]
     _import_structure["cache_utils"] = [
         "Cache",
         "CacheConfig",
@@ -4010,8 +4007,6 @@ except OptionalDependencyNotAvailable:
     _import_structure["utils.dummy_tf_objects"] = [name for name in dir(dummy_tf_objects) if not name.startswith("_")]
 else:
     _import_structure["activations_tf"] = []
-    _import_structure["benchmark.benchmark_args_tf"] = ["TensorFlowBenchmarkArguments"]
-    _import_structure["benchmark.benchmark_tf"] = ["TensorFlowBenchmark"]
     _import_structure["generation"].extend(
         [
             "TFForcedBOSTokenLogitsProcessor",
@@ -6403,9 +6398,6 @@ if TYPE_CHECKING:
     except OptionalDependencyNotAvailable:
         from .utils.dummy_pt_objects import *
     else:
-        # Benchmarks
-        from .benchmark.benchmark import PyTorchBenchmark
-        from .benchmark.benchmark_args import PyTorchBenchmarkArguments
         from .cache_utils import (
             Cache,
             CacheConfig,
@@ -8545,10 +8537,6 @@ if TYPE_CHECKING:
         # They will raise an import error if the user tries to instantiate / use them.
         from .utils.dummy_tf_objects import *
     else:
-        from .benchmark.benchmark_args_tf import TensorFlowBenchmarkArguments
-
-        # Benchmarks
-        from .benchmark.benchmark_tf import TensorFlowBenchmark
         from .generation import (
             TFForcedBOSTokenLogitsProcessor,
             TFForcedEOSTokenLogitsProcessor,

@@ -128,8 +128,6 @@
   - local: torchscript
     title: TorchScript로 내보내기
   - local: in_translation
-    title: (번역중) Benchmarks
-  - local: in_translation
     title: (번역중) Notebooks with examples
   - local: community
     title: 커뮤니티 리소스
@@ -152,7 +150,7 @@
   - local: in_translation
     title: (번역중) AQLM
   - local: in_translation
-    title: (번역중) VPTQ 
+    title: (번역중) VPTQ
   - local: quantization/quanto
     title: Quanto
   - local: quantization/eetq

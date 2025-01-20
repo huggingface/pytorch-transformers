@@ -5349,6 +5349,27 @@ class InstructBlipVideoVisionModel(metaclass=DummyObject):
         requires_backends(self, ["torch"])
 
 
+class InternLM3ForCausalLM(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class InternLM3Model(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class InternLM3PreTrainedModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
 class JambaForCausalLM(metaclass=DummyObject):
     _backends = ["torch"]
 

@@ -393,6 +393,10 @@ class MllamaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTester
 
             model.generate(input_ids, use_cache=True)
 
+    @unittest.skip("In mllama, the cache has a different length on the cross attention layers")
+    def test_cache_has_uniform_length(self):
+        pass
+
 
 @require_torch
 class MllamaForConditionalGenerationIntegrationTest(unittest.TestCase):

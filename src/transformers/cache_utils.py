@@ -58,8 +58,18 @@ class Cache(torch.nn.Module):
         """
         raise NotImplementedError("Make sure to implement `update` in a subclass.")
 
-    def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
-        """Returns the sequence length of the cached states. A layer index can be optionally passed."""
+    def get_seq_length(self, layer_idx: Optional[int] = None) -> int:
+        """
+        Returns the sequence length of the cached state.
+
+        Parameters:
+            layer_idx (`int`, *optional*):
+                The index of the layer to get the sequence length for. If not provided, it will retrieve the longest
+                sequence length among all layers.
+
+        Return:
+            The sequence length of the cached state.
+        """
         # TODO: deprecate this function in favor of `cache_position`
         raise NotImplementedError("Make sure to implement `get_seq_length` in a subclass.")
 
@@ -440,9 +450,24 @@ class DynamicCache(Cache):
 
         return self.key_cache[layer_idx], self.value_cache[layer_idx]
 
-    def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
-        """Returns the sequence length of the cached states. A layer index can be optionally passed."""
-        # TODO: deprecate this function in favor of `cache_position`
+    def get_seq_length(self, layer_idx: Optional[int] = None) -> int:
+        """
+        Returns the sequence length of the cached state.
+
+        Parameters:
+            layer_idx (`int`, *optional*):
+                The index of the layer to get the sequence length for. If not provided, it will retrieve the longest
+                sequence length among all layers.
+
+        Return:
+            The sequence length of the cached state.
+        """
+        if layer_idx is None:
+            if len(self) > 0:
+                return max([self.get_seq_length(layer_idx) for layer_idx in range(len(self))])
+            else:
+                return 0
+
         is_empty_layer = (
             len(self.key_cache) == 0  # no cache in any layer
             or len(self.key_cache) <= layer_idx  # skipped `layer_idx` and hasn't run a layer with cache after it
@@ -722,8 +747,24 @@ class QuantizedCache(DynamicCache):
 
         return keys_to_return, values_to_return
 
-    def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
-        """Returns the sequence length of the cached states. A layer index can be optionally passed."""
+    def get_seq_length(self, layer_idx: Optional[int] = None) -> int:
+        """
+        Returns the sequence length of the cached state.
+
+        Parameters:
+            layer_idx (`int`, *optional*):
+                The index of the layer to get the sequence length for. If not provided, it will retrieve the longest
+                sequence length among all layers.
+
+        Return:
+            The sequence length of the cached state.
+        """
+        if layer_idx is None:
+            if len(self) > 0:
+                return max([self.get_seq_length(layer_idx) for layer_idx in range(len(self))])
+            else:
+                return 0
+
         if len(self.key_cache) <= layer_idx:
             return 0
         # since we cannot get the seq_length of each layer directly and rely on `_seen_tokens` which is
@@ -948,8 +989,24 @@ class SinkCache(Cache):
             )
         return self.cos_sin_rerotation_cache[key_states.shape[-2]]
 
-    def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
-        """Returns the sequence length of the cached states. A layer index can be optionally passed."""
+    def get_seq_length(self, layer_idx: Optional[int] = None) -> int:
+        """
+        Returns the sequence length of the cached state.
+
+        Parameters:
+            layer_idx (`int`, *optional*):
+                The index of the layer to get the sequence length for. If not provided, it will retrieve the longest
+                sequence length among all layers.
+
+        Return:
+            The sequence length of the cached state.
+        """
+        if layer_idx is None:
+            if len(self) > 0:
+                return max([self.get_seq_length(layer_idx) for layer_idx in range(len(self))])
+            else:
+                return 0
+
         # TODO: deprecate this function in favor of `cache_position`
         # Workaround to make 'key_states.shape[-2] + past_key_value.get_seq_length(self.layer_idx)' <= window_length
         if len(self.key_cache) <= layer_idx:
@@ -1204,8 +1261,24 @@ class StaticCache(Cache):
 
         return k_out, v_out
 
-    def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
-        """Returns the sequence length of the cached states that were seen by the model."""
+    def get_seq_length(self, layer_idx: Optional[int] = None) -> int:
+        """
+        Returns the sequence length of the cached state.
+
+        Parameters:
+            layer_idx (`int`, *optional*):
+                The index of the layer to get the sequence length for. If not provided, it will retrieve the longest
+                sequence length among all layers.
+
+        Return:
+            The sequence length of the cached state.
+        """
+        if layer_idx is None:
+            if len(self.key_cache) > 0:
+                return max([self.get_seq_length(layer_idx) for layer_idx in range(len(self.key_cache))])
+            else:
+                return 0
+
         # Occupied cache == any slot in the 3rd dim (sequence length) holds a non-zero value. To save on compute, let's
         # limit the check to the first batch member and head dimension.
         # TODO: deprecate this function in favor of `cache_position`
@@ -1458,8 +1531,18 @@ class EncoderDecoderCache(Cache):
                     cache.is_updated[layer_idx] = True
         return cache
 
-    def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
-        """Returns the sequence length of the cached states. A layer index can be optionally passed."""
+    def get_seq_length(self, layer_idx: Optional[int] = None) -> int:
+        """
+        Returns the sequence length of the cached state.
+
+        Parameters:
+            layer_idx (`int`, *optional*):
+                The index of the layer to get the sequence length for. If not provided, it will retrieve the longest
+                sequence length among all layers.
+
+        Return:
+            The sequence length of the cached state.
+        """
         # check if empty list because in case of static cache it will be a tensors and we can't check `if not torch.Tensor`
         return self.self_attention_cache.get_seq_length(layer_idx)
 
@@ -1716,16 +1799,27 @@ class HybridCache(Cache):
     def get_max_cache_shape(self) -> Optional[int]:
         return self.max_cache_len
 
-    def get_seq_length(self, layer_idx: Optional[int] = 0):
+    def get_seq_length(self, layer_idx: Optional[int] = None) -> int:
+        """
+        Returns the sequence length of the cached state.
+
+        Parameters:
+            layer_idx (`int`, *optional*):
+                The index of the layer to get the sequence length for. If not provided, it will retrieve the longest
+                sequence length among all layers.
+
+        Return:
+            The sequence length of the cached state.
+        """
         # Occupied cache == any slot in the 3rd dim (sequence length) holds a non-zero value. To save on compute, let's
         # limit the check to the first batch member and head dimension.
         # TODO: deprecate this function in favor of `cache_position`
-        if layer_idx != 0:
+        if layer_idx is not None:
             raise ValueError(
                 "`get_seq_length` on `HybridCache` may get inconsistent results depending on the layer index. "
                 "Using the `layer_idx` argument is not supported."
             )
-        return (self.key_cache[layer_idx][0, 0].any(dim=-1)).sum()
+        return (self.key_cache[0][0, 0].any(dim=-1)).sum()
 
     def reset(self):
         """Resets the cache values while preserving the objects"""

@@ -71,7 +71,14 @@ if is_torch_available():
         SpeechEncoderDecoderModel,
         T5ForConditionalGeneration,
     )
-    from transformers.cache_utils import Cache, DynamicCache, EncoderDecoderCache, QuantoQuantizedCache, StaticCache
+    from transformers.cache_utils import (
+        Cache,
+        DynamicCache,
+        EncoderDecoderCache,
+        HybridCache,
+        QuantoQuantizedCache,
+        StaticCache,
+    )
     from transformers.generation import (
         BeamSampleDecoderOnlyOutput,
         BeamSampleEncoderDecoderOutput,
@@ -2052,6 +2059,29 @@ class GenerationTesterMixin:
             # By default, num_logits_to_keep is automatically set to 1 if not provided (new behavior)
             without_all_logits = model.generate(**inputs_dict, **generation_kwargs)
             self.assertEqual(with_all_logits.tolist(), without_all_logits.tolist())
+
+    @pytest.mark.generate
+    def test_cache_has_uniform_length(self):
+        """
+        Delete after v4.52. This test was added to ensure the transition in #35591 [get the max length of the cache,
+        instead of getting the length of layer 0] doesn't break a model. Having an uniform length is not a
+        mandatory property, but it used to be an implicit assumption.
+        """
+        for model_class in self.all_generative_model_classes:
+            if not model_class._supports_cache_class:
+                self.skipTest(reason="This model does not support the new cache format")
+
+            config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
+            config.use_cache = True
+            config.is_decoder = True
+
+            model = model_class(config).to(torch_device).eval()
+            model_out = model(**inputs_dict)
+            past_key_values = model_out.past_key_values
+
+            # Hybrid cache doesn't have to follow this property
+            if isinstance(past_key_values, Cache) and not isinstance(past_key_values, HybridCache):
+                self.assertEqual(past_key_values.get_seq_length(layer_idx=0), past_key_values.get_seq_length())
 
     @pytest.mark.generate
     def test_assisted_decoding_with_num_logits_to_keep(self):

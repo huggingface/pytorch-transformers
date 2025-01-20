@@ -1066,7 +1066,8 @@ class MllamaPreTrainedModel(PreTrainedModel):
             nn.init.normal_(module.gate_attn.data, std=std)
             nn.init.normal_(module.gate_ffn.data, std=std)
 
-    # Copied from transformers.models.llama.modeling_llama.LlamaModel._update_causal_mask
+    # Adapted from transformers.models.llama.modeling_llama.LlamaModel._update_causal_mask
+    # (differs from llama on how we retreve `past_seen_tokens`, due to the cross-attention cache)
     def _update_causal_mask(
         self,
         attention_mask: torch.Tensor,
@@ -1083,7 +1084,7 @@ class MllamaPreTrainedModel(PreTrainedModel):
         # For SDPA, when possible, we will rely on its `is_causal` argument instead of its `attn_mask` argument, in
         # order to dispatch on Flash Attention 2. This feature is not compatible with static cache, as SDPA will fail
         # to infer the attention mask.
-        past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
+        past_seen_tokens = past_key_values.get_seq_length(layer_idx=0) if past_key_values is not None else 0
         using_static_cache = isinstance(past_key_values, StaticCache)
 
         # When output attentions is True, sdpa implementation's forward method calls the eager implementation's forward
@@ -1104,7 +1105,7 @@ class MllamaPreTrainedModel(PreTrainedModel):
             target_length = (
                 attention_mask.shape[-1]
                 if isinstance(attention_mask, torch.Tensor)
-                else past_seen_tokens + sequence_length + 1
+                else past_seen_tokens + sequence_length
             )
 
         # In case the provided `attention` mask is 2D, we generate a causal mask here (4D).
@@ -1745,7 +1746,7 @@ class MllamaTextModel(MllamaPreTrainedModel):
             past_key_values = DynamicCache()
 
         if cache_position is None:
-            past_seen_tokens = past_key_values.get_seq_length() if past_key_values is not None else 0
+            past_seen_tokens = past_key_values.get_seq_length(layer_idx=0) if past_key_values is not None else 0
             cache_position = torch.arange(
                 past_seen_tokens, past_seen_tokens + inputs_embeds.shape[1], device=inputs_embeds.device
             )

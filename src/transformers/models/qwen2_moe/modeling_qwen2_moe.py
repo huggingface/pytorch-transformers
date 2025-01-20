@@ -1115,7 +1115,7 @@ class Qwen2MoeModel(Qwen2MoePreTrainedModel):
             target_length = (
                 attention_mask.shape[-1]
                 if isinstance(attention_mask, torch.Tensor)
-                else past_seen_tokens + sequence_length + 1
+                else past_seen_tokens + sequence_length
             )
 
         # In case the provided `attention` mask is 2D, we generate a causal mask here (4D).

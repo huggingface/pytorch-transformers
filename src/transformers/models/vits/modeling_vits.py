@@ -1406,10 +1406,11 @@ class VitsModel(VitsPreTrainedModel):
         if labels is not None:
             raise NotImplementedError("Training of VITS is not supported yet.")
 
+        mask_dtype = self.text_encoder.embed_tokens.weight.dtype
         if attention_mask is not None:
-            input_padding_mask = attention_mask.unsqueeze(-1).float()
+            input_padding_mask = attention_mask.unsqueeze(-1).to(mask_dtype)
         else:
-            input_padding_mask = torch.ones_like(input_ids).unsqueeze(-1).float()
+            input_padding_mask = torch.ones_like(input_ids).unsqueeze(-1).to(mask_dtype)
 
         if self.config.num_speakers > 1 and speaker_id is not None:
             if not 0 <= speaker_id < self.config.num_speakers:

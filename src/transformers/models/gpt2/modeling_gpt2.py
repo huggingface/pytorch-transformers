@@ -311,6 +311,7 @@ class GPT2Attention(nn.Module):
 
         is_cross_attention = encoder_hidden_states is not None
         is_causal = attention_mask is None and query_states.shape[-2] > 1 and not is_cross_attention
+        is_causal = is_causal.item() if isinstance(is_causal, torch.Tensor) else is_causal
 
         using_eager = self.config._attn_implementation == "eager"
         attention_interface: Callable = eager_attention_forward

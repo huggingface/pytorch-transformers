@@ -1734,7 +1734,15 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                             for token_id in range(start_token, end_token + 1 if end_token else len(input_ids[i])):
                                 current_mask[token_id] = 1
                         assistant_masks.append(current_mask)
-                    out["assistant_masks"] = assistant_masks if is_batched else assistant_masks[0]
+
+                    if not is_batched and not return_tensors:
+                        assistant_masks = assistant_masks[0]
+
+                    out["assistant_masks"] = assistant_masks
+
+                    if return_tensors:
+                        out.convert_to_tensors(tensor_type=return_tensors)
+
                 return out
             else:
                 return out["input_ids"]

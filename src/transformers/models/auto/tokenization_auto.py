@@ -249,6 +249,7 @@ else:
                     "LlamaTokenizerFast" if is_tokenizers_available() else None,
                 ),
             ),
+            ("jina_bert", ("BertTokenizer", "BertTokenizerFast" if is_tokenizers_available() else None)),
             ("jukebox", ("JukeboxTokenizer", None)),
             (
                 "kosmos-2",

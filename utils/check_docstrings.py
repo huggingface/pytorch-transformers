@@ -339,6 +339,8 @@ OBJECTS_TO_IGNORE = [
     "ImageToImagePipeline",
     "ImageToTextPipeline",
     "InformerConfig",
+    "JinaBertConfig",
+    "JinaBertModel",
     "JukeboxPriorConfig",
     "JukeboxTokenizer",
     "LEDConfig",

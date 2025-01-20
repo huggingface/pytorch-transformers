@@ -462,6 +462,8 @@
         title: Jamba
       - local: model_doc/jetmoe
         title: JetMoe
+      - local: model_doc/jina_bert
+        title: JinaBERT
       - local: model_doc/jukebox
         title: Jukebox
       - local: model_doc/led

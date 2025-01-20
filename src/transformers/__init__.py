@@ -523,6 +523,7 @@ _import_structure = {
     ],
     "models.jamba": ["JambaConfig"],
     "models.jetmoe": ["JetMoeConfig"],
+    "models.jina_bert": ["JinaBertConfig"],
     "models.kosmos2": [
         "Kosmos2Config",
         "Kosmos2Processor",
@@ -2624,6 +2625,20 @@ else:
             "JetMoeForSequenceClassification",
             "JetMoeModel",
             "JetMoePreTrainedModel",
+        ]
+    )
+    _import_structure["models.jina_bert"].extend(
+        [
+            "JinaBertForMaskedLM",
+            "JinaBertForMultipleChoice",
+            "JinaBertForNextSentencePrediction",
+            "JinaBertForPreTraining",
+            "JinaBertForQuestionAnswering",
+            "JinaBertForSequenceClassification",
+            "JinaBertForTokenClassification",
+            "JinaBertLMHeadModel",
+            "JinaBertModel",
+            "JinaBertPreTrainedModel",
         ]
     )
     _import_structure["models.kosmos2"].extend(
@@ -5573,6 +5588,7 @@ if TYPE_CHECKING:
     )
     from .models.jamba import JambaConfig
     from .models.jetmoe import JetMoeConfig
+    from .models.jina_bert import JinaBertConfig
     from .models.kosmos2 import (
         Kosmos2Config,
         Kosmos2Processor,
@@ -7479,6 +7495,18 @@ if TYPE_CHECKING:
             JetMoeForSequenceClassification,
             JetMoeModel,
             JetMoePreTrainedModel,
+        )
+        from .models.jina_bert import (
+            JinaBertForMaskedLM,
+            JinaBertForMultipleChoice,
+            JinaBertForNextSentencePrediction,
+            JinaBertForPreTraining,
+            JinaBertForQuestionAnswering,
+            JinaBertForSequenceClassification,
+            JinaBertForTokenClassification,
+            JinaBertLMHeadModel,
+            JinaBertModel,
+            JinaBertPreTrainedModel,
         )
         from .models.kosmos2 import (
             Kosmos2ForConditionalGeneration,

@@ -153,8 +153,8 @@ class ScheduleInitTest(unittest.TestCase):
                 [0.0, 5.0, 10.0, 8.165, 7.071, 6.325, 5.774, 5.345, 5.0, 4.714],
             ),
             get_wsd_schedule: (
-                {"num_warmup_steps": 2, "num_stable_steps": 2, "num_decay_steps": 3, "min_lr_ratio": 0.1},
-                [0.0, 5.0, 10.0, 10.0, 10.0, 7.75, 3.25, 1.0, 1.0, 1.0],
+                {**common_kwargs, "num_decay_steps": 2, "min_lr_ratio": 0.0},
+                [0.0, 5.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 5.0],
             ),
         }
 
@@ -183,14 +183,34 @@ class ScheduleInitTest(unittest.TestCase):
                 "name": "warmup_stable_decay",
                 "optimizer": self.optimizer,
                 "num_warmup_steps": 2,
-                "scheduler_specific_kwargs": {"num_stable_steps": 1, "num_decay_steps": 3},
+                "num_training_steps": 10,
+                "scheduler_specific_kwargs": {
+                    "num_decay_steps": 2,
+                    "warmup_type": "linear",
+                    "decay_type": "linear",
+                },
             },
             {
                 "name": "warmup_stable_decay",
                 "optimizer": self.optimizer,
                 "num_warmup_steps": 2,
                 "num_training_steps": 10,
-                "scheduler_specific_kwargs": {"num_stable_steps": 1, "num_decay_steps": 3},
+                "scheduler_specific_kwargs": {
+                    "num_decay_steps": 2,
+                    "warmup_type": "cosine",
+                    "decay_type": "cosine",
+                },
+            },
+            {
+                "name": "warmup_stable_decay",
+                "optimizer": self.optimizer,
+                "num_warmup_steps": 2,
+                "num_training_steps": 10,
+                "scheduler_specific_kwargs": {
+                    "num_decay_steps": 2,
+                    "warmup_type": "1-sqrt",
+                    "decay_type": "1-sqrt",
+                },
             },
             {"name": "cosine", "optimizer": self.optimizer, "num_warmup_steps": 2, "num_training_steps": 10},
         ]

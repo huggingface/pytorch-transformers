@@ -299,6 +299,10 @@ class LlamaAttention(nn.Module):
             **kwargs,
         )
 
+        if past_key_value is not None:
+            cache_kwargs = {"attn_weights": attn_weights}
+            key_states, value_states = past_key_value.post_process(self.layer_idx, cache_kwargs)
+
         attn_output = attn_output.reshape(*input_shape, -1).contiguous()
         attn_output = self.o_proj(attn_output)
         return attn_output, attn_weights

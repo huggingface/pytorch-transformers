@@ -58,6 +58,28 @@ class Cache(torch.nn.Module):
         """
         raise NotImplementedError("Make sure to implement `update` in a subclass.")
 
+    def post_process(
+        self, layer_idx: int, cache_kwargs: Optional[Dict[str, Any]] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Updates the cache with any post processing logic for the specified layer_idx
+
+        Parameters:
+            layer_idx (`int`):
+                The index of the layer to cache the states for.
+            cache_kwargs (`Dict[str, Any]`, `optional`):
+                Additional arguments for the cache subclass. These are specific to each subclass and allow new types of
+                cache post processing logic to be implemented.
+
+        Return:
+            A tuple containing the updated key and value states.
+        """
+        # Default implementation - return current states without modification
+        if len(self.key_cache) <= layer_idx:
+            return None, None
+        return self.key_cache[layer_idx], self.value_cache[layer_idx]
+        # raise NotImplementedError("Make sure to implement 'post_process' in a subclass")
+
     def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
         """Returns the sequence length of the cached states. A layer index can be optionally passed."""
         # TODO: deprecate this function in favor of `cache_position`
@@ -1368,6 +1390,179 @@ class SlidingWindowCache(StaticCache):
             # In-place ops prevent breaking the static address
             self.key_cache[layer_idx].zero_()
             self.value_cache[layer_idx].zero_()
+
+
+class H2OCache(Cache):
+    """
+    A cache that implements the H2O eviction strategy.
+    It maintains a balance of the most recent tokens and
+    heavy-hitter tokens, which are those that receive the highest
+    cumulative attention scores. The cache updates the attention scores
+    per layer during generation through the post_process method.
+    keeping a balance of recent and heavy-hitter tokens.
+
+    Parameters:
+        max_cache_len (`int`):
+            The maximum sequence length of the cache. This is split between recent and heavy-hitter sections.
+        heavy_ratio (`float`, *optional*, defaults to 0.5):
+            The ratio of the cache dedicated to heavy hitters vs recent tokens. A ratio of 0.5 means half the cache is
+            used for heavy hitters and half for recent tokens.
+        device (`str` or `torch.device`, *optional*, defaults to "cuda"):
+            Device on which to allocate the cache.
+
+    Example:
+        ```python
+        >>> from transformers import LlamaTokenizer, LlamaForCausalLM, H2OCache
+
+        >>> model = LlamaForCausalLM.from_pretrained(
+            "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+            device_map="auto",
+            attn_implementation="eager")
+        >>> tokenizer = LlamaTokenizer.from_pretrained("TinyLlama/TinyLlama-1.1B-Chat-v1.0")
+
+        >>> messages = [{"role": "user", "content": "Tell me a joke"}]
+        >>> inputs = tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            return_tensors="pt",
+            return_dict=True).to(model.device)
+        >>> input_length = inputs["input_ids"].shape[1]
+
+        >>> # Prepare a cache class and pass it to model's forward
+        >>> past_key_values = H2OCache(max_cache_len=32, heavy_ratio=0.5)
+        >>> outputs = model(**inputs, past_key_values=past_key_values, min_new_tokens=50)
+        >>> completion = tokenizer.decode(outputs[0, input_length: ], skip_special_tokens=True)
+        >>> messages.append({"role": "assistant", "content": completion})
+        >>> print(messages)
+        ```
+
+    """
+
+    def __init__(
+        self, max_cache_len: int, heavy_ratio: float = 0.5, device: Optional[Union[torch.device, str]] = None
+    ):
+        super().__init__()
+        self.max_cache_len = max_cache_len
+        self.heay_ratio = heavy_ratio
+        self.heavy_size = int(max_cache_len * heavy_ratio)
+        self.recent_size = max_cache_len - self.heavy_size
+
+        self.key_cache: List[torch.Tensor] = []
+        self.value_cache: List[torch.Tensor] = []
+        self._accum_attn_scores: List[torch.Tensor] = []  # layer wise accumulated attention scores
+
+        # Pre-compute and store indices for heavy and recent sections
+        self.recent_start = self.max_cache_len - self.recent_size
+        self.recent_indices = torch.arange(self.recent_start + 1, self.max_cache_len, device=device)
+        self.heavy_indices_template = torch.arange(self.recent_start + 1, device=device)
+
+    def update(
+        self, key_states: torch.Tensor, value_states: torch.Tensor, layer_idx: int, cache_kwargs: Optional[Dict[str, Any]] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Updates the cache with the new `key_states` and `value_states` for the layer `layer_idx`. Manages both
+        the heavy hitters and recent sections of the cache according to the H2O strategy.
+
+        Parameters:
+            key_states (`torch.Tensor`):
+                The new key states to cache.
+            value_states (`torch.Tensor`):
+                The new value states to cache.
+            layer_idx (`int`):
+                The index of the layer to cache the states for.
+
+        Return:
+            A tuple containing the updated key and value states.
+        """
+
+        # Initialize layer caches if needed
+        if len(self.key_cache) <= layer_idx:
+            # print(f"Initializing new cache for layer {layer_idx}")
+            self.key_cache.append(key_states)
+            self.value_cache.append(value_states)
+            self._accum_attn_scores.append(torch.empty(self.max_cache_len, device=key_states.device))
+            return key_states, value_states
+
+        if self.key_cache[layer_idx].shape[-2] < self.max_cache_len:
+            # Cache not full yet - concatenate directly
+            # print(f"Cache not full for layer {layer_idx}, concatenating directly")
+            self.key_cache[layer_idx] = torch.cat([self.key_cache[layer_idx], key_states], dim=-2)
+            self.value_cache[layer_idx] = torch.cat([self.value_cache[layer_idx], value_states], dim=-2)
+            # Extend accumulated scores tensor
+            self._accum_attn_scores[layer_idx] = torch.cat(
+                [self._accum_attn_scores[layer_idx], torch.empty(key_states.shape[-2], device=key_states.device)]
+            )
+        else:
+            # Get heavy hitters only from the non-recent section
+            # + 1 to consider the token at position "recent_start" that
+            # we will remove from the recent_indices to make space for new token
+            scores_slice = self._accum_attn_scores[layer_idx].narrow(0, 0, self.recent_start + 1)
+
+            heavy_scores, heavy_indices = torch.topk(scores_slice, k=self.heavy_size, sorted=False)
+
+            # Get recent indices (excludes the token at index self.recent_start to make room for the current token)
+            combined_indices = torch.cat([heavy_indices, self.recent_indices])
+
+            # Update cache with kept indices and new states
+            self.key_cache[layer_idx] = torch.cat(
+                [torch.index_select(self.key_cache[layer_idx], -2, combined_indices), key_states], dim=-2
+            )
+            self.value_cache[layer_idx] = torch.cat(
+                [torch.index_select(self.value_cache[layer_idx], -2, combined_indices), value_states], dim=-2
+            )
+
+            # Update accumulated scores tensor with new empty tensor for the token(s) we just added
+            self._accum_attn_scores[layer_idx] = torch.cat(
+                [
+                    torch.index_select(self._accum_attn_scores[layer_idx], 0, combined_indices),
+                    torch.empty(key_states.shape[-2], device=key_states.device),
+                ]
+            )
+
+        return self.key_cache[layer_idx], self.value_cache[layer_idx]
+
+    def post_process(
+        self, layer_idx: int, cache_kwargs: Optional[Dict[str, Any]] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Updates accumulated attention scores after each attention computation. This is called during each attention
+        layer's forward pass, after adding the current token's KV-pair through the update method to maintain running
+        statistics of token importance.
+
+        Parameters:
+            layer_idx (`int`):
+                The index of the layer to process.
+            cache_kwargs (`Dict[str, Any]`, *optional*):
+                Additional arguments, must include 'attn_weights' containing the attention weights from the current layer.
+
+        Return:
+            A tuple containing the layer's key and value cached states.
+        """
+        if cache_kwargs is None or "attn_weights" not in cache_kwargs:
+            return self.key_cache[layer_idx], self.value_cache[layer_idx]
+
+        attn_weights = cache_kwargs["attn_weights"]
+
+        # Update accumulated attention scores
+        # Sum attention weights per token accross attention heads, batch, and query length
+        scores = attn_weights.sum(dim=(0, 1, 2))  # [kv_length]
+
+        if self._accum_attn_scores[layer_idx].size(0) != scores.size(0):
+            self._accum_attn_scores[layer_idx] = self._accum_attn_scores[layer_idx][: scores.size(0)]
+
+        self._accum_attn_scores[layer_idx] += scores
+
+        return self.key_cache[layer_idx], self.value_cache[layer_idx]
+
+    def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
+        """Returns the sequence length of cached states."""
+        if len(self.key_cache) <= layer_idx:
+            return 0
+        return self.key_cache[layer_idx].shape[-2]
+
+    def get_max_cache_shape(self) -> Optional[int]:
+        """Returns maximum sequence length the cache can hold."""
+        return self.max_cache_len
 
 
 class EncoderDecoderCache(Cache):

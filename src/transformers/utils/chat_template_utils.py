@@ -19,6 +19,7 @@ import types
 from contextlib import contextmanager
 from datetime import datetime
 from functools import lru_cache
+from types import NoneType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, get_args, get_origin, get_type_hints
 
 from packaging import version
@@ -77,7 +78,10 @@ def _get_json_schema_type(param_type: str) -> Dict[str, str]:
         float: {"type": "number"},
         str: {"type": "string"},
         bool: {"type": "boolean"},
-        Any: {},
+        tuple: {"type": "array"},
+        list: {"type": "array"},
+        Any: {"type": "any"},
+        NoneType: {"type": "null"},
     }
     if is_vision_available():
         type_mapping[Image] = {"type": "image"}
@@ -411,7 +415,7 @@ def _compile_jinja_template(chat_template):
 
     if version.parse(jinja2.__version__) < version.parse("3.1.0"):
         raise ImportError(
-            "apply_chat_template requires jinja2>=3.1.0 to be installed. Your version is " f"{jinja2.__version__}."
+            f"apply_chat_template requires jinja2>=3.1.0 to be installed. Your version is {jinja2.__version__}."
         )
 
     def raise_exception(message):

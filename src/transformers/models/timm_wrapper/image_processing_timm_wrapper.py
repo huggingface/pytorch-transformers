@@ -93,6 +93,15 @@ class TimmWrapperImageProcessor(BaseImageProcessor):
             pretrained_model_name_or_path, image_processor_filename=image_processor_filename, **kwargs
         )
 
+    @classmethod
+    def from_dict(cls, image_processor_dict: Dict[str, Any], **kwargs):
+        """
+        Overrides the `from_dict` method from the base class to make sure parameters are updated if image processor is
+        created using from_dict and kwargs e.g. `TimmWrapperImageProcessor.from_pretrained(checkpoint)`
+        """
+        kwargs.update({"is_timm": True})
+        return super().from_dict(image_processor_dict, **kwargs)
+
     def preprocess(
         self,
         images: ImageInput,

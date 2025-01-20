@@ -706,6 +706,8 @@
         title: (번역중) LayoutXLM
       - local: in_translation
         title: (번역중) LiLT
+      - local: model_doc/llava_next
+        title: LLaVA-NeXT
       - local: in_translation
         title: (번역중) LXMERT
       - local: in_translation

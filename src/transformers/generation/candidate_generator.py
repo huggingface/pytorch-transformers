@@ -203,9 +203,10 @@ class AssistedCandidateGenerator(CandidateGenerator):
                 Indices of input sequence tokens in the vocabulary. [What are input IDs?](../glossary#input-ids)
 
         Return:
-            `torch.LongTensor` of shape `(batch_size, candidate_length)` containing the candidate sequences to be
-            assessed by the model and a `torch.FloatTensor` of shape `(batch_size, candidate_length,
-            vocabulary_size)` containing the logits associated to each candidate.
+            a tuple containing a torch.LongTensor and a torch.FloatTensor.
+            The torch.LongTensor of shape (batch_size, input_ids_length + candidate_length) holds the input IDs
+            concatenated with the candidate IDs. The torch.FloatTensor of shape (batch_size, candidate_length,
+            vocabulary_size) contains the logits associated with each candidate token.
         """
         input_ids = input_ids.to(self.assistant_model.device)
         # Calculate new tokens to generate
@@ -497,9 +498,9 @@ class AssistedCandidateGeneratorDifferentTokenizers(AssistedCandidateGenerator):
                 Indices of input sequence tokens in the vocabulary. [What are input IDs?](../glossary#input-ids)
 
         Return:
-            `torch.LongTensor` of shape `(batch_size, candidate_length)` containing the candidate sequences to be
-            assessed by the model and a `torch.FloatTensor` of shape `(batch_size, candidate_length,
-            vocabulary_size)` containing the logits associated to each candidate.
+            a tuple containing a torch.LongTensor and a None object.
+            The torch.LongTensor of shape (batch_size, input_ids_length + candidate_length) holds the input IDs
+            concatenated with the candidate IDs.
         """
         max_new_tokens = int(self.num_assistant_tokens)
         if max_new_tokens == 0:

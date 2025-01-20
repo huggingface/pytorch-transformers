@@ -600,7 +600,7 @@ class SpmConverter(Converter):
 
         else:
             raise Exception(
-                "You're trying to run a `Unigram` model but you're file was trained with a different algorithm"
+                "You're trying to run a `Unigram` model but your file was trained with a different algorithm"
             )
 
         # control tokens are special

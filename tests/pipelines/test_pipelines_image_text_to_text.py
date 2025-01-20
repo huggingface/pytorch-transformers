@@ -134,8 +134,14 @@ class ImageTextToTextPipelineTests(unittest.TestCase):
                             "role": "user",
                             "content": [
                                 {"type": "text", "text": "What’s the difference between these two images?"},
-                                {"type": "image"},
-                                {"type": "image"},
+                                {
+                                    "type": "image",
+                                    "image": "https://cdn.britannica.com/61/93061-050-99147DCE/Statue-of-Liberty-Island-New-York-Bay.jpg",
+                                },
+                                {
+                                    "type": "image",
+                                    "image": "https://cdn.britannica.com/59/94459-050-DBA42467/Skyline-Chicago.jpg",
+                                },
                             ],
                         }
                     ],
@@ -144,13 +150,19 @@ class ImageTextToTextPipelineTests(unittest.TestCase):
                             "role": "user",
                             "content": [
                                 {"type": "text", "text": "What’s the difference between these two images?"},
-                                {"type": "image"},
-                                {"type": "image"},
+                                {
+                                    "type": "image",
+                                    "image": "https://cdn.britannica.com/61/93061-050-99147DCE/Statue-of-Liberty-Island-New-York-Bay.jpg",
+                                },
+                                {
+                                    "type": "image",
+                                    "image": "https://cdn.britannica.com/59/94459-050-DBA42467/Skyline-Chicago.jpg",
+                                },
                             ],
                         },
                         {
                             "role": "assistant",
-                            "content": "The first image shows a statue of the Statue of Liberty in the foreground, while the second image shows",
+                            "content": "The first image shows a statue of Liberty in the foreground, while the second image shows a city skyline",
                         },
                     ],
                 }

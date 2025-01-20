@@ -36,7 +36,7 @@ from .configuration_phi import PhiConfig
 
 logger = logging.get_logger(__name__)
 
-_CHECKPOINT_FOR_DOC = "meta-phi/Phi-2-7b-hf"
+_CHECKPOINT_FOR_DOC = "microsoft/phi-1"
 _CONFIG_FOR_DOC = "PhiConfig"
 
 

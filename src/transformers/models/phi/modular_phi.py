@@ -26,6 +26,9 @@ from .configuration_phi import PhiConfig
 
 logger = logging.get_logger(__name__)
 
+_CHECKPOINT_FOR_DOC = "microsoft/phi-1"
+_CONFIG_FOR_DOC = "PhiConfig"
+
 
 class PhiAttention(LlamaAttention):
     def __init__(self, config: PhiConfig, layer_idx: int):

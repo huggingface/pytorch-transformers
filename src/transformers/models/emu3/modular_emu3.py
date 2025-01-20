@@ -1059,6 +1059,10 @@ class Emu3TextModel(LlamaModel, Emu3PreTrainedModel):
             [Emu3DecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
 
+    @add_start_docstrings_to_model_forward(EMU3_TEXT_INPUTS_DOCSTRING)
+    def forward(self, **super_kwargs):
+        super().forward(**super_kwargs)
+
 
 class Emu3ForCausalLM(LlamaForCausalLM, Emu3PreTrainedModel, GenerationMixin):
     config_class = Emu3TextConfig

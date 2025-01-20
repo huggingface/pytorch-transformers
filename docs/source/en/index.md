@@ -381,6 +381,7 @@ Flax), PyTorch, and/or TensorFlow.
 |                         [XLNet](model_doc/xlnet)                         |       ✅        |         ✅         |      ❌      |
 |                         [XLS-R](model_doc/xls_r)                         |       ✅        |         ✅         |      ✅      |
 |                 [XLSR-Wav2Vec2](model_doc/xlsr_wav2vec2)                 |       ✅        |         ✅         |      ✅      |
+|                         [xLSTM](model_doc/xlstm)                         |       ✅        |         ❌         |      ❌      |
 |                         [YOLOS](model_doc/yolos)                         |       ✅        |         ❌         |      ❌      |
 |                          [YOSO](model_doc/yoso)                          |       ✅        |         ❌         |      ❌      |
 |                         [Zamba](model_doc/zamba)                         |       ✅        |         ❌         |      ❌      |

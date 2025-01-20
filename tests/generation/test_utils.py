@@ -464,9 +464,9 @@ class GenerationTesterMixin:
             output_generate = self._greedy_generate(model=model, inputs_dict=inputs_dict)
 
             if model.config.is_encoder_decoder:
-                self.assertTrue(output_generate.shape[-1] == self.max_new_tokens + 1)
+                self.assertEqual(output_generate.shape[-1], self.max_new_tokens + 1)
             else:
-                self.assertTrue(output_generate.shape[-1] == self.max_new_tokens + inputs_dict["input_ids"].shape[-1])
+                self.assertEqual(output_generate.shape[-1], self.max_new_tokens + inputs_dict["input_ids"].shape[-1])
 
     @pytest.mark.generate
     def test_greedy_generate_dict_outputs(self):

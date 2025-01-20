@@ -10415,6 +10415,27 @@ def load_tf_weights_in_xlnet(*args, **kwargs):
     requires_backends(load_tf_weights_in_xlnet, ["torch"])
 
 
+class xLSTMForCausalLM(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class xLSTMModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class xLSTMPreTrainedModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
 class XmodForCausalLM(metaclass=DummyObject):
     _backends = ["torch"]
 

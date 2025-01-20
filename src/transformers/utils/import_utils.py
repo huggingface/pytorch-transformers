@@ -475,6 +475,12 @@ def is_causal_conv1d_available():
     return False
 
 
+def is_xlstm_available():
+    if is_torch_available():
+        return _is_package_available("xlstm")
+    return False
+
+
 def is_mambapy_available():
     if is_torch_available():
         return _is_package_available("mambapy")
@@ -792,7 +798,8 @@ def is_torchdynamo_compiling():
     try:
         import torch
 
-        return torch.compiler.is_compiling()
+        compiling_cuda_graph = torch.cuda.graph.default_capture_stream is not None
+        return compiling_cuda_graph or torch.compiler.is_compiling()
     except Exception:
         try:
             import torch._dynamo as dynamo  # noqa: F401

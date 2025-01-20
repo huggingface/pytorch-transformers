@@ -626,6 +626,8 @@
         title: XLM-V
       - local: model_doc/xlnet
         title: XLNet
+      - local: model_doc/xlstm
+        title: xLSTM
       - local: model_doc/yoso
         title: YOSO
       - local: model_doc/zamba

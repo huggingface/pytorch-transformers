@@ -1859,6 +1859,51 @@ class MambaCache:
         return self.max_batch_size
 
 
+class xLSTMCache:
+    """
+    Arguments:
+        config: xLSTMConfig
+        batch_size: int
+        dtype: torch.dtype
+        device: torch.device
+
+    Attributes:
+        seqlen_offset: int
+        dtype: torch.dtype
+    """
+
+    def __init__(
+        self,
+        config: PretrainedConfig,
+        batch_size: int,
+        dtype: torch.dtype = torch.bfloat16,
+        device: Optional[str] = None,
+    ):
+        self.seqlen_offset = 0
+        self.dtype = dtype
+        self.config = config
+        self.rnn_state = {
+            layer: (
+                torch.zeros(
+                    [batch_size, config.num_heads, config.qk_head_dim, config.v_head_dim], dtype=dtype, device=device
+                ),
+                torch.zeros([batch_size, config.num_heads, config.qk_head_dim], dtype=dtype, device=device),
+                torch.zeros([batch_size, config.num_heads, 1], dtype=dtype, device=device),
+            )
+            for layer in range(config.num_blocks)
+        }
+
+    def reset(self):
+        self.rnn_state = {
+            layer: (
+                torch.zeros_like(self.rnn_state[layer][0]),
+                torch.zeros_like(self.rnn_state[layer][1]),
+                torch.zeros_like(self.rnn_state[layer][2]),
+            )
+            for layer in self.rnn_state
+        }
+
+
 class OffloadedStaticCache(StaticCache):
     """
     Static cache class to be used with `torch.compile(model)` that offloads to the CPU or

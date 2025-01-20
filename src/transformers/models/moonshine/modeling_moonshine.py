@@ -1169,10 +1169,9 @@ MOONSHINE_MODEL_INPUTS_DOCSTRING = r"""
             `numpy.ndarray`, *e.g.* via the soundfile library (`pip install soundfile`). To prepare the array into
             `input_values`, the [`AutoFeatureExtractor`] should be used for padding
             and conversion into a tensor of type `torch.FloatTensor`.
-        encoder_outputs (`tuple(tuple(torch.FloatTensor)`, *optional*):
-            Tuple consists of (`last_hidden_state`, *optional*: `hidden_states`, *optional*: `attentions`)
-            `last_hidden_state` of shape `(batch_size, sequence_length, hidden_size)`, *optional*) is a sequence of
-            hidden-states at the output of the last layer of the encoder. Used in the cross-attention of the decoder.
+        attention_mask (`torch.Tensor`)`, *optional*):
+            Moonshine does not support masking of the `input_values`, this argument is preserved for compatibility,
+            but it is not used.
         decoder_input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
             it.
@@ -1181,9 +1180,6 @@ MOONSHINE_MODEL_INPUTS_DOCSTRING = r"""
             [`PreTrainedTokenizer.__call__`] for details.
 
             [What are input IDs?](../glossary#input-ids)
-        attention_mask (`torch.Tensor`)`, *optional*):
-            Moonshine does not support masking of the `input_values`, this argument is preserved for compatibility,
-            but it is not used.
         decoder_attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
             Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
 
@@ -1204,11 +1200,10 @@ MOONSHINE_MODEL_INPUTS_DOCSTRING = r"""
 
             - 1 indicates the head is **not masked**,
             - 0 indicates the head is **masked**.
-        decoder_position_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
-            Indices of positions of each input sequence tokens in the position embeddings. Selected in the range `[0,
-            config.n_positions - 1]`.
-
-            [What are position IDs?](../glossary#position-ids)
+        encoder_outputs (`tuple(tuple(torch.FloatTensor)`, *optional*):
+            Tuple consists of (`last_hidden_state`, *optional*: `hidden_states`, *optional*: `attentions`)
+            `last_hidden_state` of shape `(batch_size, sequence_length, hidden_size)`, *optional*) is a sequence of
+            hidden-states at the output of the last layer of the encoder. Used in the cross-attention of the decoder.
         past_key_values (`Cache` or `tuple(tuple(torch.FloatTensor))`, *optional*):
             Pre-computed hidden-states (key and values in the self-attention blocks and in the cross-attention
             blocks) that can be used to speed up sequential decoding. This typically consists in the `past_key_values`
@@ -1231,6 +1226,11 @@ MOONSHINE_MODEL_INPUTS_DOCSTRING = r"""
             Optionally, instead of passing `decoder_input_ids` you can choose to directly pass an embedded representation. This
             is useful if you want more control over how to convert `decoder_input_ids` indices into associated vectors than the
             model's internal embedding lookup matrix.
+        decoder_position_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
+            Indices of positions of each input sequence tokens in the position embeddings. Selected in the range `[0,
+            config.n_positions - 1]`.
+
+            [What are position IDs?](../glossary#position-ids)
         use_cache (`bool`, *optional*):
             If set to `True`, `past_key_values` key value states are returned and can be used to speed up decoding (see
             `past_key_values`).
@@ -1551,23 +1551,6 @@ class MoonshineForConditionalGeneration(MoonshinePreTrainedModel, GenerationMixi
             encoder_hidden_states=outputs.encoder_hidden_states,
             encoder_attentions=outputs.encoder_attentions,
         )
-
-    def generate(self, *args, **kwargs):
-        # TODO: @eustlb do it rather with a custom logits processor
-        token_limit_factor = 6.5 / 16000.0  # Maximum of 6.5 tokens per second
-        if kwargs.get("max_new_tokens") is None and kwargs.get("max_length") is None:
-            if kwargs.get("attention_mask") is not None:
-                seq_lens = kwargs["attention_mask"].sum(dim=-1)
-            else:
-                seq_lens = kwargs["input_values"].shape[-1]
-            max_length = int(seq_lens.max().item() * token_limit_factor)
-            logger.warning_once(
-                f"Based on the input length, Moonshine will generate up to {max_length} tokens (ratio of 6.5 tokens/second). "
-                "To specify a different length, set either `max_new_tokens` or `max_length`."
-            )
-            kwargs["max_length"] = max_length
-
-        return super().generate(*args, **kwargs)
 
 
 __all__ = ["MoonshineModel", "MoonshinePreTrainedModel", "MoonshineForConditionalGeneration"]

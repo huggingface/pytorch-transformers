@@ -303,6 +303,11 @@ class AutomaticSpeechRecognitionPipeline(ChunkPipeline):
                     " https://github.com/huggingface/transformers/pull/20104. Ignore this warning with pipeline(...,"
                     " ignore_warning=True)"
                 )
+            elif self.type == "seq2seq_whisper" and not ignore_warning:
+                logger.warning(
+                    "Using `chunk_length_s` with Whisper models is not recommended and will result in unreliable results, as it uses it's own chunking mechanism "
+                    "(cf. Whisper original paper, section 3.8. Long-form Transcription)."
+                )
             preprocess_params["chunk_length_s"] = chunk_length_s
         if stride_length_s is not None:
             preprocess_params["stride_length_s"] = stride_length_s

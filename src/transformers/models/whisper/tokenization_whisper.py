@@ -908,7 +908,7 @@ class WhisperTokenizer(PreTrainedTokenizer):
         return token_ids
 
 
-def _decode_asr(tokenizer, model_outputs, *, return_timestamps, return_language, time_precision):
+def _decode_asr(tokenizer, model_outputs, *, return_timestamps, return_language, time_precision, segment_size=1500):
     """
     Internal method meant to only be used by asr pipeline. Handles all the little quirks specific to whisper to handle
     the various options not allowed in other seq2seq models
@@ -959,6 +959,12 @@ def _decode_asr(tokenizer, model_outputs, *, return_timestamps, return_language,
         # chunk.
         last_timestamp = None
         first_timestamp = timestamp_begin
+
+        # long form generation: we need to handle the case where the call to generate returns concatenated segments,
+        # with underlying multiple calls to generate
+        cur_max_timestamp = 0.0
+        prev_segments_len = 0.0
+        penultimate_timestamp = 0.0
 
         if "stride" in output:
             chunk_len, stride_left, stride_right = output["stride"]
@@ -1022,7 +1028,24 @@ def _decode_asr(tokenizer, model_outputs, *, return_timestamps, return_language,
                     pass
             elif token >= timestamp_begin:
                 # 3/ Timestamp token
-                time = (token - timestamp_begin) * time_precision + time_offset
+
+                timestamp = float((token - timestamp_begin) * time_precision)
+                if timestamp < cur_max_timestamp:
+                    # next segment has started
+                    last_was_single_ending = i >= 2 and not (
+                        token_ids[i - 1] >= timestamp_begin and token_ids[i - 2] >= timestamp_begin
+                    )
+                    if last_was_single_ending:
+                        prev_segments_len += time_precision * segment_size
+                    else:
+                        cur_max_timestamp = penultimate_timestamp
+                        prev_segments_len += penultimate_timestamp
+
+                penultimate_timestamp = cur_max_timestamp
+                cur_max_timestamp = timestamp
+
+                time = (token - timestamp_begin) * time_precision + time_offset + prev_segments_len
+
                 time = round(time, 2)
                 if last_timestamp and token >= last_timestamp:
                     # Whisper outputted a timestamp token, but it falls within

@@ -216,6 +216,7 @@ from . import (
     pvt,
     pvt_v2,
     qwen2,
+    qwen2_5_vl,
     qwen2_audio,
     qwen2_moe,
     qwen2_vl,

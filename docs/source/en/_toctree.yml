@@ -930,6 +930,8 @@
         title: Pix2Struct
       - local: model_doc/pixtral
         title: Pixtral
+      - local: model_doc/qwen2_5_vl
+        title: Qwen2.5-VL
       - local: model_doc/qwen2_audio
         title: Qwen2Audio
       - local: model_doc/qwen2_vl

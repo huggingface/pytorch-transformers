@@ -161,6 +161,8 @@
     title: (번역중) HQQ
   - local: in_translation
     title: (번역중) Optimum
+  - local: quantization/compressed_tensors
+    title: compressed_tensors
   - local: in_translation
     title: (번역중) Contribute new quantization method
   title: (번역중) 경량화 메소드

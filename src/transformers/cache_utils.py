@@ -24,7 +24,7 @@ if is_hqq_available():
 logger = logging.get_logger(__name__)
 
 
-class Cache(torch.nn.Module):
+class Cache(torch.Tensor):
     """
     Base, abstract class for all caches. The actual data structure is specific to each subclass.
     """

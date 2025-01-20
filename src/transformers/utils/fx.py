@@ -823,28 +823,28 @@ def create_cache_proxy_factory_fn(orig_cache_cls: Type[Cache]) -> Callable[[Node
     return cache_proxy_factory_fn
 
 
-# Proxyable equivalent of the cache classes defined in `transformers.cache_utils`.
-ProxyableCache = HFProxyableClassMeta(
-    "ProxyableCache", (Cache,), {}, proxy_factory_fn=create_cache_proxy_factory_fn(Cache)
-)
-ProxyableDynamicCache = HFProxyableClassMeta(
-    "ProxyableDynamicCache",
-    (DynamicCache,),
-    {},
-    proxy_factory_fn=create_cache_proxy_factory_fn(DynamicCache),
-)
-ProxyableSinkCache = HFProxyableClassMeta(
-    "ProxyableSinkCache",
-    (SinkCache,),
-    {},
-    proxy_factory_fn=create_cache_proxy_factory_fn(SinkCache),
-)
-ProxyableStaticCache = HFProxyableClassMeta(
-    "ProxyableStaticCache",
-    (StaticCache,),
-    {},
-    proxy_factory_fn=create_cache_proxy_factory_fn(StaticCache),
-)
+# # Proxyable equivalent of the cache classes defined in `transformers.cache_utils`.
+# ProxyableCache = HFProxyableClassMeta(
+#     "ProxyableCache", (Cache,), {}, proxy_factory_fn=create_cache_proxy_factory_fn(Cache)
+# )
+# ProxyableDynamicCache = HFProxyableClassMeta(
+#     "ProxyableDynamicCache",
+#     (DynamicCache,),
+#     {},
+#     proxy_factory_fn=create_cache_proxy_factory_fn(DynamicCache),
+# )
+# ProxyableSinkCache = HFProxyableClassMeta(
+#     "ProxyableSinkCache",
+#     (SinkCache,),
+#     {},
+#     proxy_factory_fn=create_cache_proxy_factory_fn(SinkCache),
+# )
+# ProxyableStaticCache = HFProxyableClassMeta(
+#     "ProxyableStaticCache",
+#     (StaticCache,),
+#     {},
+#     proxy_factory_fn=create_cache_proxy_factory_fn(StaticCache),
+# )
 
 
 def _generate_random_int(low: int = 10, high: int = 20, forbidden_values: Optional[List[int]] = None):
@@ -879,10 +879,10 @@ class HFTracer(Tracer):
         "tril",
     ]
     _CLASSES_TO_PATCH = {
-        Cache: ProxyableCache,
-        DynamicCache: ProxyableDynamicCache,
-        SinkCache: ProxyableSinkCache,
-        StaticCache: ProxyableStaticCache,
+        # Cache: ProxyableCache,
+        # DynamicCache: ProxyableDynamicCache,
+        # SinkCache: ProxyableSinkCache,
+        # StaticCache: ProxyableStaticCache,
     }
 
     supported_archs = (PreTrainedModel,) if not is_peft_available() else (PreTrainedModel, PeftModel)

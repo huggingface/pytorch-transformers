@@ -1170,7 +1170,7 @@ def get_sine_pos_embed(
         position_embeddings (torch.Tensor): shape: [..., n * hidden_size].
     """
     scale = 2 * math.pi
-    dim_t = torch.arange(num_pos_feats, dtype=torch.float32, device=pos_tensor.device)
+    dim_t = torch.arange(num_pos_feats, dtype=pos_tensor.dtype, device=pos_tensor.device)
     dim_t = temperature ** (2 * torch.div(dim_t, 2, rounding_mode="floor") / num_pos_feats)
 
     def sine_func(x: torch.Tensor):
@@ -1204,7 +1204,7 @@ class GroundingDinoEncoderLayer(nn.Module):
     ) -> Tensor:
         batch_size, seq_length, _ = text_features.shape
         if text_position_embedding is None and text_position_ids is None:
-            text_position_embedding = torch.arange(seq_length, device=text_features.device)
+            text_position_embedding = torch.arange(seq_length, device=text_features.device, dtype=text_features.dtype)
             text_position_embedding = text_position_embedding.float()
             text_position_embedding = text_position_embedding.unsqueeze(0).unsqueeze(-1)
             text_position_embedding = text_position_embedding.repeat(batch_size, 1, 1)
@@ -1213,7 +1213,7 @@ class GroundingDinoEncoderLayer(nn.Module):
             )
         if text_position_ids is not None:
             text_position_embedding = get_sine_pos_embed(
-                text_position_ids[..., None], num_pos_feats=self.d_model, exchange_xy=False
+                text_position_ids[..., None].to(text_features.dtype), num_pos_feats=self.d_model, exchange_xy=False
             )
 
         return text_position_embedding
@@ -2188,8 +2188,8 @@ class GroundingDinoModel(GroundingDinoPreTrainedModel):
             valid_width = torch.sum(~mask_flatten_[:, 0, :, 0], 1)
 
             grid_y, grid_x = meshgrid(
-                torch.linspace(0, height - 1, height, dtype=torch.float32, device=enc_output.device),
-                torch.linspace(0, width - 1, width, dtype=torch.float32, device=enc_output.device),
+                torch.linspace(0, height - 1, height, dtype=enc_output.dtype, device=enc_output.device),
+                torch.linspace(0, width - 1, width, dtype=enc_output.dtype, device=enc_output.device),
                 indexing="ij",
             )
             grid = torch.cat([grid_x.unsqueeze(-1), grid_y.unsqueeze(-1)], -1)
@@ -2342,7 +2342,7 @@ class GroundingDinoModel(GroundingDinoPreTrainedModel):
         spatial_shapes = torch.as_tensor(spatial_shapes, dtype=torch.long, device=source_flatten.device)
         level_start_index = torch.cat((spatial_shapes.new_zeros((1,)), spatial_shapes.prod(1).cumsum(0)[:-1]))
         valid_ratios = torch.stack([self.get_valid_ratio(m) for m in masks], 1)
-        valid_ratios = valid_ratios.float()
+        valid_ratios = valid_ratios.to(pixel_values.dtype)
 
         # Fourth, sent source_flatten + mask_flatten + lvl_pos_embed_flatten (backbone + proj layer output) through encoder
         # Also provide spatial_shapes, level_start_index and valid_ratios

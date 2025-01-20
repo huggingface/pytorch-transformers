@@ -838,6 +838,34 @@ class CommonSpmIntegrationTests(unittest.TestCase):
         tokens = self.tokenizer.tokenize("No <s> ▁He")
         self.assertEqual(tokens, ["▁No", "<s>", "▁He"])  # spaces are eaten by rstrip / lstrip
 
+    @require_read_token
+    def test_bos_eos_tokens(self):
+        new_eos_token = "<new_eos>"
+        model_path = "hf-internal-testing/llama-3-8b-internal"
+        tokenizer = AutoTokenizer.from_pretrained(model_path, add_bos_token=False, add_eos_token=True)
+        self.assertNotEqual(tokenizer("hello")["input_ids"][0], tokenizer.bos_token_id)  # no bos token
+        self.assertEqual(tokenizer("hello")["input_ids"][-1], tokenizer.eos_token_id)  # eos token
+
+        tokenizer.add_special_tokens({"eos_token": new_eos_token})  # update new eos token
+        tokens = tokenizer.tokenize("hello", add_special_tokens=True)
+        self.assertEqual(tokens[-1], new_eos_token)
+
+        self.assertEqual(tokenizer("hello")["input_ids"][0], tokenizer.bos_token_id)
+        self.assertEqual(tokenizer("hello")["input_ids"][-1], tokenizer.eos_token_id)
+
+        tokenizer.add_special_tokens({"eos_token": new_eos_token})  # update new eos token
+        tokens = tokenizer.tokenize("hello", add_special_tokens=True)
+        self.assertEqual(tokens[-1], new_eos_token)
+
+        tmpdirname = tempfile.mkdtemp()
+        tokenizer.save_pretrained(tmpdirname)
+        tokenizer_reload = AutoTokenizer.from_pretrained(tmpdirname)
+
+        self.assertTrue(isinstance(tokenizer_reload, PreTrainedTokenizerFast))
+        tokens = tokenizer_reload.tokenize("hello", add_special_tokens=True)
+        self.assertEqual(tokens[-1], new_eos_token)
+        shutil.rmtree(tmpdirname)
+
 
 @require_tiktoken
 @require_read_token

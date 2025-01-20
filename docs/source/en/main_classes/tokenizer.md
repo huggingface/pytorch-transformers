@@ -96,6 +96,8 @@ loaded very simply into 🤗 transformers. Take a look at the [Using tokenizers 
     - batch_decode
     - decode
     - encode
+    - add_bos_token
+    - add_eos_token
     - push_to_hub
     - all
 

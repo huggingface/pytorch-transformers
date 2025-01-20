@@ -998,6 +998,8 @@ class SpecialTokensMixin:
 
         # if we are adding tokens that were not part of the vocab, we ought to add them
         added_tokens = self.add_tokens(added_tokens, special_tokens=True)
+        if hasattr(self, "update_post_processor"):
+            self.update_post_processor()
         return added_tokens
 
     def add_tokens(

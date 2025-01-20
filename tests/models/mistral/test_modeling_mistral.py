@@ -424,7 +424,7 @@ class MistralModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMi
         self.skipTest(reason="Mistral flash attention does not support right padding")
 
 
-@require_torch_gpu
+@require_torch_accelerator
 class MistralIntegrationTest(unittest.TestCase):
     # This variable is used to determine which CUDA device are we using for our runners (A10 or T4)
     # Depending on the hardware we get different logits / generations

@@ -163,8 +163,9 @@ class InstructBlipVideoVisionModelTest(ModelTesterMixin, unittest.TestCase):
 
     def setUp(self):
         self.model_tester = InstructBlipVideoVisionModelTester(self)
+        common_properties = ["num_query_tokens", "video_token_index"]
         self.config_tester = ConfigTester(
-            self, config_class=InstructBlipVideoVisionConfig, has_text_modality=False, hidden_size=37
+            self, config_class=InstructBlipVideoConfig, has_text_modality=False, common_properties=common_properties
         )
 
     def test_config(self):

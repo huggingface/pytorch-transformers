@@ -338,6 +338,9 @@ class MoshiRotaryEmbedding(nn.Module):
             self.max_seq_len_cached = seq_len
 
         if seq_len < self.original_max_seq_len and self.max_seq_len_cached > self.original_max_seq_len:  # reset
+            # This .to() is needed if the model has been moved to a device after being initialized (because
+            # the buffer is automatically moved, but not the original copy)
+            self.original_inv_freq = self.original_inv_freq.to(device)
             self.register_buffer("inv_freq", self.original_inv_freq, persistent=False)
             self.max_seq_len_cached = self.original_max_seq_len
 
@@ -1911,12 +1914,9 @@ class MoshiForConditionalGeneration(MoshiPreTrainedModel, GenerationMixin):
         self.embed_tokens = nn.ModuleList(
             [nn.Embedding(config.audio_vocab_size + 1, config.hidden_size) for _ in range(2 * config.num_codebooks)]
         )
-        self.audio_encoder = AutoModel.from_config(
-            config.audio_encoder_config, attn_implementation=config._attn_implementation
-        )
+        self.audio_encoder = AutoModel.from_config(config.audio_encoder_config)
         self.decoder = MoshiForCausalLM(config)
 
-        config.depth_decoder_config._attn_implementation_internal = config._attn_implementation
         self.depth_decoder = MoshiDepthDecoder(config.depth_decoder_config)
 
         self.num_codebooks = config.num_codebooks

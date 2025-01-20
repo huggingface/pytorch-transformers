@@ -52,22 +52,6 @@ class LogitsProcessor:
         )
 
 
-class LogitsWarper:
-    """Abstract base class for all logit warpers that can be applied during generation with multinomial sampling."""
-
-    def __init__(self):
-        logger.warning_once(
-            "`LogitsWarper` is deprecated and will be removed in v4.48. Your class should inherit `LogitsProcessor` "
-            "instead, which has the same properties and interface."
-        )
-
-    @add_start_docstrings(LOGITS_PROCESSOR_INPUTS_DOCSTRING)
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
-        raise NotImplementedError(
-            f"{self.__class__} is an abstract class. Only classes inheriting this class can be called."
-        )
-
-
 class LogitsProcessorList(list):
     """
     This class can be used to create a list of [`LogitsProcessor`] to subsequently process a `scores` input tensor.

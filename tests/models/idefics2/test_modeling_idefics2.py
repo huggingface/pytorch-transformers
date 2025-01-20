@@ -19,6 +19,7 @@ import tempfile
 import unittest
 from io import BytesIO
 
+import pytest
 import requests
 
 from transformers import (
@@ -414,6 +415,15 @@ class Idefics2ForConditionalGenerationModelTest(GenerationTesterMixin, ModelTest
     def test_flash_attn_2_fp32_ln(self):
         pass
 
+    @pytest.mark.generate
+    @require_torch_sdpa
+    @slow
+    @unittest.skip(
+        reason="Idefics2 doesn't support SDPA for all backbones, vision backbones has only eager/FA2 attention"
+    )
+    def test_eager_matches_sdpa_generate(self):
+        pass
+
     # We need to override as we need to prepare such that the image token is the last token
     def test_resize_tokens_embeddings(self):
         (original_config, inputs_dict) = self.model_tester.prepare_config_and_inputs_for_common()
@@ -614,7 +624,7 @@ class Idefics2ForConditionalGenerationIntegrationTest(unittest.TestCase):
         # Create pixel inputs
         text = ["<image>In this image, we see", "bla, bla <image><image>"]
         images = [[self.image1], [self.image2, self.image3]]
-        inputs = self.processor(text=text, images=images, padding=True, return_tensors="pt")
+        inputs = self.processor(text=text, images=images, padding=True, return_tensors="pt").to(torch_device)
 
         generated_ids = model.generate(**inputs, max_new_tokens=10)
         generated_texts = self.processor.batch_decode(generated_ids, skip_special_tokens=True)
@@ -638,19 +648,19 @@ class Idefics2ForConditionalGenerationIntegrationTest(unittest.TestCase):
 
         text = [f"<image>{dataset[40]['query']['en']}", f"<image>{dataset[41]['query']['en']}"]
         images = [[dataset[40]["image"]], [dataset[41]["image"]]]
-        inputs = self.processor(text=text, images=images, padding=True, return_tensors="pt")
+        inputs = self.processor(text=text, images=images, padding=True, return_tensors="pt").to(torch_device)
         generated_ids = model.generate(**inputs, max_new_tokens=64)
         batched_generated_texts = self.processor.batch_decode(generated_ids, skip_special_tokens=True)
 
         text = f"<image>{dataset[40]['query']['en']}"
         images = dataset[40]["image"]
-        inputs = self.processor(text=text, images=images, padding=True, return_tensors="pt")
+        inputs = self.processor(text=text, images=images, padding=True, return_tensors="pt").to(torch_device)
         generated_ids = model.generate(**inputs, max_new_tokens=64)
         generated_text_0 = self.processor.batch_decode(generated_ids, skip_special_tokens=True)
 
         text = f"<image>{dataset[41]['query']['en']}"
         images = dataset[41]["image"]
-        inputs = self.processor(text=text, images=images, padding=True, return_tensors="pt")
+        inputs = self.processor(text=text, images=images, padding=True, return_tensors="pt").to(torch_device)
         generated_ids = model.generate(**inputs, max_new_tokens=64)
         generated_text_1 = self.processor.batch_decode(generated_ids, skip_special_tokens=True)
 

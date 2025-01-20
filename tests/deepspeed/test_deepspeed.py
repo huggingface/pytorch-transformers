@@ -482,6 +482,7 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
                 max_grad_norm=max_grad_norm,
                 adam_beta1=adam_beta1,
                 adam_beta2=adam_beta2,
+                output_dir=self.get_auto_remove_tmp_dir(),
             )
             with self.assertRaises(Exception) as context:
                 trainer.train()
@@ -506,7 +507,9 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
             del ds_config_zero2_dict["scheduler"]  # force default HF Trainer scheduler
             ds_config_zero2_dict["zero_optimization"]["offload_optimizer"]["device"] = "none"
             ds_config_zero2_dict["fp16"]["initial_scale_power"] = 1  # force optimizer on the first step
-            trainer = get_regression_trainer(a=a, local_rank=0, fp16=True, deepspeed=ds_config_zero2_dict)
+            trainer = get_regression_trainer(
+                a=a, local_rank=0, fp16=True, deepspeed=ds_config_zero2_dict, output_dir=self.get_auto_remove_tmp_dir()
+            )
             trainer.train()
         new_a = trainer.model.a.item()
         self.assertNotEqual(new_a, a)
@@ -518,7 +521,9 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
             del ds_config_zero2_dict["optimizer"]  # force default HF Trainer optimizer
             ds_config_zero2_dict["zero_optimization"]["offload_optimizer"]["device"] = "none"
             ds_config_zero2_dict["fp16"]["initial_scale_power"] = 1  # force optimizer on the first step
-            trainer = get_regression_trainer(a=a, local_rank=0, fp16=True, deepspeed=ds_config_zero2_dict)
+            trainer = get_regression_trainer(
+                a=a, local_rank=0, fp16=True, deepspeed=ds_config_zero2_dict, output_dir=self.get_auto_remove_tmp_dir()
+            )
             trainer.train()
         new_a = trainer.model.a.item()
         self.assertNotEqual(new_a, a)
@@ -530,7 +535,9 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
             del ds_config_zero2_dict["scheduler"]  # force default HF Trainer scheduler
             ds_config_zero2_dict["zero_optimization"]["offload_optimizer"]["device"] = "none"
             ds_config_zero2_dict["fp16"]["initial_scale_power"] = 1  # force optimizer on the first step
-            trainer = get_regression_trainer(a=a, local_rank=0, fp16=True, deepspeed=ds_config_zero2_dict)
+            trainer = get_regression_trainer(
+                a=a, local_rank=0, fp16=True, deepspeed=ds_config_zero2_dict, output_dir=self.get_auto_remove_tmp_dir()
+            )
             trainer.train()
         new_a = trainer.model.a.item()
         self.assertNotEqual(new_a, a)
@@ -546,7 +553,9 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
             ds_config_zero3_dict["zero_optimization"]["offload_optimizer"] = nvme_config
             ds_config_zero3_dict["zero_optimization"]["offload_param"] = nvme_config
             ds_config_zero3_dict["zero_optimization"]["stage3_gather_16bit_weights_on_model_save"] = True
-            trainer = get_regression_trainer(local_rank=0, fp16=True, deepspeed=ds_config_zero3_dict)
+            trainer = get_regression_trainer(
+                local_rank=0, fp16=True, deepspeed=ds_config_zero3_dict, output_dir=self.get_auto_remove_tmp_dir()
+            )
             with CaptureLogger(deepspeed_logger) as cl:
                 trainer.train()
             self.assertIn("DeepSpeed info", cl.out, "expected DeepSpeed logger output but got none")
@@ -567,6 +576,7 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
                 fp16=True,
                 model_init=model_init,
                 deepspeed=ds_config_zero3_dict,
+                output_dir=self.get_auto_remove_tmp_dir(),
             )
 
             n_trials = 3
@@ -588,7 +598,7 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
         ds_config_dict["zero_optimization"]["offload_optimizer"]["device"] = "cpu"
         ds_config_dict["zero_force_ds_cpu_optimizer"] = False  # offload is not efficient w/o CPUAdam
         with mockenv_context(**self.dist_env_1_gpu):
-            kwargs = {"local_rank": 0, "deepspeed": ds_config_dict}
+            kwargs = {"local_rank": 0, "deepspeed": ds_config_dict, "output_dir": self.get_auto_remove_tmp_dir()}
             kwargs[dtype] = True
             trainer = get_regression_trainer(**kwargs)
             with CaptureLogger(deepspeed_logger) as cl:
@@ -604,7 +614,11 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
         # it's run not as a first test as `sys.stdout` will no longer be the same. So we either have
         # to reset `deepspeed_logger.handlers[0].setStream(sys.stdout)` or directly capture from the deepspeed_logger.
         with mockenv_context(**self.dist_env_1_gpu):
-            kwargs = {"local_rank": 0, "deepspeed": self.get_config_dict(stage)}
+            kwargs = {
+                "local_rank": 0,
+                "deepspeed": self.get_config_dict(stage),
+                "output_dir": self.get_auto_remove_tmp_dir(),
+            }
             kwargs[dtype] = True
             trainer = get_regression_trainer(**kwargs)
 
@@ -630,6 +644,7 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
                 "deepspeed": self.get_config_dict(stage),
                 "per_device_train_batch_size": 8,
                 "logging_steps": 1,
+                "output_dir": self.get_auto_remove_tmp_dir(),
             }
             kwargs[dtype] = True
             trainer = get_regression_trainer(**kwargs)
@@ -673,6 +688,7 @@ class TrainerIntegrationDeepSpeed(TrainerIntegrationDeepSpeedWithCustomConfig, T
             "local_rank": 0,
             "train_len": train_len,
             "deepspeed": self.get_config_dict(stage),
+            "output_dir": self.get_auto_remove_tmp_dir(),
         }
         kwargs[dtype] = True
 

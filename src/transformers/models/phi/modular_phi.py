@@ -284,7 +284,9 @@ class PhiModel(LlamaModel):
 
 
 class PhiForCausalLM(LlamaForCausalLM):
-    pass
+    def __init__(self, config):
+        super().__init__(config)
+        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=True)
 
 
 class PhiForSequenceClassification(LlamaForSequenceClassification):

@@ -21,6 +21,7 @@ from transformers.testing_utils import (
     require_accelerate,
     require_optimum_quanto,
     require_read_token,
+    require_torch_accelerator,
     require_torch_gpu,
     slow,
     torch_device,
@@ -123,7 +124,7 @@ class QuantoTestIntegration(unittest.TestCase):
 
 
 @slow
-@require_torch_gpu
+@require_torch_accelerator
 @require_optimum_quanto
 @require_accelerate
 class QuantoQuantizationTest(unittest.TestCase):
@@ -268,7 +269,7 @@ class QuantoQuantizationTest(unittest.TestCase):
         quantize(model.transformer, weights=w_mapping[self.weights])
         freeze(model.transformer)
         self.check_same_model(model, self.quantized_model)
-        self.check_inference_correctness(model, device="cuda")
+        self.check_inference_correctness(model, device=torch_device)
 
     @unittest.skip
     def test_load_from_quanto_saved(self):

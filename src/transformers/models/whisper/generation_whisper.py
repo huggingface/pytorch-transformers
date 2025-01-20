@@ -1571,7 +1571,7 @@ class WhisperGenerationMixin(GenerationMixin):
         )
 
         with torch.no_grad():
-            logits = self(**inputs, decoder_input_ids=decoder_input_ids).logits[:, -1]
+            logits = self(**inputs, decoder_input_ids=decoder_input_ids, use_cache=False).logits[:, -1]
 
         non_lang_mask = torch.ones_like(logits[0], dtype=torch.bool)
         non_lang_mask[list(generation_config.lang_to_id.values())] = False

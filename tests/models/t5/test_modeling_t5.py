@@ -27,7 +27,7 @@ from transformers.testing_utils import (
     require_sentencepiece,
     require_tokenizers,
     require_torch,
-    require_torch_gpu,
+    require_torch_accelerator,
     slow,
     torch_device,
 )
@@ -1646,7 +1646,7 @@ class T5ModelIntegrationTests(unittest.TestCase):
         )
 
     @slow
-    @require_torch_gpu
+    @require_torch_accelerator
     def test_compile_static_cache(self):
         NUM_TOKENS_TO_GENERATE = 40
         EXPECTED_TEXT_COMPLETION = [
@@ -1686,7 +1686,7 @@ class T5ModelIntegrationTests(unittest.TestCase):
         self.assertEqual(EXPECTED_TEXT_COMPLETION, static_compiled_text)
 
     @slow
-    @require_torch_gpu
+    @require_torch_accelerator
     def test_compile_static_cache_encoder(self):
         prompts = [
             "summarize: Simply put, the theory of relativity states that 1) the speed of light is constant in all inertial "

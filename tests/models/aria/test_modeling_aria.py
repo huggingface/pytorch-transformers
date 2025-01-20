@@ -32,7 +32,6 @@ from transformers.models.idefics3 import Idefics3VisionConfig
 from transformers.testing_utils import (
     require_bitsandbytes,
     require_torch,
-    require_torch_gpu,
     require_vision,
     slow,
     torch_device,
@@ -268,18 +267,6 @@ class AriaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTesterMi
     def test_sdpa_can_dispatch_on_flash(self):
         pass
 
-    @unittest.skip(reason="")
-    def test_new_cache_format_0(self):
-        pass
-
-    @unittest.skip(reason="")
-    def test_new_cache_format_1(self):
-        pass
-
-    @unittest.skip(reason="")
-    def test_new_cache_format_2(self):
-        pass
-
     @unittest.skip(reason="Feedforward chunking is not yet supported")
     def test_feed_forward_chunking(self):
         pass
@@ -474,63 +461,6 @@ class AriaForConditionalGenerationIntegrationTest(unittest.TestCase):
         outputs = processor.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)
         self.assertEqual(outputs, EXPECTED_OUTPUT)
 
-    @slow
-    @require_bitsandbytes
-    def test_aria_index_error_bug(self):
-        # This is a reproducer of https://github.com/huggingface/transformers/pull/28032 and makes sure it does not happen anymore
-        # Please refer to that PR, or specifically https://github.com/huggingface/transformers/pull/28032#issuecomment-1860650043 for
-        # more details
-        model_id = "rhymes-ai/Aria"
-        model = AriaForConditionalGeneration.from_pretrained(model_id, load_in_4bit=True)
-
-        processor = AutoProcessor.from_pretrained(model_id)
-
-        # Simulate a super long prompt
-        user_prompt = "Describe the image:?\n" * 200
-        prompt = f"USER: <image>\n{user_prompt}ASSISTANT:"
-        image_file = "http://images.cocodataset.org/val2017/000000039769.jpg"
-
-        raw_image = Image.open(requests.get(image_file, stream=True).raw)
-        inputs = processor(images=raw_image, text=prompt, return_tensors="pt").to(torch_device, torch.float16)
-
-        # Make sure that `generate` works
-        _ = model.generate(**inputs, max_new_tokens=20)
-
-    @slow
-    @require_torch_gpu
-    def test_aria_merge_inputs_error_bug(self):
-        # This is a reproducer of https://github.com/huggingface/transformers/pull/28333 and makes sure it does not happen anymore
-        model_id = "rhymes-ai/Aria"
-        model = AriaForConditionalGeneration.from_pretrained(model_id, load_in_4bit=True)
-
-        # Simulate some user inputs
-        pixel_values = torch.randn(
-            (1, 3, 336, 336),
-            dtype=torch.float,
-            device=torch_device,
-        )
-        input_ids = torch.tensor(
-            [
-                [32001, 32001, 1, 15043, 7084, 32000, 29871, 13, 7900],
-            ],
-            dtype=torch.long,
-            device=torch_device,
-        )
-        attention_mask = torch.tensor(
-            [[0, 0, 1, 1, 1, 1, 1, 1, 1]],
-            dtype=torch.long,
-            device=torch_device,
-        )
-
-        # Make sure that the loss is properly computed
-        loss = model(
-            pixel_values=pixel_values,
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            labels=input_ids,
-        ).loss
-        loss.backward()
-
     def test_tokenizer_integration(self):
         model_id = "rhymes-ai/Aria"
         slow_tokenizer = AutoTokenizer.from_pretrained(
@@ -564,105 +494,3 @@ class AriaForConditionalGenerationIntegrationTest(unittest.TestCase):
 
         # Make sure that `generate` works
         _ = model.generate(**inputs, max_new_tokens=20)
-
-    @slow
-    @require_bitsandbytes
-    def test_generation_siglip_backbone(self):
-        model_id = "rhymes-ai/Aria"
-        model = AriaForConditionalGeneration.from_pretrained(model_id, torch_dtype="float16", device_map=torch_device)
-        processor = AutoProcessor.from_pretrained(model_id)
-
-        # check processing with expansion of inputs (w/o expansion should work with any backbone)
-        processor.vision_feature_select_strategy = "default"
-        processor.patch_size = 14
-
-        image_file = "http://images.cocodataset.org/val2017/000000039769.jpg"
-        raw_image = Image.open(requests.get(image_file, stream=True).raw)
-        inputs = processor(
-            text="<|im_start|>user\n<image>\nWhat are these?<|im_end|>\n<|im_start|>assistant",
-            images=raw_image,
-            return_tensors="pt",
-        ).to(torch_device, torch.float16)
-
-        # Make sure that `generate` works
-        output = model.generate(**inputs, max_new_tokens=30)
-
-        EXPECTED_DECODED_TEXT = "user\n\nWhat are these?\nassistant The image shows two cats, one on the left and one on the right. They appear to be resting or sleeping on a pink blanket. The cat"
-        self.assertTrue(processor.batch_decode(output, skip_special_tokens=True)[0] == EXPECTED_DECODED_TEXT)
-
-    @slow
-    @require_bitsandbytes
-    def test_expansion_in_processing(self):
-        model_id = "rhymes-ai/Aria"
-        model = AriaForConditionalGeneration.from_pretrained(model_id, load_in_4bit=True)
-        processor = AutoProcessor.from_pretrained(model_id)
-
-        prompt = "USER: <image>\nDescribe the image:\nASSISTANT:"
-        image_file = "http://images.cocodataset.org/val2017/000000039769.jpg"
-        raw_image = Image.open(requests.get(image_file, stream=True).raw)
-
-        # check processing with expansion of inputs
-        processor.vision_feature_select_strategy = "default"
-        processor.patch_size = 14
-        inputs_expanded = processor(images=raw_image, text=prompt, return_tensors="pt").to(torch_device, torch.float16)
-        self.assertTrue(inputs_expanded.input_ids.shape[-1] == 593)
-
-        # check processing without expansion of inputs (legacy behavior)
-        processor.vision_feature_select_strategy = None
-        processor.patch_size = None
-        inputs = processor(images=raw_image, text=prompt, return_tensors="pt").to(torch_device, torch.float16)
-        self.assertTrue(inputs.input_ids.shape[-1] == 18)
-
-        # generate exactly 20 tokens
-        output = model.generate(**inputs, min_new_tokens=20, max_new_tokens=20)
-        output_expanded = model.generate(**inputs_expanded, min_new_tokens=20, max_new_tokens=20)
-
-        # check that both inputs are handled correctly and generate the same output
-        self.assertListEqual(output_expanded[:, -20:].tolist(), output[:, -20:].tolist())
-
-    @slow
-    @require_bitsandbytes
-    def test_pixtral(self):
-        model_id = "rhymes-ai/Aria"
-        model = AriaForConditionalGeneration.from_pretrained(model_id)
-        processor = AutoProcessor.from_pretrained(model_id)
-
-        IMG_URLS = [
-            Image.open(requests.get("https://picsum.photos/id/237/400/300", stream=True).raw),
-            Image.open(requests.get("https://picsum.photos/id/231/200/300", stream=True).raw),
-            Image.open(requests.get("https://picsum.photos/id/27/500/500", stream=True).raw),
-            Image.open(requests.get("https://picsum.photos/id/17/150/600", stream=True).raw),
-        ]
-        PROMPT = "<s>[INST]Describe the images.\n[IMG][IMG][IMG][IMG][/INST]"
-
-        # image = Image.open(requests.get(url, stream=True).raw)
-        inputs = processor(text=PROMPT, images=IMG_URLS, return_tensors="pt").to("cuda")
-        generate_ids = model.generate(**inputs, max_new_tokens=500)
-        ouptut = processor.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
-
-        # fmt: off
-        EXPECTED_GENERATION = """
-Describe the images.
-Sure, let's break down each image description:
-
-1. **Image 1:**
-   - **Description:** A black dog with a glossy coat is sitting on a wooden floor. The dog has a focused expression and is looking directly at the camera.
-   - **Details:** The wooden floor has a rustic appearance with visible wood grain patterns. The dog's eyes are a striking color, possibly brown or amber, which contrasts with its black fur.
-
-2. **Image 2:**
-   - **Description:** A scenic view of a mountainous landscape with a winding road cutting through it. The road is surrounded by lush green vegetation and leads to a distant valley.
-   - **Details:** The mountains are rugged with steep slopes, and the sky is clear, indicating good weather. The winding road adds a sense of depth and perspective to the image.
-
-3. **Image 3:**
-   - **Description:** A beach scene with waves crashing against the shore. There are several people in the water and on the beach, enjoying the waves and the sunset.
-   - **Details:** The waves are powerful, creating a dynamic and lively atmosphere. The sky is painted with hues of orange and pink from the setting sun, adding a warm glow to the scene.
-
-4. **Image 4:**
-   - **Description:** A garden path leading to a large tree with a bench underneath it. The path is bordered by well-maintained grass and flowers.
-   - **Details:** The path is made of small stones or gravel, and the tree provides a shaded area with the bench invitingly placed beneath it. The surrounding area is lush and green, suggesting a well-kept garden.
-
-Each image captures a different scene, from a close-up of a dog to expansive natural landscapes, showcasing various elements of nature and human interaction with it.
-"""
-        # fmt: on
-        # check that both inputs are handled correctly and generate the same output
-        self.assertListEqual(ouptut, EXPECTED_GENERATION)

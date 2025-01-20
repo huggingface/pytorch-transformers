@@ -967,62 +967,6 @@ class ChameleonVQVAEEncoder(nn.Module):
         return last_hidden_state
 
 
-CHAMELEON_VQ_START_DOCSTRING = r"""
-    This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
-    library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
-    etc.)
-
-    This model is also a PyTorch [torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module) subclass.
-    Use it as a regular PyTorch Module and refer to the PyTorch documentation for all matter related to general usage
-    and behavior.
-
-    Parameters:
-        config ([`ChameleonVQVAEConfig`]):
-            Model configuration class with all the parameters of the model. Initializing with a config file does not
-            load the weights associated with the model, only the configuration. Check out the
-            [`~PreTrainedModel.from_pretrained`] method to load the model weights.
-"""
-
-
-@add_start_docstrings(
-    """The VQ-VAE model used in Chameleon for encoding/decoding images into discrete tokens.
-    This model follows the "Make-a-scene: Scene-based text-to-image generation with human priors" paper from
-    [ Oran Gafni, Adam Polyak, Oron Ashual, Shelly Sheynin, Devi Parikh, and Yaniv Taigman](https://arxiv.org/abs/2203.13131).
-    """,
-    CHAMELEON_VQ_START_DOCSTRING,
-)
-class ChameleonVQVAE(PreTrainedModel):
-    config_class = ChameleonVQVAEConfig
-    _no_split_modules = ["ChameleonVQVAEVectorQuantizer"]
-
-    def _init_weights(self, module):
-        std = self.config.initializer_range
-        if isinstance(module, nn.Embedding):
-            module.weight.data.normal_(mean=0.0, std=std)
-        elif isinstance(module, nn.GroupNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
-        elif isinstance(module, (nn.Linear, nn.Conv2d)):
-            module.weight.data.normal_(mean=0.0, std=std)
-            if module.bias is not None:
-                module.bias.data.zero_()
-
-    def __init__(self, config: ChameleonVQVAEConfig):
-        super().__init__(config)
-
-        self.encoder = ChameleonVQVAEEncoder(config)
-        self.quantize = ChameleonVQVAEVectorQuantizer(config)
-        self.quant_conv = torch.nn.Conv2d(config.latent_channels, config.embed_dim, 1)
-        self.post_quant_conv = torch.nn.Conv2d(config.embed_dim, config.latent_channels, 1)
-        self.eval()  # Chameleon's VQ model is frozen
-
-    def encode(self, pixel_values: torch.LongTensor):
-        hidden_states = self.encoder(pixel_values)
-        hidden_states = self.quant_conv(hidden_states)
-        quant, emb_loss, indices = self.quantize(hidden_states)
-        return quant, emb_loss, indices
-
-
 class ChameleonImageVocabularyMapping:
     """
     A class for mapping discrete image tokens from VQGAN to BPE tokens.
@@ -1118,6 +1062,62 @@ class ChameleonPreTrainedModel(PreTrainedModel):
                 module.weight.data[module.padding_idx].zero_()
 
 
+CHAMELEON_VQ_START_DOCSTRING = r"""
+    This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
+    library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
+    etc.)
+
+    This model is also a PyTorch [torch.nn.Module](https://pytorch.org/docs/stable/nn.html#torch.nn.Module) subclass.
+    Use it as a regular PyTorch Module and refer to the PyTorch documentation for all matter related to general usage
+    and behavior.
+
+    Parameters:
+        config ([`ChameleonVQVAEConfig`]):
+            Model configuration class with all the parameters of the model. Initializing with a config file does not
+            load the weights associated with the model, only the configuration. Check out the
+            [`~PreTrainedModel.from_pretrained`] method to load the model weights.
+"""
+
+
+@add_start_docstrings(
+    """The VQ-VAE model used in Chameleon for encoding/decoding images into discrete tokens.
+    This model follows the "Make-a-scene: Scene-based text-to-image generation with human priors" paper from
+    [ Oran Gafni, Adam Polyak, Oron Ashual, Shelly Sheynin, Devi Parikh, and Yaniv Taigman](https://arxiv.org/abs/2203.13131).
+    """,
+    CHAMELEON_VQ_START_DOCSTRING,
+)
+class ChameleonVQVAE(ChameleonPreTrainedModel):
+    config_class = ChameleonVQVAEConfig
+    _no_split_modules = ["ChameleonVQVAEVectorQuantizer"]
+
+    def _init_weights(self, module):
+        std = self.config.initializer_range
+        if isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=std)
+        elif isinstance(module, nn.GroupNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        elif isinstance(module, (nn.Linear, nn.Conv2d)):
+            module.weight.data.normal_(mean=0.0, std=std)
+            if module.bias is not None:
+                module.bias.data.zero_()
+
+    def __init__(self, config: ChameleonVQVAEConfig):
+        super().__init__(config)
+
+        self.encoder = ChameleonVQVAEEncoder(config)
+        self.quantize = ChameleonVQVAEVectorQuantizer(config)
+        self.quant_conv = torch.nn.Conv2d(config.latent_channels, config.embed_dim, 1)
+        self.post_quant_conv = torch.nn.Conv2d(config.embed_dim, config.latent_channels, 1)
+        self.eval()  # Chameleon's VQ model is frozen
+
+    def encode(self, pixel_values: torch.LongTensor):
+        hidden_states = self.encoder(pixel_values)
+        hidden_states = self.quant_conv(hidden_states)
+        quant, emb_loss, indices = self.quantize(hidden_states)
+        return quant, emb_loss, indices
+
+
 CHAMELEON_INPUTS_DOCSTRING = r"""
     Args:
         input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
@@ -1211,7 +1211,7 @@ class ChameleonModel(ChameleonPreTrainedModel):
             [decoder_layer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
         self.norm = ChameleonRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.vqmodel = ChameleonVQVAE(config.vq_config)
+        self.vqmodel = ChameleonVQVAE._from_config(config.vq_config)
         self.gradient_checkpointing = False
 
         # Initialize weights and apply final processing

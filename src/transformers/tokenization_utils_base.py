@@ -2292,13 +2292,6 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 "Unable to load vocabulary from file. "
                 "Please check that the provided vocabulary is accessible and not corrupted."
             )
-        except RuntimeError as e:
-            if "sentencepiece_processor.cc" in str(e):
-                logger.info(
-                    "Unable to load tokenizer model from SPM, loading from TikToken will be attempted instead."
-                    "(SentencePiece RuntimeError: Tried to load SPM model with non-SPM vocab file).",
-                )
-                return False
 
         if added_tokens_decoder != {} and max(list(added_tokens_decoder.keys())[-1], 0) > tokenizer.vocab_size:
             logger.info(

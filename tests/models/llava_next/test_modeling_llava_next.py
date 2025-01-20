@@ -409,18 +409,6 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
         original_pixel_values = torch.load(filepath, map_location="cpu")
         assert torch.allclose(original_pixel_values, inputs.pixel_values.half())
 
-        # verify single forward pass
-        inputs = inputs.to(torch_device)
-        with torch.no_grad():
-            output = model(**inputs)
-
-        expected_slice = torch.tensor(
-            [[-4.7695, -4.5664, -0.2788], [-10.6172, -10.8828, -2.5273], [-6.7383, -7.2422, -0.6694]],
-            dtype=torch.float16,
-            device=torch_device,
-        )
-        assert torch.allclose(output.logits[0, :3, :3], expected_slice, atol=1e-3)
-
         # verify generation
         output = model.generate(**inputs, max_new_tokens=100)
         EXPECTED_DECODED_TEXT = '[INST]  \nWhat is shown in this image? [/INST] The image appears to be a radar chart, which is a type of multi-dimensional plot that displays values for multiple quantitative variables represented on axes starting from the same point. This particular radar chart is showing the performance of various models or systems across different metrics or datasets.\n\nThe chart is divided into several sections, each representing a different model or dataset. The axes represent different metrics or datasets, such as "MMM-Vet," "MMM-Bench," "L'  # fmt: skip
@@ -513,22 +501,9 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
             for i in range(num_patch):
                 self.assertFalse(torch.all(pix_val[i : i + 1] == 0))  # no padding expected in any of patches
 
-        # check loss when labels are passed
-        inputs["labels"] = inputs["input_ids"].clone()
-        with torch.no_grad():
-            output = model(**inputs)
-
-        expected_slice = torch.tensor(
-            [[-0.1287, -0.1294, -0.1284], [-0.2744, -0.2698, -0.2671], [-0.1071, -0.1091, -0.1056]],
-            dtype=torch.float16,
-            device=torch_device,
-        )
-        assert torch.allclose(output.logits[0, -3:, -3:], expected_slice, atol=1e-3)
-        assert torch.allclose(output.loss, torch.tensor(7.0206, dtype=torch.float16, device=torch_device), atol=1e-3)
-
         # verify generation
         output = model.generate(**inputs, max_new_tokens=50)
-        EXPECTED_DECODED_TEXT = '[INST]  \nWhat is shown in this image? [/INST] The image shows two deer, likely fawns, in a grassy area with trees in the background. The setting appears to be a forest or woodland, and the photo is taken during what seems to be either dawn or dusk, given'  # fmt: skip
+        EXPECTED_DECODED_TEXT = '[INST]  \nWhat is shown in this image? [/INST] The image shows two deer, likely fawns, in a grassy area with trees in the background. The setting appears to be a forest or woodland, and the time of day seems to be either dawn or dusk, given the soft'  # fmt: skip
         self.assertEqual(
             self.processor.decode(output[0], skip_special_tokens=True),
             EXPECTED_DECODED_TEXT,
@@ -562,46 +537,6 @@ class LlavaNextForConditionalGenerationIntegrationTest(unittest.TestCase):
             self.processor.decode(output_batched[0], skip_special_tokens=True),
             self.processor.decode(output_single[0], skip_special_tokens=True),
         )
-
-    @slow
-    @require_bitsandbytes
-    def test_padding_side_when_merging_inputs(self):
-        model = LlavaNextForConditionalGeneration.from_pretrained(
-            "llava-hf/llava-v1.6-mistral-7b-hf",
-            load_in_4bit=True,
-        )
-
-        url = "http://images.cocodataset.org/val2017/000000039769.jpg"
-        lowres_url = "https://4.img-dpreview.com/files/p/TS560x560~forums/56876524/03975b28741443319e9a94615e35667e"
-        cats_image = Image.open(requests.get(url, stream=True).raw)
-        lowres_img = Image.open(requests.get(lowres_url, stream=True).raw)
-
-        inputs_batched = self.processor(
-            images=[lowres_img, cats_image], text=[self.prompt, self.prompt], return_tensors="pt", padding=True
-        ).to(torch_device)
-
-        # model is in eval mode by default so we should get pad on the left side
-        # we can check the first hidden-states (aka inputs embeds)
-        # the first element was lo-res image and we expect the first 732 tokens to be all pads
-        with torch.no_grad():
-            output_eval = model(**inputs_batched, output_hidden_states=True)
-        self.assertTrue((output_eval.hidden_states[0][0, :732, ...] == 0).all().item())
-
-        with self.assertLogs("transformers", level="WARNING") as logs:
-            model.padding_side = "left"
-            model.train()
-            with torch.no_grad():
-                model(**inputs_batched, output_hidden_states=True)
-
-            self.assertIn("Padding side is set to 'left' but the model is in training mode. For training", logs)
-
-        with self.assertLogs("transformers", level="WARNING") as logs:
-            model.padding_side = "right"
-            model.eval()
-            with torch.no_grad():
-                model(**inputs_batched, output_hidden_states=True)
-
-            self.assertIn("Padding side is set to 'right' but the model is in inference mode. For correct", logs)
 
     @slow
     @require_bitsandbytes

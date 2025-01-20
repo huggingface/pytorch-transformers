@@ -29,7 +29,6 @@ from transformers.testing_utils import (
     cleanup,
     require_bitsandbytes,
     require_torch,
-    require_torch_gpu,
     slow,
     torch_device,
 )
@@ -322,24 +321,3 @@ class VipLlavaForConditionalGenerationIntegrationTest(unittest.TestCase):
 
         EXPECTED_OUTPUT = "USER:  \nCan you please describe this image?\nASSISTANT: The image features a brown and white cat sitting on"
         self.assertEqual(processor.decode(outputs[0], skip_special_tokens=True), EXPECTED_OUTPUT)
-
-    @slow
-    @require_torch_gpu
-    def test_vipllava_merge_inputs_error_bug(self):
-        # This is a reproducer of https://github.com/huggingface/transformers/pull/28333 and makes sure it does not happen anymore
-        model_id = "llava-hf/vip-llava-7b-hf"
-        model = VipLlavaForConditionalGeneration.from_pretrained(model_id, load_in_4bit=True)
-        processor = AutoProcessor.from_pretrained(model_id)
-
-        url = "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/diffusers/compel-neg.png"
-        image = Image.open(requests.get(url, stream=True).raw)
-        prompt = "USER: <image>\nCan you please describe this image?\nASSISTANT:"
-
-        inputs = processor(prompt, image, return_tensors="pt").to(torch_device, torch.float16)
-
-        # Make sure that the loss is properly computed
-        loss = model(
-            **inputs,
-            labels=inputs.input_ids.clone(),
-        ).loss
-        loss.backward()

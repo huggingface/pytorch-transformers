@@ -277,6 +277,13 @@ class CLIPTextEmbeddings(nn.Module):
         inputs_embeds: Optional[torch.FloatTensor] = None,
     ) -> torch.Tensor:
         seq_length = input_ids.shape[-1] if input_ids is not None else inputs_embeds.shape[-2]
+        max_position_embedding = self.position_embedding.weight.shape[0]
+
+        if seq_length > max_position_embedding:
+            raise ValueError(
+                f"Sequence length must be less than max_position_embeddings (got `sequence length`: "
+                f"{seq_length} and max_position_embeddings: {max_position_embedding}"
+            )
 
         if position_ids is None:
             position_ids = self.position_ids[:, :seq_length]
@@ -1426,7 +1433,7 @@ class CLIPTextModelWithProjection(CLIPPreTrainedModel):
     def __init__(self, config: CLIPTextConfig):
         super().__init__(config)
 
-        text_model = CLIPTextModel._from_config(config, attn_implementation=config._attn_implementation)
+        text_model = CLIPTextModel._from_config(config)
         self.text_model = text_model.text_model
 
         self.text_projection = nn.Linear(config.hidden_size, config.projection_dim, bias=False)
@@ -1507,7 +1514,7 @@ class CLIPVisionModelWithProjection(CLIPPreTrainedModel):
     def __init__(self, config: CLIPVisionConfig):
         super().__init__(config)
 
-        vision_model = CLIPVisionModel._from_config(config, attn_implementation=config._attn_implementation)
+        vision_model = CLIPVisionModel._from_config(config)
         self.vision_model = vision_model.vision_model
 
         self.visual_projection = nn.Linear(config.hidden_size, config.projection_dim, bias=False)

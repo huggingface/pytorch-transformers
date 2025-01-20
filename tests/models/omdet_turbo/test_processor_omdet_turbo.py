@@ -76,10 +76,13 @@ class OmDetTurboProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         shutil.rmtree(self.tmpdirname)
 
     def get_fake_omdet_turbo_output(self):
+        classes = self.get_fake_omdet_turbo_classes()
+        classes_structure = torch.tensor([len(sublist) for sublist in classes])
         torch.manual_seed(42)
         return OmDetTurboObjectDetectionOutput(
             decoder_coord_logits=torch.rand(self.batch_size, self.num_queries, 4),
             decoder_class_logits=torch.rand(self.batch_size, self.num_queries, self.embed_dim),
+            classes_structure=classes_structure,
         )
 
     def get_fake_omdet_turbo_classes(self):
@@ -99,7 +102,7 @@ class OmDetTurboProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         )
 
         self.assertEqual(len(post_processed), self.batch_size)
-        self.assertEqual(list(post_processed[0].keys()), ["boxes", "scores", "classes"])
+        self.assertEqual(list(post_processed[0].keys()), ["boxes", "scores", "labels", "text_labels"])
         self.assertEqual(post_processed[0]["boxes"].shape, (self.num_queries, 4))
         self.assertEqual(post_processed[0]["scores"].shape, (self.num_queries,))
         expected_scores = torch.tensor([0.7310, 0.6579, 0.6513, 0.6444, 0.6252])

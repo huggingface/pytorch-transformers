@@ -77,6 +77,9 @@ class Cohere2RotaryEmbedding(nn.Module):
             self.max_seq_len_cached = seq_len
 
         if seq_len < self.original_max_seq_len and self.max_seq_len_cached > self.original_max_seq_len:  # reset
+            # This .to() is needed if the model has been moved to a device after being initialized (because
+            # the buffer is automatically moved, but not the original copy)
+            self.original_inv_freq = self.original_inv_freq.to(device)
             self.register_buffer("inv_freq", self.original_inv_freq, persistent=False)
             self.max_seq_len_cached = self.original_max_seq_len
 
@@ -576,7 +579,7 @@ class Cohere2Model(Cohere2PreTrainedModel):
             batch_size, seq_len, _ = inputs_embeds.shape
             past_key_values = HybridCache(
                 self.config,
-                batch_size=batch_size,
+                max_batch_size=batch_size,
                 max_cache_len=seq_len,
                 device=self.device,
                 dtype=inputs_embeds.dtype,

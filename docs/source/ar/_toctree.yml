@@ -35,8 +35,8 @@
     sections:
 #     - local: tasks/sequence_classification
 #       title: تصنيف النصوص
-#     - local: tasks/token_classification
-#       title: تصنيف الرموز
+    - local: tasks/token_classification
+      title: تصنيف الرموز
     - local: tasks/question_answering
       title: الإجابة على الأسئلة
 #     - local: tasks/language_modeling

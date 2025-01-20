@@ -221,6 +221,17 @@ class MambaTensorProcessor(TensorProcessor):
         return GGUFTensor(weights, name, {})
 
 
+class NemotronTensorProcessor(TensorProcessor):
+    def __init__(self, config=None):
+        super().__init__(config=config)
+
+    # ref : https://github.com/ggerganov/llama.cpp/blob/master/convert_hf_to_gguf.py#L4666
+    def process(self, weights, name, **kwargs):
+        if "norm.weight" in name:
+            weights = weights - 1
+        return GGUFTensor(weights, name, {})
+
+
 class Gemma2TensorProcessor(TensorProcessor):
     def __init__(self, config=None):
         super().__init__(config=config)
@@ -241,6 +252,7 @@ TENSOR_PROCESSORS = {
     "t5encoder": T5TensorProcessor,
     "gpt2": GPT2TensorProcessor,
     "mamba": MambaTensorProcessor,
+    "nemotron": NemotronTensorProcessor,
     "gemma2": Gemma2TensorProcessor,
 }
 
@@ -388,8 +400,9 @@ def load_gguf_checkpoint(gguf_checkpoint_path, return_tensors=False, model_to_lo
 
     # Handle tie_word_embeddings, if lm_head.weight is not present in tensors,
     # tie_word_embeddings is true otherwise false
-    parsed_parameters["config"]["tie_word_embeddings"] = all(
-        "output.weight" != tensor.name for tensor in reader.tensors
+    exceptions = ["falcon"]
+    parsed_parameters["config"]["tie_word_embeddings"] = (
+        all("output.weight" != tensor.name for tensor in reader.tensors) or architecture in exceptions
     )
 
     # List all key-value pairs in a columnized format

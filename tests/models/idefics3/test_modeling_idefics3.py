@@ -18,6 +18,7 @@ import copy
 import unittest
 from io import BytesIO
 
+import pytest
 import requests
 
 from transformers import (
@@ -25,7 +26,14 @@ from transformers import (
     is_torch_available,
     is_vision_available,
 )
-from transformers.testing_utils import cleanup, require_bitsandbytes, require_torch, slow, torch_device
+from transformers.testing_utils import (
+    cleanup,
+    require_bitsandbytes,
+    require_torch,
+    require_torch_sdpa,
+    slow,
+    torch_device,
+)
 
 from ...generation.test_utils import GenerationTesterMixin
 from ...test_configuration_common import ConfigTester
@@ -359,6 +367,15 @@ class Idefics3ForConditionalGenerationModelTest(GenerationTesterMixin, ModelTest
 
     @unittest.skip(reason=" FlashAttention only support fp16 and bf16 data type")
     def test_flash_attn_2_fp32_ln(self):
+        pass
+
+    @pytest.mark.generate
+    @require_torch_sdpa
+    @slow
+    @unittest.skip(
+        reason="Idefics3 doesn't support SDPA for all backbones, vision backbones has only eager/FA2 attention"
+    )
+    def test_eager_matches_sdpa_generate(self):
         pass
 
     # We need to override as we need to prepare such that the image token is the last token

@@ -754,6 +754,9 @@ class AriaTextRotaryEmbedding(nn.Module):
             self.max_seq_len_cached = seq_len
 
         if seq_len < self.original_max_seq_len and self.max_seq_len_cached > self.original_max_seq_len:  # reset
+            # This .to() is needed if the model has been moved to a device after being initialized (because
+            # the buffer is automatically moved, but not the original copy)
+            self.original_inv_freq = self.original_inv_freq.to(device)
             self.register_buffer("inv_freq", self.original_inv_freq, persistent=False)
             self.max_seq_len_cached = self.original_max_seq_len
 
@@ -1357,6 +1360,7 @@ class AriaForConditionalGeneration(AriaPreTrainedModel, GenerationMixin):
     config_class = AriaConfig
     _supports_flash_attn_2 = False
     _supports_sdpa = False
+    _tied_weights_keys = ["language_model.lm_head.weight"]
 
     def __init__(self, config: AriaConfig):
         super().__init__(config)
@@ -1402,9 +1406,6 @@ class AriaForConditionalGeneration(AriaPreTrainedModel, GenerationMixin):
 
     def get_decoder(self):
         return self.language_model.get_decoder()
-
-    def tie_weights(self):
-        return self.language_model.tie_weights()
 
     def get_image_features(
         self,

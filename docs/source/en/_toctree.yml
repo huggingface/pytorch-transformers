@@ -452,6 +452,8 @@
         title: Granite
       - local: model_doc/granitemoe
         title: GraniteMoe
+      - local: model_doc/helium
+        title: Helium
       - local: model_doc/herbert
         title: HerBERT
       - local: model_doc/ibert

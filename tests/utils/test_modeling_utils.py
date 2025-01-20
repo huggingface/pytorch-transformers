@@ -37,6 +37,8 @@ from transformers import (
     AutoModel,
     AutoModelForImageClassification,
     AutoModelForSequenceClassification,
+    DynamicCache,
+    LlavaForConditionalGeneration,
     OwlViTForObjectDetection,
     PretrainedConfig,
     is_torch_available,
@@ -300,6 +302,7 @@ TINY_T5 = "patrickvonplaten/t5-tiny-random"
 TINY_BERT_FOR_TOKEN_CLASSIFICATION = "hf-internal-testing/tiny-bert-for-token-classification"
 TINY_MISTRAL = "hf-internal-testing/tiny-random-MistralForCausalLM"
 TINY_IMAGE_CLASSIF = "hf-internal-testing/tiny-random-SiglipForImageClassification"
+TINY_LLAVA = "hf-internal-testing/tiny-random-LlavaForConditionalGeneration"
 
 LOG = logging.get_logger(__name__)
 
@@ -459,6 +462,59 @@ class ModelUtilsTest(TestCasePlus):
         # torch.set_default_dtype() supports only float dtypes, so will fail with non-float type
         with self.assertRaises(ValueError):
             model = AutoModel.from_pretrained(TINY_T5, torch_dtype="int64")
+
+    def test_model_from_config_torch_dtype_composite(self):
+        """
+        Test that from_pretrained works with torch_dtype being as a dict per each sub-config in composite config
+        """
+        # should be able to set torch_dtype as a simple string and the model loads it correctly
+        model = LlavaForConditionalGeneration.from_pretrained(TINY_LLAVA, torch_dtype="float32")
+        self.assertEqual(model.language_model.dtype, torch.float32)
+        self.assertEqual(model.vision_tower.dtype, torch.float32)
+
+        model = LlavaForConditionalGeneration.from_pretrained(TINY_LLAVA, torch_dtype="float16")
+        self.assertEqual(model.language_model.dtype, torch.float16)
+        self.assertEqual(model.vision_tower.dtype, torch.float16)
+
+        # should be able to set torch_dtype as a dict for each sub-config
+        model = LlavaForConditionalGeneration.from_pretrained(
+            TINY_LLAVA, torch_dtype={"text_config": "float32", "vision_config": "float16", "": "bfloat16"}
+        )
+        self.assertEqual(model.language_model.dtype, torch.float32)
+        self.assertEqual(model.vision_tower.dtype, torch.float16)
+        self.assertEqual(model.multi_modal_projector.linear_1.weight.dtype, torch.bfloat16)
+
+        # should be able to set the values as torch.dtype (not str)
+        model = LlavaForConditionalGeneration.from_pretrained(
+            TINY_LLAVA, torch_dtype={"text_config": torch.float32, "vision_config": torch.float16, "": torch.bfloat16}
+        )
+        self.assertEqual(model.language_model.dtype, torch.float32)
+        self.assertEqual(model.vision_tower.dtype, torch.float16)
+        self.assertEqual(model.multi_modal_projector.linear_1.weight.dtype, torch.bfloat16)
+
+        # should be able to set the values in configs directly and pass it to `from_pretrained`
+        config = copy.deepcopy(model.config)
+        config.text_config.torch_dtype = torch.float32
+        config.vision_config.torch_dtype = torch.bfloat16
+        config.torch_dtype = torch.float16
+        model = LlavaForConditionalGeneration.from_pretrained(TINY_LLAVA, config=config, torch_dtype="auto")
+        self.assertEqual(model.language_model.dtype, torch.float32)
+        self.assertEqual(model.vision_tower.dtype, torch.bfloat16)
+        self.assertEqual(model.multi_modal_projector.linear_1.weight.dtype, torch.float16)
+
+        # but if the model has `_keep_in_fp32_modules` then those modules should be in fp32 no matter what
+        LlavaForConditionalGeneration._keep_in_fp32_modules = ["multi_modal_projector"]
+        model = LlavaForConditionalGeneration.from_pretrained(TINY_LLAVA, config=config, torch_dtype="auto")
+        self.assertEqual(model.language_model.dtype, torch.float32)
+        self.assertEqual(model.vision_tower.dtype, torch.bfloat16)
+        self.assertEqual(model.multi_modal_projector.linear_1.weight.dtype, torch.float32)
+
+        # torch.set_default_dtype() supports only float dtypes, so will fail with non-float type
+        with self.assertRaises(ValueError):
+            model = LlavaForConditionalGeneration.from_pretrained(TINY_LLAVA, torch_dtype="int64")
+            model = LlavaForConditionalGeneration.from_pretrained(
+                TINY_LLAVA, torch_dtype={"text_config": "float32", "vision_config": "int64", "": "float16"}
+            )
 
     @require_torch
     def test_model_from_pretrained_meta_device(self):
@@ -1562,57 +1618,47 @@ class ModelUtilsTest(TestCasePlus):
             self.assertTrue(torch.allclose(outputs_from_saved["logits"], outputs["logits"]))
 
     def test_warning_for_beta_gamma_parameters(self):
-        class TestModelGamma(PreTrainedModel):
+        class TestGammaBetaNorm(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.gamma = torch.nn.Parameter(torch.ones(1))
+                self.beta = torch.nn.Parameter(torch.zeros(1))
+
+            def forward(self):
+                return self.gamma.sum() + self.beta.sum()
+
+        class TestModelGammaBeta(PreTrainedModel):
             def __init__(self, config):
                 super().__init__(config)
-                self.gamma_param = nn.Parameter(torch.ones(10))
+                self.LayerNorm = TestGammaBetaNorm()
                 self.post_init()
 
             def forward(self):
-                return self.gamma_param.sum()
+                return self.LayerNorm()
 
         logger = logging.get_logger("transformers.modeling_utils")
         config = PretrainedConfig()
-        warning_msg_gamma = "`gamma_param` -> `weight_param`"
-        model = TestModelGamma(config)
+        warning_msg_gamma = "`LayerNorm.gamma` -> `LayerNorm.weight`"
+        warning_msg_beta = "`LayerNorm.beta` -> `LayerNorm.bias`"
+        model = TestModelGammaBeta(config)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             model.save_pretrained(tmp_dir)
             with LoggingLevel(logging.INFO):
                 with CaptureLogger(logger) as cl1:
-                    _, loading_info = TestModelGamma.from_pretrained(tmp_dir, config=config, output_loading_info=True)
+                    _, loading_info = TestModelGammaBeta.from_pretrained(
+                        tmp_dir, config=config, output_loading_info=True
+                    )
 
         missing_keys = loading_info["missing_keys"]
         unexpected_keys = loading_info["unexpected_keys"]
-        self.assertIn("`TestModelGamma`", cl1.out)
+        self.assertIn("`TestModelGammaBeta`", cl1.out)
         self.assertIn(warning_msg_gamma, cl1.out)
-        self.assertIn("gamma_param", missing_keys)
-        self.assertIn("weight_param", unexpected_keys)
-
-        class TestModelBeta(PreTrainedModel):
-            def __init__(self, config):
-                super().__init__(config)
-                self.beta_param = nn.Parameter(torch.ones(10))
-                self.post_init()
-
-            def forward(self):
-                return self.beta_param.sum()
-
-        warning_msg_beta = "`beta_param` -> `bias_param`"
-        model = TestModelBeta(config)
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            model.save_pretrained(tmp_dir)
-            with LoggingLevel(logging.INFO):
-                with CaptureLogger(logger) as cl2:
-                    _, loading_info = TestModelBeta.from_pretrained(tmp_dir, config=config, output_loading_info=True)
-
-        missing_keys = loading_info["missing_keys"]
-        unexpected_keys = loading_info["unexpected_keys"]
-        self.assertIn("`TestModelBeta`", cl2.out)
-        self.assertIn(warning_msg_beta, cl2.out)
-        self.assertIn("beta_param", missing_keys)
-        self.assertIn("bias_param", unexpected_keys)
+        self.assertIn(warning_msg_beta, cl1.out)
+        self.assertIn("LayerNorm.gamma", missing_keys)
+        self.assertIn("LayerNorm.weight", unexpected_keys)
+        self.assertIn("LayerNorm.beta", missing_keys)
+        self.assertIn("LayerNorm.bias", unexpected_keys)
 
     def test_isin_mps_friendly(self):
         """tests that our custom `isin_mps_friendly` matches `torch.isin`"""
@@ -1734,6 +1780,43 @@ class ModelUtilsTest(TestCasePlus):
             pretrained_model_name_or_path=None, config=config, state_dict=state_dict, low_cpu_mem_usage=True
         )
         self.assertTrue(check_models_equal(model, model_loaded))
+
+    def test_cache_when_needed_at_train_time(self):
+        """
+        Some fine-tuning methods require the use of cache, like prefix tuning in PEFT. This test checks that a cache
+        is at train time used if we request it. Related issue: #35648
+        """
+        model = AutoModelForCausalLM.from_pretrained(TINY_MISTRAL)
+        tokenizer = AutoTokenizer.from_pretrained(TINY_MISTRAL)
+        model_inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
+
+        # By default it is not training, we have to set it
+        self.assertFalse(model.training)
+        model.train()
+
+        # If we set `use_cache=True` while training, then a cache is returned
+        model_outputs = model(**model_inputs, use_cache=True)
+        self.assertIsInstance(model_outputs.past_key_values, DynamicCache)
+        self.assertTrue(model.training)
+
+        # simulate injecting virtual tokens like in prefix tuning
+        num_virtual_tokens = 3
+        past_key_values = [torch.randn(2, 1, 2, num_virtual_tokens, 8)] * 2
+        past_key_values = DynamicCache.from_legacy_cache(past_key_values)
+        model_inputs["attention_mask"] = torch.cat(
+            (
+                model_inputs["attention_mask"],
+                torch.ones(1, num_virtual_tokens).to(model_inputs["attention_mask"].device),
+            ),
+            dim=1,
+        )
+        model_outputs = model(**model_inputs, past_key_values=past_key_values, use_cache=True)
+        self.assertTrue(model.training)
+
+        # We can also disable the cache to skip a few operations, if the training loop doesn't need cache
+        model_outputs = model(**model_inputs, use_cache=False)
+        self.assertIsNone(model_outputs.past_key_values)
+        self.assertTrue(model.training)
 
 
 @slow

@@ -31,7 +31,6 @@ from transformers.testing_utils import (
     cleanup,
     require_bitsandbytes,
     require_torch,
-    require_torch_gpu,
     run_test_using_subprocess,
     slow,
     torch_device,
@@ -477,7 +476,7 @@ class VideoLlavaForConditionalGenerationIntegrationTest(unittest.TestCase):
 
         EXPECTED_DECODED_TEXT = [
             'USER: \nWhat are the cats in the image doing? ASSISTANT: The cats in the image are sleeping or resting on a couch.',
-            'USER: \nWhy is this video funny? ASSISTANT: The video is funny because it shows a baby sitting on a bed and reading a book. The'
+            'USER: \nWhy is this video funny? ASSISTANT: The video is funny because it shows a baby sitting on a bed and reading a book, which'
         ]  # fmt: skip
 
         self.assertEqual(
@@ -538,46 +537,3 @@ class VideoLlavaForConditionalGenerationIntegrationTest(unittest.TestCase):
         ]  # fmt: skip
 
         self.assertEqual(processor.batch_decode(output, skip_special_tokens=True), EXPECTED_DECODED_TEXT)
-
-    @slow
-    @require_bitsandbytes
-    def test_video_llava_index_error_bug(self):
-        # This is a reproducer of https://github.com/huggingface/transformers/pull/28032 and makes sure it does not happen anymore
-        # Please refer to that PR, or specifically https://github.com/huggingface/transformers/pull/28032#issuecomment-1860650043 for
-        # more details
-        model = VideoLlavaForConditionalGeneration.from_pretrained("LanguageBind/Video-LLaVA-7B-hf", load_in_4bit=True)
-
-        # Simulate a super long prompt
-        user_prompt = "Describe the video:?\n" * 200
-        prompt = f"USER: <video>{user_prompt}ASSISTANT:"
-        video_file = hf_hub_download(
-            repo_id="raushan-testing-hf/videos-test", filename="video_demo.npy", repo_type="dataset"
-        )
-        video_file = np.load(video_file)
-
-        # let's expand it for 16 frames, to check model can handle any number of frames
-        video_file = video_file.repeat(2, 0)
-        inputs = self.processor(prompt, videos=video_file, return_tensors="pt").to(torch_device, torch.float16)
-
-        # Make sure that `generate` works
-        _ = model.generate(**inputs, max_new_tokens=20)
-
-    @slow
-    @require_torch_gpu
-    def test_video_llava_merge_inputs_error_bug(self):
-        # This is a reproducer of https://github.com/huggingface/transformers/pull/28333 and makes sure it does not happen anymore
-        model = VideoLlavaForConditionalGeneration.from_pretrained("LanguageBind/Video-LLaVA-7B-hf", load_in_4bit=True)
-
-        prompt = "USER: <video>\nDescribe the video:? ASSISTANT:"
-        video_file = hf_hub_download(
-            repo_id="raushan-testing-hf/videos-test", filename="video_demo.npy", repo_type="dataset"
-        )
-        video_file = np.load(video_file)
-        inputs = self.processor(prompt, videos=video_file, return_tensors="pt").to(torch_device, torch.float16)
-
-        # Make sure that the loss is properly computed
-        loss = model(
-            **inputs,
-            labels=inputs.input_ids.clone(),
-        ).loss
-        loss.backward()

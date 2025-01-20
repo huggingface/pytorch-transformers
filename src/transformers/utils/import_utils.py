@@ -144,6 +144,7 @@ _onnx_available = _is_package_available("onnx")
 _openai_available = _is_package_available("openai")
 _optimum_available = _is_package_available("optimum")
 _auto_gptq_available = _is_package_available("auto_gptq")
+_gptqmodel_available = _is_package_available("gptqmodel")
 # `importlib.metadata.version` doesn't work with `awq`
 _auto_awq_available = importlib.util.find_spec("awq") is not None
 _quanto_available = _is_package_available("quanto")
@@ -864,7 +865,7 @@ def is_ninja_available():
         return True
 
 
-def is_ipex_available():
+def is_ipex_available(min_version: str = ""):
     def get_major_and_minor_from_version(full_version):
         return str(version.parse(full_version).major) + "." + str(version.parse(full_version).minor)
 
@@ -879,6 +880,8 @@ def is_ipex_available():
             f" but PyTorch {_torch_version} is found. Please switch to the matching version and run again."
         )
         return False
+    if min_version:
+        return version.parse(_ipex_version) >= version.parse(min_version)
     return True
 
 
@@ -1039,6 +1042,10 @@ def is_compressed_tensors_available():
 
 def is_auto_gptq_available():
     return _auto_gptq_available
+
+
+def is_gptqmodel_available():
+    return _gptqmodel_available
 
 
 def is_eetq_available():

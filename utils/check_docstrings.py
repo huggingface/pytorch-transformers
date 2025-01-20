@@ -70,7 +70,6 @@ OBJECTS_TO_IGNORE = [
     # Deprecated
     "InputExample",
     "InputFeatures",
-    "LogitsWarper",
     # Signature is *args/**kwargs
     "TFSequenceSummary",
     "TFBertTokenizer",

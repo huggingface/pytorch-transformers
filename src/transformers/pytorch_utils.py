@@ -35,6 +35,11 @@ is_torch_greater_or_equal_than_2_3 = parsed_torch_version_base >= version.parse(
 is_torch_greater_or_equal_than_2_2 = parsed_torch_version_base >= version.parse("2.2")
 is_torch_greater_or_equal_than_2_1 = parsed_torch_version_base >= version.parse("2.1")
 
+# For backwards compatibility (e.g. some remote codes on Hub using those variables).
+is_torch_greater_or_equal_than_2_0 = parsed_torch_version_base >= version.parse("2.0")
+is_torch_greater_or_equal_than_1_13 = parsed_torch_version_base >= version.parse("1.13")
+is_torch_greater_or_equal_than_1_12 = parsed_torch_version_base >= version.parse("1.12")
+
 # Cache this result has it's a C FFI call which can be pretty time-consuming
 _torch_distributed_available = torch.distributed.is_available()
 

@@ -259,6 +259,12 @@ class GenerationConfigTest(unittest.TestCase):
         config = GenerationConfig()
         self.assertEqual(config.get_generation_mode(assistant_model="foo"), GenerationMode.ASSISTED_GENERATION)
 
+    def test_static_cache_without_cache_config(self):
+        """Regression test for #35026 -- static cache should work without a cache config."""
+        config = GenerationConfig(cache_implementation="static")
+        self.assertEqual(config.cache_implementation, "static")
+        self.assertEqual(config.cache_config, None)
+
 
 class GenerationConfigSerializationTest(unittest.TestCase):
     def test_serialize_generation_sequence_bias(self):

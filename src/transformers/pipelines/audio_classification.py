@@ -172,6 +172,7 @@ class AudioClassificationPipeline(Pipeline):
             inputs = ffmpeg_read(inputs, self.feature_extractor.sampling_rate)
 
         if isinstance(inputs, dict):
+            inputs = inputs.copy()  # So we don't mutate the original dictionary outside the pipeline
             # Accepting `"array"` which is the key defined in `datasets` for
             # better integration
             if not ("sampling_rate" in inputs and ("raw" in inputs or "array" in inputs)):

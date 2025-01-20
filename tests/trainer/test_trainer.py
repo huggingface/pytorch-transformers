@@ -855,7 +855,14 @@ class TrainerIntegrationPrerunTest(TestCasePlus, TrainerIntegrationCommon):
             self.assertLess(max(diff_truth), 0.01, f"Difference {max(diff_truth)} is not within 0.01")
 
             # max diff broken should be very off
-            self.assertGreater(max(diff_broken), 3, f"Difference {max(diff_broken)} is not greater than 3")
+            self.assertGreater(max(diff_broken), 2, f"Difference {max(diff_broken)} is not greater than 2")
+
+            loss_base = sum(base_loss_callback.losses)
+            loss_broken = sum(broken_loss_callback.losses)
+
+            # mean/sum loss should not vary too much.
+            relative_diff = abs(loss_base - loss_broken) / max(loss_base, loss_broken)
+            self.assertLess(relative_diff, 0.1, f"Relative difference {relative_diff} is not within 0.1")
 
     @slow
     def test_gradient_accumulation_loss_alignment_with_loss_func(self):
@@ -1222,87 +1229,85 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         train_dataset = RegressionDataset()
         eval_dataset = RegressionDataset()
         model = RegressionDictModel()
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            args = TrainingArguments(tmp_dir, report_to="none")
-            trainer = Trainer(model, args, train_dataset=train_dataset, eval_dataset=eval_dataset)
-            trainer.train()
-            _ = trainer.evaluate()
-            _ = trainer.predict(eval_dataset)
+        args = TrainingArguments(self.get_auto_remove_tmp_dir(), report_to="none")
+        trainer = Trainer(model, args, train_dataset=train_dataset, eval_dataset=eval_dataset)
+        trainer.train()
+        _ = trainer.evaluate()
+        _ = trainer.predict(eval_dataset)
 
     def test_evaluation_with_keys_to_drop(self):
         config = GPT2Config(vocab_size=100, n_positions=128, n_embd=32, n_layer=3, n_head=4)
         tiny_gpt2 = GPT2LMHeadModel(config)
         x = torch.randint(0, 100, (128,))
         eval_dataset = RepeatDataset(x)
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            args = TrainingArguments(tmp_dir, report_to="none")
-            trainer = Trainer(tiny_gpt2, args, eval_dataset=eval_dataset)
-            # By default the past_key_values are removed
-            result = trainer.predict(eval_dataset)
-            self.assertTrue(isinstance(result.predictions, np.ndarray))
-            # We can still get them by setting ignore_keys to []
-            result = trainer.predict(eval_dataset, ignore_keys=[])
-            self.assertTrue(isinstance(result.predictions, tuple))
-            self.assertEqual(len(result.predictions), 2)
+        args = TrainingArguments(self.get_auto_remove_tmp_dir(), report_to="none")
+        trainer = Trainer(tiny_gpt2, args, eval_dataset=eval_dataset)
+        # By default the past_key_values are removed
+        result = trainer.predict(eval_dataset)
+        self.assertTrue(isinstance(result.predictions, np.ndarray))
+        # We can still get them by setting ignore_keys to []
+        result = trainer.predict(eval_dataset, ignore_keys=[])
+        self.assertTrue(isinstance(result.predictions, tuple))
+        self.assertEqual(len(result.predictions), 2)
 
     def test_training_arguments_are_left_untouched(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trainer = get_regression_trainer(output_dir=tmp_dir)
-            trainer.train()
-            args = TrainingArguments(tmp_dir, report_to=[])
-            dict1, dict2 = args.to_dict(), trainer.args.to_dict()
-            for key in dict1.keys():
-                # Logging dir can be slightly different as they default to something with the time.
-                if key != "logging_dir":
-                    self.assertEqual(dict1[key], dict2[key])
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        trainer = get_regression_trainer(output_dir=tmp_dir)
+        trainer.train()
+        args = TrainingArguments(tmp_dir, report_to=[])
+        dict1, dict2 = args.to_dict(), trainer.args.to_dict()
+        for key in dict1.keys():
+            # Logging dir can be slightly different as they default to something with the time.
+            if key != "logging_dir":
+                self.assertEqual(dict1[key], dict2[key])
 
     def test_number_of_steps_in_training(self):
         # Regular training has n_epochs * len(train_dl) steps
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trainer = get_regression_trainer(learning_rate=0.1, output_dir=tmp_dir)
-            train_output = trainer.train()
-            self.assertEqual(train_output.global_step, self.n_epochs * 64 / self.batch_size)
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        trainer = get_regression_trainer(learning_rate=0.1, output_dir=tmp_dir)
+        train_output = trainer.train()
+        self.assertEqual(train_output.global_step, self.n_epochs * 64 / self.batch_size)
 
-            # Check passing num_train_epochs works (and a float version too):
-            trainer = get_regression_trainer(learning_rate=0.1, num_train_epochs=1.5, output_dir=tmp_dir)
-            train_output = trainer.train()
-            self.assertEqual(train_output.global_step, int(1.5 * 64 / self.batch_size))
+        # Check passing num_train_epochs works (and a float version too):
+        trainer = get_regression_trainer(learning_rate=0.1, num_train_epochs=1.5, output_dir=tmp_dir)
+        train_output = trainer.train()
+        self.assertEqual(train_output.global_step, int(1.5 * 64 / self.batch_size))
 
-            # If we pass a max_steps, num_train_epochs is ignored
-            trainer = get_regression_trainer(learning_rate=0.1, max_steps=10, output_dir=tmp_dir)
-            train_output = trainer.train()
-            self.assertEqual(train_output.global_step, 10)
+        # If we pass a max_steps, num_train_epochs is ignored
+        trainer = get_regression_trainer(learning_rate=0.1, max_steps=10, output_dir=tmp_dir)
+        train_output = trainer.train()
+        self.assertEqual(train_output.global_step, 10)
 
     @require_torch_bf16
     @require_intel_extension_for_pytorch
     def test_number_of_steps_in_training_with_ipex(self):
         for mix_bf16 in [True, False]:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                # Regular training has n_epochs * len(train_dl) steps
-                trainer = get_regression_trainer(
-                    learning_rate=0.1, use_ipex=True, bf16=mix_bf16, use_cpu=True, output_dir=tmp_dir
-                )
-                train_output = trainer.train()
-                self.assertEqual(train_output.global_step, self.n_epochs * 64 / trainer.args.train_batch_size)
+            tmp_dir = self.get_auto_remove_tmp_dir()
+            # Regular training has n_epochs * len(train_dl) steps
+            trainer = get_regression_trainer(
+                learning_rate=0.1, use_ipex=True, bf16=mix_bf16, use_cpu=True, output_dir=tmp_dir
+            )
+            train_output = trainer.train()
+            self.assertEqual(train_output.global_step, self.n_epochs * 64 / trainer.args.train_batch_size)
 
-                # Check passing num_train_epochs works (and a float version too):
-                trainer = get_regression_trainer(
-                    learning_rate=0.1,
-                    num_train_epochs=1.5,
-                    use_ipex=True,
-                    bf16=mix_bf16,
-                    use_cpu=True,
-                    output_dir=tmp_dir,
-                )
-                train_output = trainer.train()
-                self.assertEqual(train_output.global_step, int(1.5 * 64 / trainer.args.train_batch_size))
+            # Check passing num_train_epochs works (and a float version too):
+            trainer = get_regression_trainer(
+                learning_rate=0.1,
+                num_train_epochs=1.5,
+                use_ipex=True,
+                bf16=mix_bf16,
+                use_cpu=True,
+                output_dir=tmp_dir,
+            )
+            train_output = trainer.train()
+            self.assertEqual(train_output.global_step, int(1.5 * 64 / trainer.args.train_batch_size))
 
-                # If we pass a max_steps, num_train_epochs is ignored
-                trainer = get_regression_trainer(
-                    learning_rate=0.1, max_steps=10, use_ipex=True, bf16=mix_bf16, use_cpu=True, output_dir=tmp_dir
-                )
-                train_output = trainer.train()
-                self.assertEqual(train_output.global_step, 10)
+            # If we pass a max_steps, num_train_epochs is ignored
+            trainer = get_regression_trainer(
+                learning_rate=0.1, max_steps=10, use_ipex=True, bf16=mix_bf16, use_cpu=True, output_dir=tmp_dir
+            )
+            train_output = trainer.train()
+            self.assertEqual(train_output.global_step, 10)
 
     def test_torch_compile_loss_func_compatibility(self):
         config = LlamaConfig(vocab_size=100, hidden_size=32, num_hidden_layers=3, num_attention_heads=4)
@@ -1311,15 +1316,14 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            args = TrainingArguments(
-                tmp_dir,
-                per_device_train_batch_size=2,
-                torch_compile=True,
-                max_steps=1,  # compile happens on the first step
-            )
-            trainer = Trainer(model=tiny_llama, args=args, train_dataset=train_dataset)  # noqa
-            trainer.train()
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            per_device_train_batch_size=2,
+            torch_compile=True,
+            max_steps=1,  # compile happens on the first step
+        )
+        trainer = Trainer(model=tiny_llama, args=args, train_dataset=train_dataset)  # noqa
+        trainer.train()
 
     @require_peft
     @require_bitsandbytes
@@ -1348,14 +1352,13 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            args = TrainingArguments(
-                tmp_dir,
-                learning_rate=1e-9,
-                logging_steps=5,
-            )
-            with self.assertRaises(ValueError):
-                _ = Trainer(tiny_model, args, train_dataset=train_dataset)  # noqa
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+        )
+        with self.assertRaises(ValueError):
+            _ = Trainer(tiny_model, args, train_dataset=train_dataset)  # noqa
 
     @require_peft
     def test_multiple_peft_adapters(self):
@@ -1387,32 +1390,32 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
 
         tokenizer.pad_token = tokenizer.eos_token
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            args = TrainingArguments(
-                tmpdir,
-                per_device_train_batch_size=1,
-                learning_rate=1e-9,
-                save_steps=5,
-                logging_steps=5,
-                max_steps=10,
-                use_cpu=True,
-            )
-            trainer = Trainer(tiny_model, args, processing_class=tokenizer, train_dataset=train_dataset)
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        args = TrainingArguments(
+            tmp_dir,
+            per_device_train_batch_size=1,
+            learning_rate=1e-9,
+            save_steps=5,
+            logging_steps=5,
+            max_steps=10,
+            use_cpu=True,
+        )
+        trainer = Trainer(tiny_model, args, processing_class=tokenizer, train_dataset=train_dataset)
 
-            trainer.train()
-            parameters = dict(tiny_model.named_parameters())
-            state = dataclasses.asdict(trainer.state)
+        trainer.train()
+        parameters = dict(tiny_model.named_parameters())
+        state = dataclasses.asdict(trainer.state)
 
-            # Reinitialize trainer
-            trainer = Trainer(tiny_model, args, processing_class=tokenizer, train_dataset=train_dataset)
+        # Reinitialize trainer
+        trainer = Trainer(tiny_model, args, processing_class=tokenizer, train_dataset=train_dataset)
 
-            checkpoint = os.path.join(tmpdir, "checkpoint-5")
+        checkpoint = os.path.join(tmp_dir, "checkpoint-5")
 
-            trainer.train(resume_from_checkpoint=checkpoint)
-            parameters1 = dict(tiny_model.named_parameters())
-            state1 = dataclasses.asdict(trainer.state)
-            self.assertEqual(parameters, parameters1)
-            self.check_trainer_state_are_the_same(state, state1)
+        trainer.train(resume_from_checkpoint=checkpoint)
+        parameters1 = dict(tiny_model.named_parameters())
+        state1 = dataclasses.asdict(trainer.state)
+        self.assertEqual(parameters, parameters1)
+        self.check_trainer_state_are_the_same(state, state1)
 
     @require_bitsandbytes
     def test_rmsprop_bnb(self):
@@ -1421,15 +1424,18 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir, learning_rate=1e-9, logging_steps=5, logging_nan_inf_filter=False, optim="rmsprop_bnb"
-            )
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            logging_nan_inf_filter=False,
+            optim="rmsprop_bnb",
+        )
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
 
-            # Check that it trains without errors
-            trainer.train()
+        # Check that it trains without errors
+        trainer.train()
 
     @require_bitsandbytes
     def test_ademamix_bnb(self):
@@ -1438,15 +1444,18 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir, learning_rate=1e-9, logging_steps=5, logging_nan_inf_filter=False, optim="ademamix"
-            )
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            logging_nan_inf_filter=False,
+            optim="ademamix",
+        )
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
 
-            # Check that it trains without errors
-            trainer.train()
+        # Check that it trains without errors
+        trainer.train()
 
     @require_bitsandbytes
     def test_ademamix_bnb_8bit(self):
@@ -1455,15 +1464,18 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir, learning_rate=1e-9, logging_steps=5, logging_nan_inf_filter=False, optim="ademamix_8bit"
-            )
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            logging_nan_inf_filter=False,
+            optim="ademamix_8bit",
+        )
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
 
-            # Check that it trains without errors
-            trainer.train()
+        # Check that it trains without errors
+        trainer.train()
 
     @require_bitsandbytes
     def test_rmsprop_bnb_8bit(self):
@@ -1472,15 +1484,18 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir, learning_rate=1e-9, logging_steps=5, logging_nan_inf_filter=False, optim="rmsprop_bnb_8bit"
-            )
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            logging_nan_inf_filter=False,
+            optim="rmsprop_bnb_8bit",
+        )
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
 
-            # Check that it trains without errors
-            trainer.train()
+        # Check that it trains without errors
+        trainer.train()
 
     @require_bitsandbytes
     def test_rmsprop_bnb_32bit(self):
@@ -1488,15 +1503,18 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         tiny_gpt2 = GPT2LMHeadModel(config)
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir, learning_rate=1e-9, logging_steps=5, logging_nan_inf_filter=False, optim="rmsprop_bnb_32bit"
-            )
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            logging_nan_inf_filter=False,
+            optim="rmsprop_bnb_32bit",
+        )
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
 
-            # Check that it trains without errors
-            trainer.train()
+        # Check that it trains without errors
+        trainer.train()
 
     def test_neftune(self):
         config = GPT2Config(vocab_size=100, n_positions=128, n_embd=32, n_layer=3, n_head=4)
@@ -1505,54 +1523,52 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         train_dataset = RepeatDataset(x)
 
         # Trainer without inf/nan filter
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            args = TrainingArguments(
-                tmp_dir,
-                learning_rate=1e-9,
-                logging_steps=5,
-                logging_nan_inf_filter=False,
-                neftune_noise_alpha=0.4,
-                report_to="none",
-            )
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            logging_nan_inf_filter=False,
+            neftune_noise_alpha=0.4,
+            report_to="none",
+        )
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
 
-            trainer.model = trainer._activate_neftune(trainer.model)
+        trainer.model = trainer._activate_neftune(trainer.model)
 
-            dummy_input = torch.LongTensor([[1, 0, 1]]).to(torch_device)
+        dummy_input = torch.LongTensor([[1, 0, 1]]).to(torch_device)
 
-            emb1 = trainer.model.get_input_embeddings()(dummy_input)
-            emb2 = trainer.model.get_input_embeddings()(dummy_input)
+        emb1 = trainer.model.get_input_embeddings()(dummy_input)
+        emb2 = trainer.model.get_input_embeddings()(dummy_input)
 
-            self.assertFalse(torch.allclose(emb1, emb2), "Neftune noise is not applied!")
+        self.assertFalse(torch.allclose(emb1, emb2), "Neftune noise is not applied!")
 
         # redefine the model
         tiny_gpt2 = GPT2LMHeadModel(config)
         # Trainer without inf/nan filter
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            args = TrainingArguments(
-                tmp_dir,
-                learning_rate=1e-9,
-                logging_steps=5,
-                logging_nan_inf_filter=False,
-                neftune_noise_alpha=0.4,
-                report_to="none",
-            )
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            logging_nan_inf_filter=False,
+            neftune_noise_alpha=0.4,
+            report_to="none",
+        )
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
 
-            # Check that it trains without errors
-            trainer.train()
+        # Check that it trains without errors
+        trainer.train()
 
-            # Make sure forward pass works fine
-            _ = trainer.model(dummy_input)
-            self.assertTrue(len(trainer.model.get_input_embeddings()._forward_hooks) == 0)
+        # Make sure forward pass works fine
+        _ = trainer.model(dummy_input)
+        self.assertTrue(len(trainer.model.get_input_embeddings()._forward_hooks) == 0)
 
-            trainer.model.eval()
+        trainer.model.eval()
 
-            # Check that we get identical embeddings just in case
-            emb1 = trainer.model.get_input_embeddings()(dummy_input)
-            emb2 = trainer.model.get_input_embeddings()(dummy_input)
+        # Check that we get identical embeddings just in case
+        emb1 = trainer.model.get_input_embeddings()(dummy_input)
+        emb2 = trainer.model.get_input_embeddings()(dummy_input)
 
-            self.assertTrue(torch.allclose(emb1, emb2), "Neftune noise is still applied!")
+        self.assertTrue(torch.allclose(emb1, emb2), "Neftune noise is still applied!")
 
     def test_logging_inf_nan_filter(self):
         config = GPT2Config(vocab_size=100, n_positions=128, n_embd=32, n_layer=3, n_head=4)
@@ -1561,29 +1577,35 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         train_dataset = RepeatDataset(x)
 
         # Trainer without inf/nan filter
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            args = TrainingArguments(
-                tmp_dir, learning_rate=1e9, logging_steps=5, logging_nan_inf_filter=False, report_to="none"
-            )
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
-            trainer.train()
-            log_history_no_filter = trainer.state.log_history
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e9,
+            logging_steps=5,
+            logging_nan_inf_filter=False,
+            report_to="none",
+        )
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
+        trainer.train()
+        log_history_no_filter = trainer.state.log_history
 
         # Trainer with inf/nan filter
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            args = TrainingArguments(
-                tmp_dir, learning_rate=1e9, logging_steps=5, logging_nan_inf_filter=True, report_to="none"
-            )
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
-            trainer.train()
-            log_history_filter = trainer.state.log_history
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e9,
+            logging_steps=5,
+            logging_nan_inf_filter=True,
+            report_to="none",
+        )
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset)
+        trainer.train()
+        log_history_filter = trainer.state.log_history
 
-            def is_any_loss_nan_or_inf(log_history):
-                losses = [l["loss"] for l in log_history[:-1]]
-                return any(math.isnan(x) for x in losses) or any(math.isinf(x) for x in losses)
+        def is_any_loss_nan_or_inf(log_history):
+            losses = [l["loss"] for l in log_history[:-1]]
+            return any(math.isnan(x) for x in losses) or any(math.isinf(x) for x in losses)
 
-            self.assertTrue(is_any_loss_nan_or_inf(log_history_no_filter))
-            self.assertFalse(is_any_loss_nan_or_inf(log_history_filter))
+        self.assertTrue(is_any_loss_nan_or_inf(log_history_no_filter))
+        self.assertFalse(is_any_loss_nan_or_inf(log_history_filter))
 
     def test_train_and_eval_dataloaders(self):
         if torch_device == "cuda":
@@ -1591,146 +1613,143 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         else:
             n_gpu = 1
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trainer = get_regression_trainer(learning_rate=0.1, per_device_train_batch_size=16, output_dir=tmp_dir)
-            self.assertEqual(trainer.get_train_dataloader().total_batch_size, 16 * n_gpu)
-            trainer = get_regression_trainer(learning_rate=0.1, per_device_eval_batch_size=16, output_dir=tmp_dir)
-            self.assertEqual(trainer.get_eval_dataloader().total_batch_size, 16 * n_gpu)
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        trainer = get_regression_trainer(learning_rate=0.1, per_device_train_batch_size=16, output_dir=tmp_dir)
+        self.assertEqual(trainer.get_train_dataloader().total_batch_size, 16 * n_gpu)
+        trainer = get_regression_trainer(learning_rate=0.1, per_device_eval_batch_size=16, output_dir=tmp_dir)
+        self.assertEqual(trainer.get_eval_dataloader().total_batch_size, 16 * n_gpu)
 
-            # Check drop_last works
-            trainer = get_regression_trainer(
-                train_len=66,
-                eval_len=74,
-                learning_rate=0.1,
-                per_device_train_batch_size=16,
-                per_device_eval_batch_size=32,
-                output_dir=tmp_dir,
-            )
-            self.assertEqual(len(trainer.get_train_dataloader()), 66 // (16 * n_gpu) + 1)
-            self.assertEqual(len(trainer.get_eval_dataloader()), 74 // (32 * n_gpu) + 1)
+        # Check drop_last works
+        trainer = get_regression_trainer(
+            train_len=66,
+            eval_len=74,
+            learning_rate=0.1,
+            per_device_train_batch_size=16,
+            per_device_eval_batch_size=32,
+            output_dir=tmp_dir,
+        )
+        self.assertEqual(len(trainer.get_train_dataloader()), 66 // (16 * n_gpu) + 1)
+        self.assertEqual(len(trainer.get_eval_dataloader()), 74 // (32 * n_gpu) + 1)
 
-            trainer = get_regression_trainer(
-                train_len=66,
-                eval_len=74,
-                learning_rate=0.1,
-                per_device_train_batch_size=16,
-                per_device_eval_batch_size=32,
-                dataloader_drop_last=True,
-                output_dir=tmp_dir,
-            )
-            self.assertEqual(len(trainer.get_train_dataloader()), 66 // (16 * n_gpu))
-            self.assertEqual(len(trainer.get_eval_dataloader()), 74 // (32 * n_gpu))
+        trainer = get_regression_trainer(
+            train_len=66,
+            eval_len=74,
+            learning_rate=0.1,
+            per_device_train_batch_size=16,
+            per_device_eval_batch_size=32,
+            dataloader_drop_last=True,
+            output_dir=tmp_dir,
+        )
+        self.assertEqual(len(trainer.get_train_dataloader()), 66 // (16 * n_gpu))
+        self.assertEqual(len(trainer.get_eval_dataloader()), 74 // (32 * n_gpu))
 
-            # Check passing a new dataset for evaluation works
-            new_eval_dataset = RegressionDataset(length=128)
-            self.assertEqual(len(trainer.get_eval_dataloader(new_eval_dataset)), 128 // (32 * n_gpu))
+        # Check passing a new dataset for evaluation works
+        new_eval_dataset = RegressionDataset(length=128)
+        self.assertEqual(len(trainer.get_eval_dataloader(new_eval_dataset)), 128 // (32 * n_gpu))
 
     # tests that we do not require dataloader to have a .dataset attribute
     def test_dataloader_without_dataset(self):
         train_dataset = RegressionDataset(length=128)
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trainer = CustomDataloaderTrainer(
-                model=RegressionModel(),
-                train_dataset=train_dataset,
-                eval_dataset=train_dataset,
-                args=TrainingArguments(output_dir=tmp_dir, report_to="none"),
-            )
+        trainer = CustomDataloaderTrainer(
+            model=RegressionModel(),
+            train_dataset=train_dataset,
+            eval_dataset=train_dataset,
+            args=TrainingArguments(output_dir=self.get_auto_remove_tmp_dir(), report_to="none"),
+        )
 
-            trainer.train()
-            trainer.evaluate()
+        trainer.train()
+        trainer.evaluate()
 
     def test_get_eval_dataloader_without_persistent_workers(self):
         train_dataset = RegressionDataset()
         config = GPT2Config(vocab_size=100, n_positions=128, n_embd=32, n_layer=3, n_head=4)
         tiny_gpt2 = GPT2LMHeadModel(config)
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            args = TrainingArguments(tmp_dir, report_to="none", dataloader_persistent_workers=False)
+        args = TrainingArguments(self.get_auto_remove_tmp_dir(), report_to="none", dataloader_persistent_workers=False)
 
-            # Single evaluation dataset
-            eval_dataset = RegressionDataset()
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset, eval_dataset=eval_dataset)
-            # Mocking the prepare method to avoid the dataloader changing with each call to get_eval_dataloader
-            trainer.accelerator.prepare = lambda x: x
+        # Single evaluation dataset
+        eval_dataset = RegressionDataset()
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset, eval_dataset=eval_dataset)
+        # Mocking the prepare method to avoid the dataloader changing with each call to get_eval_dataloader
+        trainer.accelerator.prepare = lambda x: x
 
-            default_dataloader = trainer.get_eval_dataloader()
-            dataloader_with_dataset = trainer.get_eval_dataloader(eval_dataset)
+        default_dataloader = trainer.get_eval_dataloader()
+        dataloader_with_dataset = trainer.get_eval_dataloader(eval_dataset)
 
-            self.assertEqual(default_dataloader.dataset, eval_dataset)
-            self.assertEqual(dataloader_with_dataset.dataset, eval_dataset)
-            self.assertNotEqual(default_dataloader, dataloader_with_dataset)
+        self.assertEqual(default_dataloader.dataset, eval_dataset)
+        self.assertEqual(dataloader_with_dataset.dataset, eval_dataset)
+        self.assertNotEqual(default_dataloader, dataloader_with_dataset)
 
-            # Multiple evaluation datasets
-            first_dataset = RegressionDataset()
-            second_dataset = RegressionDataset()
-            trainer = Trainer(
-                tiny_gpt2,
-                args,
-                train_dataset=train_dataset,
-                eval_dataset={"first": first_dataset, "second": second_dataset},
-            )
-            # Mocking the prepare method to avoid the dataloader changing with each call to get_eval_dataloader
-            trainer.accelerator.prepare = lambda x: x
+        # Multiple evaluation datasets
+        first_dataset = RegressionDataset()
+        second_dataset = RegressionDataset()
+        trainer = Trainer(
+            tiny_gpt2,
+            args,
+            train_dataset=train_dataset,
+            eval_dataset={"first": first_dataset, "second": second_dataset},
+        )
+        # Mocking the prepare method to avoid the dataloader changing with each call to get_eval_dataloader
+        trainer.accelerator.prepare = lambda x: x
 
-            first_dataloader = trainer.get_eval_dataloader("first")
-            first_dataloader_repeated = trainer.get_eval_dataloader("first")
-            second_dataloader = trainer.get_eval_dataloader("second")
-            second_dataloader_repeated = trainer.get_eval_dataloader("second")
+        first_dataloader = trainer.get_eval_dataloader("first")
+        first_dataloader_repeated = trainer.get_eval_dataloader("first")
+        second_dataloader = trainer.get_eval_dataloader("second")
+        second_dataloader_repeated = trainer.get_eval_dataloader("second")
 
-            self.assertEqual(first_dataset, first_dataloader.dataset)
-            self.assertEqual(first_dataloader.dataset, first_dataloader_repeated.dataset)
-            self.assertEqual(second_dataset, second_dataloader.dataset)
-            self.assertEqual(second_dataloader.dataset, second_dataloader_repeated.dataset)
-            self.assertNotEqual(first_dataloader, first_dataloader_repeated)
-            self.assertNotEqual(second_dataloader, second_dataloader_repeated)
+        self.assertEqual(first_dataset, first_dataloader.dataset)
+        self.assertEqual(first_dataloader.dataset, first_dataloader_repeated.dataset)
+        self.assertEqual(second_dataset, second_dataloader.dataset)
+        self.assertEqual(second_dataloader.dataset, second_dataloader_repeated.dataset)
+        self.assertNotEqual(first_dataloader, first_dataloader_repeated)
+        self.assertNotEqual(second_dataloader, second_dataloader_repeated)
 
     def test_get_eval_dataloader_with_persistent_workers(self):
         train_dataset = RegressionDataset()
         config = GPT2Config(vocab_size=100, n_positions=128, n_embd=32, n_layer=3, n_head=4)
         tiny_gpt2 = GPT2LMHeadModel(config)
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            args = TrainingArguments(
-                tmp_dir,
-                report_to="none",
-                dataloader_persistent_workers=True,
-                dataloader_num_workers=2,
-            )
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            report_to="none",
+            dataloader_persistent_workers=True,
+            dataloader_num_workers=2,
+        )
 
-            # Single evaluation dataset
-            eval_dataset = RegressionDataset()
-            trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset, eval_dataset=eval_dataset)
-            # Mocking the prepare method to avoid the dataloader changing with each call to get_eval_dataloader
-            trainer.accelerator.prepare = lambda x: x
+        # Single evaluation dataset
+        eval_dataset = RegressionDataset()
+        trainer = Trainer(tiny_gpt2, args, train_dataset=train_dataset, eval_dataset=eval_dataset)
+        # Mocking the prepare method to avoid the dataloader changing with each call to get_eval_dataloader
+        trainer.accelerator.prepare = lambda x: x
 
-            default_dataloader = trainer.get_eval_dataloader()
-            dataloader_with_dataset = trainer.get_eval_dataloader(eval_dataset)
+        default_dataloader = trainer.get_eval_dataloader()
+        dataloader_with_dataset = trainer.get_eval_dataloader(eval_dataset)
 
-            self.assertEqual(default_dataloader.dataset, eval_dataset)
-            self.assertEqual(dataloader_with_dataset.dataset, eval_dataset)
-            self.assertEqual(default_dataloader, dataloader_with_dataset)
+        self.assertEqual(default_dataloader.dataset, eval_dataset)
+        self.assertEqual(dataloader_with_dataset.dataset, eval_dataset)
+        self.assertEqual(default_dataloader, dataloader_with_dataset)
 
-            # Multiple evaluation datasets
-            first_dataset = RegressionDataset()
-            second_dataset = RegressionDataset()
-            trainer = Trainer(
-                tiny_gpt2,
-                args,
-                train_dataset=train_dataset,
-                eval_dataset={"first": first_dataset, "second": second_dataset},
-            )
-            # Mocking the prepare method to avoid the dataloader changing with each call to get_eval_dataloader
-            trainer.accelerator.prepare = lambda x: x
+        # Multiple evaluation datasets
+        first_dataset = RegressionDataset()
+        second_dataset = RegressionDataset()
+        trainer = Trainer(
+            tiny_gpt2,
+            args,
+            train_dataset=train_dataset,
+            eval_dataset={"first": first_dataset, "second": second_dataset},
+        )
+        # Mocking the prepare method to avoid the dataloader changing with each call to get_eval_dataloader
+        trainer.accelerator.prepare = lambda x: x
 
-            first_dataloader = trainer.get_eval_dataloader("first")
-            first_dataloader_repeated = trainer.get_eval_dataloader("first")
-            second_dataloader = trainer.get_eval_dataloader("second")
-            second_dataloader_repeated = trainer.get_eval_dataloader("second")
+        first_dataloader = trainer.get_eval_dataloader("first")
+        first_dataloader_repeated = trainer.get_eval_dataloader("first")
+        second_dataloader = trainer.get_eval_dataloader("second")
+        second_dataloader_repeated = trainer.get_eval_dataloader("second")
 
-            self.assertEqual(first_dataset, first_dataloader.dataset)
-            self.assertEqual(first_dataloader.dataset, first_dataloader_repeated.dataset)
-            self.assertEqual(second_dataset, second_dataloader.dataset)
-            self.assertEqual(second_dataloader.dataset, second_dataloader_repeated.dataset)
-            self.assertEqual(first_dataloader, first_dataloader_repeated)
-            self.assertEqual(second_dataloader, second_dataloader_repeated)
+        self.assertEqual(first_dataset, first_dataloader.dataset)
+        self.assertEqual(first_dataloader.dataset, first_dataloader_repeated.dataset)
+        self.assertEqual(second_dataset, second_dataloader.dataset)
+        self.assertEqual(second_dataloader.dataset, second_dataloader_repeated.dataset)
+        self.assertEqual(first_dataloader, first_dataloader_repeated)
+        self.assertEqual(second_dataloader, second_dataloader_repeated)
 
     @require_liger_kernel
     def test_use_liger_kernel_patching(self):
@@ -1747,16 +1766,15 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
             self.assertNotEqual(modeling_llama.apply_rotary_pos_emb, liger_rotary_pos_emb)
             self.assertFalse(isinstance(tiny_llama.model.norm, LigerRMSNorm))
 
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                args = TrainingArguments(
-                    tmp_dir,
-                    use_liger_kernel=True,
-                )
-                Trainer(tiny_llama, args)
+            args = TrainingArguments(
+                self.get_auto_remove_tmp_dir(),
+                use_liger_kernel=True,
+            )
+            Trainer(tiny_llama, args)
 
-                # Spot check that modeling code and model instance variables are patched
-                self.assertEqual(modeling_llama.apply_rotary_pos_emb, liger_rotary_pos_emb)
-                self.assertTrue(isinstance(tiny_llama.model.norm, LigerRMSNorm))
+            # Spot check that modeling code and model instance variables are patched
+            self.assertEqual(modeling_llama.apply_rotary_pos_emb, liger_rotary_pos_emb)
+            self.assertTrue(isinstance(tiny_llama.model.norm, LigerRMSNorm))
 
     @require_liger_kernel
     @require_torch_gpu
@@ -1768,12 +1786,13 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            args = TrainingArguments(tmpdir, learning_rate=1e-2, logging_steps=5, max_steps=20, use_liger_kernel=True)
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(), learning_rate=1e-2, logging_steps=5, max_steps=20, use_liger_kernel=True
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # Check this works
-            _ = trainer.train()
+        # Check this works
+        _ = trainer.train()
 
     @require_lomo
     @require_torch_gpu
@@ -1786,13 +1805,14 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(tmpdir, learning_rate=1e-2, logging_steps=5, optim="lomo", max_steps=20)
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(), learning_rate=1e-2, logging_steps=5, optim="lomo", max_steps=20
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # Check this works
-            _ = trainer.train()
+        # Check this works
+        _ = trainer.train()
 
         for name, param in tiny_llama.named_parameters():
             self.assertFalse(torch.allclose(param, previous_params[name].to(param.device), rtol=1e-12, atol=1e-12))
@@ -1805,61 +1825,58 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir,
-                learning_rate=1e-9,
-                logging_steps=5,
-                optim="adalomo",
-            )
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            optim="adalomo",
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # Check this works
-            _ = trainer.train()
+        # Check this works
+        _ = trainer.train()
 
     @require_grokadamw
-    @require_torch_gpu
-    def test_grokadamw():
+    @require_torch_accelerator
+    def test_grokadamw(self):
         config = LlamaConfig(vocab_size=100, hidden_size=32, num_hidden_layers=3, num_attention_heads=4)
         tiny_llama = LlamaForCausalLM(config)
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir,
-                learning_rate=2e-5,
-                logging_steps=5,
-                optim="grokadamw",
-                max_steps=20,
-            )
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=2e-5,
+            logging_steps=5,
+            optim="grokadamw",
+            max_steps=20,
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # Check this works
-            _ = trainer.train()
+        # Check this works
+        _ = trainer.train()
 
     @require_schedulefree
-    @require_torch_gpu
+    @require_torch_accelerator
     def test_schedulefree_adam(self):
         config = LlamaConfig(vocab_size=100, hidden_size=32, num_hidden_layers=3, num_attention_heads=4)
         tiny_llama = LlamaForCausalLM(config)
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir,
-                learning_rate=1e-9,
-                logging_steps=5,
-                optim="schedule_free_adamw",
-            )
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            optim="schedule_free_adamw",
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # Check this works
-            _ = trainer.train()
+        # Check this works
+        _ = trainer.train()
 
     def test_galore_matched_modules(self):
         regex_patterns = [r".*.attn.*", r".*.mlp.*"]
@@ -1950,19 +1967,18 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir,
-                learning_rate=1e-9,
-                logging_steps=5,
-                optim="galore_adamw",
-                optim_target_modules=[r".*attn.*", r".*mlp.*"],
-            )
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            optim="galore_adamw",
+            optim_target_modules=[r".*attn.*", r".*mlp.*"],
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # Check this works
-            _ = trainer.train()
+        # Check this works
+        _ = trainer.train()
 
     @require_galore_torch
     @require_torch_gpu
@@ -1972,20 +1988,19 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir,
-                learning_rate=1e-9,
-                logging_steps=5,
-                optim="galore_adamw",
-                optim_args="rank=64, update_proj_gap=100, scale=0.10",
-                optim_target_modules=[r".*attn.*", r".*mlp.*"],
-            )
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            optim="galore_adamw",
+            optim_args="rank=64, update_proj_gap=100, scale=0.10",
+            optim_target_modules=[r".*attn.*", r".*mlp.*"],
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # Check this works
-            _ = trainer.train()
+        # Check this works
+        _ = trainer.train()
 
     @require_galore_torch
     @require_torch_gpu
@@ -1995,19 +2010,18 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir,
-                learning_rate=1e-9,
-                logging_steps=5,
-                optim="galore_adamw_layerwise",
-                optim_target_modules=[r".*attn.*", r".*mlp.*"],
-            )
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            optim="galore_adamw_layerwise",
+            optim_target_modules=[r".*attn.*", r".*mlp.*"],
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # Check this works
-            _ = trainer.train()
+        # Check this works
+        _ = trainer.train()
 
     @require_galore_torch
     @require_torch_gpu
@@ -2017,20 +2031,19 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir,
-                learning_rate=1e-9,
-                logging_steps=5,
-                optim="galore_adamw_layerwise",
-                lr_scheduler_type="cosine",
-                optim_target_modules=[r".*attn.*", r".*mlp.*"],
-            )
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            optim="galore_adamw_layerwise",
+            lr_scheduler_type="cosine",
+            optim_target_modules=[r".*attn.*", r".*mlp.*"],
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # Check this works
-            _ = trainer.train()
+        # Check this works
+        _ = trainer.train()
 
     @require_galore_torch
     @require_torch_gpu
@@ -2040,19 +2053,18 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir,
-                learning_rate=1e-9,
-                logging_steps=5,
-                optim="galore_adamw_8bit",
-                optim_target_modules=[r".*attn.*", r".*mlp.*"],
-            )
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=1e-9,
+            logging_steps=5,
+            optim="galore_adamw_8bit",
+            optim_target_modules=[r".*attn.*", r".*mlp.*"],
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # Check this works
-            _ = trainer.train()
+        # Check this works
+        _ = trainer.train()
 
     @require_galore_torch
     @require_torch_gpu
@@ -2156,23 +2168,22 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            learning_rate = 1e-9
-            num_steps = 10
+        learning_rate = 1e-9
+        num_steps = 10
 
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir,
-                learning_rate=learning_rate,
-                logging_steps=5,
-                optim="galore_adamw",
-                optim_target_modules=[r".*attn.*", r".*mlp.*"],
-            )
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
-            trainer.create_optimizer_and_scheduler(num_training_steps=num_steps)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            learning_rate=learning_rate,
+            logging_steps=5,
+            optim="galore_adamw",
+            optim_target_modules=[r".*attn.*", r".*mlp.*"],
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        trainer.create_optimizer_and_scheduler(num_training_steps=num_steps)
 
-            # reflects displayed lr in trainer
-            self.assertEqual(trainer.get_learning_rates(), [learning_rate, learning_rate])
+        # reflects displayed lr in trainer
+        self.assertEqual(trainer.get_learning_rates(), [learning_rate, learning_rate])
 
     @require_galore_torch
     @require_torch_gpu
@@ -2182,49 +2193,48 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         x = torch.randint(0, 100, (128,))
         train_dataset = RepeatDataset(x)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            learning_rate = 2e-4
-            num_train_epochs = 2
-            num_warmup_steps = 5
+        learning_rate = 2e-4
+        num_train_epochs = 2
+        num_warmup_steps = 5
 
-            # Trainer without inf/nan filter
-            args = TrainingArguments(
-                tmpdir,
-                num_train_epochs=num_train_epochs,
-                learning_rate=learning_rate,
-                warmup_steps=num_warmup_steps,
-                lr_scheduler_type="cosine",
-                logging_steps=1,
-                optim="galore_adamw",
-                optim_target_modules=[r".*attn.*", r".*mlp.*"],
-            )
-            trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
+        # Trainer without inf/nan filter
+        args = TrainingArguments(
+            self.get_auto_remove_tmp_dir(),
+            num_train_epochs=num_train_epochs,
+            learning_rate=learning_rate,
+            warmup_steps=num_warmup_steps,
+            lr_scheduler_type="cosine",
+            logging_steps=1,
+            optim="galore_adamw",
+            optim_target_modules=[r".*attn.*", r".*mlp.*"],
+        )
+        trainer = Trainer(tiny_llama, args, train_dataset=train_dataset)
 
-            # creating log history of trainer, results don't matter
-            trainer.train()
-            logs = trainer.state.log_history[1:][:-1]
+        # creating log history of trainer, results don't matter
+        trainer.train()
+        logs = trainer.state.log_history[1:][:-1]
 
-            # reach given learning rate peak and end with 0 lr
-            self.assertTrue(logs[num_warmup_steps - 2]["learning_rate"] == learning_rate)
-            self.assertTrue(logs[-1]["learning_rate"] == 0)
+        # reach given learning rate peak and end with 0 lr
+        self.assertTrue(logs[num_warmup_steps - 2]["learning_rate"] == learning_rate)
+        self.assertTrue(logs[-1]["learning_rate"] == 0)
 
-            # increasing and decreasing pattern of lrs
-            increasing_lrs = [
-                logs[i]["learning_rate"] < logs[i + 1]["learning_rate"]
-                for i in range(len(logs))
-                if i < num_warmup_steps - 2
-            ]
-            decreasing_lrs = [
-                logs[i]["learning_rate"] > logs[i + 1]["learning_rate"]
-                for i in range(len(logs) - 1)
-                if i >= num_warmup_steps - 2
-            ]
+        # increasing and decreasing pattern of lrs
+        increasing_lrs = [
+            logs[i]["learning_rate"] < logs[i + 1]["learning_rate"]
+            for i in range(len(logs))
+            if i < num_warmup_steps - 2
+        ]
+        decreasing_lrs = [
+            logs[i]["learning_rate"] > logs[i + 1]["learning_rate"]
+            for i in range(len(logs) - 1)
+            if i >= num_warmup_steps - 2
+        ]
 
-            self.assertTrue(all(increasing_lrs))
-            self.assertTrue(all(decreasing_lrs))
+        self.assertTrue(all(increasing_lrs))
+        self.assertTrue(all(decreasing_lrs))
 
-            # warm up steps << total steps
-            self.assertTrue(len(decreasing_lrs) > len(increasing_lrs))
+        # warm up steps << total steps
+        self.assertTrue(len(decreasing_lrs) > len(increasing_lrs))
 
     @require_torch_multi_accelerator
     def test_data_is_not_parallelized_when_model_is_parallel(self):
@@ -2707,86 +2717,84 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
                 self.assertNotIn(log_info_string, cl.out)
 
     def test_save_checkpoints(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            trainer = get_regression_trainer(output_dir=tmpdir, save_steps=5)
-            trainer.train()
-            self.check_saved_checkpoints(tmpdir, 5, int(self.n_epochs * 64 / self.batch_size))
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        trainer = get_regression_trainer(output_dir=tmp_dir, save_steps=5)
+        trainer.train()
+        self.check_saved_checkpoints(tmp_dir, 5, int(self.n_epochs * 64 / self.batch_size))
 
         # With a regular model that is not a PreTrainedModel
-        with tempfile.TemporaryDirectory() as tmpdir:
-            trainer = get_regression_trainer(output_dir=tmpdir, save_steps=5, pretrained=False)
-            trainer.train()
-            self.check_saved_checkpoints(tmpdir, 5, int(self.n_epochs * 64 / self.batch_size), False)
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        trainer = get_regression_trainer(output_dir=tmp_dir, save_steps=5, pretrained=False)
+        trainer.train()
+        self.check_saved_checkpoints(tmp_dir, 5, int(self.n_epochs * 64 / self.batch_size), False)
 
     @require_safetensors
     def test_safe_checkpoints(self):
         for save_safetensors in [True, False]:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                trainer = get_regression_trainer(output_dir=tmpdir, save_steps=5, save_safetensors=save_safetensors)
-                trainer.train()
-                self.check_saved_checkpoints(
-                    tmpdir, 5, int(self.n_epochs * 64 / self.batch_size), safe_weights=save_safetensors
-                )
+            tmp_dir = self.get_auto_remove_tmp_dir()
+            trainer = get_regression_trainer(output_dir=tmp_dir, save_steps=5, save_safetensors=save_safetensors)
+            trainer.train()
+            self.check_saved_checkpoints(
+                tmp_dir, 5, int(self.n_epochs * 64 / self.batch_size), safe_weights=save_safetensors
+            )
 
             # With a regular model that is not a PreTrainedModel
-            with tempfile.TemporaryDirectory() as tmpdir:
-                trainer = get_regression_trainer(
-                    output_dir=tmpdir, save_steps=5, pretrained=False, save_safetensors=save_safetensors
-                )
-                trainer.train()
-                self.check_saved_checkpoints(
-                    tmpdir, 5, int(self.n_epochs * 64 / self.batch_size), False, safe_weights=save_safetensors
-                )
-
-    def test_load_best_model_with_save(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_dir = self.get_auto_remove_tmp_dir()
             trainer = get_regression_trainer(
-                output_dir=tmpdir,
-                save_steps=5,
-                evaluation_strategy="steps",
-                eval_steps=5,
-                max_steps=9,
+                output_dir=tmp_dir, save_steps=5, pretrained=False, save_safetensors=save_safetensors
             )
             trainer.train()
-            # Check that we have the last known step:
-            assert os.path.exists(
-                os.path.join(tmpdir, f"checkpoint-{trainer.state.max_steps}")
-            ), f"Could not find checkpoint-{trainer.state.max_steps}"
-            # And then check the last step
-            assert os.path.exists(os.path.join(tmpdir, "checkpoint-9")), "Could not find checkpoint-9"
+            self.check_saved_checkpoints(
+                tmp_dir, 5, int(self.n_epochs * 64 / self.batch_size), False, safe_weights=save_safetensors
+            )
+
+    def test_load_best_model_with_save(self):
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        trainer = get_regression_trainer(
+            output_dir=tmp_dir,
+            save_steps=5,
+            evaluation_strategy="steps",
+            eval_steps=5,
+            max_steps=9,
+        )
+        trainer.train()
+        # Check that we have the last known step:
+        assert os.path.exists(
+            os.path.join(tmp_dir, f"checkpoint-{trainer.state.max_steps}")
+        ), f"Could not find checkpoint-{trainer.state.max_steps}"
+        # And then check the last step
+        assert os.path.exists(os.path.join(tmp_dir, "checkpoint-9")), "Could not find checkpoint-9"
 
         # Now test that using a limit works
         # Should result in:
         # - save at step 5 (but is deleted)
         # - save at step 10 (loaded in at the end when `load_best_model=True`)
         # - save at step 11
-        with tempfile.TemporaryDirectory() as tmpdir:
-            trainer = get_regression_trainer(
-                output_dir=tmpdir,
-                save_steps=5,
-                evaluation_strategy="steps",
-                eval_steps=5,
-                load_best_model_at_end=True,
-                save_total_limit=2,
-                max_steps=11,
-            )
-            trainer.train()
-            # Check that we have the last known step:
-            assert os.path.exists(os.path.join(tmpdir, "checkpoint-11")), "Could not find checkpoint-11"
-            # And then check the last multiple
-            assert os.path.exists(os.path.join(tmpdir, "checkpoint-10")), "Could not find checkpoint-10"
-            # Finally check that we don't have an old one
-            assert not os.path.exists(os.path.join(tmpdir, "checkpoint-5")), "Found checkpoint-5, limit not respected"
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        trainer = get_regression_trainer(
+            output_dir=tmp_dir,
+            save_steps=5,
+            evaluation_strategy="steps",
+            eval_steps=5,
+            load_best_model_at_end=True,
+            save_total_limit=2,
+            max_steps=11,
+        )
+        trainer.train()
+        # Check that we have the last known step:
+        assert os.path.exists(os.path.join(tmp_dir, "checkpoint-11")), "Could not find checkpoint-11"
+        # And then check the last multiple
+        assert os.path.exists(os.path.join(tmp_dir, "checkpoint-10")), "Could not find checkpoint-10"
+        # Finally check that we don't have an old one
+        assert not os.path.exists(os.path.join(tmp_dir, "checkpoint-5")), "Found checkpoint-5, limit not respected"
 
-            # Finally check that the right model was loaded in, checkpoint-10
-            # this goes by the last `eval` step check to do so, so it won't be
-            # the last model *saved*
-            model_state = trainer.model.state_dict()
-            final_model_weights = safetensors.torch.load_file(
-                os.path.join(tmpdir, "checkpoint-10", "model.safetensors")
-            )
-            for k, v in model_state.items():
-                assert torch.allclose(v, final_model_weights[k]), f"{k} is not the same"
+        # Finally check that the right model was loaded in, checkpoint-10
+        # this goes by the last `eval` step check to do so, so it won't be
+        # the last model *saved*
+        model_state = trainer.model.state_dict()
+        final_model_weights = safetensors.torch.load_file(os.path.join(tmp_dir, "checkpoint-10", "model.safetensors"))
+        for k, v in model_state.items():
+            assert torch.allclose(v, final_model_weights[k]), f"{k} is not the same"
 
     @require_torch_multi_accelerator
     def test_run_seq2seq_double_train_wrap_once(self):
@@ -2794,13 +2802,12 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         # since wrapping primarily happens on multi-gpu setup we want multiple gpus to test for
         # example DataParallel(DataParallel(model))
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trainer = get_regression_trainer(output_dir=tmp_dir)
-            trainer.train()
-            model_wrapped_before = trainer.model_wrapped
-            trainer.train()
-            model_wrapped_after = trainer.model_wrapped
-            self.assertIs(model_wrapped_before, model_wrapped_after, "should be not wrapped twice")
+        trainer = get_regression_trainer(output_dir=self.get_auto_remove_tmp_dir())
+        trainer.train()
+        model_wrapped_before = trainer.model_wrapped
+        trainer.train()
+        model_wrapped_after = trainer.model_wrapped
+        self.assertIs(model_wrapped_before, model_wrapped_after, "should be not wrapped twice")
 
     @require_torch_up_to_2_accelerators
     def test_can_resume_training(self):
@@ -2808,99 +2815,99 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
         # save_steps, the checkpoint will resume training at epoch 2 or more (so the data seen by the model
         # won't be the same since the training dataloader is shuffled).
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            kwargs = {
-                "output_dir": tmpdir,
-                "train_len": 128,
-                "save_steps": 5,
-                "learning_rate": 0.1,
-                "logging_steps": 5,
-            }
-            trainer = get_regression_trainer(**kwargs)
-            trainer.train()
-            (a, b) = trainer.model.a.item(), trainer.model.b.item()
-            state = dataclasses.asdict(trainer.state)
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        kwargs = {
+            "output_dir": tmp_dir,
+            "train_len": 128,
+            "save_steps": 5,
+            "learning_rate": 0.1,
+            "logging_steps": 5,
+        }
+        trainer = get_regression_trainer(**kwargs)
+        trainer.train()
+        (a, b) = trainer.model.a.item(), trainer.model.b.item()
+        state = dataclasses.asdict(trainer.state)
 
-            checkpoint = os.path.join(tmpdir, "checkpoint-5")
+        checkpoint = os.path.join(tmp_dir, "checkpoint-5")
 
-            # Reinitialize trainer
-            trainer = get_regression_trainer(**kwargs)
+        # Reinitialize trainer
+        trainer = get_regression_trainer(**kwargs)
 
-            trainer.train(resume_from_checkpoint=checkpoint)
-            (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
-            state1 = dataclasses.asdict(trainer.state)
-            self.assertEqual(a, a1)
-            self.assertEqual(b, b1)
-            self.check_trainer_state_are_the_same(state, state1)
+        trainer.train(resume_from_checkpoint=checkpoint)
+        (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
+        state1 = dataclasses.asdict(trainer.state)
+        self.assertEqual(a, a1)
+        self.assertEqual(b, b1)
+        self.check_trainer_state_are_the_same(state, state1)
 
-            # Now check with a later checkpoint that it also works when we span over one epoch
-            checkpoint = os.path.join(tmpdir, "checkpoint-15")
+        # Now check with a later checkpoint that it also works when we span over one epoch
+        checkpoint = os.path.join(tmp_dir, "checkpoint-15")
 
-            # Reinitialize trainer and load model
-            trainer = get_regression_trainer(**kwargs)
+        # Reinitialize trainer and load model
+        trainer = get_regression_trainer(**kwargs)
 
-            trainer.train(resume_from_checkpoint=checkpoint)
-            (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
-            state1 = dataclasses.asdict(trainer.state)
-            self.assertEqual(a, a1)
-            self.assertEqual(b, b1)
-            self.check_trainer_state_are_the_same(state, state1)
+        trainer.train(resume_from_checkpoint=checkpoint)
+        (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
+        state1 = dataclasses.asdict(trainer.state)
+        self.assertEqual(a, a1)
+        self.assertEqual(b, b1)
+        self.check_trainer_state_are_the_same(state, state1)
 
         # With a regular model that is not a PreTrainedModel
-        with tempfile.TemporaryDirectory() as tmpdir:
-            kwargs = {
-                "output_dir": tmpdir,
-                "train_len": 128,
-                "save_steps": 5,
-                "learning_rate": 0.1,
-                "pretrained": False,
-            }
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        kwargs = {
+            "output_dir": tmp_dir,
+            "train_len": 128,
+            "save_steps": 5,
+            "learning_rate": 0.1,
+            "pretrained": False,
+        }
 
-            trainer = get_regression_trainer(**kwargs)
-            trainer.train()
-            (a, b) = trainer.model.a.item(), trainer.model.b.item()
-            state = dataclasses.asdict(trainer.state)
+        trainer = get_regression_trainer(**kwargs)
+        trainer.train()
+        (a, b) = trainer.model.a.item(), trainer.model.b.item()
+        state = dataclasses.asdict(trainer.state)
 
-            checkpoint = os.path.join(tmpdir, "checkpoint-5")
+        checkpoint = os.path.join(tmp_dir, "checkpoint-5")
 
-            # Reinitialize trainer and load model
-            trainer = get_regression_trainer(**kwargs)
+        # Reinitialize trainer and load model
+        trainer = get_regression_trainer(**kwargs)
 
-            trainer.train(resume_from_checkpoint=checkpoint)
-            (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
-            state1 = dataclasses.asdict(trainer.state)
-            self.assertEqual(a, a1)
-            self.assertEqual(b, b1)
-            self.check_trainer_state_are_the_same(state, state1)
+        trainer.train(resume_from_checkpoint=checkpoint)
+        (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
+        state1 = dataclasses.asdict(trainer.state)
+        self.assertEqual(a, a1)
+        self.assertEqual(b, b1)
+        self.check_trainer_state_are_the_same(state, state1)
 
-            # Now check with a later checkpoint that it also works when we span over one epoch
-            checkpoint = os.path.join(tmpdir, "checkpoint-15")
+        # Now check with a later checkpoint that it also works when we span over one epoch
+        checkpoint = os.path.join(tmp_dir, "checkpoint-15")
 
-            # Reinitialize trainer and load model
-            trainer = get_regression_trainer(**kwargs)
+        # Reinitialize trainer and load model
+        trainer = get_regression_trainer(**kwargs)
 
-            trainer.train(resume_from_checkpoint=checkpoint)
-            (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
-            state1 = dataclasses.asdict(trainer.state)
-            self.assertEqual(a, a1)
-            self.assertEqual(b, b1)
-            self.check_trainer_state_are_the_same(state, state1)
+        trainer.train(resume_from_checkpoint=checkpoint)
+        (a1, b1) = trainer.model.a.item(), trainer.model.b.item()
+        state1 = dataclasses.asdict(trainer.state)
+        self.assertEqual(a, a1)
+        self.assertEqual(b, b1)
+        self.check_trainer_state_are_the_same(state, state1)
 
         # Now check failures
 
         # 1. fail to find a bogus checkpoint
-        with tempfile.TemporaryDirectory() as tmpdir:
-            trainer = get_regression_trainer(output_dir=tmpdir)
-            with self.assertRaises(Exception) as context:
-                trainer.train(resume_from_checkpoint=f"{checkpoint}-bogus")
-            self.assertTrue("Can't find a valid checkpoint at" in str(context.exception))
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        trainer = get_regression_trainer(output_dir=tmp_dir)
+        with self.assertRaises(Exception) as context:
+            trainer.train(resume_from_checkpoint=f"{checkpoint}-bogus")
+        self.assertTrue("Can't find a valid checkpoint at" in str(context.exception))
 
         # 2. fail to find any checkpoint - due a fresh output_dir
-        with tempfile.TemporaryDirectory() as tmpdir:
-            trainer = get_regression_trainer(output_dir=tmpdir)
-            with self.assertRaises(Exception) as context:
-                trainer.train(resume_from_checkpoint=True)
-            self.assertTrue("No valid checkpoint found in output directory" in str(context.exception))
+        tmp_dir = self.get_auto_remove_tmp_dir()
+        trainer = get_regression_trainer(output_dir=tmp_dir)
+        with self.assertRaises(Exception) as context:
+            trainer.train(resume_from_checkpoint=True)
+        self.assertTrue("No valid checkpoint found in output directory" in str(context.exception))
 
     @unittest.skip(
         reason="@muellerzr: Fix once Trainer can take an accelerate configuration. Need to set `seedable_sampler=True`."
@@ -3483,6 +3490,23 @@ class TrainerIntegrationTest(TestCasePlus, TrainerIntegrationCommon):
                 trainer.train()
             except AssertionError:
                 self.assertEqual(trainer.state.global_step, 0)
+
+        # even if load_best_model_at_end is False, `best_model_checkpoint` should be set
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            trainer = get_regression_trainer(
+                output_dir=tmp_dir,
+                num_train_epochs=20,
+                gradient_accumulation_steps=1,
+                per_device_train_batch_size=16,
+                load_best_model_at_end=False,
+                eval_strategy=IntervalStrategy.EPOCH,
+                save_strategy=IntervalStrategy.EPOCH,
+                compute_metrics=AlmostAccuracy(),
+                metric_for_best_model="accuracy",
+            )
+            trainer.add_callback(EarlyStoppingCallback(1, 0.0001))
+            train_output = trainer.train()
+            self.assertIsNotNone(trainer.state.best_model_checkpoint)
 
     def test_flos_extraction(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

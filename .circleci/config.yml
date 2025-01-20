@@ -13,6 +13,7 @@ jobs:
     check_circleci_user:
         docker:
             - image: python:3.10-slim
+        resource_class: small
         parallelism: 1
         steps:
             - run: echo $CIRCLE_PROJECT_USERNAME

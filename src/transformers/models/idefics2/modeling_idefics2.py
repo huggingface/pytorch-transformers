@@ -1285,13 +1285,6 @@ class Idefics2Model(Idefics2PreTrainedModel):
     def set_input_embeddings(self, value):
         self.text_model.set_input_embeddings(value)
 
-    def resize_token_embeddings(self, new_num_tokens: Optional[int] = None, pad_to_multiple_of=None) -> nn.Embedding:
-        model_embeds = self.text_model.resize_token_embeddings(
-            new_num_tokens=new_num_tokens, pad_to_multiple_of=pad_to_multiple_of
-        )
-        self.config.text_config.vocab_size = model_embeds.num_embeddings
-        return model_embeds
-
     def inputs_merger(
         self,
         input_ids: torch.LongTensor,
@@ -1514,32 +1507,6 @@ class Idefics2ForConditionalGeneration(Idefics2PreTrainedModel, GenerationMixin)
 
     def set_output_embeddings(self, new_embeddings):
         self.lm_head = new_embeddings
-
-    def resize_token_embeddings(self, new_num_tokens: Optional[int] = None, pad_to_multiple_of=None) -> nn.Embedding:
-        # model_embeds = self.model.resize_token_embeddings(new_num_tokens=new_num_tokens, pad_to_multiple_of=pad_to_multiple_of)
-        model_embeds = self._resize_token_embeddings(new_num_tokens, pad_to_multiple_of)
-        if new_num_tokens is None and pad_to_multiple_of is None:
-            return model_embeds
-
-        # Update base model and current model config
-        # Ignore copy
-        self.config.text_config.vocab_size = model_embeds.weight.shape[0]
-        self.vocab_size = self.config.text_config.vocab_size
-
-        # Tie weights again if needed
-        self.tie_weights()
-
-        return model_embeds
-
-    def tie_weights(self):
-        """
-        Overwrite `transformers.modeling_utils.PreTrainedModel.tie_weights` to handle the case of DecoupledLinear and DecoupledEmbedding.
-        """
-        output_embeddings = self.get_output_embeddings()
-        input_embeddings = self.get_input_embeddings()
-
-        if getattr(self.config, "tie_word_embeddings", True):
-            output_embeddings.weight = input_embeddings.weight
 
     @add_start_docstrings_to_model_forward(IDEFICS2_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Idefics2CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)

@@ -17,6 +17,7 @@
 import unittest
 
 import numpy as np
+import pytest
 import requests
 from huggingface_hub import hf_hub_download
 from parameterized import parameterized
@@ -25,6 +26,7 @@ from transformers import Emu3Config, Emu3TextConfig, is_torch_available, is_visi
 from transformers.testing_utils import (
     require_bitsandbytes,
     require_torch,
+    require_torch_large_gpu,
     slow,
     torch_device,
 )
@@ -174,10 +176,6 @@ class Emu3Text2TextModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTe
 
     @unittest.skip("Doesn't work, tensors are not almost same")  # TODO raushan fixme
     def test_custom_4d_attention_mask(self):
-        pass
-
-    @unittest.skip("Fails with unknown error only on end-to-end compile")  # TODO raushan fixme
-    def test_generate_compile_1_end_to_end(self):
         pass
 
 
@@ -398,8 +396,9 @@ class Emu3Vision2TextModelTest(ModelTesterMixin, GenerationTesterMixin, Pipeline
     def test_initialization(self):
         pass
 
-    @unittest.skip("End-to-end compilation is not supported due to dynamic control in `prepare_inputs_for_generation`")
-    def test_generate_compile_1_end_to_end(self):
+    @pytest.mark.generate
+    @unittest.skip("Emu3 has dynamic control flow in vision backbone")
+    def test_generate_with_static_cache(self):
         pass
 
 
@@ -408,42 +407,33 @@ class Emu3IntegrationTest(unittest.TestCase):
     @slow
     @require_bitsandbytes
     def test_model_generation(self):
-        model = Emu3ForConditionalGeneration.from_pretrained(
-            "Emu3-community/Emu3-Chat-hf", load_in_4bit=True, device_map="auto"
-        )
-        processor = Emu3Processor.from_pretrained("Emu3-community/Emu3-Chat-hf")
+        model = Emu3ForConditionalGeneration.from_pretrained("BAAI/Emu3-Chat-hf", load_in_4bit=True)
+        processor = Emu3Processor.from_pretrained("BAAI/Emu3-Chat-hf")
 
-        image = Image.open(
-            requests.get("https://nineplanets.org/wp-content/uploads/2020/12/the-big-dipper-1.jpg", stream=True).raw
-        )
+        image = Image.open(requests.get("https://picsum.photos/id/237/200/200", stream=True).raw)
         prompt = "USER: <image>Describe what do you see here and tell me about the history behind it? ASSISTANT:"
 
         inputs = processor(images=image, text=prompt, return_tensors="pt").to(model.device, torch.float16)
 
         # greedy generation outputs
-        EXPECTED_TEXT_COMPLETION = ['USER: 114*143Describe what do you see here and tell me about the history behind it? ASSISTANT: The image depicts the constellation of Ursa Minor, also known as the Little Bear. This constellation was one of the 24 modern constellations introduced by Charles Messier in 178']  # fmt: skip
+        EXPECTED_TEXT_COMPLETION = ['USER: 64*64Describe what do you see here and tell me about the history behind it? ASSISTANT: The image captures a moment of tranquility with a black Labrador Retriever resting on a wooden floor. The dog, with its glossy black coat, is lying down with its front legs stretched out in']  # fmt: skip
         generated_ids = model.generate(**inputs, max_new_tokens=40, do_sample=False)
         text = processor.batch_decode(generated_ids, skip_special_tokens=True)
         self.assertEqual(EXPECTED_TEXT_COMPLETION, text)
 
     @slow
     @require_bitsandbytes
+    @require_torch_large_gpu
     def test_model_generation_batched(self):
-        model = Emu3ForConditionalGeneration.from_pretrained(
-            "Emu3-community/Emu3-Chat-hf", load_in_4bit=True, device_map="auto"
-        )
-        processor = Emu3Processor.from_pretrained("Emu3-community/Emu3-Chat-hf")
+        model = Emu3ForConditionalGeneration.from_pretrained("BAAI/Emu3-Chat-hf", load_in_4bit=True)
+        processor = Emu3Processor.from_pretrained("BAAI/Emu3-Chat-hf")
         processor.tokenizer.padding_side = "left"
 
-        image = Image.open(
-            requests.get("https://nineplanets.org/wp-content/uploads/2020/12/the-big-dipper-1.jpg", stream=True).raw
-        )
-        image_2 = Image.open(
-            requests.get("https://www.kxan.com/wp-content/uploads/sites/40/2020/10/ORION.jpg", stream=True).raw
-        )
+        image = Image.open(requests.get("https://picsum.photos/id/237/50/50", stream=True).raw)
+        image_2 = Image.open(requests.get("https://picsum.photos/id/247/50/50", stream=True).raw)
         prompts = [
-            "USER: <image>Describe what do you see here and tell me about the history behind it? ASSISTANT:",
-            "USER: <image>What do you know about the constellation in this image? ASSISTANT:",
+            "USER: <image>Describe what do you see here? ASSISTANT:",
+            "USER: <image>What can you say about the image? ASSISTANT:",
         ]
 
         inputs = processor(images=[image, image_2], text=prompts, padding=True, return_tensors="pt").to(
@@ -452,52 +442,47 @@ class Emu3IntegrationTest(unittest.TestCase):
 
         # greedy generation outputs
         EXPECTED_TEXT_COMPLETION = [
-            'USER: 114*143Describe what do you see here and tell me about the history behind it? ASSISTANT: The image depicts the constellation of Ursa Minor, also known as the Little Bear. This constellation was one of the 24 modern constellations introduced by Charles Messier in 178',
-            'USER: 75*125What do you know about the constellation in this image? ASSISTANT: The image shows a segment of a wire rope, characterized by its consistent pattern and regular twists, indicative of a high-quality, well-made rope. This type of detail suggests careful manufacturing processes and attention to'
-            ]  # fmt: skip
+            "USER: 64*64Describe what do you see here? ASSISTANT: The image depicts a black panther in a crouched position. The panther's body is elongated and curved, with its head lowered and ears pointed forward, suggesting alertness or focus.",
+            'USER: 64*64What can you say about the image? ASSISTANT: The image depicts a serene natural landscape. The foreground consists of a grassy area with some patches of bare earth. The middle ground shows a steep, reddish-brown cliff, which could be a'
+        ]  # fmt: skip
         generated_ids = model.generate(**inputs, max_new_tokens=40, do_sample=False)
         text = processor.batch_decode(generated_ids, skip_special_tokens=True)
         self.assertEqual(EXPECTED_TEXT_COMPLETION, text)
 
     @slow
     @require_bitsandbytes
+    @require_torch_large_gpu
     def test_model_generation_multi_image(self):
-        model = Emu3ForConditionalGeneration.from_pretrained(
-            "Emu3-community/Emu3-Chat-hf", load_in_4bit=True, device_map="auto"
-        )
-        processor = Emu3Processor.from_pretrained("Emu3-community/Emu3-Chat-hf")
+        model = Emu3ForConditionalGeneration.from_pretrained("BAAI/Emu3-Chat-hf", load_in_4bit=True)
+        processor = Emu3Processor.from_pretrained("BAAI/Emu3-Chat-hf")
 
-        image = Image.open(
-            requests.get("https://nineplanets.org/wp-content/uploads/2020/12/the-big-dipper-1.jpg", stream=True).raw
-        )
-        image_2 = Image.open(
-            requests.get("https://www.kxan.com/wp-content/uploads/sites/40/2020/10/ORION.jpg", stream=True).raw
-        )
+        image = Image.open(requests.get("https://picsum.photos/id/237/50/50", stream=True).raw)
+        image_2 = Image.open(requests.get("https://picsum.photos/id/247/50/50", stream=True).raw)
         prompt = "USER: <image><image>What do these two images have in common? ASSISTANT:"
 
         inputs = processor(images=[image, image_2], text=prompt, return_tensors="pt").to(model.device, torch.float16)
 
         # greedy generation outputs
-        EXPECTED_TEXT_COMPLETION = ['USER: 114*14375*125What do these two images have in common? ASSISTANT: The two images both depict a geometric shape - a triangle in the larger image and a line segment in the smaller image. They share a common feature of being created with a series of connected dots, which']  # fmt: skip
+        EXPECTED_TEXT_COMPLETION = ["USER: 64*6464*64What do these two images have in common? ASSISTANT: Both images feature a black animal, but they are not the same animal. The top image shows a close-up of a black cow's head, while the bottom image depicts a black cow in a natural"]  # fmt: skip
         generated_ids = model.generate(**inputs, max_new_tokens=40, do_sample=False)
         text = processor.batch_decode(generated_ids, skip_special_tokens=True)
         self.assertEqual(EXPECTED_TEXT_COMPLETION, text)
 
     @slow
     @require_bitsandbytes
+    @require_torch_large_gpu
     def test_model_generate_images(self):
-        model = Emu3ForConditionalGeneration.from_pretrained(
-            "Emu3-community/Emu3-Gen-hf", load_in_4bit=True, device_map="auto"
-        )
-        processor = Emu3Processor.from_pretrained("Emu3-community/Emu3-Chat-hf")
+        model = Emu3ForConditionalGeneration.from_pretrained("BAAI/Emu3-Gen-hf", load_in_4bit=True)
+        processor = Emu3Processor.from_pretrained("BAAI/Emu3-Gen-hf")
 
         inputs = processor(
             text=["a portrait of young girl. masterpiece, film grained, best quality."],
             padding=True,
             return_tensors="pt",
             return_for_image_generation=True,
+            image_area=1600,
         ).to(model.device)
-        self.assertTrue(inputs.input_ids.shape[1] == 23)
+        self.assertTrue(inputs.input_ids.shape[1] == 21)
 
         image_sizes = inputs.pop("image_sizes")
         HEIGHT, WIDTH = image_sizes[0]
@@ -530,20 +515,20 @@ class Emu3IntegrationTest(unittest.TestCase):
 
         out = model.generate(
             **inputs,
-            max_new_tokens=50_000,
+            max_new_tokens=200,
             prefix_allowed_tokens_fn=prefix_allowed_tokens_fn,
             do_sample=False,
         )
-        self.assertTrue(out.shape[1] == 8216)
+        self.assertTrue(out.shape[1] == 54)
 
         image = model.decode_image_tokens(out[:, inputs.input_ids.shape[1] :], height=HEIGHT, width=WIDTH)
         images = processor.postprocess(list(image.float()), return_tensors="np")
-        self.assertTrue(images["pixel_values"].shape == (3, 720, 720))
+        self.assertTrue(images["pixel_values"].shape == (3, 40, 40))
         self.assertTrue(isinstance(images["pixel_values"], np.ndarray))
 
         filepath = hf_hub_download(
             repo_id="raushan-testing-hf/images_test",
-            filename="emu3_generated_pixels.npy",
+            filename="emu3_image.npy",
             repo_type="dataset",
         )
         original_pixels = np.load(filepath)

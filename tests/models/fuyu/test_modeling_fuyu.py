@@ -22,7 +22,7 @@ import requests
 from parameterized import parameterized
 
 from transformers import FuyuConfig, is_torch_available, is_vision_available
-from transformers.testing_utils import require_torch, require_torch_gpu, slow, torch_device
+from transformers.testing_utils import require_torch, require_torch_accelerator, slow, torch_device
 from transformers.utils import cached_property
 
 from ...generation.test_utils import GenerationTesterMixin
@@ -327,7 +327,7 @@ class FuyuModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineTesterMixin
 
 
 @slow
-@require_torch_gpu
+@require_torch_accelerator
 class FuyuModelIntegrationTest(unittest.TestCase):
     @cached_property
     def default_processor(self):

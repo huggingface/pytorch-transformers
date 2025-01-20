@@ -117,6 +117,7 @@ from . import (
     granitemoe,
     grounding_dino,
     groupvit,
+    helium,
     herbert,
     hiera,
     hubert,

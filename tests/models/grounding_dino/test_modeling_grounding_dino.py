@@ -322,9 +322,9 @@ class GroundingDinoModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.Tes
             # loss is at first position
             if "labels" in inputs_dict:
                 correct_outlen += 1  # loss is added to beginning
-            # Object Detection model returns pred_logits and pred_boxes
+            # Object Detection model returns pred_logits and pred_boxes and input_ids
             if model_class.__name__ == "GroundingDinoForObjectDetection":
-                correct_outlen += 2
+                correct_outlen += 3
 
             self.assertEqual(out_len, correct_outlen)
 
@@ -653,7 +653,7 @@ class GroundingDinoModelIntegrationTests(unittest.TestCase):
 
         # verify postprocessing
         results = processor.image_processor.post_process_object_detection(
-            outputs, threshold=0.35, target_sizes=[image.size[::-1]]
+            outputs, threshold=0.35, target_sizes=[(image.height, image.width)]
         )[0]
         expected_scores = torch.tensor([0.4526, 0.4082]).to(torch_device)
         expected_slice_boxes = torch.tensor([344.8143, 23.1796, 637.4004, 373.8295]).to(torch_device)
@@ -667,14 +667,14 @@ class GroundingDinoModelIntegrationTests(unittest.TestCase):
         results = processor.post_process_grounded_object_detection(
             outputs=outputs,
             input_ids=encoding.input_ids,
-            box_threshold=0.35,
+            threshold=0.35,
             text_threshold=0.3,
-            target_sizes=[image.size[::-1]],
+            target_sizes=[(image.height, image.width)],
         )[0]
 
         self.assertTrue(torch.allclose(results["scores"], expected_scores, atol=1e-3))
         self.assertTrue(torch.allclose(results["boxes"][0, :], expected_slice_boxes, atol=1e-2))
-        self.assertListEqual(results["labels"], expected_labels)
+        self.assertListEqual(results["text_labels"], expected_labels)
 
     @require_torch_accelerator
     def test_inference_object_detection_head_equivalence_cpu_gpu(self):
@@ -706,11 +706,11 @@ class GroundingDinoModelIntegrationTests(unittest.TestCase):
 
         # assert postprocessing
         results_cpu = processor.image_processor.post_process_object_detection(
-            cpu_outputs, threshold=0.35, target_sizes=[image.size[::-1]]
+            cpu_outputs, threshold=0.35, target_sizes=[(image.height, image.width)]
         )[0]
 
         result_gpu = processor.image_processor.post_process_object_detection(
-            gpu_outputs, threshold=0.35, target_sizes=[image.size[::-1]]
+            gpu_outputs, threshold=0.35, target_sizes=[(image.height, image.width)]
         )[0]
 
         self.assertTrue(torch.allclose(results_cpu["scores"], result_gpu["scores"].cpu(), atol=1e-3))

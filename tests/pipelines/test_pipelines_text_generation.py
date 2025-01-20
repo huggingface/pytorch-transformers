@@ -28,7 +28,6 @@ from transformers.testing_utils import (
     require_tf,
     require_torch,
     require_torch_accelerator,
-    require_torch_gpu,
     require_torch_or_tf,
     torch_device,
 )
@@ -553,7 +552,7 @@ class TextGenerationPipelineTests(unittest.TestCase):
 
     @require_torch
     @require_accelerate
-    @require_torch_gpu
+    @require_torch_accelerator
     def test_small_model_pt_bloom_accelerate(self):
         import torch
 

@@ -1,27 +1,369 @@
-# These owners will be the default owners for everything in
-# the repo. Unless a later match takes precedence,
-# @global-owner1 and @global-owner2 will be requested for
-# review when someone opens a pull request.
-*       @Rocketknight1 @ArthurZucker # if no one is pinged based on the other rules, he will do the dispatch
+# Top-level rules are matched only if nothing else matches
+* @Rocketknight1 @ArthurZucker # if no one is pinged based on the other rules, he will do the dispatch
 **.md @stevhliu
 docs/ @stevhliu
 /benchmark/ @McPatate
-/utils/modular_model_converter.py @Cyrilvallez @ArthurZucker
+/docker/ @ydshieh @ArthurZucker
+
+# More high-level globs catch cases when specific rules later don't apply
 /src/transformers/models/*/*processing* @molbap @yonigozlan @qubvel
 /src/transformers/models/*/image_processing* @qubvel
 /src/transformers/models/*/image_processing_*_fast* @yonigozlan
-/src/transformers/models/*/*_modeling* @Rocketknight1
 /src/transformers/**/*_tokenization* @ArthurZucker
+
+# Owners of subsections of the library
 /src/transformers/generation/ @gante
-trainer.py @muellerzr @SunMarc
-/src/transformers/pipeline @Rocketknight1 @yonigozlan
-/src/transformers/integrations @SunMarc @MekkCyber @muellerzr
-/src/transformers/quantizers @SunMarc @MekkCyber
-/src/transformers/tests @ydshieh
-/src/transformers/models/auto @ArthurZucker
-/src/transformers/utils @ArthurZucker @Rocketknight1
-/docker @ydshieh @ArthurZucker
-/src/transformers/loss @ArthurZucker
-/src/transformers/onnx @michaelbenayoun
+/src/transformers/pipeline/ @Rocketknight1 @yonigozlan
+/src/transformers/integrations/ @SunMarc @MekkCyber @muellerzr
+/src/transformers/quantizers/ @SunMarc @MekkCyber
+/src/transformers/tests/ @ydshieh
+/src/transformers/tests/generation/ @gante
+/src/transformers/models/auto/ @ArthurZucker
+/src/transformers/utils/ @ArthurZucker @Rocketknight1
+/src/transformers/loss/ @ArthurZucker
+/src/transformers/onnx/ @michaelbenayoun
+
+# Specific files come after the sections/globs, so they take priority
 /.circleci/config.yml @ArthurZucker @ydshieh
 /utils/tests_fetcher.py @ydshieh
+trainer.py @muellerzr @SunMarc
+trainer_utils.py @muellerzr @SunMarc
+/utils/modular_model_converter.py @Cyrilvallez @ArthurZucker
+
+# Owners of individual models are specific / high priority, and so they come last
+# mod* captures modeling and modular files
+
+# Text models
+/src/transformers/models/albert/mod*_albert* @ArthurZucker
+/src/transformers/models/bamba/mod*_bamba* @ArthurZucker
+/src/transformers/models/bart/mod*_bart* @ArthurZucker
+/src/transformers/models/barthez/mod*_barthez* @ArthurZucker
+/src/transformers/models/bartpho/mod*_bartpho* @ArthurZucker
+/src/transformers/models/bert/mod*_bert* @ArthurZucker
+/src/transformers/models/bert_generation/mod*_bert_generation* @ArthurZucker
+/src/transformers/models/bert_japanese/mod*_bert_japanese* @ArthurZucker
+/src/transformers/models/bertweet/mod*_bertweet* @ArthurZucker
+/src/transformers/models/big_bird/mod*_big_bird* @ArthurZucker
+/src/transformers/models/bigbird_pegasus/mod*_bigbird_pegasus* @ArthurZucker
+/src/transformers/models/biogpt/mod*_biogpt* @ArthurZucker
+/src/transformers/models/blenderbot/mod*_blenderbot* @ArthurZucker
+/src/transformers/models/blenderbot_small/mod*_blenderbot_small* @ArthurZucker
+/src/transformers/models/bloom/mod*_bloom* @ArthurZucker
+/src/transformers/models/bort/mod*_bort* @ArthurZucker
+/src/transformers/models/byt5/mod*_byt5* @ArthurZucker
+/src/transformers/models/camembert/mod*_camembert* @ArthurZucker
+/src/transformers/models/canine/mod*_canine* @ArthurZucker
+/src/transformers/models/codegen/mod*_codegen* @ArthurZucker
+/src/transformers/models/code_llama/mod*_code_llama* @ArthurZucker
+/src/transformers/models/cohere/mod*_cohere* @ArthurZucker
+/src/transformers/models/cohere2/mod*_cohere2* @ArthurZucker
+/src/transformers/models/convbert/mod*_convbert* @ArthurZucker
+/src/transformers/models/cpm/mod*_cpm* @ArthurZucker
+/src/transformers/models/cpmant/mod*_cpmant* @ArthurZucker
+/src/transformers/models/ctrl/mod*_ctrl* @ArthurZucker
+/src/transformers/models/dbrx/mod*_dbrx* @ArthurZucker
+/src/transformers/models/deberta/mod*_deberta* @ArthurZucker
+/src/transformers/models/deberta_v2/mod*_deberta_v2* @ArthurZucker
+/src/transformers/models/dialogpt/mod*_dialogpt* @ArthurZucker
+/src/transformers/models/diffllama/mod*_diffllama* @ArthurZucker
+/src/transformers/models/distilbert/mod*_distilbert* @ArthurZucker
+/src/transformers/models/dpr/mod*_dpr* @ArthurZucker
+/src/transformers/models/electra/mod*_electra* @ArthurZucker
+/src/transformers/models/encoder_decoder/mod*_encoder_decoder* @ArthurZucker
+/src/transformers/models/ernie/mod*_ernie* @ArthurZucker
+/src/transformers/models/ernie_m/mod*_ernie_m* @ArthurZucker
+/src/transformers/models/esm/mod*_esm* @ArthurZucker
+/src/transformers/models/falcon/mod*_falcon* @ArthurZucker
+/src/transformers/models/falcon3/mod*_falcon3* @ArthurZucker
+/src/transformers/models/falcon_mamba/mod*_falcon_mamba* @ArthurZucker
+/src/transformers/models/fastspeech2_conformer/mod*_fastspeech2_conformer* @ArthurZucker
+/src/transformers/models/flan_t5/mod*_flan_t5* @ArthurZucker
+/src/transformers/models/flan_ul2/mod*_flan_ul2* @ArthurZucker
+/src/transformers/models/flaubert/mod*_flaubert* @ArthurZucker
+/src/transformers/models/fnet/mod*_fnet* @ArthurZucker
+/src/transformers/models/fsmt/mod*_fsmt* @ArthurZucker
+/src/transformers/models/funnel/mod*_funnel* @ArthurZucker
+/src/transformers/models/fuyu/mod*_fuyu* @ArthurZucker
+/src/transformers/models/gemma/mod*_gemma* @ArthurZucker
+/src/transformers/models/gemma2/mod*_gemma2* @ArthurZucker
+/src/transformers/models/glm/mod*_glm* @ArthurZucker
+/src/transformers/models/openai_gpt/mod*_openai_gpt* @ArthurZucker
+/src/transformers/models/gpt_neo/mod*_gpt_neo* @ArthurZucker
+/src/transformers/models/gpt_neox/mod*_gpt_neox* @ArthurZucker
+/src/transformers/models/gpt_neox_japanese/mod*_gpt_neox_japanese* @ArthurZucker
+/src/transformers/models/gptj/mod*_gptj* @ArthurZucker
+/src/transformers/models/gpt2/mod*_gpt2* @ArthurZucker
+/src/transformers/models/gpt_bigcode/mod*_gpt_bigcode* @ArthurZucker
+/src/transformers/models/gptsan_japanese/mod*_gptsan_japanese* @ArthurZucker
+/src/transformers/models/gpt_sw3/mod*_gpt_sw3* @ArthurZucker
+/src/transformers/models/granite/mod*_granite* @ArthurZucker
+/src/transformers/models/granitemoe/mod*_granitemoe* @ArthurZucker
+/src/transformers/models/herbert/mod*_herbert* @ArthurZucker
+/src/transformers/models/ibert/mod*_ibert* @ArthurZucker
+/src/transformers/models/jamba/mod*_jamba* @ArthurZucker
+/src/transformers/models/jetmoe/mod*_jetmoe* @ArthurZucker
+/src/transformers/models/jukebox/mod*_jukebox* @ArthurZucker
+/src/transformers/models/led/mod*_led* @ArthurZucker
+/src/transformers/models/llama/mod*_llama* @ArthurZucker @Cyrilvallez 
+/src/transformers/models/longformer/mod*_longformer* @ArthurZucker
+/src/transformers/models/longt5/mod*_longt5* @ArthurZucker
+/src/transformers/models/luke/mod*_luke* @ArthurZucker
+/src/transformers/models/m2m_100/mod*_m2m_100* @ArthurZucker
+/src/transformers/models/madlad_400/mod*_madlad_400* @ArthurZucker
+/src/transformers/models/mamba/mod*_mamba* @ArthurZucker
+/src/transformers/models/mamba2/mod*_mamba2* @ArthurZucker
+/src/transformers/models/marian/mod*_marian* @ArthurZucker
+/src/transformers/models/markuplm/mod*_markuplm* @ArthurZucker
+/src/transformers/models/mbart/mod*_mbart* @ArthurZucker
+/src/transformers/models/mega/mod*_mega* @ArthurZucker
+/src/transformers/models/megatron_bert/mod*_megatron_bert* @ArthurZucker
+/src/transformers/models/megatron_gpt2/mod*_megatron_gpt2* @ArthurZucker
+/src/transformers/models/mistral/mod*_mistral* @ArthurZucker
+/src/transformers/models/mixtral/mod*_mixtral* @ArthurZucker
+/src/transformers/models/mluke/mod*_mluke* @ArthurZucker
+/src/transformers/models/mobilebert/mod*_mobilebert* @ArthurZucker
+/src/transformers/models/modernbert/mod*_modernbert* @ArthurZucker
+/src/transformers/models/mpnet/mod*_mpnet* @ArthurZucker
+/src/transformers/models/mpt/mod*_mpt* @ArthurZucker
+/src/transformers/models/mra/mod*_mra* @ArthurZucker
+/src/transformers/models/mt5/mod*_mt5* @ArthurZucker
+/src/transformers/models/mvp/mod*_mvp* @ArthurZucker
+/src/transformers/models/myt5/mod*_myt5* @ArthurZucker
+/src/transformers/models/nemotron/mod*_nemotron* @ArthurZucker
+/src/transformers/models/nezha/mod*_nezha* @ArthurZucker
+/src/transformers/models/nllb/mod*_nllb* @ArthurZucker
+/src/transformers/models/nllb_moe/mod*_nllb_moe* @ArthurZucker
+/src/transformers/models/nystromformer/mod*_nystromformer* @ArthurZucker
+/src/transformers/models/olmo/mod*_olmo* @ArthurZucker
+/src/transformers/models/olmo2/mod*_olmo2* @ArthurZucker
+/src/transformers/models/olmoe/mod*_olmoe* @ArthurZucker
+/src/transformers/models/open_llama/mod*_open_llama* @ArthurZucker
+/src/transformers/models/opt/mod*_opt* @ArthurZucker
+/src/transformers/models/pegasus/mod*_pegasus* @ArthurZucker
+/src/transformers/models/pegasus_x/mod*_pegasus_x* @ArthurZucker
+/src/transformers/models/persimmon/mod*_persimmon* @ArthurZucker
+/src/transformers/models/phi/mod*_phi* @ArthurZucker
+/src/transformers/models/phi3/mod*_phi3* @ArthurZucker
+/src/transformers/models/phimoe/mod*_phimoe* @ArthurZucker
+/src/transformers/models/phobert/mod*_phobert* @ArthurZucker
+/src/transformers/models/plbart/mod*_plbart* @ArthurZucker
+/src/transformers/models/prophetnet/mod*_prophetnet* @ArthurZucker
+/src/transformers/models/qdqbert/mod*_qdqbert* @ArthurZucker
+/src/transformers/models/qwen2/mod*_qwen2* @ArthurZucker
+/src/transformers/models/qwen2_moe/mod*_qwen2_moe* @ArthurZucker
+/src/transformers/models/rag/mod*_rag* @ArthurZucker
+/src/transformers/models/realm/mod*_realm* @ArthurZucker
+/src/transformers/models/recurrent_gemma/mod*_recurrent_gemma* @ArthurZucker
+/src/transformers/models/reformer/mod*_reformer* @ArthurZucker
+/src/transformers/models/rembert/mod*_rembert* @ArthurZucker
+/src/transformers/models/retribert/mod*_retribert* @ArthurZucker
+/src/transformers/models/roberta/mod*_roberta* @ArthurZucker
+/src/transformers/models/roberta_prelayernorm/mod*_roberta_prelayernorm* @ArthurZucker
+/src/transformers/models/roc_bert/mod*_roc_bert* @ArthurZucker
+/src/transformers/models/roformer/mod*_roformer* @ArthurZucker
+/src/transformers/models/rwkv/mod*_rwkv* @ArthurZucker
+/src/transformers/models/splinter/mod*_splinter* @ArthurZucker
+/src/transformers/models/squeezebert/mod*_squeezebert* @ArthurZucker
+/src/transformers/models/stablelm/mod*_stablelm* @ArthurZucker
+/src/transformers/models/starcoder2/mod*_starcoder2* @ArthurZucker
+/src/transformers/models/switch_transformers/mod*_switch_transformers* @ArthurZucker
+/src/transformers/models/t5/mod*_t5* @ArthurZucker
+/src/transformers/models/t5v1.1/mod*_t5v1.1* @ArthurZucker
+/src/transformers/models/tapex/mod*_tapex* @ArthurZucker
+/src/transformers/models/transfo_xl/mod*_transfo_xl* @ArthurZucker
+/src/transformers/models/ul2/mod*_ul2* @ArthurZucker
+/src/transformers/models/umt5/mod*_umt5* @ArthurZucker
+/src/transformers/models/xmod/mod*_xmod* @ArthurZucker
+/src/transformers/models/xglm/mod*_xglm* @ArthurZucker
+/src/transformers/models/xlm/mod*_xlm* @ArthurZucker
+/src/transformers/models/xlm_prophetnet/mod*_xlm_prophetnet* @ArthurZucker
+/src/transformers/models/xlm_roberta/mod*_xlm_roberta* @ArthurZucker
+/src/transformers/models/xlm_roberta_xl/mod*_xlm_roberta_xl* @ArthurZucker
+/src/transformers/models/xlm_v/mod*_xlm_v* @ArthurZucker
+/src/transformers/models/xlnet/mod*_xlnet* @ArthurZucker
+/src/transformers/models/yoso/mod*_yoso* @ArthurZucker
+/src/transformers/models/zamba/mod*_zamba* @ArthurZucker
+
+# Vision models
+/src/transformers/models/beit/mod*_beit* @amyeroberts @qubvel
+/src/transformers/models/bit/mod*_bit* @amyeroberts @qubvel
+/src/transformers/models/conditional_detr/mod*_conditional_detr* @amyeroberts @qubvel
+/src/transformers/models/convnext/mod*_convnext* @amyeroberts @qubvel
+/src/transformers/models/convnextv2/mod*_convnextv2* @amyeroberts @qubvel
+/src/transformers/models/cvt/mod*_cvt* @amyeroberts @qubvel
+/src/transformers/models/deformable_detr/mod*_deformable_detr* @amyeroberts @qubvel
+/src/transformers/models/deit/mod*_deit* @amyeroberts @qubvel
+/src/transformers/models/depth_anything/mod*_depth_anything* @amyeroberts @qubvel
+/src/transformers/models/depth_anything_v2/mod*_depth_anything_v2* @amyeroberts @qubvel
+/src/transformers/models/deta/mod*_deta* @amyeroberts @qubvel
+/src/transformers/models/detr/mod*_detr* @amyeroberts @qubvel
+/src/transformers/models/dinat/mod*_dinat* @amyeroberts @qubvel
+/src/transformers/models/dinov2/mod*_dinov2* @amyeroberts @qubvel
+/src/transformers/models/dinov2_with_registers/mod*_dinov2_with_registers* @amyeroberts @qubvel
+/src/transformers/models/dit/mod*_dit* @amyeroberts @qubvel
+/src/transformers/models/dpt/mod*_dpt* @amyeroberts @qubvel
+/src/transformers/models/efficientformer/mod*_efficientformer* @amyeroberts @qubvel
+/src/transformers/models/efficientnet/mod*_efficientnet* @amyeroberts @qubvel
+/src/transformers/models/focalnet/mod*_focalnet* @amyeroberts @qubvel
+/src/transformers/models/glpn/mod*_glpn* @amyeroberts @qubvel
+/src/transformers/models/hiera/mod*_hiera* @amyeroberts @qubvel
+/src/transformers/models/ijepa/mod*_ijepa* @amyeroberts @qubvel
+/src/transformers/models/imagegpt/mod*_imagegpt* @amyeroberts @qubvel
+/src/transformers/models/levit/mod*_levit* @amyeroberts @qubvel
+/src/transformers/models/mask2former/mod*_mask2former* @amyeroberts @qubvel
+/src/transformers/models/maskformer/mod*_maskformer* @amyeroberts @qubvel
+/src/transformers/models/mobilenet_v1/mod*_mobilenet_v1* @amyeroberts @qubvel
+/src/transformers/models/mobilenet_v2/mod*_mobilenet_v2* @amyeroberts @qubvel
+/src/transformers/models/mobilevit/mod*_mobilevit* @amyeroberts @qubvel
+/src/transformers/models/mobilevitv2/mod*_mobilevitv2* @amyeroberts @qubvel
+/src/transformers/models/nat/mod*_nat* @amyeroberts @qubvel
+/src/transformers/models/poolformer/mod*_poolformer* @amyeroberts @qubvel
+/src/transformers/models/pvt/mod*_pvt* @amyeroberts @qubvel
+/src/transformers/models/pvt_v2/mod*_pvt_v2* @amyeroberts @qubvel
+/src/transformers/models/regnet/mod*_regnet* @amyeroberts @qubvel
+/src/transformers/models/resnet/mod*_resnet* @amyeroberts @qubvel
+/src/transformers/models/rt_detr/mod*_rt_detr* @amyeroberts @qubvel
+/src/transformers/models/segformer/mod*_segformer* @amyeroberts @qubvel
+/src/transformers/models/seggpt/mod*_seggpt* @amyeroberts @qubvel
+/src/transformers/models/superpoint/mod*_superpoint* @amyeroberts @qubvel
+/src/transformers/models/swiftformer/mod*_swiftformer* @amyeroberts @qubvel
+/src/transformers/models/swin/mod*_swin* @amyeroberts @qubvel
+/src/transformers/models/swinv2/mod*_swinv2* @amyeroberts @qubvel
+/src/transformers/models/swin2sr/mod*_swin2sr* @amyeroberts @qubvel
+/src/transformers/models/table_transformer/mod*_table_transformer* @amyeroberts @qubvel
+/src/transformers/models/textnet/mod*_textnet* @amyeroberts @qubvel
+/src/transformers/models/timm_wrapper/mod*_timm_wrapper* @amyeroberts @qubvel
+/src/transformers/models/upernet/mod*_upernet* @amyeroberts @qubvel
+/src/transformers/models/van/mod*_van* @amyeroberts @qubvel
+/src/transformers/models/vit/mod*_vit* @amyeroberts @qubvel
+/src/transformers/models/vit_hybrid/mod*_vit_hybrid* @amyeroberts @qubvel
+/src/transformers/models/vitdet/mod*_vitdet* @amyeroberts @qubvel
+/src/transformers/models/vit_mae/mod*_vit_mae* @amyeroberts @qubvel
+/src/transformers/models/vitmatte/mod*_vitmatte* @amyeroberts @qubvel
+/src/transformers/models/vit_msn/mod*_vit_msn* @amyeroberts @qubvel
+/src/transformers/models/vitpose/mod*_vitpose* @amyeroberts @qubvel
+/src/transformers/models/yolos/mod*_yolos* @amyeroberts @qubvel
+/src/transformers/models/zoedepth/mod*_zoedepth* @amyeroberts @qubvel
+
+# Audio models
+/src/transformers/models/audio_spectrogram_transformer/mod*_audio_spectrogram_transformer* @eustlb
+/src/transformers/models/bark/mod*_bark* @eustlb
+/src/transformers/models/clap/mod*_clap* @eustlb
+/src/transformers/models/dac/mod*_dac* @eustlb
+/src/transformers/models/encodec/mod*_encodec* @eustlb
+/src/transformers/models/hubert/mod*_hubert* @eustlb
+/src/transformers/models/mctct/mod*_mctct* @eustlb
+/src/transformers/models/mimi/mod*_mimi* @eustlb
+/src/transformers/models/mms/mod*_mms* @eustlb
+/src/transformers/models/moshi/mod*_moshi* @eustlb
+/src/transformers/models/musicgen/mod*_musicgen* @eustlb
+/src/transformers/models/musicgen_melody/mod*_musicgen_melody* @eustlb
+/src/transformers/models/pop2piano/mod*_pop2piano* @eustlb
+/src/transformers/models/seamless_m4t/mod*_seamless_m4t* @eustlb
+/src/transformers/models/seamless_m4t_v2/mod*_seamless_m4t_v2* @eustlb
+/src/transformers/models/sew/mod*_sew* @eustlb
+/src/transformers/models/sew_d/mod*_sew_d* @eustlb
+/src/transformers/models/speech_to_text/mod*_speech_to_text* @eustlb
+/src/transformers/models/speech_to_text_2/mod*_speech_to_text_2* @eustlb
+/src/transformers/models/speecht5/mod*_speecht5* @eustlb
+/src/transformers/models/unispeech/mod*_unispeech* @eustlb
+/src/transformers/models/unispeech_sat/mod*_unispeech_sat* @eustlb
+/src/transformers/models/univnet/mod*_univnet* @eustlb
+/src/transformers/models/vits/mod*_vits* @eustlb
+/src/transformers/models/wav2vec2/mod*_wav2vec2* @eustlb
+/src/transformers/models/wav2vec2_bert/mod*_wav2vec2_bert* @eustlb
+/src/transformers/models/wav2vec2_conformer/mod*_wav2vec2_conformer* @eustlb
+/src/transformers/models/wav2vec2_phoneme/mod*_wav2vec2_phoneme* @eustlb
+/src/transformers/models/wavlm/mod*_wavlm* @eustlb
+/src/transformers/models/whisper/mod*_whisper* @eustlb
+/src/transformers/models/xls_r/mod*_xls_r* @eustlb
+/src/transformers/models/xlsr_wav2vec2/mod*_xlsr_wav2vec2* @eustlb
+
+# Video models
+/src/transformers/models/timesformer/mod*_timesformer* @Rocketknight1
+/src/transformers/models/videomae/mod*_videomae* @Rocketknight1
+/src/transformers/models/vivit/mod*_vivit* @Rocketknight1
+
+# Multimodal models
+/src/transformers/models/align/mod*_align* @zucchini-nlp
+/src/transformers/models/altclip/mod*_altclip* @zucchini-nlp
+/src/transformers/models/aria/mod*_aria* @zucchini-nlp
+/src/transformers/models/blip/mod*_blip* @zucchini-nlp
+/src/transformers/models/blip_2/mod*_blip_2* @zucchini-nlp
+/src/transformers/models/bridgetower/mod*_bridgetower* @zucchini-nlp
+/src/transformers/models/bros/mod*_bros* @zucchini-nlp
+/src/transformers/models/chameleon/mod*_chameleon* @zucchini-nlp
+/src/transformers/models/chinese_clip/mod*_chinese_clip* @zucchini-nlp
+/src/transformers/models/clip/mod*_clip* @zucchini-nlp
+/src/transformers/models/clipseg/mod*_clipseg* @zucchini-nlp
+/src/transformers/models/clvp/mod*_clvp* @zucchini-nlp
+/src/transformers/models/colpali/mod*_colpali* @zucchini-nlp @yonigozlan 
+/src/transformers/models/data2vec/mod*_data2vec* @zucchini-nlp
+/src/transformers/models/deplot/mod*_deplot* @zucchini-nlp
+/src/transformers/models/donut/mod*_donut* @zucchini-nlp
+/src/transformers/models/flava/mod*_flava* @zucchini-nlp
+/src/transformers/models/git/mod*_git* @zucchini-nlp
+/src/transformers/models/grounding_dino/mod*_grounding_dino* @qubvel
+/src/transformers/models/groupvit/mod*_groupvit* @zucchini-nlp
+/src/transformers/models/idefics/mod*_idefics* @zucchini-nlp
+/src/transformers/models/idefics2/mod*_idefics2* @zucchini-nlp
+/src/transformers/models/idefics3/mod*_idefics3* @zucchini-nlp
+/src/transformers/models/instructblip/mod*_instructblip* @zucchini-nlp
+/src/transformers/models/instructblipvideo/mod*_instructblipvideo* @zucchini-nlp
+/src/transformers/models/kosmos_2/mod*_kosmos_2* @zucchini-nlp
+/src/transformers/models/layoutlm/mod*_layoutlm* @NielsRogge
+/src/transformers/models/layoutlmv2/mod*_layoutlmv2* @NielsRogge
+/src/transformers/models/layoutlmv3/mod*_layoutlmv3* @NielsRogge
+/src/transformers/models/layoutxlm/mod*_layoutxlm* @NielsRogge
+/src/transformers/models/lilt/mod*_lilt* @zucchini-nlp
+/src/transformers/models/llava/mod*_llava* @zucchini-nlp @arthurzucker
+/src/transformers/models/llava_next/mod*_llava_next* @zucchini-nlp
+/src/transformers/models/llava_next_video/mod*_llava_next_video* @zucchini-nlp
+/src/transformers/models/llava_onevision/mod*_llava_onevision* @zucchini-nlp
+/src/transformers/models/lxmert/mod*_lxmert* @zucchini-nlp
+/src/transformers/models/matcha/mod*_matcha* @zucchini-nlp
+/src/transformers/models/mgp_str/mod*_mgp_str* @zucchini-nlp
+/src/transformers/models/mllama/mod*_mllama* @zucchini-nlp
+/src/transformers/models/nougat/mod*_nougat* @NielsRogge
+/src/transformers/models/omdet_turbo/mod*_omdet_turbo* @qubvel @yonigozlan
+/src/transformers/models/oneformer/mod*_oneformer* @zucchini-nlp
+/src/transformers/models/owlvit/mod*_owlvit* @qubvel
+/src/transformers/models/owlv2/mod*_owlv2* @qubvel
+/src/transformers/models/paligemma/mod*_paligemma* @zucchini-nlp @molbap
+/src/transformers/models/perceiver/mod*_perceiver* @zucchini-nlp
+/src/transformers/models/pix2struct/mod*_pix2struct* @zucchini-nlp
+/src/transformers/models/pixtral/mod*_pixtral* @zucchini-nlp @ArthurZucker 
+/src/transformers/models/qwen2_audio/mod*_qwen2_audio* @zucchini-nlp @ArthurZucker 
+/src/transformers/models/qwen2_vl/mod*_qwen2_vl* @zucchini-nlp @ArthurZucker 
+/src/transformers/models/sam/mod*_sam* @zucchini-nlp @ArthurZucker 
+/src/transformers/models/siglip/mod*_siglip* @zucchini-nlp
+/src/transformers/models/speech_encoder_decoder/mod*_speech_encoder_decoder* @zucchini-nlp
+/src/transformers/models/tapas/mod*_tapas* @NielsRogge
+/src/transformers/models/trocr/mod*_trocr* @zucchini-nlp
+/src/transformers/models/tvlt/mod*_tvlt* @zucchini-nlp
+/src/transformers/models/tvp/mod*_tvp* @zucchini-nlp
+/src/transformers/models/udop/mod*_udop* @zucchini-nlp
+/src/transformers/models/video_llava/mod*_video_llava* @zucchini-nlp
+/src/transformers/models/vilt/mod*_vilt* @zucchini-nlp
+/src/transformers/models/vipllava/mod*_vipllava* @zucchini-nlp
+/src/transformers/models/vision_encoder_decoder/mod*_vision_encoder_decoder* @Rocketknight1
+/src/transformers/models/vision_text_dual_encoder/mod*_vision_text_dual_encoder* @Rocketknight1
+/src/transformers/models/visual_bert/mod*_visual_bert* @zucchini-nlp
+/src/transformers/models/xclip/mod*_xclip* @zucchini-nlp
+
+# Reinforcement learning models
+/src/transformers/models/decision_transformer/mod*_decision_transformer* @Rocketknight1
+/src/transformers/models/trajectory_transformer/mod*_trajectory_transformer* @Rocketknight1
+
+# Time series models
+/src/transformers/models/autoformer/mod*_autoformer* @Rocketknight1
+/src/transformers/models/informer/mod*_informer* @Rocketknight1
+/src/transformers/models/patchtsmixer/mod*_patchtsmixer* @Rocketknight1
+/src/transformers/models/patchtst/mod*_patchtst* @Rocketknight1
+/src/transformers/models/time_series_transformer/mod*_time_series_transformer* @Rocketknight1
+
+# Graph models
+/src/transformers/models/graphormer/mod*_graphormer* @clefourrier
+
+# Finally, files with no owners that shouldn't generate pings, usually automatically generated and checked in the CI
+utils/dummy*

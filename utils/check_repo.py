@@ -946,7 +946,6 @@ DEPRECATED_OBJECTS = [
     "LineByLineTextDataset",
     "LineByLineWithRefDataset",
     "LineByLineWithSOPTextDataset",
-    "LogitsWarper",
     "NerPipeline",
     "PretrainedBartModel",
     "PretrainedFSMTModel",
@@ -974,6 +973,7 @@ DEPRECATED_OBJECTS = [
     "xnli_processors",
     "xnli_tasks_num_labels",
     "TFTrainingArguments",
+    "OwlViTFeatureExtractor",
 ]
 
 # Exceptionally, some objects should not be documented after all rules passed.

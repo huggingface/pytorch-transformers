@@ -151,9 +151,9 @@ class FuyuForCausalLM(FuyuPreTrainedModel, GenerationMixin):
         super().__init__(config)
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.text_config.vocab_size
-        self.language_model = AutoModelForCausalLM.from_config(
-            config.text_config, attn_implementation=config._attn_implementation
-        )
+        self.language_model = AutoModelForCausalLM.from_config(config.text_config)
+        if self.language_model._tied_weights_keys is not None:
+            self._tied_weights_keys = [f"language_model.{k}" for k in self.language_model._tied_weights_keys]
 
         self.vision_embed_tokens = nn.Linear(
             config.patch_size * config.patch_size * config.num_channels, config.hidden_size
@@ -180,9 +180,6 @@ class FuyuForCausalLM(FuyuPreTrainedModel, GenerationMixin):
 
     def get_decoder(self):
         return self.language_model.get_decoder()
-
-    def tie_weights(self):
-        return self.language_model.tie_weights()
 
     def gather_continuous_embeddings(
         self,

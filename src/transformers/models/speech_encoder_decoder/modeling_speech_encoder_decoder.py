@@ -261,6 +261,9 @@ class SpeechEncoderDecoderModel(PreTrainedModel, GenerationMixin):
     def get_decoder(self):
         return self.decoder
 
+    def get_input_embeddings(self):
+        return self.decoder.get_input_embeddings()
+
     def get_output_embeddings(self):
         return self.decoder.get_output_embeddings()
 

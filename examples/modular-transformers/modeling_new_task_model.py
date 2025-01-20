@@ -107,7 +107,6 @@ class NewTaskModelPreTrainedModel(PreTrainedModel):
     _supports_cache_class = True
     _supports_quantized_cache = True
     _supports_static_cache = True
-    _supports_cache_class = True
     _supports_flash_attn_2 = True
     _supports_sdpa = True
 
@@ -248,9 +247,6 @@ class NewTaskModelForNewTask(NewTaskModelPreTrainedModel, GenerationMixin):
 
     def get_decoder(self):
         return self.language_model.get_decoder()
-
-    def tie_weights(self):
-        return self.language_model.tie_weights()
 
     def _update_causal_mask(
         self,

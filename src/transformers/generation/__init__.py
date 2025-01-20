@@ -68,7 +68,6 @@ else:
         "LogitNormalization",
         "LogitsProcessor",
         "LogitsProcessorList",
-        "LogitsWarper",
         "MinLengthLogitsProcessor",
         "MinNewTokensLengthLogitsProcessor",
         "MinPLogitsWarper",
@@ -89,7 +88,6 @@ else:
         "WatermarkLogitsProcessor",
     ]
     _import_structure["stopping_criteria"] = [
-        "MaxNewTokensCriteria",
         "MaxLengthCriteria",
         "MaxTimeCriteria",
         "ConfidenceCriteria",
@@ -230,7 +228,6 @@ if TYPE_CHECKING:
             LogitNormalization,
             LogitsProcessor,
             LogitsProcessorList,
-            LogitsWarper,
             MinLengthLogitsProcessor,
             MinNewTokensLengthLogitsProcessor,
             MinPLogitsWarper,
@@ -254,7 +251,6 @@ if TYPE_CHECKING:
             ConfidenceCriteria,
             EosTokenCriteria,
             MaxLengthCriteria,
-            MaxNewTokensCriteria,
             MaxTimeCriteria,
             StoppingCriteria,
             StoppingCriteriaList,

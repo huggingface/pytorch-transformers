@@ -32,7 +32,6 @@ from transformers.testing_utils import (
     require_accelerate,
     require_fsdp,
     require_torch_accelerator,
-    require_torch_gpu,
     require_torch_multi_accelerator,
     slow,
     torch_device,
@@ -288,7 +287,7 @@ class TrainerIntegrationFSDP(TestCasePlus, TrainerIntegrationCommon):
 
     @require_torch_multi_accelerator
     @slow
-    @require_torch_gpu
+    @require_torch_accelerator
     @require_fsdp
     def test_fsdp_cpu_offloading(self):
         try:

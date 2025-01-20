@@ -22,6 +22,7 @@ from transformers import MixtralConfig, is_torch_available
 from transformers.testing_utils import (
     require_flash_attn,
     require_torch,
+    require_torch_accelerator,
     require_torch_gpu,
     slow,
     torch_device,
@@ -471,7 +472,7 @@ class MixtralIntegrationTest(unittest.TestCase):
             cls.cuda_compute_capability_major_version = torch.cuda.get_device_capability()[0]
 
     @slow
-    @require_torch_gpu
+    @require_torch_accelerator
     def test_small_model_logits(self):
         model_id = "hf-internal-testing/Mixtral-tiny"
         dummy_input = torch.LongTensor([[0, 1, 0], [0, 1, 0]]).to(torch_device)
@@ -507,7 +508,7 @@ class MixtralIntegrationTest(unittest.TestCase):
         )
 
     @slow
-    @require_torch_gpu
+    @require_torch_accelerator
     def test_small_model_logits_batched(self):
         model_id = "hf-internal-testing/Mixtral-tiny"
         dummy_input = torch.LongTensor([[0, 0, 0, 0, 0, 0, 1, 2, 3], [1, 1, 2, 3, 4, 5, 6, 7, 8]]).to(torch_device)

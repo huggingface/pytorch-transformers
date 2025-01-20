@@ -580,7 +580,7 @@ class _BaseAutoModelClass:
             model_class ([`PreTrainedModel`]):
                 The model to register.
         """
-        if hasattr(model_class, "config_class") and str(model_class.config_class) != str(config_class):
+        if hasattr(model_class, "config_class") and model_class.config_class.__name__ != config_class.__name__:
             raise ValueError(
                 "The model class you are passing has a `config_class` attribute that is not consistent with the "
                 f"config class you passed (model has {model_class.config_class} and you passed {config_class}. Fix "

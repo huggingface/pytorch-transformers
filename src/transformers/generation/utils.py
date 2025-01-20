@@ -4427,6 +4427,10 @@ class GenerationMixin:
             return input_ids
 
 
+
+
+
+
 def _speculative_sampling(
     candidate_input_ids,
     candidate_logits,

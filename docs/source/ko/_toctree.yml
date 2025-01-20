@@ -92,6 +92,8 @@
         title: 시각적 질의응답 (Visual Question Answering)
       - local: in_translation
         title: (번역중) Text to speech
+      - local: tasks/video_text_to_text
+        title: 영상 기반 텍스트 변환 (video-text-to-text)
     title: 멀티모달
   - isExpanded: false
     sections:

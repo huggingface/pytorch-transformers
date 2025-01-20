@@ -848,9 +848,19 @@ class ViTMAEDecoder(nn.Module):
         )
 
         self.decoder_norm = nn.LayerNorm(config.decoder_hidden_size, eps=config.layer_norm_eps)
-        self.decoder_pred = nn.Linear(
-            config.decoder_hidden_size, config.patch_size**2 * config.num_channels, bias=True
-        )  # encoder to decoder
+
+        # encoder to decoder
+        if isinstance(config.patch_size, tuple):
+            self.decoder_pred = nn.Linear(
+                config.decoder_hidden_size,
+                config.patch_size[0] * config.patch_size[1] * config.num_channels,
+                bias=True,
+            )
+        else:
+            self.decoder_pred = nn.Linear(
+                config.decoder_hidden_size, config.patch_size**2 * config.num_channels, bias=True
+            )
+
         self.gradient_checkpointing = False
         self.config = config
         self.initialize_weights(num_patches)

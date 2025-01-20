@@ -358,23 +358,23 @@ class FocalNetModulation(nn.Module):
 
         # pre linear projection
         x = self.projection_in(hidden_state).permute(0, 3, 1, 2).contiguous()
-        q, ctx, self.gates = torch.split(x, (num_channels, num_channels, self.focal_level + 1), 1)
+        q, ctx, gates = torch.split(x, (num_channels, num_channels, self.focal_level + 1), 1)
 
         # context aggreation
         ctx_all = 0
         for level in range(self.focal_level):
             ctx = self.focal_layers[level](ctx)
-            ctx_all = ctx_all + ctx * self.gates[:, level : level + 1]
+            ctx_all = ctx_all + ctx * gates[:, level : level + 1]
         ctx_global = self.activation(ctx.mean(2, keepdim=True).mean(3, keepdim=True))
-        ctx_all = ctx_all + ctx_global * self.gates[:, self.focal_level :]
+        ctx_all = ctx_all + ctx_global * gates[:, self.focal_level :]
 
         # normalize context
         if self.normalize_modulator:
             ctx_all = ctx_all / (self.focal_level + 1)
 
         # focal modulation
-        self.modulator = self.projection_context(ctx_all)
-        x_out = q * self.modulator
+        modulator = self.projection_context(ctx_all)
+        x_out = q * modulator
         x_out = x_out.permute(0, 2, 3, 1).contiguous()
         if self.use_post_layernorm_in_modulation:
             x_out = self.layernorm(x_out)

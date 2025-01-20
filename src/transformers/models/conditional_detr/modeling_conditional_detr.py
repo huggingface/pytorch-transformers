@@ -1731,7 +1731,11 @@ class ConditionalDetrForObjectDetection(ConditionalDetrPreTrainedModel):
         # class logits + predicted bounding boxes
         logits = self.class_labels_classifier(sequence_output)
 
-        reference = outputs.reference_points if return_dict else outputs[-1]
+        # Index [-2] is valid only if `output_attentions` and `output_hidden_states`
+        # are not specified, otherwise it will be another index which is hard to determine.
+        # Leave it as is, because it's not a common case to use
+        # return_dict=False + output_attentions=True / output_hidden_states=True
+        reference = outputs.reference_points if return_dict else outputs[-2]
         reference_before_sigmoid = inverse_sigmoid(reference).transpose(0, 1)
 
         hs = sequence_output
@@ -2101,7 +2105,7 @@ class ConditionalDetrMHAttentionMap(nn.Module):
         weights = torch.einsum("bqnc,bnchw->bqnhw", queries_per_head * self.normalize_fact, keys_per_head)
 
         if mask is not None:
-            weights.masked_fill_(mask.unsqueeze(1).unsqueeze(1), torch.finfo(weights.dtype).min)
+            weights = weights.masked_fill(mask.unsqueeze(1).unsqueeze(1), torch.finfo(weights.dtype).min)
         weights = nn.functional.softmax(weights.flatten(2), dim=-1).view(weights.size())
         weights = self.dropout(weights)
         return weights

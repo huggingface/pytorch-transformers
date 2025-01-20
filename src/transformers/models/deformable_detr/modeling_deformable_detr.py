@@ -40,6 +40,7 @@ from ...utils import (
     is_ninja_available,
     is_timm_available,
     is_torch_cuda_available,
+    is_torchdynamo_compiling,
     logging,
     replace_return_docstrings,
     requires_backends,
@@ -705,7 +706,7 @@ class DeformableDetrMultiscaleDeformableAttention(nn.Module):
         else:
             raise ValueError(f"Last dim of reference_points must be 2 or 4, but got {reference_points.shape[-1]}")
 
-        if self.disable_custom_kernels or MultiScaleDeformableAttention is None:
+        if self.disable_custom_kernels or MultiScaleDeformableAttention is None or is_torchdynamo_compiling():
             # PyTorch implementation
             output = multi_scale_deformable_attention(
                 value, spatial_shapes_list, sampling_locations, attention_weights
@@ -1606,7 +1607,7 @@ class DeformableDetrModel(DeformableDetrPreTrainedModel):
         Args:
             enc_output (Tensor[batch_size, sequence_length, hidden_size]): Output of the encoder.
             padding_mask (Tensor[batch_size, sequence_length]): Padding mask for `enc_output`.
-            spatial_shapes (Tensor[num_feature_levels, 2]): Spatial shapes of the feature maps.
+            spatial_shapes (List[Tuple[int, int]]): Spatial shapes of the feature maps.
 
         Returns:
             `tuple(torch.FloatTensor)`: A tuple of feature map and bbox prediction.
@@ -1786,7 +1787,7 @@ class DeformableDetrModel(DeformableDetrPreTrainedModel):
         enc_outputs_coord_logits = None
         if self.config.two_stage:
             object_query_embedding, output_proposals = self.gen_encoder_output_proposals(
-                encoder_outputs[0], ~mask_flatten, spatial_shapes
+                encoder_outputs[0], ~mask_flatten, spatial_shapes_list
             )
 
             # hack implementation for two-stage Deformable DETR

@@ -813,10 +813,11 @@ class Swin2SRModel(Swin2SRPreTrainedModel):
         self.config = config
 
         if config.num_channels == 3 and config.num_channels_out == 3:
-            rgb_mean = (0.4488, 0.4371, 0.4040)
-            self.mean = torch.Tensor(rgb_mean).view(1, 3, 1, 1)
+            mean = torch.tensor([0.4488, 0.4371, 0.4040]).view(1, 3, 1, 1)
         else:
-            self.mean = torch.zeros(1, 1, 1, 1)
+            mean = torch.zeros(1, 1, 1, 1)
+        self.register_buffer("mean", mean, persistent=False)
+
         self.img_range = config.img_range
 
         self.first_convolution = nn.Conv2d(config.num_channels, config.embed_dim, 3, 1, 1)
@@ -851,8 +852,8 @@ class Swin2SRModel(Swin2SRPreTrainedModel):
         pixel_values = nn.functional.pad(pixel_values, (0, modulo_pad_width, 0, modulo_pad_height), "reflect")
 
         # 2. normalize
-        self.mean = self.mean.type_as(pixel_values)
-        pixel_values = (pixel_values - self.mean) * self.img_range
+        mean = self.mean.type_as(pixel_values)
+        pixel_values = (pixel_values - mean) * self.img_range
 
         return pixel_values
 

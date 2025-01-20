@@ -1424,7 +1424,11 @@ class MaskFormerTransformerModule(nn.Module):
         # repeat the queries "q c -> b q c"
         batch_size = image_features.shape[0]
         queries_embeddings = self.queries_embedder.weight.unsqueeze(0).repeat(batch_size, 1, 1)
-        inputs_embeds = torch.zeros_like(queries_embeddings, requires_grad=True)
+        inputs_embeds = torch.zeros_like(queries_embeddings)
+
+        # torch.export.export does no support requires_grad
+        if self.training:
+            inputs_embeds.requires_grad_(True)
 
         batch_size, num_channels, height, width = image_features.shape
         # rearrange both image_features and object_queries "b c h w -> b (h w) c"

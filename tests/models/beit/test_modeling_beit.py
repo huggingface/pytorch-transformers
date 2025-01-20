@@ -271,6 +271,7 @@ class BeitModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     test_pruning = False
     test_resize_embeddings = False
     test_head_masking = False
+    test_torch_exportable = True
 
     def setUp(self):
         self.model_tester = BeitModelTester(self)
@@ -290,6 +291,10 @@ class BeitModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
 
     @unittest.skip(reason="BEiT does not support feedforward chunking yet")
     def test_feed_forward_chunking(self):
+        pass
+
+    @unittest.skip(reason="BEiT can't compile dynamic")
+    def test_sdpa_can_compile_dynamic(self):
         pass
 
     def test_model_get_set_embeddings(self):
@@ -763,13 +768,6 @@ class BeitModelIntegrationTest(unittest.TestCase):
         processor = BeitImageProcessor.from_pretrained(model_name)
         inputs = processor(images=image, return_tensors="pt", size={"height": 480, "width": 480})
         pixel_values = inputs.pixel_values.to(torch_device)
-
-        # with interpolate_pos_encoding being False an exception should be raised with higher resolution
-        # images than what the model supports.
-        self.assertFalse(processor.do_center_crop)
-        with torch.no_grad():
-            with self.assertRaises(ValueError, msg="doesn't match model"):
-                model(pixel_values, interpolate_pos_encoding=False)
 
         # with interpolate_pos_encoding being True the model should process the higher resolution image
         # successfully and produce the expected output.

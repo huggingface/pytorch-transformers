@@ -172,6 +172,8 @@ class SegGptModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     test_resize_embeddings = False
     test_head_masking = False
     test_torchscript = False
+    test_torch_exportable = True
+
     pipeline_model_mapping = (
         {"feature-extraction": SegGptModel, "mask-generation": SegGptModel} if is_torch_available() else {}
     )

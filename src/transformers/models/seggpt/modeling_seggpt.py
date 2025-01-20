@@ -817,8 +817,11 @@ class SegGptModel(SegGptPreTrainedModel):
         # and reconstructed together (In-Context Painting).
         if bool_masked_pos is None:
             num_patches = self.embeddings.patch_embeddings.num_patches
-            bool_masked_pos = torch.zeros(num_patches, dtype=torch.bool).to(pixel_values.device)
-            bool_masked_pos[num_patches // 2 :] = 1
+            bool_masked_pos_zeros = torch.zeros(num_patches // 2, dtype=torch.bool, device=pixel_values.device)
+            bool_masked_pos_ones = torch.ones(
+                num_patches - num_patches // 2, dtype=torch.bool, device=pixel_values.device
+            )
+            bool_masked_pos = torch.cat([bool_masked_pos_zeros, bool_masked_pos_ones])
             bool_masked_pos = bool_masked_pos.unsqueeze(0)
 
         embedding_output = self.embeddings(
@@ -975,8 +978,11 @@ class SegGptForImageSegmentation(SegGptPreTrainedModel):
 
         if bool_masked_pos is None:
             num_patches = self.model.embeddings.patch_embeddings.num_patches
-            bool_masked_pos = torch.zeros(num_patches, dtype=torch.bool).to(pixel_values.device)
-            bool_masked_pos[num_patches // 2 :] = 1
+            bool_masked_pos_zeros = torch.zeros(num_patches // 2, dtype=torch.bool, device=pixel_values.device)
+            bool_masked_pos_ones = torch.ones(
+                num_patches - num_patches // 2, dtype=torch.bool, device=pixel_values.device
+            )
+            bool_masked_pos = torch.cat([bool_masked_pos_zeros, bool_masked_pos_ones])
             bool_masked_pos = bool_masked_pos.unsqueeze(0)
 
         outputs = self.model(

@@ -192,7 +192,7 @@ class DynamicPad2d(nn.Module):
 
         self.compute_padding = compute_padding
 
-    def __call__(self, input):
+    def forward(self, input):
         # Get width and height
         input_height, input_width = input.size()[-2:]
 

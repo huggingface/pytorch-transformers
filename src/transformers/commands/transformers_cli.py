@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from argparse import ArgumentParser
+from transformers import HfArgumentParser
 
 from .add_new_model_like import AddNewModelLikeCommand
+from .chat import ChatCommand
 from .convert import ConvertCommand
 from .download import DownloadCommand
 from .env import EnvironmentCommand
@@ -26,10 +27,11 @@ from .user import UserCommands
 
 
 def main():
-    parser = ArgumentParser("Transformers CLI tool", usage="transformers-cli <command> [<args>]")
+    parser = HfArgumentParser(prog="Transformers CLI tool", usage="transformers-cli <command> [<args>]")
     commands_parser = parser.add_subparsers(help="transformers-cli command helpers")
 
     # Register commands
+    ChatCommand.register_subcommand(commands_parser)
     ConvertCommand.register_subcommand(commands_parser)
     DownloadCommand.register_subcommand(commands_parser)
     EnvironmentCommand.register_subcommand(commands_parser)

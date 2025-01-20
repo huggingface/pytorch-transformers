@@ -114,18 +114,23 @@ class HfArgumentParser(ArgumentParser):
     The class is designed to play well with the native argparse. In particular, you can add more (non-dataclass backed)
     arguments to the parser after initialization and you'll get the output back after parsing as an additional
     namespace. Optional: To create sub argument groups use the `_argument_group_name` attribute in the dataclass.
+
+    Args:
+        dataclass_types (`DataClassType` or `Iterable[DataClassType]`, *optional*):
+            Dataclass type, or list of dataclass types for which we will "fill" instances with the parsed args.
+        kwargs (`Dict[str, Any]`, *optional*):
+            Passed to `argparse.ArgumentParser()` in the regular way.
     """
 
     dataclass_types: Iterable[DataClassType]
 
-    def __init__(self, dataclass_types: Union[DataClassType, Iterable[DataClassType]], **kwargs):
-        """
-        Args:
-            dataclass_types:
-                Dataclass type, or list of dataclass types for which we will "fill" instances with the parsed args.
-            kwargs (`Dict[str, Any]`, *optional*):
-                Passed to `argparse.ArgumentParser()` in the regular way.
-        """
+    def __init__(self, dataclass_types: Optional[Union[DataClassType, Iterable[DataClassType]]] = None, **kwargs):
+        # Make sure dataclass_types is an iterable
+        if dataclass_types is None:
+            dataclass_types = []
+        elif not isinstance(dataclass_types, Iterable):
+            dataclass_types = [dataclass_types]
+
         # To make the default appear when using --help
         if "formatter_class" not in kwargs:
             kwargs["formatter_class"] = ArgumentDefaultsHelpFormatter

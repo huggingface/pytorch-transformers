@@ -2992,6 +2992,10 @@ class ModelTesterMixin:
             model.to(torch_device)
             model.eval()
 
+            model_forward_args = inspect.signature(model.forward).parameters
+            if "inputs_embeds" not in model_forward_args:
+                self.skipTest(reason="This model doesn't use `inputs_embeds`")
+
             inputs = copy.deepcopy(self._prepare_for_class(inputs_dict, model_class))
 
             if not self.is_encoder_decoder:

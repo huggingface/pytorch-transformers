@@ -74,15 +74,17 @@ class PixtralVisionModelTester:
         self.initializer_range = initializer_range
         self.scope = scope
 
-        # in ViT, the seq length equals the number of patches + 1 (we add 1 for the [CLS] token)
-        num_patches = (image_size // patch_size) ** 2
-        self.seq_length = num_patches + 1
+        # in Pixtral, the seq length equals the number of patches * batch_size because the patches are flattened
+        self.seq_length = (image_size // patch_size) ** 2 * batch_size
 
     def prepare_config_and_inputs(self):
         pixel_values = floats_tensor([self.batch_size, self.num_channels, self.image_size, self.image_size])
+        image_sizes = torch.tensor(
+            [[self.image_size, self.image_size]] * self.batch_size, dtype=torch.long, device=torch_device
+        )
         config = self.get_config()
 
-        return config, pixel_values
+        return config, pixel_values, image_sizes
 
     def get_config(self):
         return PixtralVisionConfig(
@@ -127,8 +129,8 @@ class PixtralVisionModelTester:
 
     def prepare_config_and_inputs_for_common(self):
         config_and_inputs = self.prepare_config_and_inputs()
-        config, pixel_values = config_and_inputs
-        inputs_dict = {"pixel_values": pixel_values}
+        config, pixel_values, image_sizes = config_and_inputs
+        inputs_dict = {"pixel_values": pixel_values, "image_sizes": image_sizes}
         return config, inputs_dict
 
 
@@ -142,113 +144,17 @@ class PixtralVisionModelModelTest(ModelTesterMixin, unittest.TestCase):
     test_pruning = False
     test_head_masking = False
     test_torchscript = False
+    test_resize_embeddings = False
 
     def setUp(self):
         self.model_tester = PixtralVisionModelTester(self)
         self.config_tester = ConfigTester(self, config_class=PixtralVisionConfig, has_text_modality=False)
 
-    @unittest.skip("model does not support input embeds")
-    def test_inputs_embeds(self):
-        pass
-
-    @unittest.skip("model does not support input embeds")
-    def test_inputs_embeds_matches_input_ids(self):
-        pass
-
-    @unittest.skip(
-        reason="This architecure seem to not compute gradients properly when using GC, check: https://github.com/huggingface/transformers/pull/27124"
-    )
-    def test_training_gradient_checkpointing(self):
-        pass
-
-    @unittest.skip(
-        reason="This architecure seem to not compute gradients properly when using GC, check: https://github.com/huggingface/transformers/pull/27124"
-    )
-    def test_training_gradient_checkpointing_use_reentrant(self):
-        pass
-
-    @unittest.skip(
-        reason="This architecure seem to not compute gradients properly when using GC, check: https://github.com/huggingface/transformers/pull/27124"
-    )
-    def test_training_gradient_checkpointing_use_reentrant_false(self):
-        pass
-
-    @unittest.skip(reason="Compile not yet supported because in Pixtral models")
-    def test_sdpa_can_compile_dynamic(self):
-        pass
-
-    @unittest.skip(reason="Compile not yet supported because in Pixtral models")
-    def test_sdpa_can_dispatch_on_flash(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_attention_outputs(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_cpu_offload(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_batching_equivalence(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_disk_offload_bin(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_retain_grad_hidden_states_attentions(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_multi_gpu_data_parallel_forward(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_model_parallelism(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_model_outputs_equivalence(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_save_load(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
     def test_model_get_set_embeddings(self):
-        pass
+        config, _ = self.model_tester.prepare_config_and_inputs_for_common()
 
-    @unittest.skip(reason="Not supported yet")
-    def test_resize_tokens_embeddings(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_model_main_input_name(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_initialization(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_hidden_states_output(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_gradient_checkpointing_backward_compatibility(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_feed_forward_chunking(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_disk_offload_safetensors(self):
-        pass
-
-    @unittest.skip(reason="Not supported yet")
-    def test_determinism(self):
-        pass
+        for model_class in self.all_model_classes:
+            model = model_class(config)
+            self.assertIsInstance(model.get_input_embeddings(), (torch.nn.Module))
+            x = model.get_output_embeddings()
+            self.assertTrue(x is None or isinstance(x, torch.nn.Linear))

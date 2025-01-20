@@ -133,6 +133,7 @@ from . import (
     jamba,
     jetmoe,
     kosmos2,
+    kosmos2_5,
     layoutlm,
     layoutlmv2,
     layoutlmv3,

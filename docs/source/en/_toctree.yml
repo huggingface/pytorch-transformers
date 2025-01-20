@@ -886,6 +886,8 @@
         title: InstructBlipVideo
       - local: model_doc/kosmos-2
         title: KOSMOS-2
+      - local: model_doc/kosmos-2.5
+        title: KOSMOS-2.5
       - local: model_doc/layoutlm
         title: LayoutLM
       - local: model_doc/layoutlmv2

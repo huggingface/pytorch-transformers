@@ -302,7 +302,7 @@ class Pix2StructVisionLayer(nn.Module):
 
 
 class Pix2StructVisionEncoder(nn.Module):
-    def __init__(self, config: Pix2StructConfig) -> None:
+    def __init__(self, config: Pix2StructVisionConfig) -> None:
         super().__init__()
         self.config = config
         self.layer = nn.ModuleList([Pix2StructVisionLayer(config) for _ in range(config.num_hidden_layers)])
@@ -531,7 +531,7 @@ class Pix2StructVisionModel(Pix2StructPreTrainedModel):
     supports_gradient_checkpointing = True
     _no_split_modules = ["Pix2StructVisionLayer"]
 
-    def __init__(self, config: Pix2StructConfig):
+    def __init__(self, config: Pix2StructVisionConfig):
         super().__init__(config)
         self.config = config
 

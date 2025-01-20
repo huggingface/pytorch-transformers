@@ -72,6 +72,7 @@ PROCESSOR_MAPPING_NAMES = OrderedDict(
         ("instructblip", "InstructBlipProcessor"),
         ("instructblipvideo", "InstructBlipVideoProcessor"),
         ("kosmos-2", "Kosmos2Processor"),
+        ("kosmos-2.5", "Kosmos2_5Processor"),
         ("layoutlmv2", "LayoutLMv2Processor"),
         ("layoutlmv3", "LayoutLMv3Processor"),
         ("llava", "LlavaProcessor"),

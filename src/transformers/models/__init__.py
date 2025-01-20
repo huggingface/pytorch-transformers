@@ -73,6 +73,7 @@ from . import (
     deit,
     deprecated,
     depth_anything,
+    d_fine,
     detr,
     dialogpt,
     diffllama,

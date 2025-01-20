@@ -1005,7 +1005,14 @@ class Blip2TextModelTester:
 # this model tester uses an encoder-decoder language model (T5)
 class Blip2ModelTester:
     def __init__(
-        self, parent, vision_kwargs=None, qformer_kwargs=None, text_kwargs=None, is_training=True, num_query_tokens=10
+        self,
+        parent,
+        vision_kwargs=None,
+        qformer_kwargs=None,
+        text_kwargs=None,
+        is_training=True,
+        num_query_tokens=10,
+        image_token_index=4,
     ):
         if vision_kwargs is None:
             vision_kwargs = {}
@@ -1022,6 +1029,7 @@ class Blip2ModelTester:
         self.seq_length = self.text_model_tester.seq_length  # need seq_length for common tests
         self.is_training = is_training
         self.num_query_tokens = num_query_tokens
+        self.image_token_index = image_token_index
 
     def prepare_config_and_inputs(self):
         _, pixel_values = self.vision_model_tester.prepare_config_and_inputs()
@@ -1044,6 +1052,7 @@ class Blip2ModelTester:
             qformer_config=self.qformer_model_tester.get_config(),
             text_config=self.text_model_tester.get_config(),
             num_query_tokens=self.num_query_tokens,
+            image_token_index=self.image_token_index,
         )
 
     def create_and_check_for_conditional_generation(
@@ -2112,7 +2121,7 @@ class Blip2ModelIntegrationTest(unittest.TestCase):
         generated_text = processor.batch_decode(predictions, skip_special_tokens=True)[0].strip()
 
         # Test output
-        self.assertEqual(predictions[0].tolist(), [2, 102, 693, 2828, 15, 5, 4105, 19, 10, 2335, 50118])
+        self.assertEqual(predictions[0].tolist(), [50265] * 32 + [2, 102, 693, 2828, 15, 5, 4105, 19, 10, 2335, 50118])
         self.assertEqual("a woman sitting on the beach with a dog", generated_text)
 
         # image and context
@@ -2125,7 +2134,30 @@ class Blip2ModelIntegrationTest(unittest.TestCase):
         # Test output
         self.assertEqual(
             predictions[0].tolist(),
-            [2, 45641, 35, 61, 343, 16, 42, 116, 31652, 35, 24, 18, 45, 10, 343, 6, 24, 18, 10, 4105, 50118],
+            [50265] * 32
+            + [
+                2,
+                45641,
+                35,
+                61,
+                343,
+                16,
+                42,
+                116,
+                31652,
+                35,
+                24,
+                18,
+                45,
+                10,
+                343,
+                6,
+                24,
+                18,
+                10,
+                4105,
+                50118,
+            ],  # fmt: skip
         )
         self.assertEqual(generated_text, "Question: which city is this? Answer: it's not a city, it's a beach")
 
@@ -2169,37 +2201,7 @@ class Blip2ModelIntegrationTest(unittest.TestCase):
         )
         self.assertEqual(generated_text, "san diego")
 
-    def test_expansion_in_processing(self):
-        processor = Blip2Processor.from_pretrained("Salesforce/blip2-opt-2.7b")
-        model = Blip2ForConditionalGeneration.from_pretrained(
-            "Salesforce/blip2-opt-2.7b", torch_dtype=torch.float16
-        ).to(torch_device)
-
-        image = prepare_img()
-        prompt = "Question: which city is this? Answer:"
-
-        # Make sure we will go the legacy path by setting these args to None
-        processor.num_query_tokens = None
-        model.config.image_token_index = None
-        inputs = processor(images=image, text=prompt, return_tensors="pt").to(torch_device, dtype=torch.float16)
-
-        predictions = model.generate(**inputs, do_sample=False, max_new_tokens=15)
-        generated_text = processor.batch_decode(predictions, skip_special_tokens=True)[0].strip()
-
-        # Add args to the config to trigger new logic when inputs are expanded in processing file
-        processor.num_query_tokens = model.config.num_query_tokens
-        processor.tokenizer.add_special_tokens({"additional_special_tokens": ["<image>"]})
-        model.config.image_token_index = len(processor.tokenizer) - 1
-        model.resize_token_embeddings(processor.tokenizer.vocab_size, pad_to_multiple_of=64)
-
-        # Generate again with new inputs
-        inputs = processor(images=image, text=prompt, return_tensors="pt").to(torch_device, dtype=torch.float16)
-        predictions_expanded = model.generate(**inputs, do_sample=False, max_new_tokens=15)
-        generated_text_expanded = processor.batch_decode(predictions_expanded, skip_special_tokens=True)[0].strip()
-
-        self.assertTrue(generated_text_expanded == generated_text)
-
-    @require_torch_accelerator
+    @require_torch_gpu
     def test_inference_itm(self):
         model_name = "Salesforce/blip2-itm-vit-g"
         processor = Blip2Processor.from_pretrained(model_name)

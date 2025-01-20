@@ -626,7 +626,7 @@
         "model_classes": [
             "Blip2ForConditionalGeneration"
         ],
-        "sha": "35e1ef43da3554af62eb29a7b3dbbef3f3bef48e"
+        "sha": "d0de11fd1f8ca481231c07ee0934924be96cb281"
     },
     "Blip2Model": {
         "tokenizer_classes": [

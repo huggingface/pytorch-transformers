@@ -870,33 +870,3 @@ class InstructBlipVideoModelIntegrationTest(unittest.TestCase):
             generated_text,
             "Explain what is happening in this short video. a baby girl wearing glasses is reading a book on the bed 1080p",
         )
-
-    def test_expansion_in_processing(self):
-        processor = InstructBlipVideoProcessor.from_pretrained("Salesforce/instructblip-vicuna-7b")
-        model = InstructBlipVideoForConditionalGeneration.from_pretrained(
-            "Salesforce/instructblip-vicuna-7b", load_in_8bit=True, low_cpu_mem_usage=True
-        )
-
-        clip = prepare_video()
-        prompt = "Explain what is happening in this short video."
-
-        # Make sure we will go the legacy path by setting these args to None
-        processor.num_query_tokens = None
-        model.config.video_token_index = None
-        inputs = processor(images=clip, text=prompt, return_tensors="pt").to(torch_device, dtype=torch.float16)
-
-        predictions = model.generate(**inputs, do_sample=False, max_new_tokens=15)
-        generated_text = processor.batch_decode(predictions, skip_special_tokens=True)[0].strip()
-
-        # Add args to the config to trigger new logic when inputs are expanded in processing file
-        processor.num_query_tokens = model.config.num_query_tokens
-        processor.tokenizer.add_special_tokens({"additional_special_tokens": ["<video>"]})
-        model.config.video_token_index = len(processor.tokenizer) - 1
-        model.resize_token_embeddings(len(processor.tokenizer), pad_to_multiple_of=64)
-
-        # Generate again with new inputs
-        inputs = processor(images=clip, text=prompt, return_tensors="pt").to(torch_device, dtype=torch.float16)
-        predictions_expanded = model.generate(**inputs, do_sample=False, max_new_tokens=15)
-        generated_text_expanded = processor.batch_decode(predictions_expanded, skip_special_tokens=True)[0].strip()
-
-        self.assertTrue(generated_text_expanded == generated_text)

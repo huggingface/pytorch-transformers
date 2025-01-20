@@ -47,6 +47,9 @@ class Blip2ProcessorTest(ProcessorTesterMixin, unittest.TestCase):
     def get_image_processor(self, **kwargs):
         return AutoProcessor.from_pretrained(self.tmpdirname, **kwargs).image_processor
 
+    def prepare_processor_dict(self):
+        return {"num_query_tokens": 1}
+
     def tearDown(self):
         shutil.rmtree(self.tmpdirname)
 
@@ -81,26 +84,12 @@ class Blip2ProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         for key in input_feat_extract.keys():
             self.assertAlmostEqual(input_feat_extract[key].sum(), input_processor[key].sum(), delta=1e-2)
 
-    def test_tokenizer(self):
-        image_processor = self.get_image_processor()
-        tokenizer = self.get_tokenizer()
-
-        processor = Blip2Processor(tokenizer=tokenizer, image_processor=image_processor)
-
-        input_str = "lower newer"
-
-        encoded_processor = processor(text=input_str)
-
-        encoded_tok = tokenizer(input_str, return_token_type_ids=False)
-
-        for key in encoded_tok.keys():
-            self.assertListEqual(encoded_tok[key], encoded_processor[key][0])
-
     def test_processor(self):
         image_processor = self.get_image_processor()
         tokenizer = self.get_tokenizer()
+        processor_kwargs = self.prepare_processor_dict()
 
-        processor = Blip2Processor(tokenizer=tokenizer, image_processor=image_processor)
+        processor = Blip2Processor(tokenizer=tokenizer, image_processor=image_processor, **processor_kwargs)
 
         input_str = "lower newer"
         image_input = self.prepare_image_inputs()
@@ -116,8 +105,9 @@ class Blip2ProcessorTest(ProcessorTesterMixin, unittest.TestCase):
     def test_tokenizer_decode(self):
         image_processor = self.get_image_processor()
         tokenizer = self.get_tokenizer()
+        processor_kwargs = self.prepare_processor_dict()
 
-        processor = Blip2Processor(tokenizer=tokenizer, image_processor=image_processor)
+        processor = Blip2Processor(tokenizer=tokenizer, image_processor=image_processor, **processor_kwargs)
 
         predicted_ids = [[1, 4, 5, 8, 1, 0, 8], [3, 4, 3, 1, 1, 8, 9]]
 
@@ -129,8 +119,9 @@ class Blip2ProcessorTest(ProcessorTesterMixin, unittest.TestCase):
     def test_model_input_names(self):
         image_processor = self.get_image_processor()
         tokenizer = self.get_tokenizer()
+        processor_kwargs = self.prepare_processor_dict()
 
-        processor = Blip2Processor(tokenizer=tokenizer, image_processor=image_processor)
+        processor = Blip2Processor(tokenizer=tokenizer, image_processor=image_processor, **processor_kwargs)
 
         input_str = "lower newer"
         image_input = self.prepare_image_inputs()

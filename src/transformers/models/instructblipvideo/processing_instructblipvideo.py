@@ -24,7 +24,6 @@ from ...image_utils import VideoInput
 from ...processing_utils import ProcessorMixin
 from ...tokenization_utils_base import (
     AddedToken,
-    BatchEncoding,
     PaddingStrategy,
     PreTokenizedInput,
     TextInput,
@@ -69,6 +68,7 @@ class InstructBlipVideoProcessor(ProcessorMixin):
         else:
             self.video_token = tokenizer.video_token
         self.num_query_tokens = num_query_tokens
+
         super().__init__(image_processor, tokenizer, qformer_tokenizer)
 
     def __call__(
@@ -108,52 +108,6 @@ class InstructBlipVideoProcessor(ProcessorMixin):
             elif not isinstance(text, list) and not isinstance(text[0], str):
                 raise ValueError("Invalid input text. Please provide a string, or a list of strings")
 
-            _text_encoding = self.tokenizer(
-                text=text,
-                add_special_tokens=add_special_tokens,
-                padding=padding,
-                truncation=truncation,
-                max_length=max_length,
-                stride=stride,
-                pad_to_multiple_of=pad_to_multiple_of,
-                return_attention_mask=return_attention_mask,
-                return_overflowing_tokens=return_overflowing_tokens,
-                return_special_tokens_mask=return_special_tokens_mask,
-                return_offsets_mapping=return_offsets_mapping,
-                return_token_type_ids=return_token_type_ids,
-                return_length=return_length,
-                verbose=verbose,
-                return_tensors=None,  # required to concatenate below
-                **kwargs,
-            )
-
-            # if we know how many query tokens, expand text inside processor. We need this hacky manipulation
-            # because BLIP expects image tokens to be at the beginning even before BOS token
-            if self.num_query_tokens is not None and images is not None:
-                text_encoding = {}
-                video_tokens = (
-                    self.video_token.content * self.num_query_tokens * 4
-                )  # InstrucBLIP works with 4 frames only
-                video_token_encoding = self.tokenizer(
-                    [video_tokens] * len(text), add_special_tokens=False, return_tensors=None
-                )
-                for k in _text_encoding:
-                    text_encoding[k] = [
-                        img_encoding + txt_encoding
-                        for img_encoding, txt_encoding in zip(video_token_encoding[k], _text_encoding[k])
-                    ]
-            else:
-                text_encoding = _text_encoding
-                if images is not None:
-                    logger.warning_once(
-                        "Expanding inputs for video tokens in InstructBLIPVideo should be done in processing. "
-                        "Please follow instruction here (https://gist.github.com/zucchini-nlp/65f22892b054dc0d68228af56fbeaac2) to update your InstructBLIPVideo model. "
-                        "Using processors without these attributes in the config is deprecated and will throw an error in v4.47."
-                    )
-
-            # cast to desired return tensors type after concatenating
-            text_encoding = BatchEncoding(text_encoding, tensor_type=return_tensors)
-            encoding.update(text_encoding)
             qformer_text_encoding = self.qformer_tokenizer(
                 text=text,
                 add_special_tokens=add_special_tokens,
@@ -174,6 +128,44 @@ class InstructBlipVideoProcessor(ProcessorMixin):
             )
             encoding["qformer_input_ids"] = qformer_text_encoding.pop("input_ids")
             encoding["qformer_attention_mask"] = qformer_text_encoding.pop("attention_mask")
+
+            # We need this hacky manipulation because BLIP expects image tokens to be at the beginning even before BOS token
+            # InstrucBLIP works with 4 frames only
+            text_encoding = self.tokenizer(
+                text=text,
+                add_special_tokens=add_special_tokens,
+                padding=padding,
+                truncation=truncation,
+                max_length=max_length,
+                stride=stride,
+                pad_to_multiple_of=pad_to_multiple_of,
+                return_attention_mask=return_attention_mask,
+                return_overflowing_tokens=return_overflowing_tokens,
+                return_special_tokens_mask=return_special_tokens_mask,
+                return_offsets_mapping=return_offsets_mapping,
+                return_token_type_ids=return_token_type_ids,
+                return_length=return_length,
+                verbose=verbose,
+                return_tensors=None,  # required to concatenate below
+                **kwargs,
+            )
+
+            video_tokens = self.video_token.content * self.num_query_tokens * 4
+            video_text_encoding = self.tokenizer(
+                video_tokens,
+                add_special_tokens=False,  # required to concatenate below
+                return_attention_mask=return_attention_mask,
+                return_overflowing_tokens=return_overflowing_tokens,
+                return_special_tokens_mask=return_special_tokens_mask,
+                return_offsets_mapping=return_offsets_mapping,
+                return_token_type_ids=return_token_type_ids,
+                return_length=return_length,
+                return_tensors=None,
+            )
+            for k in text_encoding:
+                text_encoding[k] = [video_text_encoding[k] + sample for sample in text_encoding[k]]
+
+            encoding.update(text_encoding)
 
         if images is not None:
             image_encoding = self.image_processor(images, return_tensors=return_tensors)

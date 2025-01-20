@@ -24,7 +24,6 @@ from ...image_utils import ImageInput
 from ...processing_utils import ProcessingKwargs, ProcessorMixin, Unpack
 from ...tokenization_utils_base import (
     AddedToken,
-    BatchEncoding,
     PreTokenizedInput,
     TextInput,
 )
@@ -84,6 +83,7 @@ class InstructBlipProcessor(ProcessorMixin):
         else:
             self.image_token = tokenizer.image_token
         self.num_query_tokens = num_query_tokens
+
         super().__init__(image_processor, tokenizer, qformer_tokenizer)
 
     def __call__(
@@ -117,7 +117,8 @@ class InstructBlipProcessor(ProcessorMixin):
             **kwargs,
         )
 
-        encoding = BatchFeature()
+        return_tensors = output_kwargs["text_kwargs"].pop("return_tensors", None)
+        encoding = {}
 
         if text is not None:
             if isinstance(text, str):
@@ -125,39 +126,26 @@ class InstructBlipProcessor(ProcessorMixin):
             elif not isinstance(text, list) and not isinstance(text[0], str):
                 raise ValueError("Invalid input text. Please provide a string, or a list of strings")
 
-            # we have to concatenate lists - so we keep track of return_tensors here
-            return_tensors = output_kwargs["text_kwargs"].pop("return_tensors", None)
-            _text_encoding = self.tokenizer(text, **output_kwargs["text_kwargs"], return_tensors=None)
-            output_kwargs["text_kwargs"]["return_tensors"] = return_tensors
-            # if we know how many query tokens, expand text inside processor. We need this hacky manipulation
-            # because BLIP expects image tokens to be at the beginning even before BOS token
-            if self.num_query_tokens is not None and images is not None:
-                text_encoding = {}
-                image_tokens = self.image_token.content * self.num_query_tokens
-                image_token_encoding = self.tokenizer(
-                    [image_tokens] * len(text), add_special_tokens=False, return_tensors=None
-                )
-                for k in _text_encoding:
-                    text_encoding[k] = [
-                        img_encoding + txt_encoding
-                        for img_encoding, txt_encoding in zip(image_token_encoding[k], _text_encoding[k])
-                    ]
-            else:
-                text_encoding = _text_encoding
-                if images is not None:
-                    logger.warning_once(
-                        "Expanding inputs for image tokens in InstructBLIP should be done in processing. "
-                        "Please follow instruction here (https://gist.github.com/zucchini-nlp/e9f20b054fa322f84ac9311d9ab67042) to update your InstructBLIP model. "
-                        "Using processors without these attributes in the config is deprecated and will throw an error in v4.50."
-                    )
-
-            # cast to desired return tensors type after concatenating
-            text_encoding = BatchEncoding(text_encoding, tensor_type=return_tensors)
-
-            encoding.update(text_encoding)
             qformer_text_encoding = self.qformer_tokenizer(text, **output_kwargs["text_kwargs"])
             encoding["qformer_input_ids"] = qformer_text_encoding.pop("input_ids")
             encoding["qformer_attention_mask"] = qformer_text_encoding.pop("attention_mask")
+
+            # We need this hacky manipulation because BLIP expects image tokens to be at the beginning even before BOS token
+            if output_kwargs["text_kwargs"].get("max_length") is not None:
+                output_kwargs["text_kwargs"]["max_length"] -= self.num_query_tokens
+            text_encoding = self.tokenizer(text, **output_kwargs["text_kwargs"])
+
+            # Image tokens should not be padded/truncated or prepended with special BOS token
+            image_tokens = self.image_token.content * self.num_query_tokens
+            output_kwargs["text_kwargs"]["add_special_tokens"] = False
+            output_kwargs["text_kwargs"]["padding"] = False
+            output_kwargs["text_kwargs"]["truncation"] = False
+            image_text_encoding = self.tokenizer(image_tokens, **output_kwargs["text_kwargs"])
+            for k in text_encoding:
+                text_encoding[k] = [image_text_encoding[k] + sample for sample in text_encoding[k]]
+            encoding.update(text_encoding)
+
+            encoding = BatchFeature(data=encoding, tensor_type=return_tensors)
 
         if images is not None:
             image_encoding = self.image_processor(images, **output_kwargs["images_kwargs"])

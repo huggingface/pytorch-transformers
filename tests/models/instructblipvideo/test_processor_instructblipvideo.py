@@ -59,6 +59,9 @@ class InstructBlipVideoProcessorTest(ProcessorTesterMixin, unittest.TestCase):
     def get_qformer_tokenizer(self, **kwargs):
         return AutoProcessor.from_pretrained(self.tmpdirname, **kwargs).qformer_tokenizer
 
+    def prepare_processor_dict(self):
+        return {"num_query_tokens": 1}
+
     def tearDown(self):
         shutil.rmtree(self.tmpdirname)
 
@@ -88,9 +91,13 @@ class InstructBlipVideoProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         image_processor = self.get_image_processor()
         tokenizer = self.get_tokenizer()
         qformer_tokenizer = self.get_qformer_tokenizer()
+        processor_kwargs = self.prepare_processor_dict()
 
         processor = InstructBlipVideoProcessor(
-            tokenizer=tokenizer, image_processor=image_processor, qformer_tokenizer=qformer_tokenizer
+            tokenizer=tokenizer,
+            image_processor=image_processor,
+            qformer_tokenizer=qformer_tokenizer,
+            **processor_kwargs,
         )
 
         image_input = self.prepare_image_inputs()
@@ -101,35 +108,17 @@ class InstructBlipVideoProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         for key in input_feat_extract.keys():
             self.assertAlmostEqual(input_feat_extract[key].sum(), input_processor[key].sum(), delta=1e-2)
 
-    def test_tokenizer(self):
-        image_processor = self.get_image_processor()
-        tokenizer = self.get_tokenizer()
-        qformer_tokenizer = self.get_qformer_tokenizer()
-
-        processor = InstructBlipVideoProcessor(
-            tokenizer=tokenizer, image_processor=image_processor, qformer_tokenizer=qformer_tokenizer
-        )
-
-        input_str = ["lower newer"]
-
-        encoded_processor = processor(text=input_str)
-
-        encoded_tokens = tokenizer(input_str, return_token_type_ids=False)
-        encoded_tokens_qformer = qformer_tokenizer(input_str, return_token_type_ids=False)
-
-        for key in encoded_tokens.keys():
-            self.assertListEqual(encoded_tokens[key], encoded_processor[key])
-
-        for key in encoded_tokens_qformer.keys():
-            self.assertListEqual(encoded_tokens_qformer[key], encoded_processor["qformer_" + key])
-
     def test_processor(self):
         image_processor = self.get_image_processor()
         tokenizer = self.get_tokenizer()
         qformer_tokenizer = self.get_qformer_tokenizer()
+        processor_kwargs = self.prepare_processor_dict()
 
         processor = InstructBlipVideoProcessor(
-            tokenizer=tokenizer, image_processor=image_processor, qformer_tokenizer=qformer_tokenizer
+            tokenizer=tokenizer,
+            image_processor=image_processor,
+            qformer_tokenizer=qformer_tokenizer,
+            **processor_kwargs,
         )
 
         input_str = "lower newer"
@@ -139,7 +128,7 @@ class InstructBlipVideoProcessorTest(ProcessorTesterMixin, unittest.TestCase):
 
         self.assertListEqual(
             list(inputs.keys()),
-            ["input_ids", "attention_mask", "qformer_input_ids", "qformer_attention_mask", "pixel_values"],
+            ["qformer_input_ids", "qformer_attention_mask", "input_ids", "attention_mask", "pixel_values"],
         )
 
         # test if it raises when no input is passed
@@ -150,9 +139,13 @@ class InstructBlipVideoProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         image_processor = self.get_image_processor()
         tokenizer = self.get_tokenizer()
         qformer_tokenizer = self.get_qformer_tokenizer()
+        processor_kwargs = self.prepare_processor_dict()
 
         processor = InstructBlipVideoProcessor(
-            tokenizer=tokenizer, image_processor=image_processor, qformer_tokenizer=qformer_tokenizer
+            tokenizer=tokenizer,
+            image_processor=image_processor,
+            qformer_tokenizer=qformer_tokenizer,
+            **processor_kwargs,
         )
 
         predicted_ids = [[1, 4, 5, 8, 1, 0, 8], [3, 4, 3, 1, 1, 8, 9]]
@@ -166,9 +159,13 @@ class InstructBlipVideoProcessorTest(ProcessorTesterMixin, unittest.TestCase):
         image_processor = self.get_image_processor()
         tokenizer = self.get_tokenizer()
         qformer_tokenizer = self.get_qformer_tokenizer()
+        processor_kwargs = self.prepare_processor_dict()
 
         processor = InstructBlipVideoProcessor(
-            tokenizer=tokenizer, image_processor=image_processor, qformer_tokenizer=qformer_tokenizer
+            tokenizer=tokenizer,
+            image_processor=image_processor,
+            qformer_tokenizer=qformer_tokenizer,
+            **processor_kwargs,
         )
 
         input_str = "lower newer"
@@ -178,5 +175,5 @@ class InstructBlipVideoProcessorTest(ProcessorTesterMixin, unittest.TestCase):
 
         self.assertListEqual(
             list(inputs.keys()),
-            ["input_ids", "attention_mask", "qformer_input_ids", "qformer_attention_mask", "pixel_values"],
+            ["qformer_input_ids", "qformer_attention_mask", "input_ids", "attention_mask", "pixel_values"],
         )

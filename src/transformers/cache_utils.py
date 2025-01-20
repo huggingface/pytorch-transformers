@@ -1069,11 +1069,14 @@ class StaticCache(Cache):
             The maximum sequence length with which the model will be used.
         device (`torch.device` or `str`):
             The device on which the cache should be initialized. Should be the same as the layer.
+            The recommended way however is not not indicate any `device`, in that case cache will be initialized on `meta`
+            device by default, and then moved to input device when updating.
         dtype (`torch.dtype`, *optional*, defaults to `torch.float32`):
             The default `dtype` to use when initializing the layer.
         layer_device_map(`Dict[int, Union[str, torch.device, int]]]`, `optional`):
             Mapping between the layers and its device. This is required when you are manually initializing the cache and the model is splitted between differents gpus.
             You can know which layers mapped to which device by checking the associated device_map: `model.hf_device_map`.
+
 
     Example:
 
@@ -1096,6 +1099,7 @@ class StaticCache(Cache):
     """
 
     # TODO (joao): remove `=None` in non-optional arguments in v4.46. Remove from `OBJECTS_TO_IGNORE` as well.
+    @deprecate_kwarg("layer_device_map", version="4.52.0")
     def __init__(
         self,
         config: PretrainedConfig,
@@ -1122,6 +1126,7 @@ class StaticCache(Cache):
         )
 
         self.dtype = dtype
+        self.device = torch.device(device) if device is not None else torch.device("meta")
         self.num_key_value_heads = (
             config.num_attention_heads
             if getattr(config, "num_key_value_heads", None) is None
@@ -1136,7 +1141,7 @@ class StaticCache(Cache):
             if layer_device_map is not None:
                 layer_device = layer_device_map[idx]
             else:
-                layer_device = device
+                layer_device = self.device
             new_layer_key_cache = torch.zeros(cache_shape, dtype=self.dtype, device=layer_device)
             new_layer_value_cache = torch.zeros(cache_shape, dtype=self.dtype, device=layer_device)
             # Notes:
@@ -1182,10 +1187,24 @@ class StaticCache(Cache):
 
         cache_position = cache_kwargs.get("cache_position")
 
-        k_out = self.key_cache[layer_idx]
-        v_out = self.value_cache[layer_idx]
-        key_states = key_states.to(k_out.dtype)
-        value_states = value_states.to(v_out.dtype)
+        if self.key_cache[layer_idx].device.type == "meta":
+            k_out = torch.zeros(
+                *self.key_cache[layer_idx].size(),
+                device=key_states.device,
+                dtype=key_states.dtype,
+            )
+            v_out = torch.zeros(
+                *self.value_cache[layer_idx].size(),
+                device=value_states.device,
+                dtype=value_states.dtype,
+            )
+            self.key_cache[layer_idx] = k_out
+            self.value_cache[layer_idx] = v_out
+        else:
+            k_out = self.key_cache[layer_idx]
+            v_out = self.value_cache[layer_idx]
+            key_states = key_states.to(k_out.dtype)
+            value_states = value_states.to(v_out.dtype)
 
         if cache_position is None:
             k_out.copy_(key_states)
@@ -1209,6 +1228,8 @@ class StaticCache(Cache):
         # Occupied cache == any slot in the 3rd dim (sequence length) holds a non-zero value. To save on compute, let's
         # limit the check to the first batch member and head dimension.
         # TODO: deprecate this function in favor of `cache_position`
+        if self.key_cache[layer_idx].device.type == "meta":
+            return 0
         return (self.key_cache[layer_idx][0, 0].any(dim=-1)).sum()
 
     def get_max_cache_shape(self) -> Optional[int]:
@@ -1217,9 +1238,10 @@ class StaticCache(Cache):
     def reset(self):
         """Resets the cache values while preserving the objects"""
         for layer_idx in range(len(self.key_cache)):
-            # In-place ops prevent breaking the static address
-            self.key_cache[layer_idx].zero_()
-            self.value_cache[layer_idx].zero_()
+            if self.key_cache[layer_idx].device.type != "meta":
+                # In-place ops prevent breaking the static address
+                self.key_cache[layer_idx].zero_()
+                self.value_cache[layer_idx].zero_()
 
     @property
     def batch_size(self):
@@ -1257,6 +1279,8 @@ class SlidingWindowCache(StaticCache):
             The maximum sequence length with which the model will be used.
         device (`torch.device` or `str`):
             The device on which the cache should be initialized. Should be the same as the layer.
+            The recommended way however is not not indicate any `device`, in that case cache will be initialized on `meta`
+            device by default, and then moved to input device when updating.
         dtype (`torch.dtype`, *optional*, defaults to `torch.float32`):
             The default `dtype` to use when initializing the layer.
         layer_device_map(`Dict[int, Union[str, torch.device, int]]]`, `optional`):
@@ -1321,8 +1345,25 @@ class SlidingWindowCache(StaticCache):
         cache_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[torch.Tensor]:
         cache_position = cache_kwargs.get("cache_position")
-        k_out = self.key_cache[layer_idx]
-        v_out = self.value_cache[layer_idx]
+
+        if self.key_cache[layer_idx].device.type == "meta":
+            k_out = torch.zeros(
+                *self.key_cache[layer_idx].size(),
+                device=key_states.device,
+                dtype=key_states.dtype,
+            )
+            v_out = torch.zeros(
+                *self.value_cache[layer_idx].size(),
+                device=value_states.device,
+                dtype=value_states.dtype,
+            )
+            self.key_cache[layer_idx] = k_out
+            self.value_cache[layer_idx] = v_out
+        else:
+            k_out = self.key_cache[layer_idx]
+            v_out = self.value_cache[layer_idx]
+            key_states = key_states.to(k_out.dtype)
+            value_states = value_states.to(v_out.dtype)
 
         # assume this only happens in prefill phase when prompt length > sliding_window_size (= max_cache_len)
         if cache_position.shape[0] > self.max_cache_len:
@@ -1365,9 +1406,10 @@ class SlidingWindowCache(StaticCache):
 
     def reset(self):
         for layer_idx in range(len(self.key_cache)):
-            # In-place ops prevent breaking the static address
-            self.key_cache[layer_idx].zero_()
-            self.value_cache[layer_idx].zero_()
+            if self.key_cache[layer_idx].device.type != "meta":
+                # In-place ops prevent breaking the static address
+                self.key_cache[layer_idx].zero_()
+                self.value_cache[layer_idx].zero_()
 
 
 class EncoderDecoderCache(Cache):
@@ -1561,8 +1603,10 @@ class HybridCache(Cache):
             smaller batch size is used.
         max_cache_len (`int`):
             The maximum sequence length with which the model will be used.
-        device (`torch.device` or `str`, *optional*, defaults to `"cpu"`):
+        device (`torch.device` or `str`, *optional*):
             The device on which the cache should be initialized. Should be the same as the layer.
+            The recommended way however is not not indicate any `device`, in that case cache will be initialized on `meta`
+            device by default, and then moved to input device when updating.
         dtype (torch.dtype, *optional*, defaults to `torch.float32`):
             The default `dtype` to use when initializing the layer.
         layer_device_map(`Dict[int, Union[str, torch.device, int]]]`, `optional`):
@@ -1590,12 +1634,13 @@ class HybridCache(Cache):
     """
 
     # TODO (joao): remove `=None` in non-optional arguments in v4.46. Remove from `OBJECTS_TO_IGNORE` as well.
+    @deprecate_kwarg("layer_device_map", version="4.52.0")
     def __init__(
         self,
         config: PretrainedConfig,
         batch_size: int = None,
         max_cache_len: int = None,
-        device: Union[torch.device, str] = "cpu",
+        device: Union[torch.device, str] = None,
         dtype: torch.dtype = torch.float32,
         max_batch_size: Optional[int] = None,
         layer_device_map: Optional[Dict[int, Union[str, torch.device, int]]] = None,
@@ -1623,9 +1668,11 @@ class HybridCache(Cache):
         self.num_key_value_heads = (
             config.num_attention_heads if config.num_key_value_heads is None else config.num_key_value_heads
         )
+
+        self.device = torch.device(device) if device is not None else torch.device("meta")
         layer_switch = config.sliding_window_pattern if hasattr(config, "sliding_window_pattern") else 2  # 2 is for BC
         self.is_sliding = torch.tensor(
-            [bool((i + 1) % layer_switch) for i in range(config.num_hidden_layers)], dtype=torch.bool, device=device
+            [bool((i + 1) % layer_switch) for i in range(config.num_hidden_layers)], dtype=torch.bool
         )
         self.key_cache: List[torch.Tensor] = []
         self.value_cache: List[torch.Tensor] = []
@@ -1640,7 +1687,7 @@ class HybridCache(Cache):
             if layer_device_map is not None:
                 layer_device = layer_device_map[i]
             else:
-                layer_device = device
+                layer_device = self.device
             # Note: `mark_static_address` is used to tag the cache as an fixed data pointer, preventing cuda graph
             # breaks when updating the cache.
             cache_shape = global_cache_shape if not self.is_sliding[i] else sliding_cache_shape
@@ -1696,8 +1743,26 @@ class HybridCache(Cache):
     ) -> Tuple[torch.Tensor]:
         cache_position = cache_kwargs.get("cache_position")
         sliding_window = cache_kwargs.get("sliding_window")
-        k_out = self.key_cache[layer_idx]
-        v_out = self.value_cache[layer_idx]
+
+        if self.key_cache[layer_idx].device.type == "meta":
+            k_out = torch.zeros(
+                *self.key_cache[layer_idx].size(),
+                device=key_states.device,
+                dtype=key_states.dtype,
+            )
+            v_out = torch.zeros(
+                *self.value_cache[layer_idx].size(),
+                device=value_states.device,
+                dtype=value_states.dtype,
+            )
+            self.key_cache[layer_idx] = k_out
+            self.value_cache[layer_idx] = v_out
+        else:
+            k_out = self.key_cache[layer_idx]
+            v_out = self.value_cache[layer_idx]
+            key_states = key_states.to(k_out.dtype)
+            value_states = value_states.to(v_out.dtype)
+
         if sliding_window:
             update_fn = self._sliding_update
         else:
@@ -1725,14 +1790,18 @@ class HybridCache(Cache):
                 "`get_seq_length` on `HybridCache` may get inconsistent results depending on the layer index. "
                 "Using the `layer_idx` argument is not supported."
             )
+
+        if self.key_cache[layer_idx].device.type == "meta":
+            return 0
         return (self.key_cache[layer_idx][0, 0].any(dim=-1)).sum()
 
     def reset(self):
         """Resets the cache values while preserving the objects"""
         for layer_idx in range(len(self.key_cache)):
-            # In-place ops prevent breaking the static address
-            self.key_cache[layer_idx].zero_()
-            self.value_cache[layer_idx].zero_()
+            if self.key_cache[layer_idx].device.type != "meta":
+                # In-place ops prevent breaking the static address
+                self.key_cache[layer_idx].zero_()
+                self.value_cache[layer_idx].zero_()
 
     @property
     def batch_size(self):
@@ -1757,10 +1826,14 @@ class MambaCache:
             The default `dtype` to use when initializing the layer.
         device (`torch.device` or `str`, *optional*):
             The device on which the cache should be initialized. Should be the same as the layer.
+            The recommended way however is not not indicate any `device`, in that case cache will be initialized on `meta`
+            device by default, and then moved to input device when updating.
 
     Attributes:
         dtype: (`torch.dtype`):
             The default `dtype` used to initializing the cache.
+        device (`torch.device`):
+            The default device on which the cache was initialized.
         intermediate_size: (`int`):
             Model's intermediate_size taken from config.
         ssm_state_size: (`int`):
@@ -1809,31 +1882,44 @@ class MambaCache:
         self.intermediate_size = config.intermediate_size
         self.ssm_state_size = config.state_size
         self.conv_kernel_size = config.conv_kernel
+        self.device = torch.device(device) if device is not None else torch.device("meta")
 
-        self.conv_states: torch.Tensor = torch.zeros(
-            config.num_hidden_layers,
-            self.max_batch_size,
-            self.intermediate_size,
-            self.conv_kernel_size,
-            device=device,
-            dtype=dtype,
-        )
-        self.ssm_states: torch.Tensor = torch.zeros(
-            config.num_hidden_layers,
-            self.max_batch_size,
-            self.intermediate_size,
-            self.ssm_state_size,
-            device=device,
-            dtype=dtype,
-        )
+        self.conv_states: List[torch.Tensor] = []
+        self.ssm_states: List[torch.Tensor] = []
+        for _ in range(config.num_hidden_layers):
+            conv_state: torch.Tensor = torch.zeros(
+                self.max_batch_size,
+                self.intermediate_size,
+                self.conv_kernel_size,
+                device=self.device,
+                dtype=dtype,
+            )
+            ssm_state: torch.Tensor = torch.zeros(
+                self.max_batch_size,
+                self.intermediate_size,
+                self.ssm_state_size,
+                device=self.device,
+                dtype=dtype,
+            )
 
-        torch._dynamo.mark_static_address(self.conv_states)
-        torch._dynamo.mark_static_address(self.ssm_states)
+            torch._dynamo.mark_static_address(conv_state)
+            torch._dynamo.mark_static_address(ssm_state)
+            self.conv_states.append(conv_state)
+            self.ssm_states.append(ssm_state)
 
     def update_conv_state(
         self, layer_idx: int, new_conv_state: torch.Tensor, cache_position: torch.LongTensor
     ) -> torch.Tensor:
-        conv_state = self.conv_states[layer_idx]
+        if self.conv_states[layer_idx].device.type == "meta":
+            conv_state = torch.zeros(
+                *self.conv_states[layer_idx].size(),
+                device=new_conv_state.device,
+                dtype=new_conv_state.dtype,
+            )
+            self.conv_states[layer_idx] = conv_state
+        else:
+            conv_state = self.conv_states[layer_idx]
+
         cache_position = cache_position.clamp(0, self.conv_kernel_size - 1)
 
         conv_state = conv_state.roll(shifts=-1, dims=-1)
@@ -1843,12 +1929,25 @@ class MambaCache:
         return self.conv_states[layer_idx]
 
     def update_ssm_state(self, layer_idx: int, new_ssm_state: torch.Tensor):
-        self.ssm_states[layer_idx] = new_ssm_state.to(self.ssm_states.device)
+        if self.ssm_states[layer_idx].device.type == "meta":
+            ssm_state = torch.zeros(
+                *self.ssm_states[layer_idx].size(),
+                device=new_ssm_state.device,
+                dtype=new_ssm_state.dtype,
+            )
+            self.ssm_states[layer_idx] = ssm_state
+        else:
+            ssm_state = self.ssm_states[layer_idx]
+
+        self.ssm_states[layer_idx] = new_ssm_state
         return self.ssm_states[layer_idx]
 
     def reset(self):
-        self.conv_states.zero_()
-        self.ssm_states.zero_()
+        for layer_idx in range(len(self.conv_states)):
+            if self.conv_states[layer_idx].device.type != "meta":
+                # In-place ops prevent breaking the static address
+                self.conv_states[layer_idx].zero_()
+                self.ssm_states[layer_idx].zero_()
 
     @property
     def batch_size(self):
@@ -1920,6 +2019,7 @@ class OffloadedStaticCache(StaticCache):
         ```
     """
 
+    @deprecate_kwarg("layer_device_map", version="4.52.0")
     def __init__(
         self,
         config: PretrainedConfig,
@@ -1930,9 +2030,10 @@ class OffloadedStaticCache(StaticCache):
         offload_device: Union[str, torch.device] = torch.device("cpu"),
         layer_device_map: Optional[Dict[int, Union[str, torch.device, int]]] = None,
     ) -> None:
+        super(Cache, self).__init__()
         self.max_batch_size = max_batch_size
         self.max_cache_len = config.max_position_embeddings if max_cache_len is None else max_cache_len
-        self.device = torch.device(device) if layer_device_map is None else layer_device_map[0]
+        self.device = torch.device(device) if layer_device_map is None else torch.device(layer_device_map[0])
         self.offload_device = torch.device(offload_device)
         self.dtype = dtype if dtype is not None else torch.float32
 

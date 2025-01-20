@@ -1633,45 +1633,12 @@ class GenerationMixin:
                     # models. May cause trobles with non-text modalities.
                     cache_dtype = self.get_output_embeddings().weight.dtype
 
-            def get_layer_device_map(execution_device_map: Optional[dict] = None):
-                num_hidden_layers = self.config.get_text_config().num_hidden_layers
-                if execution_device_map is None:
-                    return None
-                elif len(execution_device_map) == 1 and "" in execution_device_map:
-                    return {idx: execution_device_map[""] for idx in range(num_hidden_layers)}
-                layer_device_map = {}
-                for layer in execution_device_map:
-                    for idx in range(num_hidden_layers):
-                        if f".{idx}." in f"{layer}.":
-                            layer_device_map[idx] = execution_device_map[layer]
-                            break
-                for idx in range(num_hidden_layers):
-                    if idx not in layer_device_map:
-                        raise RuntimeError(f"layer {idx} has not been mapped to a device.")
-                return layer_device_map
-
-            execution_device_map = None
-            # Taken from dispatch_model from accelerate.
-            # This is needed here if we don't want to make changes in accelerate in order to save execution_device
-            # For offloaded case, we need to get the execution device, not just the device where it is offloaded
-            if hasattr(self, "hf_device_map"):
-                if set(self.hf_device_map.values()) == {"cpu"} or set(self.hf_device_map.values()) == {"cpu", "disk"}:
-                    main_device = "cpu"
-                else:
-                    main_device = [d for d in self.hf_device_map.values() if d not in ["cpu", "disk"]][0]
-                execution_device_map = {
-                    name: main_device if device in ["cpu", "disk"] else device
-                    for name, device in self.hf_device_map.items()
-                }
-            layer_device_map = get_layer_device_map(execution_device_map)
-
             cache_kwargs = {
                 "config": self.config.get_text_config(),
                 "max_batch_size": batch_size,
                 "max_cache_len": max_cache_len,
-                "device": device,
                 "dtype": cache_dtype,
-                "layer_device_map": layer_device_map,
+                "device": device if cache_implementation == "offloaded_static" else None,
             }
             self._cache = cache_cls(**cache_kwargs)
             if requires_cross_attention_cache:

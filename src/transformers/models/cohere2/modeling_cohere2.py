@@ -581,7 +581,6 @@ class Cohere2Model(Cohere2PreTrainedModel):
                 self.config,
                 max_batch_size=batch_size,
                 max_cache_len=seq_len,
-                device=self.device,
                 dtype=inputs_embeds.dtype,
             )
 

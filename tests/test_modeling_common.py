@@ -4642,6 +4642,11 @@ class ModelTesterMixin:
                     fa2_correctly_converted = True
                     break
 
+            fa2_correctly_converted = (
+                fa2_correctly_converted
+                if not model_class._supports_flex_attn
+                else fa2_model.config._attn_implementation == "flash_attention_2"
+            )
             self.assertTrue(fa2_correctly_converted)
 
             _ = fa2_model(input_ids=dummy_input, attention_mask=dummy_attention_mask)
@@ -4660,6 +4665,11 @@ class ModelTesterMixin:
                         fa2_correctly_converted = True
                         break
 
+                fa2_correctly_converted = (
+                    fa2_correctly_converted
+                    if not model_class._supports_flex_attn
+                    else model_from_pretrained.config._attn_implementation == "flash_attention_2"
+                )
                 self.assertFalse(fa2_correctly_converted)
 
     def _get_custom_4d_mask_test_data(self):

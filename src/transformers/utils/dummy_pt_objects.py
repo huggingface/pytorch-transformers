@@ -2289,6 +2289,20 @@ class ColPaliPreTrainedModel(metaclass=DummyObject):
         requires_backends(self, ["torch"])
 
 
+class ColQwen2ForRetrieval(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
+class ColQwen2PreTrainedModel(metaclass=DummyObject):
+    _backends = ["torch"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torch"])
+
+
 class ConditionalDetrForObjectDetection(metaclass=DummyObject):
     _backends = ["torch"]
 

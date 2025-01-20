@@ -408,8 +408,6 @@
         title: Falcon3
       - local: model_doc/falcon_mamba
         title: FalconMamba
-      - local: model_doc/fastspeech2_conformer
-        title: FastSpeech2Conformer
       - local: model_doc/flan-t5
         title: FLAN-T5
       - local: model_doc/flan-ul2
@@ -766,6 +764,8 @@
         title: dac
       - local: model_doc/encodec
         title: EnCodec
+      - local: model_doc/fastspeech2_conformer
+        title: FastSpeech2Conformer
       - local: model_doc/hubert
         title: Hubert
       - local: model_doc/mctct

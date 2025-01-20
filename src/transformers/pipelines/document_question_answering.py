@@ -485,6 +485,11 @@ class DocumentQuestionAnsweringPipeline(ChunkPipeline):
         for output in model_outputs:
             words = output["words"]
 
+            if self.framework == "pt" and output["start_logits"].dtype in (torch.bfloat16, torch.float16):
+                output["start_logits"] = output["start_logits"].float()
+            if self.framework == "pt" and output["end_logits"].dtype in (torch.bfloat16, torch.float16):
+                output["end_logits"] = output["end_logits"].float()
+
             starts, ends, scores, min_null_score = select_starts_ends(
                 start=output["start_logits"],
                 end=output["end_logits"],

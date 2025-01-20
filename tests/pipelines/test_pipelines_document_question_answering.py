@@ -14,7 +14,12 @@
 
 import unittest
 
-from transformers import MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING, AutoTokenizer, is_vision_available
+from transformers import (
+    MODEL_FOR_DOCUMENT_QUESTION_ANSWERING_MAPPING,
+    AutoTokenizer,
+    is_torch_available,
+    is_vision_available,
+)
 from transformers.pipelines import DocumentQuestionAnsweringPipeline, pipeline
 from transformers.pipelines.document_question_answering import apply_tesseract
 from transformers.testing_utils import (
@@ -24,12 +29,16 @@ from transformers.testing_utils import (
     require_pytesseract,
     require_tf,
     require_torch,
+    require_torch_bf16,
     require_vision,
     slow,
 )
 
 from .test_pipelines_common import ANY
 
+
+if is_torch_available():
+    import torch
 
 if is_vision_available():
     from PIL import Image
@@ -118,6 +127,42 @@ class DocumentQuestionAnsweringPipelineTests(unittest.TestCase):
     def test_small_model_pt(self):
         dqa_pipeline = pipeline(
             "document-question-answering", model="hf-internal-testing/tiny-random-layoutlmv2-for-dqa-test"
+        )
+        image = INVOICE_URL
+        question = "How many cats are there?"
+
+        expected_output = [
+            {"score": 0.0001, "answer": "oy 2312/2019", "start": 38, "end": 39},
+            {"score": 0.0001, "answer": "oy 2312/2019 DUE", "start": 38, "end": 40},
+        ]
+        outputs = dqa_pipeline(image=image, question=question, top_k=2)
+        self.assertEqual(nested_simplify(outputs, decimals=4), expected_output)
+
+        outputs = dqa_pipeline({"image": image, "question": question}, top_k=2)
+        self.assertEqual(nested_simplify(outputs, decimals=4), expected_output)
+
+        # This image does not detect ANY text in it, meaning layoutlmv2 should fail.
+        # Empty answer probably
+        image = "./tests/fixtures/tests_samples/COCO/000000039769.png"
+        outputs = dqa_pipeline(image=image, question=question, top_k=2)
+        self.assertEqual(outputs, [])
+
+        # We can optionnally pass directly the words and bounding boxes
+        image = "./tests/fixtures/tests_samples/COCO/000000039769.png"
+        words = []
+        boxes = []
+        outputs = dqa_pipeline(image=image, question=question, words=words, boxes=boxes, top_k=2)
+        self.assertEqual(outputs, [])
+
+    @require_torch
+    @require_torch_bf16
+    @require_detectron2
+    @require_pytesseract
+    def test_small_model_pt_bf16(self):
+        dqa_pipeline = pipeline(
+            "document-question-answering",
+            model="hf-internal-testing/tiny-random-layoutlmv2-for-dqa-test",
+            torch_dtype=torch.bfloat16,
         )
         image = INVOICE_URL
         question = "How many cats are there?"

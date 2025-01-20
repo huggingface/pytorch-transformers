@@ -39,7 +39,7 @@ class LlavaOnevisionProcessorKwargs(ProcessingKwargs, total=False):
             "padding": False,
         },
         "image_kwargs": {},
-        "video_kwargs": {},
+        "videos_kwargs": {},
     }
 
 

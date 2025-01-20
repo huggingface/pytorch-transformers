@@ -550,8 +550,8 @@ class M2M100SdpaAttention(M2M100Attention):
         # but we are fine here as `_shape` do call `.contiguous()`. Reference: https://github.com/pytorch/pytorch/issues/112577
         attn_output = torch.nn.functional.scaled_dot_product_attention(
             query_states,
-            key_states,
-            value_states,
+            key_states.to(query_states.device),
+            value_states.to(query_states.device),
             attn_mask=attention_mask,
             dropout_p=self.dropout if self.training else 0.0,
             is_causal=is_causal,
@@ -621,7 +621,7 @@ class M2M100EncoderLayer(nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = residual + hidden_states.to(residual.device)
 
         residual = hidden_states
         hidden_states = self.final_layer_norm(hidden_states)
@@ -629,7 +629,7 @@ class M2M100EncoderLayer(nn.Module):
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
         hidden_states = self.fc2(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-        hidden_states = residual + hidden_states
+        hidden_states = residual + hidden_states.to(residual.device)
 
         if hidden_states.dtype == torch.float16 and (
             torch.isinf(hidden_states).any() or torch.isnan(hidden_states).any()

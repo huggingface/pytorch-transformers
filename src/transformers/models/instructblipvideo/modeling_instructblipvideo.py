@@ -1493,7 +1493,7 @@ class InstructBlipVideoForConditionalGeneration(InstructBlipVideoPreTrainedModel
         # otherwise we expand manually by concatenating
         if getattr(self.config, "video_token_index", None) is not None:
             special_image_mask = (input_ids == self.config.video_token_index).unsqueeze(-1).expand_as(inputs_embeds)
-            inputs_embeds[special_image_mask] = language_model_inputs.flatten()
+            inputs_embeds[special_image_mask] = language_model_inputs.flatten().to(inputs_embeds.device)
         else:
             logger.warning_once(
                 "Expanding inputs for video tokens in InstructBLIPVideo should be done in processing. "
@@ -1641,7 +1641,7 @@ class InstructBlipVideoForConditionalGeneration(InstructBlipVideoPreTrainedModel
         # otherwise we expand manually by concatenating
         if getattr(self.config, "video_token_index", None) is not None:
             special_image_mask = (input_ids == self.config.video_token_index).unsqueeze(-1).expand_as(inputs_embeds)
-            inputs_embeds[special_image_mask] = language_model_inputs.flatten()
+            inputs_embeds[special_image_mask] = language_model_inputs.flatten().to(inputs_embeds.device)
         else:
             logger.warning_once(
                 "Expanding inputs for video tokens in InstructBLIPVideo should be done in processing. "

@@ -309,6 +309,7 @@ class FalconMambaMixer(nn.Module):
                 )  # [batch, intermediate_size, seq_len]
             else:
                 conv_state = cache_params.update_conv_state(self.layer_idx, hidden_states, cache_position)
+                conv_state = conv_state.to(self.conv1d.weight.device)
                 hidden_states = torch.sum(conv_state * self.conv1d.weight[:, 0, :], dim=-1)
                 if self.use_conv_bias:
                     hidden_states += self.conv1d.bias

@@ -1714,6 +1714,12 @@ class DataCollatorWithFlattening(DefaultDataCollator):
             return_tensors = self.return_tensors
         if separator_id is None:
             separator_id = self.separator_id
+        import torch
+
+        features = [
+            {k: v.flatten().tolist() if isinstance(v, torch.Tensor) else v for k, v in feature.items()}
+            for feature in features
+        ]
         is_labels_provided = "labels" in features[0]
         ret = {"input_ids": [], "labels": []}
         if self.return_position_ids:

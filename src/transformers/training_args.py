@@ -228,7 +228,7 @@ class TrainingArguments:
     command line.
 
     Parameters:
-        output_dir (`str`):
+        output_dir (`str`, *optional*):
             The output directory where the model predictions and checkpoints will be written.
         overwrite_output_dir (`bool`, *optional*, defaults to `False`):
             If `True`, overwrite the content of the output directory. Use this to continue training if `output_dir`
@@ -813,7 +813,8 @@ class TrainingArguments:
     """
 
     framework = "pt"
-    output_dir: str = field(
+    output_dir: Optional[str] = field(
+        default=None,
         metadata={"help": "The output directory where the model predictions and checkpoints will be written."},
     )
     overwrite_output_dir: bool = field(
@@ -1547,6 +1548,14 @@ class TrainingArguments:
     )
 
     def __post_init__(self):
+        # Set default output_dir if not provided
+        if self.output_dir is None:
+            self.output_dir = "tmp_trainer"
+            logger.info(
+                "No output directory specified, defaulting to 'tmp_trainer'. "
+                "To change this behavior, specify --output_dir when creating TrainingArguments."
+            )
+
         # Parse in args that could be `dict` sent in from the CLI as a string
         for field in _VALID_DICT_FIELDS:
             passed_value = getattr(self, field)

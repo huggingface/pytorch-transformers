@@ -41,6 +41,7 @@ MODEL_MAPPING_NAMES = OrderedDict(
         ("autoformer", "AutoformerModel"),
         ("bamba", "BambaModel"),
         ("bark", "BarkModel"),
+        ("style_text_to_speech_2", "StyleTextToSpeech2Model"),
         ("bart", "BartModel"),
         ("beit", "BeitModel"),
         ("bert", "BertModel"),
@@ -1361,6 +1362,7 @@ MODEL_FOR_TEXT_TO_WAVEFORM_MAPPING_NAMES = OrderedDict(
     [
         # Model for Text-To-Waveform mapping
         ("bark", "BarkModel"),
+        ("style_text_to_speech_2", "StyleTextToSpeech2Model"),
         ("fastspeech2_conformer", "FastSpeech2ConformerWithHifiGan"),
         ("musicgen", "MusicgenForConditionalGeneration"),
         ("musicgen_melody", "MusicgenMelodyForConditionalGeneration"),

@@ -796,6 +796,8 @@
         title: Speech2Text2
       - local: model_doc/speecht5
         title: SpeechT5
+      - local: model_doc/style_text_to_speech_2
+        title: StyleTTS2
       - local: model_doc/unispeech
         title: UniSpeech
       - local: model_doc/unispeech-sat

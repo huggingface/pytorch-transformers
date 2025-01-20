@@ -49,6 +49,7 @@ PROCESSOR_MAPPING_NAMES = OrderedDict(
         ("altclip", "AltCLIPProcessor"),
         ("aria", "AriaProcessor"),
         ("bark", "BarkProcessor"),
+        ("style_text_to_speech_2", "StyleTextToSpeech2Processor"),
         ("blip", "BlipProcessor"),
         ("blip-2", "Blip2Processor"),
         ("bridgetower", "BridgeTowerProcessor"),

@@ -1107,6 +1107,8 @@ class StaticCache(Cache):
         layer_device_map: Optional[Dict[int, Union[str, torch.device, int]]] = None,
     ) -> None:
         super().__init__()
+
+        self._seen_tokens = 0  # Used in `generate` to keep tally of how many tokens the cache has seen
         if batch_size is not None:
             logger.warning_once(
                 f"The 'batch_size' argument of {self.__class__.__name__} is deprecated and will be removed in "
@@ -1180,7 +1182,11 @@ class StaticCache(Cache):
             A tuple containing the updated key and value states.
         """
 
-        cache_position = cache_kwargs.get("cache_position")
+        # cache_position = cache_kwargs.get("cache_position")
+        # Update the number of seen tokens
+        if layer_idx == 0:
+            self._seen_tokens += key_states.shape[-2]
+        cache_position = torch.arange(key_states.shape[-2], device=key_states.device) + (self.get_seq_length(layer_idx) - key_states.shape[-2])
 
         k_out = self.key_cache[layer_idx]
         v_out = self.value_cache[layer_idx]
@@ -1209,13 +1215,15 @@ class StaticCache(Cache):
         # Occupied cache == any slot in the 3rd dim (sequence length) holds a non-zero value. To save on compute, let's
         # limit the check to the first batch member and head dimension.
         # TODO: deprecate this function in favor of `cache_position`
-        return (self.key_cache[layer_idx][0, 0].any(dim=-1)).sum()
+        # return (self.key_cache[layer_idx][0, 0].any(dim=-1)).sum()
+        return self._seen_tokens
 
     def get_max_cache_shape(self) -> Optional[int]:
         return self.max_cache_len
 
     def reset(self):
         """Resets the cache values while preserving the objects"""
+        self._seen_tokens = 0
         for layer_idx in range(len(self.key_cache)):
             # In-place ops prevent breaking the static address
             self.key_cache[layer_idx].zero_()

@@ -449,6 +449,7 @@ _import_structure = {
         "FastSpeech2ConformerTokenizer",
         "FastSpeech2ConformerWithHifiGanConfig",
     ],
+    "models.fast": ["FAST_PRETRAINED_CONFIG_ARCHIVE_MAP", "FastConfig"],
     "models.flaubert": ["FlaubertConfig", "FlaubertTokenizer"],
     "models.flava": [
         "FlavaConfig",
@@ -1230,6 +1231,7 @@ else:
     _import_structure["models.donut"].extend(["DonutFeatureExtractor", "DonutImageProcessor"])
     _import_structure["models.dpt"].extend(["DPTFeatureExtractor", "DPTImageProcessor"])
     _import_structure["models.efficientnet"].append("EfficientNetImageProcessor")
+    _import_structure["models.fast"].extend(["FastImageProcessor"])
     _import_structure["models.emu3"].append("Emu3ImageProcessor")
     _import_structure["models.flava"].extend(["FlavaFeatureExtractor", "FlavaImageProcessor", "FlavaProcessor"])
     _import_structure["models.fuyu"].extend(["FuyuImageProcessor", "FuyuProcessor"])
@@ -2316,6 +2318,12 @@ else:
             "FastSpeech2ConformerModel",
             "FastSpeech2ConformerPreTrainedModel",
             "FastSpeech2ConformerWithHifiGan",
+        ]
+    )
+    _import_structure["models.fast"].extend(
+        [
+            "FastForSceneTextRecognition",
+            "FastPreTrainedModel",
         ]
     )
     _import_structure["models.flaubert"].extend(
@@ -5494,6 +5502,7 @@ if TYPE_CHECKING:
         FastSpeech2ConformerTokenizer,
         FastSpeech2ConformerWithHifiGanConfig,
     )
+    from .models.fast import FAST_PRETRAINED_CONFIG_ARCHIVE_MAP, FastConfig
     from .models.flaubert import FlaubertConfig, FlaubertTokenizer
     from .models.flava import (
         FlavaConfig,
@@ -6311,6 +6320,7 @@ if TYPE_CHECKING:
         from .models.donut import DonutFeatureExtractor, DonutImageProcessor
         from .models.dpt import DPTFeatureExtractor, DPTImageProcessor
         from .models.efficientnet import EfficientNetImageProcessor
+        from .models.fast import FastImageProcessor
         from .models.emu3 import Emu3ImageProcessor
         from .models.flava import (
             FlavaFeatureExtractor,
@@ -7233,6 +7243,7 @@ if TYPE_CHECKING:
             FastSpeech2ConformerPreTrainedModel,
             FastSpeech2ConformerWithHifiGan,
         )
+        from .models.fast import FastForSceneTextRecognition, FastPreTrainedModel
         from .models.flaubert import (
             FlaubertForMultipleChoice,
             FlaubertForQuestionAnswering,

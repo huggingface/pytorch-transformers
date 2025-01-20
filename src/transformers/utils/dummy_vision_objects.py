@@ -233,6 +233,14 @@ class EfficientNetImageProcessor(metaclass=DummyObject):
         requires_backends(self, ["vision"])
 
 
+
+class FastImageProcessor(metaclass=DummyObject):
+    _backends = ["vision"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["vision"])
+       
+      
 class Emu3ImageProcessor(metaclass=DummyObject):
     _backends = ["vision"]
 

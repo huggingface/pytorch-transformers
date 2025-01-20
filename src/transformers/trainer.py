@@ -804,12 +804,12 @@ class Trainer:
 
     @property
     def tokenizer(self) -> Optional[PreTrainedTokenizerBase]:
-        logger.warning("Trainer.tokenizer is now deprecated. You should use Trainer.processing_class instead.")
+        logger.warning_once("Trainer.tokenizer is now deprecated. You should use Trainer.processing_class instead.")
         return self.processing_class
 
     @tokenizer.setter
     def tokenizer(self, processing_class) -> None:
-        logger.warning(
+        logger.warning_once(
             "Trainer.tokenizer is now deprecated. You should use `Trainer.processing_class = processing_class` instead."
         )
         self.processing_class = processing_class

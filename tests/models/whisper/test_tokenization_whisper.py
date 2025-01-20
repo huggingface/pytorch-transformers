@@ -374,6 +374,48 @@ class WhisperTokenizerTest(TokenizerTesterMixin, unittest.TestCase):
         )
         self.assertEqual(result, EXPECTED_OUTPUT)
 
+        # fmt: off
+        model_outputs = [
+            {
+                'stride': (30.0, 0.0, 5.0),
+                'tokens': np.array([[286, 478, 2633, 760, 420, 2633, 264, 558, 2372, 13, 286, 841, 264, 596, 346, 13, 583, 406, 1547, 281]]),
+                'token_timestamps': np.array(
+                                  [[23.88, 24.06, 24.06, 24.3, 24.54, 24.72, 24.98, 25.2, 25.36, 25.62,
+                                    25.66, 25.8, 26.06, 26.26, 26.34, 26.48, 26.52, 26.72, 26.86, 27.08]])
+            },
+            {
+                'stride': (10.0075, 5.0, 0.0),
+                'tokens': np.array([[2633, 6385, 286, 478, 2633, 264, 558, 2372, 286, 841, 264, 4588, 457, 406, 1547, 281, 652, 385, 605, 493]]),
+                'token_timestamps': np.array(
+                                  [[4.12, 4.32, 4.58, 4.76, 4.84, 4.9, 5.2, 5.36, 5.62, 5.82,
+                                    6.02, 6.26, 6.48, 6.74, 6.86, 7.08, 7.32, 7.42, 7.66, 7.8]])
+            }
+        ]
+        # fmt: on
+
+        result = tokenizer._decode_asr(
+            model_outputs, return_timestamps="word", return_language=False, time_precision=0.02
+        )
+
+        EXPECTED_OUTPUT = (
+            " ofectjoy knowocjoy sace threat.ublic s influencept Lians anoryusical",
+            {
+                "chunks": [
+                    {"text": " ofectjoy", "timestamp": (23.88, 24.3)},
+                    {"text": " knowocjoy", "timestamp": (24.3, 24.98)},
+                    {"text": " sace", "timestamp": (24.98, 25.36)},
+                    {"text": " threat", "timestamp": (25.36, 25.62)},
+                    {"text": ".ublic", "timestamp": (25.62, 26.02)},
+                    {"text": " s", "timestamp": (26.02, 26.26)},
+                    {"text": " influencept", "timestamp": (26.26, 26.74)},
+                    {"text": " Lians", "timestamp": (26.74, 27.08)},
+                    {"text": " anoryusical", "timestamp": (27.08, 27.8)},
+                ]
+            },
+        )
+
+        self.assertEqual(result, EXPECTED_OUTPUT)
+
 
 class SpeechToTextTokenizerMultilinguialTest(unittest.TestCase):
     checkpoint_name = "openai/whisper-small.en"

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from . import (
+    aimv2,
     albert,
     align,
     altclip,

@@ -179,6 +179,17 @@ SPECIAL_CASES_TO_ALLOW = {
         "giou_cost",
         "giou_loss_coefficient",
     ],
+    "RelationDetrConfig": [
+        "bbox_cost",
+        "class_cost",
+        "giou_cost",
+        "bbox_loss_coefficient",
+        "class_loss_coefficient",
+        "giou_loss_coefficient",
+        "two_stage_binary_cls",
+        "focal_alpha",
+        "focal_gamma",
+    ],
     "RTDetrConfig": [
         "eos_coefficient",
         "focal_loss_alpha",

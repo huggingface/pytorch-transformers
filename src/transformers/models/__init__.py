@@ -223,6 +223,7 @@ from . import (
     recurrent_gemma,
     reformer,
     regnet,
+    relation_detr,
     rembert,
     resnet,
     roberta,

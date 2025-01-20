@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 import numpy as np
 import typing_extensions
 
+from .audio_utils import load_audio
 from .dynamic_module_utils import custom_object_save
 from .image_utils import ChannelDimension, is_valid_image, is_vision_available, load_image, load_video
 
@@ -376,6 +377,8 @@ class ChatTemplateKwargs(TypedDict, total=False):
         The backend to use when loading the video which will be used only when there are videos in the conversation.
         Can be any of ["decord", "pyav", "opencv", "torchvision"]. Defaults to "pyav" because it is the only backend
         that supports all types of sources to load from.
+    sampling_rate (`int`, *optional*, defaults to `16_000`):
+        The sampling rate at which the given audio file should be loaded. Defaults to `16_000`.
     """
 
     tokenize: Optional[bool] = False
@@ -387,6 +390,7 @@ class ChatTemplateKwargs(TypedDict, total=False):
     return_assistant_tokens_mask: Optional[bool] = False
     num_frames: Optional[int] = None
     video_load_backend: Optional[str] = "pyav"
+    sampling_rate: Optional[int] = 16_000
 
 
 class AllKwargsForChatTemplate(
@@ -917,6 +921,7 @@ class ProcessorMixin(PushToHubMixin):
                         if hasattr(self.tokenizer, modality_key)
                         else tokenizer_init_kwargs[modality_key]
                     )
+                    print(modality_key, modality, value)
                     default_kwargs[modality][modality_key] = value
         # now defaults kwargs are updated with the tokenizers defaults.
         # pass defaults to output dictionary
@@ -1212,6 +1217,7 @@ class ProcessorMixin(PushToHubMixin):
         return_dict = chat_template_kwargs.pop("return_dict")
         num_frames = chat_template_kwargs.pop("num_frames")
         video_load_backend = chat_template_kwargs.pop("video_load_backend")
+        sampling_rate = chat_template_kwargs.pop("sampling_rate")
 
         prompt = self.tokenizer.apply_chat_template(
             conversation,
@@ -1225,24 +1231,33 @@ class ProcessorMixin(PushToHubMixin):
         # we will have to return all processed inputs in a dict
         if tokenize:
             images, videos = [], []
+            audios = []
             for message in conversation:
-                visuals = [content for content in message["content"] if content["type"] in ["image", "video"]]
-                for vision_info in visuals:
-                    if vision_info["type"] == "image":
+                # Load vidoes and images if exist
+                multimodals = [
+                    content for content in message["content"] if content["type"] in ["image", "video", "audio"]
+                ]
+                for dict_info in multimodals:
+                    if dict_info["type"] == "image":
                         for key in ["image", "url", "path", "base64"]:
-                            if key in vision_info:
-                                images.append(load_image(vision_info[key]))
-                    elif vision_info["type"] == "video":
+                            if key in dict_info:
+                                images.append(load_image(dict_info[key]))
+                    elif dict_info["type"] == "video":
                         for key in ["video", "url", "path"]:
-                            if key in vision_info:
+                            if key in dict_info:
                                 videos.append(
-                                    load_video(vision_info[key], num_frames=num_frames, backend=video_load_backend)
+                                    load_video(dict_info[key], num_frames=num_frames, backend=video_load_backend)
                                 )
+                    elif dict_info["type"] == "audio":
+                        for key in ["audio", "url", "path"]:
+                            if key in dict_info:
+                                audios.append(load_audio(dict_info[key], sampling_rate=sampling_rate))
 
             out = self(
                 text=prompt,
                 images=images if images else None,
                 videos=videos if videos else None,
+                audios=audios if audios else None,
                 **kwargs,
             )
             if return_dict:

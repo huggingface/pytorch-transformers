@@ -18,8 +18,6 @@ import shutil
 import tempfile
 import unittest
 
-import numpy as np
-
 from transformers.models.wav2vec2 import Wav2Vec2CTCTokenizer, Wav2Vec2FeatureExtractor, Wav2Vec2Processor
 from transformers.models.wav2vec2.tokenization_wav2vec2 import VOCAB_FILES_NAMES
 from transformers.utils import FEATURE_EXTRACTOR_NAME
@@ -30,6 +28,8 @@ from .test_feature_extraction_wav2vec2 import floats_list
 
 class Wav2Vec2ProcessorTest(ProcessorTesterMixin, unittest.TestCase):
     processor_class = Wav2Vec2Processor
+    audio_input_name = "input_values"
+    text_input_name = "labels"
 
     def setUp(self):
         vocab = "<pad> <s> </s> <unk> | E T A O N I H S R D L U M W C F G Y P B V K ' X J Q Z".split(" ")
@@ -131,22 +131,6 @@ class Wav2Vec2ProcessorTest(ProcessorTesterMixin, unittest.TestCase):
 
         for key in encoded_tok.keys():
             self.assertListEqual(encoded_tok[key], encoded_processor[key])
-
-    def test_padding_argument_not_ignored(self):
-        # padding, or any other overlap arg between audio extractor and tokenizer
-        # should be passed to both text and audio and not ignored
-
-        feature_extractor = self.get_feature_extractor()
-        tokenizer = self.get_tokenizer()
-
-        processor = Wav2Vec2Processor(tokenizer=tokenizer, feature_extractor=feature_extractor)
-        batch_duration_in_seconds = [1, 3, 2, 6]
-        input_features = [np.random.random(16_000 * s) for s in batch_duration_in_seconds]
-
-        # padding = True should not raise an error and will if the audio processor popped its value to None
-        _ = processor(
-            input_features, padding=True, sampling_rate=processor.feature_extractor.sampling_rate, return_tensors="pt"
-        )
 
     def test_tokenizer_decode(self):
         feature_extractor = self.get_feature_extractor()

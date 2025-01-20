@@ -241,6 +241,7 @@ For now, Transformers supports SDPA inference and training for the following arc
 * [data2vec_vision](https://huggingface.co/docs/transformers/main/en/model_doc/data2vec#transformers.Data2VecVisionModel)
 * [Dbrx](https://huggingface.co/docs/transformers/model_doc/dbrx#transformers.DbrxModel)
 * [DeiT](https://huggingface.co/docs/transformers/model_doc/deit#transformers.DeiTModel)
+* [DepthPro](https://huggingface.co/docs/transformers/model_doc/depth_pro#transformers.DepthProModel)
 * [DiffLlama](https://huggingface.co/docs/transformers/model_doc/diffllama#transformers.DiffLlamaModel)
 * [Dinov2](https://huggingface.co/docs/transformers/en/model_doc/dinov2)
 * [Dinov2_with_registers](https://huggingface.co/docs/transformers/en/model_doc/dinov2)

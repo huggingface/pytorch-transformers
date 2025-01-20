@@ -74,6 +74,7 @@ else:
             ("deformable_detr", ("DeformableDetrImageProcessor", "DeformableDetrImageProcessorFast")),
             ("deit", ("DeiTImageProcessor",)),
             ("depth_anything", ("DPTImageProcessor",)),
+            ("depth_pro", ("DepthProImageProcessor", "DepthProImageProcessorFast")),
             ("deta", ("DetaImageProcessor",)),
             ("detr", ("DetrImageProcessor", "DetrImageProcessorFast")),
             ("dinat", ("ViTImageProcessor", "ViTImageProcessorFast")),

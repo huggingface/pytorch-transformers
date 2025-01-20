@@ -875,16 +875,14 @@ class DeformableDetrImageProcessor(BaseImageProcessor):
             do_pad = kwargs.pop("pad_and_return_pixel_mask")
 
         if "max_size" in kwargs:
-            logger.warning_once(
-                "The `max_size` parameter is deprecated and will be removed in v4.26. "
-                "Please specify in `size['longest_edge'] instead`.",
+            logger.error(
+                "The `max_size` parameter is deprecated. " "Please specify in `size['longest_edge'] instead`.",
             )
-            max_size = kwargs.pop("max_size")
-        else:
-            max_size = None if size is None else 1333
 
         size = size if size is not None else {"shortest_edge": 800, "longest_edge": 1333}
-        size = get_size_dict(size, max_size=max_size, default_to_square=False)
+        # Backwards compatibility
+        size = {"shortest_edge": size, "longest_edge": 1333} if isinstance(size, int) else size
+        size = get_size_dict(size, default_to_square=False)
 
         # Backwards compatibility
         if do_convert_annotations is None:
@@ -1009,14 +1007,11 @@ class DeformableDetrImageProcessor(BaseImageProcessor):
                 The channel dimension format of the input image. If not provided, it will be inferred.
         """
         if "max_size" in kwargs:
-            logger.warning_once(
-                "The `max_size` parameter is deprecated and will be removed in v4.26. "
-                "Please specify in `size['longest_edge'] instead`.",
+            logger.error(
+                "The `max_size` parameter is deprecated. " "Please specify in `size['longest_edge'] instead`.",
             )
-            max_size = kwargs.pop("max_size")
-        else:
-            max_size = None
-        size = get_size_dict(size, max_size=max_size, default_to_square=False)
+
+        size = get_size_dict(size, default_to_square=False)
         if "shortest_edge" in size and "longest_edge" in size:
             new_size = get_resize_output_image_size(
                 image, size["shortest_edge"], size["longest_edge"], input_data_format=input_data_format
@@ -1362,17 +1357,12 @@ class DeformableDetrImageProcessor(BaseImageProcessor):
             )
             do_pad = kwargs.pop("pad_and_return_pixel_mask")
 
-        max_size = None
         if "max_size" in kwargs:
-            logger.warning_once(
-                "The `max_size` argument is deprecated and will be removed in a future version, use"
-                " `size['longest_edge']` instead."
-            )
-            size = kwargs.pop("max_size")
+            logger.error("The `max_size` argument is deprecated, use" " `size['longest_edge']` instead.")
 
         do_resize = self.do_resize if do_resize is None else do_resize
         size = self.size if size is None else size
-        size = get_size_dict(size=size, max_size=max_size, default_to_square=False)
+        size = get_size_dict(size=size, default_to_square=False)
         resample = self.resample if resample is None else resample
         do_rescale = self.do_rescale if do_rescale is None else do_rescale
         rescale_factor = self.rescale_factor if rescale_factor is None else rescale_factor
@@ -1468,7 +1458,7 @@ class DeformableDetrImageProcessor(BaseImageProcessor):
                 for image, target in zip(images, annotations):
                     orig_size = get_image_size(image, input_data_format)
                     resized_image = self.resize(
-                        image, size=size, max_size=max_size, resample=resample, input_data_format=input_data_format
+                        image, size=size, resample=resample, input_data_format=input_data_format
                     )
                     resized_annotation = self.resize_annotation(
                         target, orig_size, get_image_size(resized_image, input_data_format)

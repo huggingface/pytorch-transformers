@@ -360,16 +360,14 @@ class DetrImageProcessorFast(BaseImageProcessorFast):
             do_pad = kwargs.pop("pad_and_return_pixel_mask")
 
         if "max_size" in kwargs:
-            logger.warning_once(
-                "The `max_size` parameter is deprecated and will be removed in v4.26. "
-                "Please specify in `size['longest_edge'] instead`.",
+            logger.error(
+                "The `max_size` parameter is deprecated. " "Please specify in `size['longest_edge'] instead`.",
             )
-            max_size = kwargs.pop("max_size")
-        else:
-            max_size = None if size is None else 1333
 
         size = size if size is not None else {"shortest_edge": 800, "longest_edge": 1333}
-        size = get_size_dict(size, max_size=max_size, default_to_square=False)
+        # Backwards compatibility
+        size = {"shortest_edge": size, "longest_edge": 1333} if isinstance(size, int) else size
+        size = get_size_dict(size, default_to_square=False)
 
         # Backwards compatibility
         if do_convert_annotations is None:
@@ -777,11 +775,8 @@ class DetrImageProcessorFast(BaseImageProcessorFast):
             do_pad = kwargs.pop("pad_and_return_pixel_mask")
 
         if "max_size" in kwargs:
-            logger.warning_once(
-                "The `max_size` argument is deprecated and will be removed in a future version, use"
-                " `size['longest_edge']` instead."
-            )
-            size = kwargs.pop("max_size")
+            logger.error("The `max_size` argument is deprecated, use" " `size['longest_edge']` instead.")
+
         do_resize = self.do_resize if do_resize is None else do_resize
         size = self.size if size is None else size
         size = get_size_dict(size=size, default_to_square=False)

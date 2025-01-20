@@ -453,6 +453,8 @@ class RTDetrImageProcessor(BaseImageProcessor):
         **kwargs,
     ) -> None:
         size = size if size is not None else {"height": 640, "width": 640}
+        # Backwards compatibility
+        size = {"shortest_edge": size, "longest_edge": 1333} if isinstance(size, int) else size
         size = get_size_dict(size, default_to_square=False)
 
         if do_convert_annotations is None:
@@ -531,14 +533,11 @@ class RTDetrImageProcessor(BaseImageProcessor):
                 The channel dimension format of the input image. If not provided, it will be inferred.
         """
         if "max_size" in kwargs:
-            logger.warning_once(
-                "The `max_size` parameter is deprecated and will be removed in v4.26. "
-                "Please specify in `size['longest_edge'] instead`.",
+            logger.error(
+                "The `max_size` parameter is deprecated. " "Please specify in `size['longest_edge'] instead`.",
             )
-            max_size = kwargs.pop("max_size")
-        else:
-            max_size = None
-        size = get_size_dict(size, max_size=max_size, default_to_square=False)
+
+        size = get_size_dict(size, default_to_square=False)
         if "shortest_edge" in size and "longest_edge" in size:
             new_size = get_resize_output_image_size(
                 image, size["shortest_edge"], size["longest_edge"], input_data_format=input_data_format

@@ -156,7 +156,7 @@ class ConditionalDetrImageProcessingTest(AnnotationFormatTestMixin, ImageProcess
         self.assertEqual(image_processor.do_pad, True)
 
         image_processor = self.image_processing_class.from_dict(
-            self.image_processor_dict, size=42, max_size=84, pad_and_return_pixel_mask=False
+            self.image_processor_dict, size={"shortest_edge": 42, "longest_edge": 84}, pad_and_return_pixel_mask=False
         )
         self.assertEqual(image_processor.size, {"shortest_edge": 42, "longest_edge": 84})
         self.assertEqual(image_processor.do_pad, False)

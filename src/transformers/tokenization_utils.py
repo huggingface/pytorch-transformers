@@ -175,7 +175,10 @@ class Trie:
                     # matches
                     # "[CLS]", "L", we need to match CLS even if L is special
                     for lookstart, looktrie_pointer in states.items():
-                        if lookstart > start:
+                        if lookstart in to_remove:
+                            # This partial match should be removed
+                            continue
+                        elif lookstart > start:
                             # This partial match is later, we can stop looking
                             break
                         elif lookstart < start:

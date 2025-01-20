@@ -368,6 +368,18 @@ class TokenizerUtilsTest(unittest.TestCase):
                 decoded_sent = tokenizer.decode(pad_id, skip_special_tokens=False)
                 self.assertEqual(decoded_sent, "[PAD]")
 
+    @require_tokenizers
+    def test_split_tokens(self):
+        for tokenizer_class in [BertTokenizer, BertTokenizerFast]:
+            with self.subTest(f"{tokenizer_class}"):
+                tokenizer = tokenizer_class.from_pretrained("google-bert/bert-base-cased")
+                tokenizer.add_tokens(["red", "e"])
+
+                # test split tokens
+                sentence = "read"
+                output_tokens = tokenizer.tokenize(sentence)
+                self.assertEqual(output_tokens, ["r", "e", "ad"])
+
     @require_torch
     def test_padding_accepts_tensors_pt(self):
         import torch

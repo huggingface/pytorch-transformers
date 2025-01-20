@@ -974,7 +974,9 @@ def check_docstrings(overwrite: bool = False, check_all: bool = False):
             if modified_file_diff.a_path.startswith("src/transformers"):
                 module_diff_files.add(modified_file_diff.a_path)
         # Diff from index to `main`
-        for modified_file_diff in repo.index.diff(repo.refs.main.commit):
+        default_branch = repo.active_branch.name if repo.active_branch else "main"
+        # Diff from index to the detected branch
+        for modified_file_diff in repo.index.diff(repo.refs[default_branch].commit):
             if modified_file_diff.a_path.startswith("src/transformers"):
                 module_diff_files.add(modified_file_diff.a_path)
         # quick escape route: if there are no module files in the diff, skip this check

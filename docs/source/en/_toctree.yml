@@ -709,6 +709,8 @@
         title: ResNet
       - local: model_doc/rt_detr
         title: RT-DETR
+      - local: model_doc/rt_detr_v2
+        title: RtDetrV2
       - local: model_doc/segformer
         title: SegFormer
       - local: model_doc/seggpt

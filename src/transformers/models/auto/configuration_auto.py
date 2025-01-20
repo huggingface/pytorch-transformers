@@ -255,6 +255,8 @@ CONFIG_MAPPING_NAMES = OrderedDict(
         ("roformer", "RoFormerConfig"),
         ("rt_detr", "RTDetrConfig"),
         ("rt_detr_resnet", "RTDetrResNetConfig"),
+        ("rt_detr_v2", "RtDetrV2Config"),
+        ("rt_detr_v2_resnet", "RTDetrResNetConfig"),
         ("rwkv", "RwkvConfig"),
         ("sam", "SamConfig"),
         ("seamless_m4t", "SeamlessM4TConfig"),
@@ -591,6 +593,8 @@ MODEL_NAMES_MAPPING = OrderedDict(
         ("roformer", "RoFormer"),
         ("rt_detr", "RT-DETR"),
         ("rt_detr_resnet", "RT-DETR-ResNet"),
+        ("rt_detr_v2", "RtDetrV2"),
+        ("rt_detr_v2_resnet", "RT-DETR-ResNetV2"),
         ("rwkv", "RWKV"),
         ("sam", "SAM"),
         ("seamless_m4t", "SeamlessM4T"),
@@ -727,6 +731,7 @@ SPECIAL_MODEL_TYPE_TO_MODULE_NAME = OrderedDict(
         ("siglip_vision_model", "siglip"),
         ("chinese_clip_vision_model", "chinese_clip"),
         ("rt_detr_resnet", "rt_detr"),
+        ("rt_detr_v2_resnet", "rt_detr_v2"),
     ]
 )
 

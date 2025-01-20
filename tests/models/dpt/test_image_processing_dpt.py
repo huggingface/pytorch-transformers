@@ -17,14 +17,20 @@
 import unittest
 
 import numpy as np
+from datasets import load_dataset
 
-from transformers.file_utils import is_vision_available
+from transformers.file_utils import is_torch_available, is_vision_available
 from transformers.testing_utils import require_torch, require_vision
 
 from ...test_image_processing_common import ImageProcessingTestMixin, prepare_image_inputs
 
 
+if is_torch_available():
+    import torch
+
 if is_vision_available():
+    from PIL import Image
+
     from transformers import DPTImageProcessor
 
 
@@ -42,6 +48,7 @@ class DPTImageProcessingTester(unittest.TestCase):
         do_normalize=True,
         image_mean=[0.5, 0.5, 0.5],
         image_std=[0.5, 0.5, 0.5],
+        do_reduce_labels=False,
     ):
         super().__init__()
         size = size if size is not None else {"height": 18, "width": 18}
@@ -56,6 +63,7 @@ class DPTImageProcessingTester(unittest.TestCase):
         self.do_normalize = do_normalize
         self.image_mean = image_mean
         self.image_std = image_std
+        self.do_reduce_labels = do_reduce_labels
 
     def prepare_image_processor_dict(self):
         return {
@@ -64,6 +72,7 @@ class DPTImageProcessingTester(unittest.TestCase):
             "do_normalize": self.do_normalize,
             "do_resize": self.do_resize,
             "size": self.size,
+            "do_reduce_labels": self.do_reduce_labels,
         }
 
     def expected_output_image_shape(self, images):
@@ -79,6 +88,28 @@ class DPTImageProcessingTester(unittest.TestCase):
             numpify=numpify,
             torchify=torchify,
         )
+
+
+# Copied from transformers.tests.models.beit.test_image_processing_beit.prepare_semantic_single_inputs
+def prepare_semantic_single_inputs():
+    dataset = load_dataset("hf-internal-testing/fixtures_ade20k", split="test", trust_remote_code=True)
+
+    image = Image.open(dataset[0]["file"])
+    map = Image.open(dataset[1]["file"])
+
+    return image, map
+
+
+# Copied from transformers.tests.models.beit.test_image_processing_beit.prepare_semantic_batch_inputs
+def prepare_semantic_batch_inputs():
+    ds = load_dataset("hf-internal-testing/fixtures_ade20k", split="test", trust_remote_code=True)
+
+    image1 = Image.open(ds[0]["file"])
+    map1 = Image.open(ds[1]["file"])
+    image2 = Image.open(ds[2]["file"])
+    map2 = Image.open(ds[3]["file"])
+
+    return [image1, image2], [map1, map2]
 
 
 @require_torch
@@ -105,6 +136,7 @@ class DPTImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         self.assertTrue(hasattr(image_processing, "rescale_factor"))
         self.assertTrue(hasattr(image_processing, "do_pad"))
         self.assertTrue(hasattr(image_processing, "size_divisor"))
+        self.assertTrue(hasattr(image_processing, "do_reduce_labels"))
 
     def test_image_processor_from_dict_with_kwargs(self):
         image_processor = self.image_processing_class.from_dict(self.image_processor_dict)
@@ -138,3 +170,126 @@ class DPTImageProcessingTest(ImageProcessingTestMixin, unittest.TestCase):
         pixel_values = image_processor(image, return_tensors="pt").pixel_values
 
         self.assertEqual(list(pixel_values.shape), [1, 3, 512, 672])
+
+    # Copied from transformers.tests.models.beit.test_image_processing_beit.BeitImageProcessingTest.test_call_segmentation_maps
+    def test_call_segmentation_maps(self):
+        # Initialize image_processor
+        image_processor = self.image_processing_class(**self.image_processor_dict)
+        # create random PyTorch tensors
+        image_inputs = self.image_processor_tester.prepare_image_inputs(equal_resolution=False, torchify=True)
+        maps = []
+        for image in image_inputs:
+            self.assertIsInstance(image, torch.Tensor)
+            maps.append(torch.zeros(image.shape[-2:]).long())
+
+        # Test not batched input
+        encoding = image_processor(image_inputs[0], maps[0], return_tensors="pt")
+        self.assertEqual(
+            encoding["pixel_values"].shape,
+            (
+                1,
+                self.image_processor_tester.num_channels,
+                self.image_processor_tester.size["height"],
+                self.image_processor_tester.size["width"],
+            ),
+        )
+        self.assertEqual(
+            encoding["labels"].shape,
+            (
+                1,
+                self.image_processor_tester.size["height"],
+                self.image_processor_tester.size["width"],
+            ),
+        )
+        self.assertEqual(encoding["labels"].dtype, torch.long)
+        self.assertTrue(encoding["labels"].min().item() >= 0)
+        self.assertTrue(encoding["labels"].max().item() <= 255)
+
+        # Test batched
+        encoding = image_processor(image_inputs, maps, return_tensors="pt")
+        self.assertEqual(
+            encoding["pixel_values"].shape,
+            (
+                self.image_processor_tester.batch_size,
+                self.image_processor_tester.num_channels,
+                self.image_processor_tester.size["height"],
+                self.image_processor_tester.size["width"],
+            ),
+        )
+        self.assertEqual(
+            encoding["labels"].shape,
+            (
+                self.image_processor_tester.batch_size,
+                self.image_processor_tester.size["height"],
+                self.image_processor_tester.size["width"],
+            ),
+        )
+        self.assertEqual(encoding["labels"].dtype, torch.long)
+        self.assertTrue(encoding["labels"].min().item() >= 0)
+        self.assertTrue(encoding["labels"].max().item() <= 255)
+
+        # Test not batched input (PIL images)
+        image, segmentation_map = prepare_semantic_single_inputs()
+
+        encoding = image_processor(image, segmentation_map, return_tensors="pt")
+        self.assertEqual(
+            encoding["pixel_values"].shape,
+            (
+                1,
+                self.image_processor_tester.num_channels,
+                self.image_processor_tester.size["height"],
+                self.image_processor_tester.size["width"],
+            ),
+        )
+        self.assertEqual(
+            encoding["labels"].shape,
+            (
+                1,
+                self.image_processor_tester.size["height"],
+                self.image_processor_tester.size["width"],
+            ),
+        )
+        self.assertEqual(encoding["labels"].dtype, torch.long)
+        self.assertTrue(encoding["labels"].min().item() >= 0)
+        self.assertTrue(encoding["labels"].max().item() <= 255)
+
+        # Test batched input (PIL images)
+        images, segmentation_maps = prepare_semantic_batch_inputs()
+
+        encoding = image_processor(images, segmentation_maps, return_tensors="pt")
+        self.assertEqual(
+            encoding["pixel_values"].shape,
+            (
+                2,
+                self.image_processor_tester.num_channels,
+                self.image_processor_tester.size["height"],
+                self.image_processor_tester.size["width"],
+            ),
+        )
+        self.assertEqual(
+            encoding["labels"].shape,
+            (
+                2,
+                self.image_processor_tester.size["height"],
+                self.image_processor_tester.size["width"],
+            ),
+        )
+        self.assertEqual(encoding["labels"].dtype, torch.long)
+        self.assertTrue(encoding["labels"].min().item() >= 0)
+        self.assertTrue(encoding["labels"].max().item() <= 255)
+
+    # Copied from transformers.tests.models.beit.test_image_processing_beit.BeitImageProcessingTest.test_reduce_labels
+    def test_reduce_labels(self):
+        # Initialize image_processor
+        image_processor = self.image_processing_class(**self.image_processor_dict)
+
+        # ADE20k has 150 classes, and the background is included, so labels should be between 0 and 150
+        image, map = prepare_semantic_single_inputs()
+        encoding = image_processor(image, map, return_tensors="pt")
+        self.assertTrue(encoding["labels"].min().item() >= 0)
+        self.assertTrue(encoding["labels"].max().item() <= 150)
+
+        image_processor.do_reduce_labels = True
+        encoding = image_processor(image, map, return_tensors="pt")
+        self.assertTrue(encoding["labels"].min().item() >= 0)
+        self.assertTrue(encoding["labels"].max().item() <= 255)

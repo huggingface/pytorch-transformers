@@ -328,40 +328,28 @@ class LightGlueModelIntegrationTest(unittest.TestCase):
 
         expected_number_of_matches0 = 140
         expected_matches_values0 = torch.tensor(
-            [14, -1, -1, 15, 17, 13, -1, -1, -1, -1, -1, -1, 5, -1, -1, 19, -1, 10, -1, 11], dtype=torch.int64
-        ).to(torch_device)
+            [14, -1, -1, 15, 17, 13, -1, -1, -1, -1, -1, -1, 5, -1, -1, 19, -1, 10, -1, 11],
+            dtype=torch.int64,
+            device=torch_device,
+        )
         expected_matching_scores_values0 = torch.tensor(
-            [0.3796, 0, 0, 0.3772, 0.4439, 0.2411, 0, 0, 0.0032, 0, 0, 0, 0.2997, 0, 0, 0.6762, 0, 0.8826, 0, 0.5583]
-        ).to(torch_device)
+            [0.3796, 0, 0, 0.3772, 0.4439, 0.2411, 0, 0, 0.0032, 0, 0, 0, 0.2997, 0, 0, 0.6762, 0, 0.8826, 0, 0.5583],
+            device=torch_device,
+        )
 
         expected_number_of_matches1 = 866
         expected_matches_values1 = torch.tensor(
-            [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], dtype=torch.int64
-        ).to(torch_device)
+            [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29],
+            dtype=torch.int64,
+            device=torch_device,
+        )
         expected_matching_scores_values1 = torch.tensor(
             [
-                0.6188,
-                0.7817,
-                0.5686,
-                0.9353,
-                0.9801,
-                0.9193,
-                0.8632,
-                0.9111,
-                0.9821,
-                0.5496,
-                0.9906,
-                0.8682,
-                0.9679,
-                0.9914,
-                0.9318,
-                0.1910,
-                0.9669,
-                0.3240,
-                0.9971,
-                0.9923,
-            ]
-        ).to(torch_device)
+                0.6188,0.7817,0.5686,0.9353,0.9801,0.9193,0.8632,0.9111,0.9821,0.5496,
+                0.9906,0.8682,0.9679,0.9914,0.9318,0.1910,0.9669,0.3240,0.9971,0.9923,
+            ],
+            device=torch_device
+        )  # fmt:skip
 
         # expected_early_stopping_layer = 2
         # predicted_early_stopping_layer = torch.max(outputs.prune[1]).item()

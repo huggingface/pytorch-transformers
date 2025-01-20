@@ -623,7 +623,7 @@ class LightGlueMatchAssignmentLayer(nn.Module):
         m_descriptors = m_descriptors.reshape(batch_size // 2, 2, num_keypoints, descriptor_dim)
         m_descriptors0 = m_descriptors[:, 0]
         m_descriptors1 = m_descriptors[:, 1]
-        similarity = torch.einsum("bmd,bnd->bmn", m_descriptors0, m_descriptors1)
+        similarity = m_descriptors0 @ m_descriptors1.transpose(-1, -2)
         if mask is not None:
             mask = mask.reshape(batch_size // 2, 2, num_keypoints)
             mask0 = mask[:, 0].unsqueeze(-1)

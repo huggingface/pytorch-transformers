@@ -18,6 +18,7 @@ import re
 from typing import List
 
 import torch
+from datasets import load_dataset
 
 from transformers import (
     AutoModelForKeypointDetection,
@@ -30,9 +31,16 @@ from transformers.models.lightglue.configuration_lightglue import LightGlueConfi
 DEFAULT_CHECKPOINT_URL = "https://github.com/cvg/LightGlue/releases/download/v0.1_arxiv/superpoint_lightglue.pth"
 
 
-def verify_model_outputs(model, device):
-    from tests.models.lightglue.test_modeling_lightglue import prepare_imgs
+def prepare_imgs():
+    dataset = load_dataset("hf-internal-testing/image-matching-test-dataset", split="train")
+    image0 = dataset[0]["image"]
+    image1 = dataset[1]["image"]
+    image2 = dataset[2]["image"]
+    # [image1, image1] on purpose to test the model early stopping
+    return [[image2, image0], [image1, image1]]
 
+
+def verify_model_outputs(model, device):
     images = prepare_imgs()
     preprocessor = LightGlueImageProcessor()
     inputs = preprocessor(images=images, return_tensors="pt").to(device)

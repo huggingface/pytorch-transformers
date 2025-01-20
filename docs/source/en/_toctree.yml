@@ -604,6 +604,8 @@
         title: T5v1.1
       - local: model_doc/tapex
         title: TAPEX
+      - local: model_doc/telechat2
+        title: TeleChat2
       - local: model_doc/transfo-xl
         title: Transformer XL
       - local: model_doc/ul2

@@ -21,7 +21,10 @@ import torch
 from torch import nn
 
 from ...activations import ACT2FN
-from ...modeling_attn_mask_utils import _prepare_4d_attention_mask, _prepare_4d_causal_attention_mask
+from ...modeling_attn_mask_utils import (
+    _prepare_4d_attention_mask,
+    _prepare_4d_causal_attention_mask,
+)
 from ...modeling_outputs import (
     BaseModelOutput,
     BaseModelOutputWithPastAndCrossAttentions,
@@ -31,7 +34,12 @@ from ...modeling_outputs import (
 )
 from ...modeling_utils import PreTrainedModel
 from ...time_series_utils import NegativeBinomialOutput, NormalOutput, StudentTOutput
-from ...utils import add_start_docstrings, add_start_docstrings_to_model_forward, logging, replace_return_docstrings
+from ...utils import (
+    add_start_docstrings,
+    add_start_docstrings_to_model_forward,
+    logging,
+    replace_return_docstrings,
+)
 from .configuration_informer import InformerConfig
 
 
@@ -253,13 +261,16 @@ class InformerSinusoidalPositionalEmbedding(nn.Embedding):
         return out
 
     @torch.no_grad()
-    def forward(self, input_ids_shape: torch.Size, past_key_values_length: int = 0) -> torch.Tensor:
+    def forward(
+        self, input_ids_shape: torch.Size, past_key_values_length: int = 0, position_ids: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """`input_ids_shape` is expected to be [bsz x seqlen]."""
-        bsz, seq_len = input_ids_shape[:2]
-        positions = torch.arange(
-            past_key_values_length, past_key_values_length + seq_len, dtype=torch.long, device=self.weight.device
-        )
-        return super().forward(positions)
+        if position_ids is None:
+            bsz, seq_len = input_ids_shape[:2]
+            position_ids = torch.arange(
+                past_key_values_length, past_key_values_length + seq_len, dtype=torch.long, device=self.weight.device
+            )
+        return super().forward(position_ids)
 
 
 # Copied from transformers.models.time_series_transformer.modeling_time_series_transformer.TimeSeriesValueEmbedding with TimeSeries->Info
@@ -272,7 +283,7 @@ class InformerValueEmbedding(nn.Module):
         return self.value_projection(x)
 
 
-# Copied from transformers.models.bart.modeling_bart.BartAttention with Bart->Informer
+# Copied from transformers.models.hubert.modeling_hubert.HubertAttention with Hubert->Informer
 class InformerAttention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 

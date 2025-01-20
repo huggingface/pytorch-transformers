@@ -157,7 +157,7 @@ class MusicgenSinusoidalPositionalEmbedding(nn.Module):
         return self.weights.index_select(0, position_ids.view(-1)).detach()
 
 
-# Copied from transformers.models.bart.modeling_bart.BartAttention with Bart->Musicgen
+# Copied from transformers.models.hubert.modeling_hubert.HubertAttention with Hubert->Musicgen
 class MusicgenAttention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
@@ -316,7 +316,7 @@ class MusicgenAttention(nn.Module):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-# Copied from transformers.models.bart.modeling_bart.BartFlashAttention2 with Bart->Musicgen
+# Copied from transformers.models.hubert.modeling_hubert.HubertFlashAttention2 with Hubert->Musicgen
 class MusicgenFlashAttention2(MusicgenAttention):
     """
     Musicgen flash attention module. This module inherits from `MusicgenAttention` as the weights of the module stays
@@ -605,7 +605,7 @@ class MusicgenDecoderLayer(nn.Module):
         self.fc2 = nn.Linear(config.ffn_dim, self.embed_dim, bias=False)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
 
-    # Copied from transformers.models.mbart.modeling_mbart.MBartDecoderLayer.forward
+    # copied from transformers.models.mbart.modeling_mbart.MBartDecoderLayer.forward
     def forward(
         self,
         hidden_states: torch.Tensor,

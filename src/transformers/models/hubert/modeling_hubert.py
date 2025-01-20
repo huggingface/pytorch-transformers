@@ -396,7 +396,8 @@ class HubertFeatureProjection(nn.Module):
         return hidden_states
 
 
-# Copied from transformers.models.bart.modeling_bart.BartAttention with Bart->Hubert
+# bring back after new cache format
+# copied from transformers.models.bart.modeling_bart.BartAttention with Bart->Hubert
 class HubertAttention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
@@ -555,7 +556,8 @@ class HubertAttention(nn.Module):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-# Copied from transformers.models.bart.modeling_bart.BartFlashAttention2 with Bart->Hubert
+# bring back after new cache format
+# copied from transformers.models.bart.modeling_bart.BartFlashAttention2 with Bart->Hubert
 class HubertFlashAttention2(HubertAttention):
     """
     Hubert flash attention module. This module inherits from `HubertAttention` as the weights of the module stays
@@ -683,7 +685,8 @@ class HubertFlashAttention2(HubertAttention):
 
 
 class HubertSdpaAttention(HubertAttention):
-    # Copied from transformers.models.bart.modeling_bart.BartSdpaAttention.forward with Bart->Hubert
+    # bring back after new cache format
+    # copied from transformers.models.bart.modeling_bart.BartSdpaAttention.forward with Bart->Hubert
     def forward(
         self,
         hidden_states: torch.Tensor,

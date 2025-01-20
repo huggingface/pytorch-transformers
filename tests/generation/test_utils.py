@@ -2002,6 +2002,7 @@ class GenerationTesterMixin:
             self.assertTrue(input_ids_sets[0].shape == input_ids_sets[1].shape)
 
             generation_kwargs = {
+                "use_cache": True,
                 "do_sample": False,
                 "max_new_tokens": 10,
                 "return_dict_in_generate": True,

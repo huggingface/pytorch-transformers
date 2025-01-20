@@ -100,7 +100,7 @@ class BartModelTester:
         hidden_act="gelu",
         hidden_dropout_prob=0.1,
         attention_probs_dropout_prob=0.1,
-        max_position_embeddings=20,
+        max_position_embeddings=50,
         eos_token_id=2,
         pad_token_id=1,
         bos_token_id=0,
@@ -226,6 +226,7 @@ class BartModelTester:
             attention_mask=inputs_dict["decoder_attention_mask"],
             encoder_hidden_states=encoder_last_hidden_state,
             encoder_attention_mask=inputs_dict["attention_mask"],
+            head_mask=inputs_dict["decoder_head_mask"],
         )[0]
 
         self.parent.assertTrue((last_hidden_state_2 - last_hidden_state).abs().max().item() < 1e-3)
@@ -1307,7 +1308,7 @@ class BartStandaloneDecoderModelTester:
         decoder_layers=2,
         encoder_attention_heads=4,
         decoder_attention_heads=4,
-        max_position_embeddings=30,
+        max_position_embeddings=50,
         is_encoder_decoder=False,
         pad_token_id=0,
         bos_token_id=1,
@@ -1371,6 +1372,7 @@ class BartStandaloneDecoderModelTester:
             decoder_start_token_id=self.decoder_start_token_id,
             max_position_embeddings=self.max_position_embeddings,
             is_encoder_decoder=self.is_encoder_decoder,
+            forced_eos_token_id=None,
         )
 
         return (
@@ -1531,4 +1533,13 @@ class BartStandaloneDecoderModelTest(ModelTesterMixin, GenerationTesterMixin, un
 
     @unittest.skip
     def test_save_load_fast_init_from_base(self):
+        pass
+
+    # maybe related to https://github.com/pytorch/pytorch/issues/133166
+    @unittest.skip(reason="It fails only when `dynamic=True` with {'tensor' object has no attribute '__pow__'}")
+    def test_sdpa_can_compile_dynamic(self):
+        pass
+
+    @unittest.skip(reason="Encoder-decoder model end-to-end generate compile not yet supported")
+    def test_generate_compile_1_end_to_end(self):
         pass

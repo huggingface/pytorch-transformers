@@ -322,7 +322,7 @@ class Data2VecAudioFeatureProjection(nn.Module):
         return hidden_states, norm_hidden_states
 
 
-# Copied from transformers.models.bart.modeling_bart.BartAttention with Bart->Data2VecAudio
+# Copied from transformers.models.hubert.modeling_hubert.HubertAttention with Hubert->Data2VecAudio
 class Data2VecAudioAttention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
@@ -481,7 +481,7 @@ class Data2VecAudioAttention(nn.Module):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-# Copied from transformers.models.bart.modeling_bart.BartFlashAttention2 with Bart->Data2VecAudio
+# Copied from transformers.models.hubert.modeling_hubert.HubertFlashAttention2 with Hubert->Data2VecAudio
 class Data2VecAudioFlashAttention2(Data2VecAudioAttention):
     """
     Data2VecAudio flash attention module. This module inherits from `Data2VecAudioAttention` as the weights of the module stays
@@ -609,7 +609,7 @@ class Data2VecAudioFlashAttention2(Data2VecAudioAttention):
 
 
 class Data2VecAudioSdpaAttention(Data2VecAudioAttention):
-    # Copied from transformers.models.bart.modeling_bart.BartSdpaAttention.forward with Bart->Data2VecAudio
+    # Copied from transformers.models.hubert.modeling_hubert.HubertSdpaAttention.forward with Hubert->Data2VecAudio
     def forward(
         self,
         hidden_states: torch.Tensor,

@@ -491,7 +491,7 @@ class Wav2Vec2FeatureProjection(nn.Module):
         return hidden_states, norm_hidden_states
 
 
-# Copied from transformers.models.bart.modeling_bart.BartAttention with Bart->Wav2Vec2
+# Copied from transformers.models.hubert.modeling_hubert.HubertAttention with Hubert->Wav2Vec2
 class Wav2Vec2Attention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
@@ -650,7 +650,7 @@ class Wav2Vec2Attention(nn.Module):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-# Copied from transformers.models.bart.modeling_bart.BartFlashAttention2 with Bart->Wav2Vec2
+# Copied from transformers.models.hubert.modeling_hubert.HubertFlashAttention2 with Hubert->Wav2Vec2
 class Wav2Vec2FlashAttention2(Wav2Vec2Attention):
     """
     Wav2Vec2 flash attention module. This module inherits from `Wav2Vec2Attention` as the weights of the module stays
@@ -778,7 +778,7 @@ class Wav2Vec2FlashAttention2(Wav2Vec2Attention):
 
 
 class Wav2Vec2SdpaAttention(Wav2Vec2Attention):
-    # Copied from transformers.models.bart.modeling_bart.BartSdpaAttention.forward with Bart->Wav2Vec2
+    # Copied from transformers.models.hubert.modeling_hubert.HubertSdpaAttention.forward with Hubert->Wav2Vec2
     def forward(
         self,
         hidden_states: torch.Tensor,

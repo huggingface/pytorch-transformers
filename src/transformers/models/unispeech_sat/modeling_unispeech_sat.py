@@ -445,7 +445,7 @@ class UniSpeechSatFeatureProjection(nn.Module):
         return hidden_states, norm_hidden_states
 
 
-# Copied from transformers.models.bart.modeling_bart.BartAttention with Bart->UniSpeechSat
+# Copied from transformers.models.hubert.modeling_hubert.HubertAttention with Hubert->UniSpeechSat
 class UniSpeechSatAttention(nn.Module):
     """Multi-headed attention from 'Attention Is All You Need' paper"""
 
@@ -604,7 +604,7 @@ class UniSpeechSatAttention(nn.Module):
         return attn_output, attn_weights_reshaped, past_key_value
 
 
-# Copied from transformers.models.bart.modeling_bart.BartFlashAttention2 with Bart->UniSpeechSat
+# Copied from transformers.models.hubert.modeling_hubert.HubertFlashAttention2 with Hubert->UniSpeechSat
 class UniSpeechSatFlashAttention2(UniSpeechSatAttention):
     """
     UniSpeechSat flash attention module. This module inherits from `UniSpeechSatAttention` as the weights of the module stays
@@ -732,7 +732,7 @@ class UniSpeechSatFlashAttention2(UniSpeechSatAttention):
 
 
 class UniSpeechSatSdpaAttention(UniSpeechSatAttention):
-    # Copied from transformers.models.bart.modeling_bart.BartSdpaAttention.forward with Bart->UniSpeechSat
+    # Copied from transformers.models.hubert.modeling_hubert.HubertSdpaAttention.forward with Hubert->UniSpeechSat
     def forward(
         self,
         hidden_states: torch.Tensor,

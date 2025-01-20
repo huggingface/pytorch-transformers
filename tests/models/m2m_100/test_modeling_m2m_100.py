@@ -95,7 +95,7 @@ class M2M100ModelTester:
         attention_probs_dropout_prob=0.1,
         encoder_layerdrop=0.0,
         decoder_layerdrop=0.0,
-        max_position_embeddings=20,
+        max_position_embeddings=50,
         eos_token_id=2,
         pad_token_id=1,
         bos_token_id=0,
@@ -437,7 +437,7 @@ class M2M100ModelIntegrationTests(unittest.TestCase):
         Overwritting the common test as the test is flaky on tiny models
         """
         model = M2M100ForConditionalGeneration.from_pretrained(
-            "facebook/m2m100_418M", attn_implementation="flash_attention_2"
+            "facebook/m2m100_418M", torch_dtype=torch.float16, attn_implementation="flash_attention_2"
         ).to(torch_device)
 
         tokenizer = M2M100Tokenizer.from_pretrained("facebook/m2m100_418M", src_lang="fr", tgt_lang="en")

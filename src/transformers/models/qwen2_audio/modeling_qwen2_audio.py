@@ -131,10 +131,6 @@ class Qwen2AudioAttention(nn.Module):
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
-    # Copied from transformers.models.bart.modeling_bart.BartAttention._shape with BART->whisper
-    def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
-        return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
-
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -153,7 +149,9 @@ class Qwen2AudioAttention(nn.Module):
         bsz, tgt_len, _ = hidden_states.size()
 
         # get query proj
-        query_states = self._shape(self.q_proj(hidden_states) * self.scaling, tgt_len, bsz)
+        query_states = self.q_proj(hidden_states) * self.scaling
+        query_states = query_states.view(bsz, tgt_len, self.num_heads, self.head_dim)
+        query_states = query_states.transpose(1, 2).contiguous()
 
         if past_key_value is not None:
             is_updated = past_key_value.is_updated.get(self.layer_idx)
@@ -171,8 +169,10 @@ class Qwen2AudioAttention(nn.Module):
             key_states = past_key_value.key_cache[self.layer_idx]
             value_states = past_key_value.value_cache[self.layer_idx]
         else:
-            key_states = self._shape(self.k_proj(current_states), -1, bsz)
-            value_states = self._shape(self.v_proj(current_states), -1, bsz)
+            key_states = self.k_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
+            value_states = self.v_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
+            key_states = key_states.transpose(1, 2).contiguous()
+            value_states = value_states.transpose(1, 2).contiguous()
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
                 cache_position = cache_position if not is_cross_attention else None
@@ -274,8 +274,10 @@ class Qwen2AudioFlashAttention2(Qwen2AudioAttention):
             key_states = past_key_value.key_cache[self.layer_idx]
             value_states = past_key_value.value_cache[self.layer_idx]
         else:
-            key_states = self._shape(self.k_proj(current_states), -1, bsz)
-            value_states = self._shape(self.v_proj(current_states), -1, bsz)
+            key_states = self.k_proj(current_states).view(bsz, tgt_len, self.num_heads, self.head_dim)
+            value_states = self.v_proj(current_states).view(bsz, tgt_len, self.num_heads, self.head_dim)
+            key_states = key_states.transpose(1, 2).contiguous()
+            value_states = value_states.transpose(1, 2).contiguous()
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
                 cache_position = cache_position if not is_cross_attention else None
@@ -373,7 +375,8 @@ class Qwen2AudioSdpaAttention(Qwen2AudioAttention):
         bsz, tgt_len, _ = hidden_states.size()
 
         # get query proj
-        query_states = self._shape(self.q_proj(hidden_states), tgt_len, bsz)
+        query_states = self.q_proj(hidden_states).view(bsz, tgt_len, self.num_heads, self.head_dim)
+        query_states = query_states.transpose(1, 2).contiguous()
 
         if past_key_value is not None:
             is_updated = past_key_value.is_updated.get(self.layer_idx)
@@ -391,8 +394,10 @@ class Qwen2AudioSdpaAttention(Qwen2AudioAttention):
             key_states = past_key_value.key_cache[self.layer_idx]
             value_states = past_key_value.value_cache[self.layer_idx]
         else:
-            key_states = self._shape(self.k_proj(current_states), -1, bsz)
-            value_states = self._shape(self.v_proj(current_states), -1, bsz)
+            key_states = self.k_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
+            value_states = self.v_proj(current_states).view(bsz, -1, self.num_heads, self.head_dim)
+            key_states = key_states.transpose(1, 2).contiguous()
+            value_states = value_states.transpose(1, 2).contiguous()
             if past_key_value is not None:
                 # save all key/value_states to cache to be re-used for fast auto-regressive generation
                 cache_position = cache_position if not is_cross_attention else None

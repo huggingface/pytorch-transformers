@@ -2035,6 +2035,8 @@ class RTDetrForObjectDetection(RTDetrPreTrainedModel):
             following 2 keys: 'class_labels' and 'boxes' (the class labels and bounding boxes of an image in the batch
             respectively). The class labels themselves should be a `torch.LongTensor` of len `(number of bounding boxes
             in the image,)` and the boxes a `torch.FloatTensor` of shape `(number of bounding boxes in the image, 4)`.
+            The bounding box coordinates are in the format (center_x, center_y, width, height) and have normalized values
+            in the range [0, 1].
 
         Returns:
 

@@ -1079,7 +1079,7 @@ class RTDetrImageProcessor(BaseImageProcessor):
             index = index // num_classes
             boxes = boxes.gather(dim=1, index=index.unsqueeze(-1).repeat(1, 1, boxes.shape[-1]))
         else:
-            scores = torch.nn.functional.softmax(out_logits)[:, :, :-1]
+            scores = torch.nn.functional.softmax(out_logits, dim=-1)
             scores, labels = scores.max(dim=-1)
             if scores.shape[1] > num_top_queries:
                 scores, index = torch.topk(scores, num_top_queries, dim=-1)

@@ -90,6 +90,8 @@
         title: 문서 질의 응답(Document Question Answering)
       - local: tasks/visual_question_answering
         title: 시각적 질의응답 (Visual Question Answering)
+      - lcoal: tasks/image_text_to_text
+        title: 이미지 기반 텍스트 변환 (image-text-to-text)
       - local: in_translation
         title: (번역중) Text to speech
     title: 멀티모달

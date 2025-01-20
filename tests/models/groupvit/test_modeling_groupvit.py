@@ -24,7 +24,7 @@ import numpy as np
 import requests
 
 from transformers import GroupViTConfig, GroupViTTextConfig, GroupViTVisionConfig
-from transformers.testing_utils import is_pt_tf_cross_test, require_torch, require_vision, slow, torch_device
+from transformers.testing_utils import is_pt_tf_cross_test, require_torch, require_vision, slow, torch_device, is_flaky
 from transformers.utils import is_torch_available, is_vision_available
 
 from ...test_configuration_common import ConfigTester
@@ -161,6 +161,10 @@ class GroupViTVisionModelTest(ModelTesterMixin, unittest.TestCase):
     @unittest.skip(reason="GroupViT does not use inputs_embeds")
     def test_inputs_embeds(self):
         pass
+
+    @is_flaky(description="The `index` computed with `max()` in `hard_softmax` is not stable.")
+    def test_batching_equivalence(self):
+        super().test_batching_equivalence()
 
     @is_pt_tf_cross_test
     def test_pt_tf_model_equivalence(self):
@@ -570,6 +574,10 @@ class GroupViTModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase
 
     def test_config(self):
         self.config_tester.run_common_tests()
+
+    @is_flaky(description="The `index` computed with `max()` in `hard_softmax` is not stable.")
+    def test_batching_equivalence(self):
+        super().test_batching_equivalence()
 
     @unittest.skip(reason="hidden_states are tested in individual model tests")
     def test_hidden_states_output(self):

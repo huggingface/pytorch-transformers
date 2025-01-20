@@ -191,9 +191,6 @@ workflows:
                 - equal: [<<pipeline.project.git_url>>, https://github.com/huggingface/transformers]
                 - not: <<pipeline.parameters.nightly>>
         jobs:
-            - check_circleci_user
-            - check_code_quality
-            - check_repository_consistency
             - fetch_tests
 
     setup_and_quality_2:

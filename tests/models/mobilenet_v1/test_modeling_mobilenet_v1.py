@@ -214,9 +214,6 @@ class MobileNetV1ModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestC
         model = MobileNetV1Model.from_pretrained(model_name)
         self.assertIsNotNone(model)
 
-    # TODO: ydshieh
-    @unittest.skip("skip for now as #35564 fails this test more frequently for this model")
-    @is_flaky(description="is_flaky https://github.com/huggingface/transformers/pull/31258")
     def test_batching_equivalence(self):
         super().test_batching_equivalence()
 

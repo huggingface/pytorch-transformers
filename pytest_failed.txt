@@ -1,0 +1,21 @@
+tests/models/wav2vec2/test_modeling_wav2vec2.py::Wav2Vec2RobustModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in Wav2Vec2ForPreTraining for key=projected_quantized_states.
+tests/models/unispeech/test_modeling_unispeech.py::UniSpeechRobustModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in UniSpeechForPreTraining for key=projected_quantized_states.
+tests/models/unispeech/test_modeling_unispeech.py::UniSpeechRobustModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in UniSpeechForPreTraining for key=projected_quantized_states.
+
+tests/models/groupvit/test_modeling_groupvit.py::GroupViTModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in GroupViTModel for key=vision_model_output.
+tests/models/groupvit/test_modeling_groupvit.py::GroupViTModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in GroupViTModel for key=logits_per_image.
+tests/models/groupvit/test_modeling_groupvit.py::GroupViTModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in GroupViTModel for key=logits_per_image.
+tests/models/groupvit/test_modeling_groupvit.py::GroupViTModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in GroupViTModel for key=vision_model_output.
+
+
+tests/models/superpoint/test_modeling_superpoint.py::SuperPointModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in SuperPointForKeypointDetection for key=keypoints.
+tests/models/oneformer/test_modeling_oneformer.py::OneFormerModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in OneFormerForUniversalSegmentation for key=transformer_decoder_object_queries.
+
+
+
+
+
+tests/models/flaubert/test_modeling_flaubert.py::FlaubertModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in FlaubertForQuestionAnswering for key=end_top_index.
+tests/models/xlm/test_modeling_xlm.py::XLMModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in XLMForQuestionAnswering for key=end_top_index.
+tests/models/xlnet/test_modeling_xlnet.py::XLNetModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in XLNetForQuestionAnswering for key=end_top_index.
+tests/models/xlnet/test_modeling_xlnet.py::XLNetModelTest::test_batching_equivalence - AssertionError: Batched and Single row outputs are not equal in XLNetForQuestionAnswering for key=end_top_index.

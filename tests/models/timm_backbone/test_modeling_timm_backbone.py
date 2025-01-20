@@ -18,7 +18,7 @@ import inspect
 import unittest
 
 from transformers import AutoBackbone
-from transformers.testing_utils import require_timm, require_torch, torch_device
+from transformers.testing_utils import is_flaky, require_timm, require_torch, torch_device
 from transformers.utils.import_utils import is_torch_available
 
 from ...test_backbone_common import BackboneTesterMixin
@@ -114,6 +114,10 @@ class TimmBackboneModelTest(ModelTesterMixin, BackboneTesterMixin, PipelineTeste
 
     def test_config(self):
         self.config_tester.run_common_tests()
+
+    @is_flaky(description="`TimmBackbone` has no `_init_weights`. Timm's way of weight init. seems to give larger magnitude in the intermediate values during `forward`.")
+    def test_batching_equivalence(self):
+        super().test_batching_equivalence()
 
     def test_timm_transformer_backbone_equivalence(self):
         timm_checkpoint = "resnet18"

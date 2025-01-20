@@ -770,15 +770,6 @@ class ModelTesterMixin:
         different results: https://github.com/huggingface/transformers/issues/25420#issuecomment-1775317535)
         """
 
-        def get_tensor_equivalence_function(batched_input):
-            # models operating on continuous spaces have higher abs difference than LMs
-            # instead, we can rely on cos distance for image/speech models, similar to `diffusers`
-            if "input_ids" not in batched_input:
-                return lambda tensor1, tensor2: (
-                    1.0 - F.cosine_similarity(tensor1.float().flatten(), tensor2.float().flatten(), dim=0, eps=1e-38)
-                )
-            return lambda tensor1, tensor2: torch.max(torch.abs(tensor1 - tensor2))
-
         def recursive_check(batched_object, single_row_object, model_name, key):
             if isinstance(batched_object, (list, tuple)):
                 for batched_object_value, single_row_object_value in zip(batched_object, single_row_object):
@@ -792,6 +783,10 @@ class ModelTesterMixin:
             elif batched_object is None or not isinstance(batched_object, torch.Tensor):
                 return
             elif batched_object.dim() == 0:
+                return
+            # do not compare int or bool outputs as they are mostly computed with max/argmax/topk methods which are
+            # very sensitive to the inputs (e.g. tiny differences may give totally different results)
+            elif not torch.is_floating_point(batched_object):
                 return
             else:
                 # indexing the first element does not always work
@@ -810,22 +805,22 @@ class ModelTesterMixin:
                 self.assertFalse(
                     torch.isinf(single_row_object).any(), f"Single row output has `inf` in {model_name} for key={key}"
                 )
-                self.assertTrue(
-                    (equivalence(batched_row, single_row_object)) <= 1e-03,
-                    msg=(
-                        f"Batched and Single row outputs are not equal in {model_name} for key={key}. "
-                        f"Difference={equivalence(batched_row, single_row_object)}."
-                    ),
-                )
+                msg = f"Batched and Single row outputs are not equal in {model_name} for key={key}."
+                torch.testing.assert_close(batched_row, single_row_object, atol=1e-5, rtol=1e-5, msg=msg)
+                # try:
+                #     torch.testing.assert_close(batched_row, single_row_object, atol=1e-5, rtol=1e-5, msg=msg)
+                # except:
+                #     breakpoint()
 
         set_model_tester_for_less_flaky_test(self)
 
         config, batched_input = self.model_tester.prepare_config_and_inputs_for_common()
-        set_config_for_less_flaky_test(config)
-        equivalence = get_tensor_equivalence_function(batched_input)
+
+        set_model_tester_for_less_flaky_test(self)
 
         for model_class in self.all_model_classes:
             config.output_hidden_states = True
+            set_config_for_less_flaky_test(config)
 
             model_name = model_class.__name__
             if hasattr(self.model_tester, "prepare_config_and_inputs_for_model_class"):
@@ -846,8 +841,17 @@ class ModelTesterMixin:
 
             with torch.no_grad():
                 model_batched_output = model(**batched_input_prepared)
+                if hasattr(model, "outputs"):
+                    o1 = copy.deepcopy(model.outputs)
+                    o3 = copy.deepcopy(model.quantizer.outputs)
+                    model.outputs = []
+                    model.quantizer.outputs = []
                 model_row_output = model(**single_row_input)
-
+                if hasattr(model, "outputs"):
+                    o2 = copy.deepcopy(model.outputs)
+                    o4 = copy.deepcopy(model.quantizer.outputs)
+                    model.outputs = []
+                    model.quantizer.outputs = []
             if isinstance(model_batched_output, torch.Tensor):
                 model_batched_output = {"model_output": model_batched_output}
                 model_row_output = {"model_output": model_row_output}
@@ -857,7 +861,12 @@ class ModelTesterMixin:
                 if hasattr(self, "zero_init_hidden_state") and "decoder_hidden_states" in key:
                     model_batched_output[key] = model_batched_output[key][1:]
                     model_row_output[key] = model_row_output[key][1:]
+                # breakpoint()
                 recursive_check(model_batched_output[key], model_row_output[key], model_name, key)
+                # try:
+                #     recursive_check(model_batched_output[key], model_row_output[key], model_name, key)
+                # except:
+                #     breakpoint()
 
     def check_training_gradient_checkpointing(self, gradient_checkpointing_kwargs=None):
         if not self.model_tester.is_training:

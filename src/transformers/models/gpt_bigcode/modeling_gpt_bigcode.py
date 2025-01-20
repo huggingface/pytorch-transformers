@@ -300,6 +300,12 @@ class GPTBigCodeFlashAttention2(GPTBigCodeAttention):
         Tuple[torch.Tensor, Optional[torch.Tensor]],
         Tuple[torch.Tensor, Optional[torch.Tensor], Tuple[torch.Tensor, ...]],
     ]:
+        if output_attentions or head_mask is not None:
+            raise ValueError(
+                "GPTBigCodeFlashAttention2 attention does not support `output_attentions=True` or `head_mask is not None`. "
+                "Use the argument `attn_implementation='eager'` when loading the model."
+            )
+
         if encoder_hidden_states is not None:
             if not hasattr(self, "q_attn") or not self.is_cross_attention:
                 raise ValueError(
@@ -484,6 +490,12 @@ class GPTBigCodeSdpaAttention(GPTBigCodeAttention):
         Tuple[torch.Tensor, Optional[torch.Tensor]],
         Tuple[torch.Tensor, Optional[torch.Tensor], Tuple[torch.Tensor, ...]],
     ]:
+        if head_mask is not None:
+            raise ValueError(
+                "GPTBigCodeSdpaAttention attention does not support `head_mask`. "
+                "Use the argument `attn_implementation='eager'` when loading the model."
+            )
+
         if encoder_hidden_states is not None:
             if not hasattr(self, "q_attn") or not self.is_cross_attention:
                 raise ValueError(
@@ -513,17 +525,17 @@ class GPTBigCodeSdpaAttention(GPTBigCodeAttention):
 
         key, value = key_value.split((self.head_dim, self.head_dim), dim=-1)
 
-        if not output_attentions and head_mask is None:
+        if not output_attentions:
             # Difference with the original implementation: there is no need to transpose the key here,
             # as SDPA expects seq_length to be at index -2 for the key as well
             attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
         else:
             # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "GPTBigCodeModel is using GPTBigCodeSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True` and `head_mask` not None."
+                "GPTBigCodeModel is using GPTBigCodeSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`."
                 ' Falling back to the manual attention implementation, but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
-            attn_output, attn_weights = super()._attn(query, key.transpose(-1, -2), value, attention_mask, head_mask)
+            attn_output, attn_weights = super()._attn(query, key.transpose(-1, -2), value, attention_mask)
 
         if not self.multi_query:
             attn_output = attn_output.transpose(1, 2).reshape(hidden_states.shape)

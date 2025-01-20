@@ -170,26 +170,14 @@ def prepare_whisper_inputs_dict(
     decoder_input_ids,
     attention_mask=None,
     decoder_attention_mask=None,
-    head_mask=None,
-    decoder_head_mask=None,
-    cross_attn_head_mask=None,
 ):
     if decoder_attention_mask is None:
         decoder_attention_mask = decoder_input_ids.ne(config.pad_token_id)
-    if head_mask is None:
-        head_mask = torch.ones(config.encoder_layers, config.encoder_attention_heads, device=torch_device)
-    if decoder_head_mask is None:
-        decoder_head_mask = torch.ones(config.decoder_layers, config.decoder_attention_heads, device=torch_device)
-    if cross_attn_head_mask is None:
-        cross_attn_head_mask = torch.ones(config.decoder_layers, config.decoder_attention_heads, device=torch_device)
     return {
         # "input_ids": input_features,
         "input_features": input_features,
         "decoder_input_ids": decoder_input_ids,
         "decoder_attention_mask": decoder_attention_mask,
-        "head_mask": head_mask,
-        "decoder_head_mask": decoder_head_mask,
-        "cross_attn_head_mask": cross_attn_head_mask,
     }
 
 
@@ -3397,12 +3385,6 @@ class WhisperModelIntegrationTests(unittest.TestCase):
         self.assertTrue((eager_generated_ids[permutation_idx, :] == static_generated_ids).all())
 
 
-def prepare_whisper_encoder_inputs_dict(config, input_features, head_mask=None):
-    if head_mask is None:
-        head_mask = torch.ones(config.encoder_layers, config.encoder_attention_heads, device=torch_device)
-    return {"input_features": input_features, "head_mask": head_mask}
-
-
 @require_torch
 class WhisperEncoderModelTester:
     def __init__(
@@ -3476,10 +3458,7 @@ class WhisperEncoderModelTester:
         input_features = floats_tensor([self.batch_size, self.num_mel_bins, self.seq_length])
 
         config = self.get_config()
-        inputs_dict = prepare_whisper_encoder_inputs_dict(
-            config,
-            input_features=input_features,
-        )
+        inputs_dict = {"input_features": input_features}
         return config, inputs_dict
 
     def prepare_config_and_inputs_for_common(self):
@@ -3589,8 +3568,6 @@ class WhisperEncoderModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.
             encoder_inputs = {"input_features": inputs["input_features"]}
             del inputs["input_features"]
 
-            if "head_mask" in inputs:
-                encoder_inputs["head_mask"] = inputs["head_mask"]
             if "attention_mask" in inputs:
                 encoder_inputs["attention_mask"] = inputs["attention_mask"]
             if "output_attentions" in inputs:
@@ -3836,9 +3813,6 @@ class WhisperStandaloneDecoderModelTester:
         )
 
         inputs_dict.pop("input_features")
-        inputs_dict.pop("head_mask")
-        inputs_dict.pop("decoder_head_mask")
-        inputs_dict.pop("cross_attn_head_mask")
 
         inputs_dict["attention_mask"] = inputs_dict.pop("decoder_attention_mask")
         inputs_dict["input_ids"] = inputs_dict.pop("decoder_input_ids")

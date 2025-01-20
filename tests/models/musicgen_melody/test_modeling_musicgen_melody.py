@@ -84,15 +84,12 @@ def prepare_musicgen_melody_decoder_inputs_dict(
     config,
     input_ids,
     attention_mask=None,
-    head_mask=None,
     encoder_hidden_states=None,
     encoder_attention_mask=None,
 ):
     if attention_mask is None:
         attention_mask = input_ids.reshape(-1, config.num_codebooks, input_ids.shape[-1])[:, 0, :]
         attention_mask = attention_mask.ne(config.pad_token_id)
-    if head_mask is None:
-        head_mask = torch.ones(config.num_hidden_layers, config.num_attention_heads, device=torch_device)
     if encoder_attention_mask is None and encoder_hidden_states is not None:
         encoder_attention_mask = torch.ones(encoder_hidden_states.shape[:2], device=torch_device)
     return {
@@ -100,7 +97,6 @@ def prepare_musicgen_melody_decoder_inputs_dict(
         "attention_mask": attention_mask,
         "encoder_hidden_states": encoder_hidden_states,
         "encoder_attention_mask": encoder_attention_mask,
-        "head_mask": head_mask,
     }
 
 
@@ -694,8 +690,6 @@ def prepare_musicgen_melody_inputs_dict(
     decoder_input_ids,
     attention_mask=None,
     decoder_attention_mask=None,
-    head_mask=None,
-    decoder_head_mask=None,
     labels=None,
 ):
     if decoder_attention_mask is None:
@@ -703,21 +697,11 @@ def prepare_musicgen_melody_inputs_dict(
             -1, config.decoder.num_codebooks, decoder_input_ids.shape[-1]
         )[:, 0, :]
         decoder_attention_mask = decoder_attention_mask.ne(config.decoder.pad_token_id)
-    if head_mask is None:
-        head_mask = torch.ones(
-            config.text_encoder.num_hidden_layers, config.text_encoder.num_attention_heads, device=torch_device
-        )
-    if decoder_head_mask is None:
-        decoder_head_mask = torch.ones(
-            config.decoder.num_hidden_layers, config.decoder.num_attention_heads, device=torch_device
-        )
     return {
         "input_ids": input_ids,
         "attention_mask": attention_mask,
         "decoder_input_ids": decoder_input_ids,
         "decoder_attention_mask": decoder_attention_mask,
-        "head_mask": head_mask,
-        "decoder_head_mask": decoder_head_mask,
         "labels": labels,
     }
 

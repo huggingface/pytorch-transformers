@@ -17,11 +17,10 @@
 import unittest
 
 from packaging import version
-from parameterized import parameterized
 
 from transformers import AlbertConfig, AutoTokenizer, is_torch_available
 from transformers.models.auto import get_values
-from transformers.testing_utils import require_torch, require_torch_sdpa, slow, torch_device
+from transformers.testing_utils import require_torch, slow, torch_device
 
 from ...test_configuration_common import ConfigTester
 from ...test_modeling_common import ModelTesterMixin, ids_tensor, random_attention_mask
@@ -288,12 +287,6 @@ class AlbertModelTest(ModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
     def setUp(self):
         self.model_tester = AlbertModelTester(self)
         self.config_tester = ConfigTester(self, config_class=AlbertConfig, hidden_size=37)
-
-    @parameterized.expand([("float16",), ("bfloat16",), ("float32",)])
-    @require_torch_sdpa
-    @unittest.skip("Albert requires `head_mask` which is currently not done in this test.")
-    def test_eager_matches_sdpa_inference(self):
-        pass
 
     def test_config(self):
         self.config_tester.run_common_tests()

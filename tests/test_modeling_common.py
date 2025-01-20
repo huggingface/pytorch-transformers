@@ -1427,6 +1427,7 @@ class ModelTesterMixin:
         inputs_dict["output_attentions"] = True
         config.output_hidden_states = True
         configs_no_init = _config_zero_init(config)  # To be sure we have no Nan
+        configs_no_init._attn_implementation = "eager"  # head mask works only in eager mode and will be removed soon
         for model_class in self.all_model_classes:
             model = model_class(config=configs_no_init)
             model.to(torch_device)

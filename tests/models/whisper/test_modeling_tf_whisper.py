@@ -63,25 +63,13 @@ def prepare_whisper_inputs_dict(
     decoder_input_ids,
     attention_mask=None,
     decoder_attention_mask=None,
-    head_mask=None,
-    decoder_head_mask=None,
-    cross_attn_head_mask=None,
 ):
     if decoder_attention_mask is None:
         decoder_attention_mask = tf.where(decoder_input_ids != config.pad_token_id, 1, 0)
-    if head_mask is None:
-        head_mask = tf.ones((config.encoder_layers, config.encoder_attention_heads))
-    if decoder_head_mask is None:
-        decoder_head_mask = tf.ones((config.decoder_layers, config.decoder_attention_heads))
-    if cross_attn_head_mask is None:
-        cross_attn_head_mask = tf.ones((config.decoder_layers, config.decoder_attention_heads))
     return {
         "input_features": input_features,
         "decoder_input_ids": decoder_input_ids,
         "decoder_attention_mask": decoder_attention_mask,
-        "head_mask": head_mask,
-        "decoder_head_mask": decoder_head_mask,
-        "cross_attn_head_mask": cross_attn_head_mask,
     }
 
 
@@ -349,9 +337,6 @@ class TFWhisperModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestC
 
     @unittest.skip("Training is not yet supported")
     def test_training(self):
-        pass
-
-    def test_generate_with_head_masking(self):
         pass
 
     @unittest.skip("fp16 is not yet supported for TF models")

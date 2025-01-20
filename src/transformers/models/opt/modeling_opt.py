@@ -277,6 +277,12 @@ class OptFlashAttention2(OPTAttention):
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
 
+        if output_attentions or layer_head_mask is not None:
+            raise ValueError(
+                "OptFlashAttention2 attention does not support `output_attentions=True` or `layer_head_mask is not None`. "
+                "Use the argument `attn_implementation='eager'` when loading the model."
+            )
+
         # if key_value_states are provided this layer is used as a cross-attention layer
         # for the decoder
         is_cross_attention = key_value_states is not None
@@ -387,7 +393,13 @@ class OPTSdpaAttention(OPTAttention):
         output_attentions: bool = False,
         position_ids: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-        if output_attentions or layer_head_mask is not None:
+        if layer_head_mask is not None:
+            raise ValueError(
+                "OPTSdpaAttention attention does not support `layer_head_mask`. "
+                "Use the argument `attn_implementation='eager'` when loading the model."
+            )
+
+        if output_attentions:
             logger.warning_once(
                 "OPTModel is using SDPA attention, which currently does not support output_attentions=True."
                 'failing back to eager attention. remove warning using attn_implementation="eager".'

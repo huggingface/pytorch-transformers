@@ -154,9 +154,7 @@ class BioGptModelTester:
         result = model(input_ids, attention_mask=input_mask, token_type_ids=token_type_ids, labels=token_labels)
         self.parent.assertEqual(result.logits.shape, (self.batch_size, self.seq_length, self.vocab_size))
 
-    def create_and_check_biogpt_model_attention_mask_past(
-        self, config, input_ids, input_mask, head_mask, token_type_ids, *args
-    ):
+    def create_and_check_biogpt_model_attention_mask_past(self, config, input_ids, input_mask, token_type_ids, *args):
         model = BioGptModel(config=config)
         model.to(torch_device)
         model.eval()
@@ -196,9 +194,7 @@ class BioGptModelTester:
         # test that outputs are equal for slice
         self.parent.assertTrue(torch.allclose(output_from_past_slice, output_from_no_past_slice, atol=1e-3))
 
-    def create_and_check_biogpt_model_past_large_inputs(
-        self, config, input_ids, input_mask, head_mask, token_type_ids, *args
-    ):
+    def create_and_check_biogpt_model_past_large_inputs(self, config, input_ids, input_mask, token_type_ids, *args):
         model = BioGptModel(config=config).to(torch_device).eval()
 
         attention_mask = torch.ones(input_ids.shape, dtype=torch.long, device=torch_device)
@@ -232,7 +228,7 @@ class BioGptModelTester:
         self.parent.assertTrue(torch.allclose(output_from_past_slice, output_from_no_past_slice, atol=1e-3))
 
     def create_and_check_forward_and_backwards(
-        self, config, input_ids, input_mask, head_mask, token_type_ids, *args, gradient_checkpointing=False
+        self, config, input_ids, input_mask, token_type_ids, *args, gradient_checkpointing=False
     ):
         model = BioGptForCausalLM(config)
         model.to(torch_device)
@@ -252,9 +248,7 @@ class BioGptModelTester:
                 self.parent.assertLessEqual(abs(torch.std(model.state_dict()[key]) - model_std), 0.001)
                 self.parent.assertLessEqual(abs(torch.mean(model.state_dict()[key]) - 0.0), 0.01)
 
-    def create_and_check_biogpt_for_token_classification(
-        self, config, input_ids, input_mask, head_mask, token_type_ids, *args
-    ):
+    def create_and_check_biogpt_for_token_classification(self, config, input_ids, input_mask, token_type_ids, *args):
         config.num_labels = self.num_labels
         model = BioGptForTokenClassification(config)
         model.to(torch_device)

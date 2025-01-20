@@ -1415,6 +1415,7 @@ class GenerationTesterMixin:
         attention_names = ["encoder_attentions", "decoder_attentions", "cross_attentions"]
         for model_class in self.all_generative_model_classes:
             config, inputs_dict = self.prepare_config_and_inputs_for_generate()
+            config._attn_implementation = "eager"  # head mask works only in eager mode and will be removed soon
             text_config = config.get_text_config()
 
             # We want to test only encoder-decoder models

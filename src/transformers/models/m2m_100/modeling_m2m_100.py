@@ -369,8 +369,11 @@ class M2M100FlashAttention2(M2M100Attention):
         output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         # M2M100FlashAttention2 attention does not support output_attentions
-        if output_attentions:
-            raise ValueError("M2M100FlashAttention2 attention does not support output_attentions")
+        if output_attentions or layer_head_mask is not None:
+            raise ValueError(
+                "M2M100FlashAttention2 attention does not support `output_attentions=True` or `layer_head_mask is not None`. "
+                "Use the argument `attn_implementation='eager'` when loading the model."
+            )
 
         # if key_value_states are provided this layer is used as a cross-attention layer
         # for the decoder
@@ -479,7 +482,13 @@ class M2M100SdpaAttention(M2M100Attention):
         output_attentions: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
-        if output_attentions or layer_head_mask is not None:
+        if layer_head_mask is not None:
+            raise ValueError(
+                "M2M100SdpaAttention attention does not support `layer_head_mask`. "
+                "Use the argument `attn_implementation='eager'` when loading the model."
+            )
+
+        if output_attentions:
             # TODO: Improve this warning with e.g. `model.config._attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
                 "M2M100Model is using M2M100SdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True` or `layer_head_mask` not None. Falling back to the manual attention"

@@ -1725,7 +1725,7 @@ class HybridCache(Cache):
                 "`get_seq_length` on `HybridCache` may get inconsistent results depending on the layer index. "
                 "Using the `layer_idx` argument is not supported."
             )
-        return (self.key_cache[layer_idx][0, 0].any(dim=-1)).sum()
+        return (self.key_cache[layer_idx][0, 0].any(dim=-1)).sum().item()
 
     def reset(self):
         """Resets the cache values while preserving the objects"""

@@ -4175,52 +4175,64 @@ class ModelTesterMixin:
                                             outputs_eager = model_eager(**prepared_inputs)
                                             outputs_sdpa = model_sdpa(**prepared_inputs)
 
+                                    # Test gradients
+                                    model_eager.train()
+                                    model_sdpa.train()
+
+                                    with sdpa_kernel(
+                                        enable_flash=enable_kernels,
+                                        enable_math=True,
+                                        enable_mem_efficient=enable_kernels,
+                                    ):
+                                        prepared_inputs = self._prepare_for_class(processed_inputs, model_class)
+                                        outputs_eager = model_eager(**prepared_inputs)
+                                        outputs_sdpa = model_sdpa(**prepared_inputs)
+
+                                        if hasattr(outputs_eager, "vision_hidden_states"):
+                                            logits_eager = outputs_eager.vision_hidden_states[-1]
+                                            logits_sdpa = outputs_sdpa.vision_hidden_states[-1]
+                                        else:
+                                            logits_eager = (
+                                                outputs_eager.hidden_states[-1]
+                                                if not is_encoder_decoder
+                                                else outputs_eager.decoder_hidden_states[-1]
+                                            )
+                                            logits_sdpa = (
+                                                outputs_sdpa.hidden_states[-1]
+                                                if not is_encoder_decoder
+                                                else outputs_sdpa.decoder_hidden_states[-1]
+                                            )
+
+                                        # Compute gradients
+                                        loss_eager = logits_eager.mean()
+                                        loss_sdpa = logits_sdpa.mean()
+
+                                        loss_eager.backward()
+                                        loss_sdpa.backward()
+
+                                        # Compare gradients
+                                        for p_eager, p_sdpa in zip(model_eager.parameters(), model_sdpa.parameters()):
+                                            if p_eager.grad is not None and p_sdpa.grad is not None:
+                                                self.assertTrue(
+                                                    torch.allclose(
+                                                        p_eager.grad, p_sdpa.grad,
+                                                        atol=atols[torch_device, enable_kernels, torch_dtype],
+                                                        rtol=rtols[torch_device, enable_kernels, torch_dtype]
+                                                    ),
+                                                    f"Gradients do not match for parameter {p_eager}"
+                                                )
+
+                                        # Reset gradients
+                                        model_eager.zero_grad()
+                                        model_sdpa.zero_grad()
+
+                                        # Set models back to eval mode
+                                        model_eager.eval()
+                                        model_sdpa.eval()
+
                                     if hasattr(outputs_eager, "vision_hidden_states"):
                                         logits_eager = outputs_eager.vision_hidden_states[-1]
                                         logits_sdpa = outputs_sdpa.vision_hidden_states[-1]
-                                    else:
-                                        logits_eager = (
-                                            outputs_eager.hidden_states[-1]
-                                            if not is_encoder_decoder
-                                            else outputs_eager.decoder_hidden_states[-1]
-                                        )
-                                        logits_sdpa = (
-                                            outputs_sdpa.hidden_states[-1]
-                                            if not is_encoder_decoder
-                                            else outputs_sdpa.decoder_hidden_states[-1]
-                                        )
-
-                                    if torch_device in ["cpu", "cuda"]:
-                                        atol = atols[torch_device, enable_kernels, torch_dtype]
-                                        rtol = rtols[torch_device, enable_kernels, torch_dtype]
-                                    elif torch_device == "xpu":
-                                        # As of PyTorch 2.5 XPU backend supports only torch.nn.attention.SDPBackend.MATH
-                                        # which is implemented on PyTorch level using aten operators and is
-                                        # device agnostic with respect to implementation of each aten operator.
-                                        atol = atols["cuda", False, torch_dtype]
-                                        rtol = rtols["cuda", False, torch_dtype]
-                                    else:
-                                        atol = 1e-7
-                                        rtol = 1e-4
-
-                                    # Masked tokens output slightly deviates - we don't mind that.
-                                    if use_mask:
-                                        _logits_sdpa = torch.zeros_like(input=logits_sdpa)
-                                        _logits_eager = torch.zeros_like(input=logits_eager)
-
-                                        _logits_sdpa[:-1] = logits_sdpa[:-1]
-                                        _logits_eager[:-1] = logits_eager[:-1]
-
-                                        if padding_side == "left":
-                                            _logits_sdpa[-1:, 2:] = logits_sdpa[-1:, 2:]
-                                            _logits_eager[-1:, 2:] = logits_eager[-1:, 2:]
-
-                                        elif padding_side == "right":
-                                            _logits_sdpa[-1:, 2:] = logits_sdpa[-1:, :-2]
-                                            _logits_eager[-1:, 2:] = logits_eager[-1:, :-2]
-
-                                        logits_sdpa = _logits_sdpa
-                                        logits_eager = _logits_eager
 
                                     results = [
                                         torch.allclose(_logits_sdpa, _logits_eager, atol=atol, rtol=rtol)

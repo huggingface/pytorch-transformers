@@ -212,6 +212,8 @@ class AudioClassificationPipeline(Pipeline):
         processed = self.feature_extractor(
             inputs, sampling_rate=self.feature_extractor.sampling_rate, return_tensors="pt"
         )
+        if self.torch_dtype is not None:
+            processed = processed.to(dtype=self.torch_dtype)
         return processed
 
     def _forward(self, model_inputs):

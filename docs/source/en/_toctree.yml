@@ -112,6 +112,17 @@
     title: Generation
   - isExpanded: false
     sections:
+    - local: chat_template_basics
+      title: Getting Started with Chat Templates for Text LLMs
+    - local: chat_template_multimodal
+      title: Multimodal Chat Templates for Vision and Audio LLMs
+    - local: chat_template_tools_and_documents
+      title: Expanding Chat Templates with Tools and Documents
+    - local: chat_template_advanced
+      title: Advanced Usage and Customizing Your Chat Templates
+    title: Chat Templates
+  - isExpanded: false
+    sections:
     - local: tasks/idefics
       title: Image tasks with IDEFICS
     - local: tasks/prompting

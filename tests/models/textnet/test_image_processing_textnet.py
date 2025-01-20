@@ -26,7 +26,7 @@ if is_vision_available():
     from transformers import TextNetImageProcessor
 
 
-class TextNetImageProcessingTester(unittest.TestCase):
+class TextNetImageProcessingTester:
     def __init__(
         self,
         parent,

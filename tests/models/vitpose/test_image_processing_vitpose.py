@@ -34,7 +34,7 @@ if is_vision_available():
     from transformers import VitPoseImageProcessor
 
 
-class VitPoseImageProcessingTester(unittest.TestCase):
+class VitPoseImageProcessingTester:
     def __init__(
         self,
         parent,

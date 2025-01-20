@@ -683,6 +683,8 @@
         title: ImageGPT
       - local: model_doc/levit
         title: LeViT
+      - local: model_doc/lightglue
+        title: LightGlue
       - local: model_doc/mask2former
         title: Mask2Former
       - local: model_doc/maskformer

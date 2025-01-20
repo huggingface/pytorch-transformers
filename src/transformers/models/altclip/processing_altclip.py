@@ -99,8 +99,6 @@ class AltCLIPProcessor(ProcessorMixin):
         if text is None and images is None:
             raise ValueError("You must specify either text or images.")
 
-        if text is None and images is None:
-            raise ValueError("You must specify either text or images.")
         output_kwargs = self._merge_kwargs(
             AltClipProcessorKwargs,
             tokenizer_init_kwargs=self.tokenizer.init_kwargs,

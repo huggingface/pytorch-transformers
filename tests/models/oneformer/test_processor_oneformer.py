@@ -27,6 +27,7 @@ from transformers.testing_utils import check_json_file_has_correct_format, requi
 from transformers.utils import is_torch_available, is_vision_available
 
 from ...test_image_processing_common import prepare_image_inputs
+from ...test_processing_common import ProcessorTesterMixin
 
 
 if is_torch_available():
@@ -129,8 +130,6 @@ class OneFormerProcessorTester:
         return {
             "image_processor": image_processor,
             "tokenizer": tokenizer,
-            "max_seq_length": self.max_seq_length,
-            "task_seq_length": self.task_seq_length,
         }
 
     def get_expected_values(self, image_inputs, batched=False):
@@ -190,24 +189,202 @@ class OneFormerProcessorTester:
 
 @require_torch
 @require_vision
-class OneFormerProcessingTest(unittest.TestCase):
-    processing_class = OneFormerProcessor if (is_vision_available() and is_torch_available()) else None
+class OneFormerProcessingTest(ProcessorTesterMixin, unittest.TestCase):
+    processor_class = OneFormerProcessor
+    text_input_name = "task_inputs"
     # only for test_feat_extracttion_common.test_feat_extract_to_json_string
-    feature_extraction_class = processing_class
+    feature_extraction_class = processor_class
 
     def setUp(self):
         self.processing_tester = OneFormerProcessorTester(self)
+        self.tmpdirname = tempfile.mkdtemp()
+        processor = self.processor_class(**self.processor_dict)
+        processor.save_pretrained(self.tmpdirname)
 
     @property
     def processor_dict(self):
         return self.processing_tester.prepare_processor_dict()
 
+    # START - override common tests due to mandatory argument task_inputs
+    def test_image_processor_defaults_preserved_by_image_kwargs(self):
+        """
+        We use do_rescale=True, rescale_factor=-1 to ensure that image_processor kwargs are preserved in the processor.
+        We then check that the mean of the pixel_values is less than or equal to 0 after processing.
+        Since the original pixel_values are in [0, 255], this is a good indicator that the rescale_factor is indeed applied.
+        """
+        if "image_processor" not in self.processor_class.attributes:
+            self.skipTest(f"image_processor attribute not present in {self.processor_class}")
+        processor_components = self.prepare_components()
+        processor_components["image_processor"] = self.get_component(
+            "image_processor", do_rescale=True, rescale_factor=-1
+        )
+        processor_components["tokenizer"] = self.get_component("tokenizer", max_length=117, padding="max_length")
+
+        processor = self.processor_class(**processor_components)
+        self.skip_processor_without_typed_kwargs(processor)
+
+        input_str = self.prepare_text_inputs()
+        image_input = self.prepare_image_inputs()
+
+        inputs = processor(text=input_str, images=image_input, return_tensors="pt", task_inputs="semantic")
+        self.assertLessEqual(inputs[self.images_input_name][0][0].mean(), 0)
+
+    def test_kwargs_overrides_default_tokenizer_kwargs(self):
+        if "image_processor" not in self.processor_class.attributes:
+            self.skipTest(f"image_processor attribute not present in {self.processor_class}")
+        processor_components = self.prepare_components()
+        processor_components["tokenizer"] = self.get_component("tokenizer", padding="longest")
+
+        processor = self.processor_class(**processor_components)
+        self.skip_processor_without_typed_kwargs(processor)
+        input_str = self.prepare_text_inputs()
+        image_input = self.prepare_image_inputs()
+        inputs = processor(
+            text=input_str,
+            images=image_input,
+            return_tensors="pt",
+            max_length=112,
+            padding="max_length",
+            task_inputs="semantic",
+        )
+        self.assertEqual(inputs[self.text_input_name].shape[-1], 112)
+
+    def test_structured_kwargs_nested(self):
+        if "image_processor" not in self.processor_class.attributes:
+            self.skipTest(f"image_processor attribute not present in {self.processor_class}")
+        processor_components = self.prepare_components()
+        processor = self.processor_class(**processor_components)
+        self.skip_processor_without_typed_kwargs(processor)
+
+        input_str = self.prepare_text_inputs()
+        image_input = self.prepare_image_inputs()
+
+        # Define the kwargs for each modality
+        all_kwargs = {
+            "common_kwargs": {"return_tensors": "pt"},
+            "images_kwargs": {"do_rescale": True, "rescale_factor": -1, "task_inputs": "semantic"},
+            "text_kwargs": {"padding": "max_length", "max_length": 76},
+        }
+
+        inputs = processor(text=input_str, images=image_input, **all_kwargs)
+        self.skip_processor_without_typed_kwargs(processor)
+
+        self.assertLessEqual(inputs[self.images_input_name][0][0].mean(), 0)
+        self.assertEqual(inputs[self.text_input_name].shape[-1], 76)
+
+    def test_structured_kwargs_nested_from_dict(self):
+        if "image_processor" not in self.processor_class.attributes:
+            self.skipTest(f"image_processor attribute not present in {self.processor_class}")
+        processor_components = self.prepare_components()
+        processor = self.processor_class(**processor_components)
+        self.skip_processor_without_typed_kwargs(processor)
+        input_str = self.prepare_text_inputs()
+        image_input = self.prepare_image_inputs()
+
+        # Define the kwargs for each modality
+        all_kwargs = {
+            "common_kwargs": {"return_tensors": "pt"},
+            "images_kwargs": {"do_rescale": True, "rescale_factor": -1, "task_inputs": "semantic"},
+            "text_kwargs": {"padding": "max_length", "max_length": 76},
+        }
+
+        inputs = processor(text=input_str, images=image_input, **all_kwargs)
+        self.assertLessEqual(inputs[self.images_input_name][0][0].mean(), 0)
+        self.assertEqual(inputs[self.text_input_name].shape[-1], 76)
+
+    def test_tokenizer_defaults_preserved_by_kwargs(self):
+        if "image_processor" not in self.processor_class.attributes:
+            self.skipTest(f"image_processor attribute not present in {self.processor_class}")
+        processor_components = self.prepare_components()
+        processor_components["tokenizer"] = self.get_component("tokenizer", max_length=117, padding="max_length")
+
+        processor = self.processor_class(**processor_components)
+        self.skip_processor_without_typed_kwargs(processor)
+        input_str = self.prepare_text_inputs()
+        image_input = self.prepare_image_inputs()
+        inputs = processor(text=input_str, images=image_input, return_tensors="pt", task_inputs="semantic")
+        self.assertEqual(inputs[self.text_input_name].shape[-1], 117)
+
+    def test_unstructured_kwargs(self):
+        if "image_processor" not in self.processor_class.attributes:
+            self.skipTest(f"image_processor attribute not present in {self.processor_class}")
+        processor_components = self.prepare_components()
+        processor = self.processor_class(**processor_components)
+        self.skip_processor_without_typed_kwargs(processor)
+
+        input_str = self.prepare_text_inputs()
+        image_input = self.prepare_image_inputs()
+        inputs = processor(
+            text=input_str,
+            images=image_input,
+            return_tensors="pt",
+            do_rescale=True,
+            rescale_factor=-1,
+            padding="max_length",
+            max_length=76,
+            task_inputs="semantic",
+        )
+
+        self.assertLessEqual(inputs[self.images_input_name][0][0].mean(), 0)
+        self.assertEqual(inputs[self.text_input_name].shape[-1], 76)
+
+    def test_unstructured_kwargs_batched(self):
+        if "image_processor" not in self.processor_class.attributes:
+            self.skipTest(f"image_processor attribute not present in {self.processor_class}")
+        processor_components = self.prepare_components()
+        processor = self.processor_class(**processor_components)
+        self.skip_processor_without_typed_kwargs(processor)
+
+        input_str = self.prepare_text_inputs(batch_size=2)
+        image_input = self.prepare_image_inputs(batch_size=2)
+        inputs = processor(
+            text=input_str,
+            images=image_input,
+            return_tensors="pt",
+            do_rescale=True,
+            rescale_factor=-1,
+            padding="longest",
+            max_length=76,
+            task_inputs=["semantic", "semantic"],
+        )
+
+        self.assertLessEqual(inputs[self.images_input_name][0][0].mean(), 0)
+        self.assertTrue(
+            len(inputs[self.text_input_name][0]) == len(inputs[self.text_input_name][1])
+            and len(inputs[self.text_input_name][1]) < 76
+        )
+
+    def test_kwargs_overrides_default_image_processor_kwargs(self):
+        if "image_processor" not in self.processor_class.attributes:
+            self.skipTest(f"image_processor attribute not present in {self.processor_class}")
+        processor_components = self.prepare_components()
+        processor_components["image_processor"] = self.get_component(
+            "image_processor", do_rescale=True, rescale_factor=1
+        )
+        processor_components["tokenizer"] = self.get_component("tokenizer", max_length=117, padding="max_length")
+
+        processor = self.processor_class(**processor_components)
+        self.skip_processor_without_typed_kwargs(processor)
+
+        input_str = self.prepare_text_inputs()
+        image_input = self.prepare_image_inputs()
+
+        inputs = processor(
+            text=input_str,
+            images=image_input,
+            do_rescale=True,
+            rescale_factor=-1,
+            return_tensors="pt",
+            task_inputs="semantic",
+        )
+        self.assertLessEqual(inputs[self.images_input_name][0][0].mean(), 0)
+
+    # END - override of common tests
+
     def test_feat_extract_properties(self):
-        processor = self.processing_class(**self.processor_dict)
+        processor = self.processor_class(**self.processor_dict)
         self.assertTrue(hasattr(processor, "image_processor"))
         self.assertTrue(hasattr(processor, "tokenizer"))
-        self.assertTrue(hasattr(processor, "max_seq_length"))
-        self.assertTrue(hasattr(processor, "task_seq_length"))
 
     @unittest.skip
     def test_batch_feature(self):
@@ -215,7 +392,7 @@ class OneFormerProcessingTest(unittest.TestCase):
 
     def test_call_pil(self):
         # Initialize processor
-        processor = self.processing_class(**self.processor_dict)
+        processor = self.processor_class(**self.processor_dict)
         # create random PIL images
         image_inputs = self.processing_tester.prepare_image_inputs(equal_resolution=False)
         for image in image_inputs:
@@ -267,7 +444,7 @@ class OneFormerProcessingTest(unittest.TestCase):
 
     def test_call_numpy(self):
         # Initialize processor
-        processor = self.processing_class(**self.processor_dict)
+        processor = self.processor_class(**self.processor_dict)
         # create random numpy tensors
         image_inputs = self.processing_tester.prepare_image_inputs(equal_resolution=False, numpify=True)
         for image in image_inputs:
@@ -319,7 +496,7 @@ class OneFormerProcessingTest(unittest.TestCase):
 
     def test_call_pytorch(self):
         # Initialize processor
-        processor = self.processing_class(**self.processor_dict)
+        processor = self.processor_class(**self.processor_dict)
         # create random PyTorch tensors
         image_inputs = self.processing_tester.prepare_image_inputs(equal_resolution=False, torchify=True)
         for image in image_inputs:
@@ -370,7 +547,7 @@ class OneFormerProcessingTest(unittest.TestCase):
         )
 
     def comm_get_processor_inputs(self, with_segmentation_maps=False, is_instance_map=False, segmentation_type="np"):
-        processor = self.processing_class(**self.processor_dict)
+        processor = self.processor_class(**self.processor_dict)
         # prepare image and target
         num_labels = self.processing_tester.num_labels
         annotations = None
@@ -481,8 +658,6 @@ class OneFormerProcessingTest(unittest.TestCase):
         processor = OneFormerProcessor(
             image_processor=image_processor,
             tokenizer=tokenizer,
-            max_seq_length=77,
-            task_seq_length=77,
         )
 
         # prepare the images and annotations
@@ -569,8 +744,6 @@ class OneFormerProcessingTest(unittest.TestCase):
         processor = OneFormerProcessor(
             image_processor=image_processor,
             tokenizer=tokenizer,
-            max_seq_length=77,
-            task_seq_length=77,
         )
 
         # prepare the images and annotations
@@ -657,8 +830,6 @@ class OneFormerProcessingTest(unittest.TestCase):
         processor = OneFormerProcessor(
             image_processor=image_processor,
             tokenizer=tokenizer,
-            max_seq_length=77,
-            task_seq_length=77,
         )
 
         # prepare the images and annotations
@@ -724,8 +895,6 @@ class OneFormerProcessingTest(unittest.TestCase):
         processor = OneFormerProcessor(
             image_processor=image_processor,
             tokenizer=tokenizer,
-            max_seq_length=77,
-            task_seq_length=77,
         )
 
         outputs = self.processing_tester.get_fake_oneformer_outputs()
@@ -758,8 +927,6 @@ class OneFormerProcessingTest(unittest.TestCase):
         processor = OneFormerProcessor(
             image_processor=image_processor,
             tokenizer=tokenizer,
-            max_seq_length=77,
-            task_seq_length=77,
         )
 
         outputs = self.processing_tester.get_fake_oneformer_outputs()
@@ -784,8 +951,6 @@ class OneFormerProcessingTest(unittest.TestCase):
         processor = OneFormerProcessor(
             image_processor=image_processor,
             tokenizer=tokenizer,
-            max_seq_length=77,
-            task_seq_length=77,
         )
 
         outputs = self.processing_tester.get_fake_oneformer_outputs()

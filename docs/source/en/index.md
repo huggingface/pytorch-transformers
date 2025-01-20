@@ -384,6 +384,7 @@ Flax), PyTorch, and/or TensorFlow.
 |                         [YOLOS](model_doc/yolos)                         |       ✅        |         ❌         |      ❌      |
 |                          [YOSO](model_doc/yoso)                          |       ✅        |         ❌         |      ❌      |
 |                         [Zamba](model_doc/zamba)                         |       ✅        |         ❌         |      ❌      |
+|                        [Zamba2](model_doc/zamba2)                        |       ✅        |         ❌         |      ❌      |
 |                      [ZoeDepth](model_doc/zoedepth)                      |       ✅        |         ❌         |      ❌      |
 
 <!-- End table-->

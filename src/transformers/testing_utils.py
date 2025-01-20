@@ -1435,6 +1435,7 @@ def set_model_tester_for_less_flaky_test(test_case):
     # TODO (if possible): Avoid exceptional cases
     exceptional_classes = [
         "ZambaModelTester",
+        "Zamba2ModelTester",
         "RwkvModelTester",
         "AriaVisionText2TextModelTester",
         "GPTNeoModelTester",

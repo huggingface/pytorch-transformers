@@ -581,6 +581,13 @@ else:
                     "LlamaTokenizerFast" if is_tokenizers_available() else None,
                 ),
             ),
+            (
+                "zamba2",
+                (
+                    "LlamaTokenizer" if is_sentencepiece_available() else None,
+                    "LlamaTokenizerFast" if is_tokenizers_available() else None,
+                ),
+            ),
         ]
     )
 

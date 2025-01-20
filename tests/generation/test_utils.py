@@ -2279,6 +2279,7 @@ class GenerationTesterMixin:
             "mamba",
             "xlnet",
             "zamba",
+            "zamba2",
         )
         has_standard_cache = not any(
             model_name in config.__class__.__name__.lower() for model_name in models_without_standard_cache

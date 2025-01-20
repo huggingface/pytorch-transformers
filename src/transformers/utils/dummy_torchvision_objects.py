@@ -30,6 +30,13 @@ class PixtralImageProcessorFast(metaclass=DummyObject):
         requires_backends(self, ["torchvision"])
 
 
+class Qwen2VLImageProcessorFast(metaclass=DummyObject):
+    _backends = ["torchvision"]
+
+    def __init__(self, *args, **kwargs):
+        requires_backends(self, ["torchvision"])
+
+
 class RTDetrImageProcessorFast(metaclass=DummyObject):
     _backends = ["torchvision"]
 

@@ -29,6 +29,7 @@ from ...utils import (
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
     is_flash_attn_2_available,
+    is_torchdynamo_compiling,
     logging,
     replace_return_docstrings,
 )
@@ -501,7 +502,7 @@ class PaliGemmaForConditionalGeneration(PaliGemmaPreTrainedModel, GenerationMixi
 
             special_image_mask = (input_ids == self.config.image_token_index).unsqueeze(-1)
             special_image_mask = special_image_mask.expand_as(inputs_embeds).to(inputs_embeds.device)
-            if inputs_embeds[special_image_mask].numel() != image_features.numel():
+            if not is_torchdynamo_compiling() and inputs_embeds[special_image_mask].numel() != image_features.numel():
                 image_tokens_in_text = torch.sum(input_ids == self.config.image_token_index)
                 raise ValueError(
                     f"Number of images does not match number of special image tokens in the input text. "

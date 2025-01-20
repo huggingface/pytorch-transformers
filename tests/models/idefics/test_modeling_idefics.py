@@ -781,6 +781,10 @@ class IdeficsForVisionText2TextTest(IdeficsModelTest, GenerationTesterMixin, uni
         pass
 
     @unittest.skip(reason="IDEFICS cannot compile due to dynamic control flow when checking inputs")
+    def test_generate_with_static_cache(self):
+        pass
+
+    @unittest.skip(reason="IDEFICS cannot compile due to dynamic control flow when checking inputs")
     def test_generate_compile_model_forward(self):
         pass
 

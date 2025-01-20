@@ -2013,6 +2013,9 @@ class Blip2VisionModelWithProjection(Blip2PreTrainedModel):
 class Blip2ForConditionalGeneration(Blip2PreTrainedModel, GenerationMixin):
     config_class = Blip2Config
     main_input_name = "pixel_values"
+    _supports_cache_class = True
+    _supports_static_cache = True
+    _supports_quantized_cache = False  # not all LM bacbones support (e.g. T5)
 
     def __init__(self, config: Blip2Config):
         super().__init__(config)

@@ -1103,6 +1103,7 @@ class Emu3ForCausalLM(LlamaForCausalLM, Emu3PreTrainedModel, GenerationMixin):
 
 
 class Emu3ForConditionalGeneration(Emu3PreTrainedModel, GenerationMixin):
+    _supports_static_cache = False
     _tied_weights_keys = ["text_model.lm_head.weight"]
 
     def __init__(self, config):

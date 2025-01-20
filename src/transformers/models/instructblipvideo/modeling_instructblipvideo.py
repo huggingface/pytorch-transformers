@@ -1281,6 +1281,9 @@ INSTRUCTBLIPVIDEO_INPUTS_DOCSTRING = r"""
 class InstructBlipVideoForConditionalGeneration(InstructBlipVideoPreTrainedModel, GenerationMixin):
     config_class = InstructBlipVideoConfig
     main_input_name = "pixel_values"
+    _supports_cache_class = True
+    _supports_static_cache = True
+    _supports_quantized_cache = False  # not all LM bacbones support (e.g. T5)
 
     def __init__(self, config: InstructBlipVideoConfig):
         super().__init__(config)

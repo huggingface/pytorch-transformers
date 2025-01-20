@@ -36,8 +36,6 @@ class LlavaNextConfig(PretrainedConfig):
             The config object or dictionary of the vision backbone.
         text_config (`Union[AutoConfig, dict]`, *optional*, defaults to `LlamaConfig`):
             The config object or dictionary of the text backbone.
-        ignore_index (`int`, *optional*, defaults to -100):
-            The ignore index for the loss function.
         image_token_index (`int`, *optional*, defaults to 32000):
             The image token index to encode the image prompt.
         projector_hidden_act (`str`, *optional*, defaults to `"gelu"`):
@@ -86,7 +84,6 @@ class LlavaNextConfig(PretrainedConfig):
         self,
         vision_config=None,
         text_config=None,
-        ignore_index=-100,
         image_token_index=32000,
         projector_hidden_act="gelu",
         vision_feature_select_strategy="default",
@@ -97,7 +94,6 @@ class LlavaNextConfig(PretrainedConfig):
         multimodal_projector_bias=True,
         **kwargs,
     ):
-        self.ignore_index = ignore_index
         self.image_token_index = image_token_index
         self.projector_hidden_act = projector_hidden_act
         self.image_seq_length = image_seq_length

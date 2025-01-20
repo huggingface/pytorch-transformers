@@ -30,6 +30,7 @@ from transformers.models.llava_next.modeling_llava_next import (
 
 from ...configuration_utils import PretrainedConfig
 from ...utils import (
+    is_torchdynamo_compiling,
     logging,
 )
 from ..auto import CONFIG_MAPPING, AutoConfig
@@ -52,8 +53,6 @@ class LlavaNextVideoConfig(PretrainedConfig):
             The config object or dictionary of the vision backbone.
         text_config (`Union[AutoConfig, dict]`, *optional*, defaults to `LlamaConfig`):
             The config object or dictionary of the text backbone.
-        ignore_index (`int`, *optional*, defaults to -100):
-            The ignore index for the loss function.
         image_token_index (`int`, *optional*, defaults to 32001):
             The image token index to encode the image prompt.
         projector_hidden_act (`str`, *optional*, defaults to `"gelu"`):
@@ -108,7 +107,6 @@ class LlavaNextVideoConfig(PretrainedConfig):
         self,
         vision_config=None,
         text_config=None,
-        ignore_index=-100,
         image_token_index=32001,
         projector_hidden_act="gelu",
         multimodal_projector_bias=True,
@@ -128,7 +126,6 @@ class LlavaNextVideoConfig(PretrainedConfig):
         self.spatial_pool_stride = spatial_pool_stride
         self.image_seq_length = image_seq_length
         self.video_seq_length = video_seq_length
-        self.ignore_index = ignore_index
         self.image_token_index = image_token_index
         self.projector_hidden_act = projector_hidden_act
         self.multimodal_projector_bias = multimodal_projector_bias
@@ -452,12 +449,13 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextForConditionalGeneration):
                 image_newline=self.image_newline,
             )
 
-            n_image_tokens = (input_ids == self.config.image_token_index).sum().item()
-            n_image_features = image_features.shape[0]
-            if n_image_tokens != n_image_features:
-                raise ValueError(
-                    f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
-                )
+            if not is_torchdynamo_compiling():
+                n_image_tokens = (input_ids == self.config.image_token_index).sum().item()
+                n_image_features = image_features.shape[0]
+                if n_image_tokens != n_image_features:
+                    raise ValueError(
+                        f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
+                    )
             special_image_mask = (input_ids == self.config.image_token_index).unsqueeze(-1)
             special_image_mask = special_image_mask.expand_as(inputs_embeds).to(inputs_embeds.device)
             image_features = image_features.to(inputs_embeds.device, inputs_embeds.dtype)
@@ -474,12 +472,13 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextForConditionalGeneration):
             video_features = torch.cat(video_features, dim=0)
             video_feature_lens = torch.tensor(video_feature_lens, dtype=torch.long, device=video_features.device)
 
-            n_video_tokens = (input_ids == self.config.video_token_index).sum().item()
-            n_video_features = video_features.shape[0]
-            if n_video_tokens != n_video_features:
-                raise ValueError(
-                    f"Video features and video tokens do not match: tokens: {n_video_tokens}, features {n_video_features}"
-                )
+            if not is_torchdynamo_compiling():
+                n_video_tokens = (input_ids == self.config.video_token_index).sum().item()
+                n_video_features = video_features.shape[0]
+                if n_video_tokens != n_video_features:
+                    raise ValueError(
+                        f"Video features and video tokens do not match: tokens: {n_video_tokens}, features {n_video_features}"
+                    )
             special_image_mask = (input_ids == self.config.video_token_index).unsqueeze(-1)
             special_image_mask = special_image_mask.expand_as(inputs_embeds).to(inputs_embeds.device)
             video_features = video_features.to(inputs_embeds.device, inputs_embeds.dtype)

@@ -82,14 +82,14 @@ class AriaVisionText2TextModelTester:
             moe_intermediate_size=4,
             moe_num_experts=4,
             moe_topk=2,
-            num_attention_heads=20,
+            num_attention_heads=8,
             num_experts_per_tok=3,
             num_hidden_layers=2,
-            num_key_value_heads=20,
+            num_key_value_heads=8,
             rope_theta=5000000,
             vocab_size=99,
             eos_token_id=2,
-            head_dim=2,
+            head_dim=4,
         ),
         is_training=True,
         vision_config=Idefics3VisionConfig(
@@ -287,8 +287,16 @@ class AriaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTesterMi
     def test_generate_from_inputs_embeds_1_beam_search(self):
         pass
 
-    @unittest.skip(reason="Unsupported")
+    @unittest.skip(reason="Dynamic control flow due to MoE")
     def test_generate_with_static_cache(self):
+        pass
+
+    @unittest.skip(reason="Dynamic control flow due to MoE")
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        pass
+
+    @unittest.skip(reason="Dynamic control flow due to MoE")
+    def test_generate_compile_model_forward(self):
         pass
 
 

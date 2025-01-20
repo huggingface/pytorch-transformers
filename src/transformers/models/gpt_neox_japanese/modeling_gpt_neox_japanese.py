@@ -187,8 +187,8 @@ class GPTNeoXJapaneseAttention(nn.Module):
         batch_size, num_attention_heads, query_length, attn_head_size = query.size()
         key_length = key.size(-2)
 
-        query = query.view(batch_size * num_attention_heads, query_length, attn_head_size)
-        key = key.view(batch_size * num_attention_heads, key_length, attn_head_size)
+        query = query.reshape(batch_size * num_attention_heads, query_length, attn_head_size)
+        key = key.reshape(batch_size * num_attention_heads, key_length, attn_head_size)
 
         # [batch_size * num_heads, q_length, kv_length]
         attn_scores = torch.zeros(

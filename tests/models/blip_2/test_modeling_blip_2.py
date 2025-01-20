@@ -908,6 +908,10 @@ class Blip2ForConditionalGenerationDecoderOnlyTest(ModelTesterMixin, GenerationT
     def test_generate_from_inputs_embeds(self, _, num_beams):
         pass
 
+    @unittest.skip("BLIP2 cannot generate only from input ids, and requires pixel values in all cases to be present")
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        pass
+
 
 # this class is based on `T5ModelTester` found in tests/models/t5/test_modeling_t5.py
 class Blip2TextModelTester:

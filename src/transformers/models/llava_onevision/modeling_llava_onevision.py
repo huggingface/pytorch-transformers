@@ -30,6 +30,7 @@ from ...modeling_outputs import ModelOutput
 from ...modeling_utils import PreTrainedModel
 from ...utils import (
     add_start_docstrings,
+    is_torchdynamo_compiling,
     logging,
 )
 from ..auto import AutoModel, AutoModelForCausalLM
@@ -245,7 +246,7 @@ class LlavaOnevisionPreTrainedModel(PreTrainedModel):
     _skip_keys_device_placement = "past_key_values"
     _supports_flash_attn_2 = True
     _supports_cache_class = True
-    _supports_static_cache = False  # Qwen2 doesn't but llava has no reasons to not support
+    _supports_static_cache = True
     _supports_quantized_cache = True
     _supports_sdpa = True
 
@@ -680,13 +681,14 @@ class LlavaOnevisionForConditionalGeneration(LlavaOnevisionPreTrainedModel, Gene
                 image_newline=self.image_newline,
                 vision_aspect_ratio=vision_aspect_ratio,
             )
-            n_image_tokens = (input_ids == self.config.image_token_index).sum().item()
-            n_image_features = image_features.shape[0]
 
-            if n_image_tokens != n_image_features:
-                raise ValueError(
-                    f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
-                )
+            if not is_torchdynamo_compiling():
+                n_image_tokens = (input_ids == self.config.image_token_index).sum().item()
+                n_image_features = image_features.shape[0]
+                if n_image_tokens != n_image_features:
+                    raise ValueError(
+                        f"Image features and image tokens do not match: tokens: {n_image_tokens}, features {n_image_features}"
+                    )
             special_image_mask = (
                 (input_ids == self.config.image_token_index)
                 .unsqueeze(-1)

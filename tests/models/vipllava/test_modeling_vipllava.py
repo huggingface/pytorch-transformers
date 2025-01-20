@@ -275,14 +275,6 @@ class VipLlavaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTest
     def test_training_gradient_checkpointing_use_reentrant_false(self):
         pass
 
-    @unittest.skip(reason="Compile not yet supported because it is not yet supported in LLava")
-    def test_sdpa_can_compile_dynamic(self):
-        pass
-
-    @unittest.skip(reason="Compile not yet supported because in LLava models")
-    def test_sdpa_can_dispatch_on_flash(self):
-        pass
-
     @unittest.skip("FlashAttention only support fp16 and bf16 data type")
     def test_flash_attn_2_fp32_ln(self):
         pass

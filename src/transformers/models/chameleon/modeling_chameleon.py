@@ -41,6 +41,7 @@ from ...utils import (
     add_start_docstrings_to_model_forward,
     is_flash_attn_2_available,
     is_flash_attn_greater_or_equal_2_10,
+    is_torchdynamo_compiling,
     logging,
     replace_return_docstrings,
 )
@@ -1283,12 +1284,13 @@ class ChameleonModel(ChameleonPreTrainedModel):
 
         if pixel_values is not None:
             image_tokens = self.get_image_tokens(pixel_values)
-            n_image_tokens_in_text = (input_ids == self.vocabulary_mapping.image_token_id).sum().item()
-            n_image_features = image_tokens.shape[0] * image_tokens.shape[1]
-            if n_image_tokens_in_text != n_image_features:
-                raise ValueError(
-                    f"Image features and image tokens do not match: tokens: {n_image_tokens_in_text}, features {n_image_features}"
-                )
+            if not is_torchdynamo_compiling():
+                n_image_tokens_in_text = (input_ids == self.vocabulary_mapping.image_token_id).sum().item()
+                n_image_features = image_tokens.shape[0] * image_tokens.shape[1]
+                if n_image_tokens_in_text != n_image_features:
+                    raise ValueError(
+                        f"Image features and image tokens do not match: tokens: {n_image_tokens_in_text}, features {n_image_features}"
+                    )
             special_image_mask = input_ids == self.vocabulary_mapping.image_token_id
             image_tokens = image_tokens.to(input_ids.device, input_ids.dtype)
             input_ids = input_ids.masked_scatter(special_image_mask, image_tokens)

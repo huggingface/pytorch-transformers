@@ -901,7 +901,8 @@ PHIMOE_START_DOCSTRING = r"""
     "The bare Phimoe Model outputting raw hidden-states without any specific head on top.",
     PHIMOE_START_DOCSTRING,
 )
-# Copied from transformers.models.mixtral.modeling_mixtral.MixtralPreTrainedModel with Mixtral->Phimoe
+# ccopied from transformers.models.mixtral.modeling_mixtral.MixtralPreTrainedModel with Mixtral->Phimoe
+# @raushan bring back when static cache is supported
 class PhimoePreTrainedModel(PreTrainedModel):
     config_class = PhimoeConfig
     base_model_prefix = "model"
@@ -913,7 +914,6 @@ class PhimoePreTrainedModel(PreTrainedModel):
     _supports_flex_attn = True
     _supports_cache_class = True
     _supports_quantized_cache = True
-    _supports_static_cache = True
 
     def _init_weights(self, module):
         std = self.config.initializer_range

@@ -551,6 +551,12 @@ class InstructBlipVideoForConditionalGenerationDecoderOnlyTest(
     def test_save_load_fast_init_to_base(self):
         pass
 
+    @unittest.skip(
+        "InstructBLIPVideo cannot generate only from input ids, and requires pixel values in all cases to be present"
+    )
+    def test_generate_from_inputs_embeds_with_static_cache(self):
+        pass
+
     def test_forward_signature(self):
         config, _ = self.model_tester.prepare_config_and_inputs_for_common()
 

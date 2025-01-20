@@ -339,22 +339,6 @@ class LlavaNextForConditionalGenerationModelTest(ModelTesterMixin, GenerationTes
     def test_training_gradient_checkpointing_use_reentrant_false(self):
         pass
 
-    @unittest.skip(reason="Feedforward chunking is not yet supported")
-    def test_feed_forward_chunking(self):
-        pass
-
-    @unittest.skip(reason="CPU offload is not yet supported")
-    def test_cpu_offload(self):
-        pass
-
-    @unittest.skip(reason="Compile not yet supported because in LLava models")
-    def test_sdpa_can_compile_dynamic(self):
-        pass
-
-    @unittest.skip(reason="Compile not yet supported because in LLava models")
-    def test_sdpa_can_dispatch_on_flash(self):
-        pass
-
     @unittest.skip("FlashAttention only support fp16 and bf16 data type")
     def test_flash_attn_2_fp32_ln(self):
         pass
@@ -363,6 +347,10 @@ class LlavaNextForConditionalGenerationModelTest(ModelTesterMixin, GenerationTes
         "VLMs need lots of steps to prepare images/mask correctly to get pad-free inputs. Can be tested as part of LLM test"
     )
     def test_flash_attention_2_padding_matches_padding_free_with_position_ids(self):
+        pass
+
+    @unittest.skip("LLaVA Next has dynamic control flow in unpadding")
+    def test_generate_compile_model_forward(self):
         pass
 
 

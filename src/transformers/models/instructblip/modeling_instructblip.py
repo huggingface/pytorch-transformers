@@ -1287,6 +1287,9 @@ class InstructBlipQFormerModel(InstructBlipPreTrainedModel):
 class InstructBlipForConditionalGeneration(InstructBlipPreTrainedModel, GenerationMixin):
     config_class = InstructBlipConfig
     main_input_name = "pixel_values"
+    _supports_cache_class = True
+    _supports_static_cache = True
+    _supports_quantized_cache = False  # not all LM bacbones support (e.g. T5)
 
     def __init__(self, config: InstructBlipConfig):
         super().__init__(config)

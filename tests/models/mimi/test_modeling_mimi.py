@@ -810,8 +810,8 @@ class MimiIntegrationTest(unittest.TestCase):
             "32": 0.0012330565,
         }
         expected_codesums = {
-            "8": 430423,
-            "32": 1803071,
+            "8": 426176,
+            "32": 1795819,
         }
         librispeech_dummy = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
 

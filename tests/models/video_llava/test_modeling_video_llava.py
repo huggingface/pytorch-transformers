@@ -19,6 +19,7 @@ import unittest
 import numpy as np
 import requests
 from huggingface_hub import hf_hub_download
+from parameterized import parameterized
 
 from transformers import (
     VideoLlavaConfig,
@@ -418,6 +419,32 @@ class VideoLlavaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTe
             # two images and two image tokens don't raise an error
             pixel_values = torch.cat([pixel_values, pixel_values], dim=0)
             _ = model(input_ids=input_ids, pixel_values_images=pixel_values)
+
+    @parameterized.expand(
+        [
+            (-1,),
+            ([-1],),
+            ([-1, -2],),
+        ],
+    )
+    def test_vision_feature_layers(self, vision_feature_layer):
+        """
+        Test that we can use either one vision feature layer, or a list of
+        vision feature layers.
+        """
+        config, input_dict = self.model_tester.prepare_config_and_inputs_for_common()
+        config.vision_feature_layer = vision_feature_layer
+
+        num_feature_layers = 1 if isinstance(vision_feature_layer, int) else len(vision_feature_layer)
+        hidden_size = config.vision_config.hidden_size
+        expected_features = hidden_size * num_feature_layers
+
+        for model_class in self.all_model_classes:
+            model = model_class(config).to(torch_device)
+            # We should have the right number of input features,
+            # and should be able to run a forward pass without exploding
+            assert model.multi_modal_projector.linear_1.in_features == expected_features
+            model(**input_dict)
 
 
 @require_torch

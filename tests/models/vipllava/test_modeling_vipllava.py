@@ -17,6 +17,7 @@
 import unittest
 
 import requests
+from parameterized import parameterized
 
 from transformers import (
     AutoProcessor,
@@ -256,6 +257,37 @@ class VipLlavaForConditionalGenerationModelTest(ModelTesterMixin, GenerationTest
             # two images and two image tokens don't raise an error
             pixel_values = torch.cat([pixel_values, pixel_values], dim=0)
             _ = model(input_ids=input_ids, pixel_values=pixel_values)
+
+    @parameterized.expand(
+        [
+            (-1,),
+            ([-1],),
+            ([-1, -2],),
+        ],
+    )
+    def test_vision_feature_layers(self, vision_feature_layers):
+        """
+        Test that we can use either one vision feature layer, or a list of
+        vision feature layers.
+        """
+        # NOTE: vipllava uses vision_feature_layers instead of vision_feature_layer as the
+        # config key. The reason is that other llava classes supported one vision feature layer
+        # and added support for a list of layers with multimodal granite support, while vipllava
+        # originally supported multiple feature layers, and added support for a single layer for
+        # for compatibility reasons.
+        config, input_dict = self.model_tester.prepare_config_and_inputs_for_common()
+        config.vision_feature_layers = vision_feature_layers
+
+        num_feature_layers = 1 if isinstance(vision_feature_layers, int) else len(vision_feature_layers)
+        hidden_size = config.vision_config.hidden_size
+        expected_features = hidden_size * num_feature_layers
+
+        for model_class in self.all_model_classes:
+            model = model_class(config).to(torch_device)
+            # We should have the right number of input features,
+            # and should be able to run a forward pass without exploding
+            assert model.multi_modal_projector.linear_1.in_features == expected_features
+            model(**input_dict)
 
     @unittest.skip(
         reason="This architecure seem to not compute gradients properly when using GC, check: https://github.com/huggingface/transformers/pull/27124"

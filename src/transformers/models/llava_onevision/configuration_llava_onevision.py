@@ -49,8 +49,10 @@ class LlavaOnevisionConfig(PretrainedConfig):
             The feature selection strategy used to select the vision feature from the vision backbone.
             Can be one of `"default"` or `"full"`. If `"default"`, the CLS token is removed from the vision features.
             If `"full"`, the full vision features are used.
-        vision_feature_layer (`int`, *optional*, defaults to -1):
-            The index of the layer to select the vision feature.
+        vision_feature_layer (`Union[int, List[int]]`, *optional*, defaults to -1):
+            The index of the layer to select the vision feature. If multiple indices are provided,
+            the vision feature of the corresponding indices will be concatenated to form the
+            vision features.
         vision_aspect_ratio (`str`, *optional*, defaults to `"anyres_max_9"`):
             Aspect ratio used when processong image features. The default value is "anyres_max_9".
         image_grid_pinpoints (`List`, *optional*):

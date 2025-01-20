@@ -84,12 +84,13 @@ class VipLlavaCausalLMOutputWithPast(ModelOutput):
 class VipLlavaMultiModalProjector(nn.Module):
     def __init__(self, config: VipLlavaConfig):
         super().__init__()
+        num_feature_layers = 1 if isinstance(config.vision_feature_layers, int) else len(config.vision_feature_layers)
         self.projector_layernorm = nn.LayerNorm(
-            len(config.vision_feature_layers) * config.vision_config.hidden_size, eps=config.projector_layernorm_eps
+            num_feature_layers * config.vision_config.hidden_size, eps=config.projector_layernorm_eps
         )
 
         self.linear_1 = nn.Linear(
-            len(config.vision_feature_layers) * config.vision_config.hidden_size,
+            num_feature_layers * config.vision_config.hidden_size,
             config.text_config.hidden_size,
             bias=True,
         )
@@ -269,24 +270,29 @@ class VipLlavaForConditionalGeneration(VipLlavaPreTrainedModel, GenerationMixin)
         return self.language_model.get_decoder()
 
     # Ignore copy
-    def get_image_features(self, pixel_values: torch.FloatTensor, vision_feature_layers: List[int]):
+    def get_image_features(self, pixel_values: torch.FloatTensor, vision_feature_layers: Union[int, List[int]]):
         """
         Obtains image last hidden states from the vision tower and apply multimodal projection.
 
         Args:
             pixel_values (`torch.FloatTensor]` of shape `(batch_size, channels, height, width)`)
                The tensors corresponding to the input images.
-            vision_feature_layers (`List[int]`):
-                The list og indexes of the layers to select the vision feature.
+            vision_feature_layers (`Union[int, List[int]]`):
+                The vision feature layer, or the list of indexes of the layers to select
+                the vision feature.
         Returns:
             image_features (`torch.Tensor`): Image feature tensor of shape `(num_images, image_length, embed_dim)`).
         """
         image_outputs = self.vision_tower(pixel_values, output_hidden_states=True)
 
-        # For VIP-llava, the image features are computed this way
-        # We select the features from index 1: for the layers -2, -5, -8, -11 and 6
-        image_features = [image_outputs.hidden_states[index][:, 1:] for index in vision_feature_layers]
-        image_features = torch.cat(image_features, dim=-1)
+        # If multiple feature layers are provided (which is usually the case)
+        # then the image features are concatenated after the CLS is removed.
+        if isinstance(vision_feature_layers, int):
+            image_features = image_outputs.hidden_states[vision_feature_layers][:, 1:]
+        else:
+            # Usually, we select the features from index 1: the layers -2, -5, -8, -11 and 6
+            image_features = [image_outputs.hidden_states[index][:, 1:] for index in vision_feature_layers]
+            image_features = torch.cat(image_features, dim=-1)
         image_features = self.multi_modal_projector(image_features)
         return image_features
 
@@ -384,7 +390,7 @@ class VipLlavaForConditionalGeneration(VipLlavaPreTrainedModel, GenerationMixin)
         position_ids: Optional[torch.LongTensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
-        vision_feature_layers: Optional[List[int]] = None,
+        vision_feature_layers: Optional[Union[int, List[int]]] = None,
         labels: Optional[torch.LongTensor] = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,

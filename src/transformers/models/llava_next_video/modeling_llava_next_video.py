@@ -179,8 +179,12 @@ class LlavaNextVideoPreTrainedModel(PreTrainedModel):
 class LlavaNextVideoMultiModalProjector(nn.Module):
     def __init__(self, config: LlavaNextVideoConfig):
         super().__init__()
+        # We have hidden_size * the number of vision feature layers
+        num_feature_layers = 1 if isinstance(config.vision_feature_layer, int) else len(config.vision_feature_layer)
         self.linear_1 = nn.Linear(
-            config.vision_config.hidden_size, config.text_config.hidden_size, bias=config.multimodal_projector_bias
+            config.vision_config.hidden_size * num_feature_layers,
+            config.text_config.hidden_size,
+            bias=config.multimodal_projector_bias,
         )
         self.act = ACT2FN[config.projector_hidden_act]
         self.linear_2 = nn.Linear(
@@ -355,8 +359,10 @@ LLAVA_NEXT_VIDEO_INPUTS_DOCSTRING = r"""
             Optionally, instead of passing `input_ids` you can choose to directly pass an embedded representation. This
             is useful if you want more control over how to convert `input_ids` indices into associated vectors than the
             model's internal embedding lookup matrix.
-        vision_feature_layer (`int`, *optional*, defaults to -2):
-            The index of the layer to select the vision feature.
+        vision_feature_layer (`Union[int, List[int]], *optional*, defaults to -2`):
+            The index of the layer to select the vision feature. If multiple indices are provided,
+            the vision feature of the corresponding indices will be concatenated to form the
+            vision features.
         vision_feature_select_strategy (`str`, *optional*, defaults to `"default"`):
             The feature selection strategy used to select the vision feature from the vision backbone.
             Can be one of `"default"` or `"full"`. If `"default"`, the CLS token is removed from the vision features.
@@ -698,18 +704,22 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextVideoPreTrainedModel, Gene
                 image_feature = image_feature[1:]
                 height = width = self.config.vision_config.image_size // self.config.vision_config.patch_size
 
-                if vision_feature_select_strategy == "default":
-                    expected_num_patches = height * width
-                elif vision_feature_select_strategy == "full":
-                    expected_num_patches = height * width + 1
-                if expected_num_patches != base_image_feature.shape[0]:
-                    raise ValueError("The number of patches is not consistent with the image size.")
-
                 num_patch_height, num_patch_width = get_anyres_image_grid_shape(
                     image_sizes[image_idx],
                     self.config.image_grid_pinpoints,
                     self.config.vision_config.image_size,
                 )
+
+                if (
+                    np.prod(image_feature.shape) % (num_patch_height * num_patch_width * height * width) != 0
+                    and vision_feature_select_strategy == "default"
+                ):
+                    logger.warning_once(
+                        "Image feature shape does not line up with the provided patch size. "
+                        "You may be using the `default` vision_feature_select_strategy with a"
+                        " visual encoder that does not have CLS."
+                    )
+
                 image_feature = image_feature.view(num_patch_height, num_patch_width, height, width, -1)
                 image_feature = image_feature.permute(4, 0, 2, 1, 3).contiguous()
                 image_feature = image_feature.flatten(1, 2).flatten(2, 3)
@@ -740,7 +750,7 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextVideoPreTrainedModel, Gene
         self,
         pixel_values: torch.FloatTensor,
         image_sizes: torch.Tensor,
-        vision_feature_layer: int,
+        vision_feature_layer: Union[int, List[int]],
         vision_feature_select_strategy: str,
     ):
         """
@@ -751,8 +761,10 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextVideoPreTrainedModel, Gene
                The tensors corresponding to the input images.
             image_sizes (`torch.Tensor` of shape `(num_images, 2)`)
                 Actual image size of each images (H, W).
-            vision_feature_layer (`int`):
-                The index of the layer to select the vision feature.
+            vision_feature_layer (`Union[int, List[int]]`):
+                The index of the layer to select the vision feature. If multiple indices are provided,
+                the vision feature of the corresponding indices will be concatenated to form the
+                vision features.
             vision_feature_select_strategy (`str`):
                 The feature selection strategy used to select the vision feature from the vision backbone.
                 Can be one of `"default"` or `"full"`
@@ -778,7 +790,14 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextVideoPreTrainedModel, Gene
             raise ValueError(f"pixel_values of shape {pixel_values.shape}, expect to be of 4 or 5 dimensions")
 
         image_features = self.vision_tower(pixel_values, output_hidden_states=True)
-        selected_image_feature = image_features.hidden_states[vision_feature_layer]
+        # If we have one vision feature layer, return the corresponding hidden states,
+        # otherwise, select the hidden states of each feature layer and concatenate them
+        if isinstance(vision_feature_layer, int):
+            selected_image_feature = image_features.hidden_states[vision_feature_layer]
+        else:
+            hs_pool = [image_features.hidden_states[layer_idx] for layer_idx in vision_feature_layer]
+            selected_image_feature = torch.cat(hs_pool, dim=-1)
+
         if vision_feature_select_strategy == "default":
             selected_image_feature = selected_image_feature[:, 1:]
         elif vision_feature_select_strategy == "full":
@@ -799,7 +818,7 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextVideoPreTrainedModel, Gene
         position_ids: Optional[torch.LongTensor] = None,
         past_key_values: Optional[List[torch.FloatTensor]] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
-        vision_feature_layer: Optional[int] = None,
+        vision_feature_layer: Optional[Union[int, List[int]]] = None,
         vision_feature_select_strategy: Optional[str] = None,
         labels: Optional[torch.LongTensor] = None,
         use_cache: Optional[bool] = None,
@@ -1039,7 +1058,10 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextVideoPreTrainedModel, Gene
         return model_inputs
 
     def get_video_features(
-        self, pixel_values: torch.FloatTensor, vision_feature_layer: int, vision_feature_select_strategy: str
+        self,
+        pixel_values: torch.FloatTensor,
+        vision_feature_layer: Union[int, List[int]],
+        vision_feature_select_strategy: str,
     ):
         """
         Obtains video last hidden states from the vision tower and apply multimodal projection.
@@ -1047,8 +1069,10 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextVideoPreTrainedModel, Gene
         Args:
             pixel_values (`torch.FloatTensor]` of shape `(batch_size, num_frames, channels, height, width)`)
                The tensors corresponding to the input video.
-            vision_feature_layer (`int`):
-                The index of the layer to select the vision feature.
+            vision_feature_layer (`Union[int, List[int]]`):
+                The index of the layer to select the vision feature. If multiple indices are provided,
+                the vision feature of the corresponding indices will be concatenated to form the
+                vision features.
             vision_feature_select_strategy (`str`):
                 The feature selection strategy used to select the vision feature from the vision backbone.
                 Can be one of `"default"` or `"full"`
@@ -1059,7 +1083,15 @@ class LlavaNextVideoForConditionalGeneration(LlavaNextVideoPreTrainedModel, Gene
         batch_size, frames, channels, height, width = pixel_values.shape
         pixel_values = pixel_values.reshape(batch_size * frames, channels, height, width)
         video_features = self.vision_tower(pixel_values, output_hidden_states=True)
-        selected_video_features = video_features.hidden_states[vision_feature_layer]
+
+        # If we have one vision feature layer, return the corresponding hidden states,
+        # otherwise, select the hidden states of each feature layer and concatenate them
+        if isinstance(vision_feature_layer, int):
+            selected_video_features = video_features.hidden_states[vision_feature_layer]
+        else:
+            hs_pool = [video_features.hidden_states[layer_idx] for layer_idx in vision_feature_layer]
+            selected_video_features = torch.cat(hs_pool, dim=-1)
+
         if vision_feature_select_strategy == "default":
             selected_video_features = selected_video_features[:, 1:]
         elif vision_feature_select_strategy == "full":

@@ -959,6 +959,7 @@ class TokenizerTesterMixin:
 
                 text = tokenizer.decode(ids + encoded_special_token, clean_up_tokenization_spaces=False)
                 encoded = tokenizer.encode(text, add_special_tokens=False)
+                self.assertEqual(input_text, text.rstrip(special_token).rstrip(" "))
 
                 input_encoded = tokenizer.encode(input_text, add_special_tokens=False)
                 special_token_id = tokenizer.encode(special_token, add_special_tokens=False)
